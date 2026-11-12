@@ -280,7 +280,9 @@ def _delete(path):
         try:
             os.remove(path)
         except PermissionError:
-            os.chmod(path, stat.S_IWRITE)
+            # Write added to the rights it has (Windows clears its read-only flag), so a file that still will not go
+            # stays readable.
+            os.chmod(path, stat.S_IMODE(os.stat(path).st_mode) | stat.S_IWRITE)
             os.remove(path)
         return True
     except OSError:

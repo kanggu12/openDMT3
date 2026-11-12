@@ -71,7 +71,9 @@ def _gone(path):
         try:
             os.remove(path)
         except PermissionError:
-            os.chmod(path, stat.S_IWRITE)
+            # Write added to the rights it has: Windows clears its read-only flag, and elsewhere the file keeps
+            # being readable if it still will not go (S_IWRITE alone would leave it write-only there).
+            os.chmod(path, stat.S_IMODE(os.stat(path).st_mode) | stat.S_IWRITE)
             os.remove(path)
     except OSError:
         return False
