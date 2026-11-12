@@ -80,6 +80,25 @@ class LayerChoicesTest(unittest.TestCase):
         self.assertIn("audio_offset", values.LAYER_CHOICES)
         self.assertEqual(values.ini_changes({"audio_offset": 200}), values.ini_changes({}))
 
+    def test_motion_clarity_by_its_names(self):
+        # Off by default; the rolling beam and black frames by the layer's names, in any case; nothing else.
+        self.assertEqual((values.DEFAULTS["motion_clarity"], values.MOTION_CLARITIES), ("off", ("off", "crt", "bfi")))
+        self.assertEqual(values.normalize({"motion_clarity": "CRT"})["motion_clarity"], "crt")
+        self.assertEqual(values.layer_environment({"motion_clarity": "bfi"})["OPENDMT3_MOTION_CLARITY"], "bfi")
+        for bad in ("strobe", "on", "", 240):
+            with self.subTest(bad=bad), self.assertRaises(values.ChoiceError):
+                values.normalize({"motion_clarity": bad})
+        self.assertEqual(values.ini_changes({"motion_clarity": "crt"}), values.ini_changes({}))
+
+    def test_the_flip_model_is_an_experiment_off_by_default(self):
+        # The copy model unless asked; on and off as the other switches take them; the layer's word for it.
+        self.assertIs(values.DEFAULTS["flip_model"], False)
+        self.assertIs(values.normalize({"flip_model": "on"})["flip_model"], True)
+        self.assertEqual(values.layer_environment({"flip_model": True})["OPENDMT3_FLIP_MODEL"], "on")
+        with self.assertRaises(values.ChoiceError):
+            values.normalize({"flip_model": "flipex"})
+        self.assertEqual(values.ini_changes({"flip_model": True}), values.ini_changes({}))
+
     def test_they_are_no_lines_of_the_settings_file(self):
         lines = values.ini_changes({"frame_pacing": "even", "show_fps": True,
                                     "sound_device": "{0000000A-0000-0000-0000-00000000000B}"})
@@ -92,7 +111,8 @@ class LayerChoicesTest(unittest.TestCase):
                                "OPENDMT3_UPSCALE": "fsr1", "OPENDMT3_SHARPNESS": "50", "OPENDMT3_ANTIALIASING": "off",
                                "OPENDMT3_PICTURE_SHAPE": "keep", "OPENDMT3_PASS_TIMES": "off",
                                "OPENDMT3_LOW_LATENCY": "on", "OPENDMT3_SOUND_PATH": "directsound",
-                               "OPENDMT3_RENDER": "game", "OPENDMT3_AUDIO_OFFSET": "0"})
+                               "OPENDMT3_RENDER": "game", "OPENDMT3_AUDIO_OFFSET": "0",
+                               "OPENDMT3_MOTION_CLARITY": "off", "OPENDMT3_FLIP_MODEL": "off"})
         # Who mixes the game's sounds: Windows' DirectSound unless OpenAL Soft is chosen, by the layer's names.
         self.assertEqual(values.DEFAULTS["sound_path"], "directsound")
         self.assertEqual(values.layer_environment({"sound_path": "OpenAL"})["OPENDMT3_SOUND_PATH"], "openal")

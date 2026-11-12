@@ -179,8 +179,9 @@ built with MinGW) lives inside the game's process. Its `DllMain` reads the launc
 PLAY starts the game with (`OPENDMT3_LANGUAGE`, `OPENDMT3_CURSOR`, `OPENDMT3_PACING`, `OPENDMT3_FPS`,
 `OPENDMT3_FPS_POSITION`, `OPENDMT3_SOUND_DEVICE`, `OPENDMT3_UPSCALE`, `OPENDMT3_SHARPNESS`, `OPENDMT3_ANTIALIASING`,
 `OPENDMT3_PICTURE_SHAPE`, `OPENDMT3_PASS_TIMES`, `OPENDMT3_LOW_LATENCY`, `OPENDMT3_SOUND_PATH`, `OPENDMT3_RENDER`,
-`OPENDMT3_AUDIO_OFFSET`, from `core/cabinet/values.py` `layer_environment`) and turns four of the game's imports to its
-own: the slots of the game's import table that hold the real functions get ours, which call the real ones.
+`OPENDMT3_AUDIO_OFFSET`, `OPENDMT3_MOTION_CLARITY`, `OPENDMT3_FLIP_MODEL`, from `core/cabinet/values.py`
+`layer_environment`) and turns four of the game's imports to its own: the slots of the game's import table that hold
+the real functions get ours, which call the real ones.
 
 <p align="center">
   <picture>
@@ -201,9 +202,11 @@ own: the slots of the game's import table that hold the real functions get ours,
 | `postmath.c` | The chain's plan and numbers with no Windows calls: which passes a choice runs, FSR 1's EASU and RCAS constants (as `FsrEasuCon` and `FsrRcasCon` work them out), NIS's (as `NVScalerUpdateConfig`), NIS's filter banks, the back buffer's size |
 | `passtimes.c` | The picture's GPU time by pass (`OPENDMT3_PASS_TIMES=on`): each step's time a frame, kept over a stretch of frames and said as its median, with no Windows calls |
 | `shaders/post.hlsl`, `shaders/smaa.hlsl` | The passes, shader model 3.0: nearest, bilinear, EASU's lengths (once a game texel) and EASU, RCAS, NIS's edge map and its scaler's two passes (the column sums, then across), FXAA, and SMAA's three passes around `third_party/smaa/SMAA.hlsl` |
-| `third_party/` | SMAA's shader and its precomputed area and search textures (MIT); Anime4K's CNN x2 (S) as shader model 3.0 passes, `anime4k_x2_s.hlsl`, written by `generate.py` from Anime4K's own mpv shader with its weights as they are there (MIT); and the license texts of AMD FSR 1 and NVIDIA NIS (MIT) and the FXAA 3.11 notice, whose algorithms the shaders follow |
+| `third_party/` | SMAA's shader and its precomputed area and search textures (MIT); Anime4K's CNN x2 (S) as shader model 3.0 passes, `anime4k_x2_s.hlsl`, written by `generate.py` from Anime4K's own mpv shader with its weights as they are there (MIT); and the license texts of AMD FSR 1, NVIDIA NIS and the Blur Busters CRT beam simulator (MIT) and the FXAA 3.11 notice, whose algorithms the shaders follow |
 | `engine.c` | Windows' shared sound engine at the shortest period the game's output offers while the game runs ([the sound engine's period](#the-sound-engines-period)) |
 | `openal.c` | The Sound page's **Mixer** on OpenAL Soft: DSOAL's DirectSound over OpenAL Soft in place of Windows' own, Windows' own when it does not open ([the mixer](#the-mixer)) |
+| `strobe.c`, `shaders/crt.hlsl` | Motion clarity: on a display at a whole multiple of 60 Hz from 120 up, each frame presented once a refresh over its refreshes, drawn from the chain's last two pictures by the Blur Busters CRT beam simulator's maths (`third_party/crt-beam-simulator`, MIT), a rolling scan or black frames ([motion clarity](#motion-clarity)) |
+| `flip.c` | The flip model: the game's device made with Direct3D 9Ex and a `D3DSWAPEFFECT_FLIPEX` swap chain for the borderless full screen, the managed pool's resources made in the default pool as dynamic ones, the presents' statistics ([the flip model](#the-flip-model)) |
 | `sound.c` | Which of the game's DirectSound buffers plays and how far, its copies of them too (for the music lock and the hold: the song's music is one buffer of minutes, played once; its key sounds are copies of short buffers), and the hold's fade, stop and start again. With `OPENDMT3_SOUND_WATCH` set (the Wine tests only), also the streams watched: when each plays against the frame count, and underruns, seen as a 20 ms block about to play that holds what it held a lap earlier (the game writes its music through one Lock a buffer, so its writes cannot be counted) |
 | `look.c`, `paint.c`, `logic.c` | The pictures (anti-aliased polygons after the game's own panels: its dialogs' title tab and metal frame, its notice's glass, its glossy buttons; the bar's chips in the launcher's leaning button shape) and the decisions (the settings, the frame clock, the keys the game may see, the panels' answers and keys, the layout, when a rest may bring the bar), with no Windows calls |
 | `mark.py` | The product's mark for the bar, drawn by the launcher's own code (`opendmt3/client/art.py` logo) when the DLL is built and carried in it as a resource: the bar shows the launcher's picture of the mark, never letters set in its face |
@@ -588,8 +591,8 @@ For measuring only (never set by the launcher): `OPENDMT3_QUEUE=deep` leaves the
 from the read to the present, from the present to done), `OPENDMT3_JIT=off` starts every frame at once (to compare),
 `OPENDMT3_PRESS_MARK=on` draws a white square at the picture's bottom left in every frame whose read sees the mouse's
 button down (a photodiode's target: a click to light is the game's own way from its input to the screen),
-`OPENDMT3_SAFETY=off` keeps the chosen chain, and `OPENDMT3_REFRESH` gives a refresh rate to a virtual screen that
-reports none.
+`OPENDMT3_SAFETY=off` keeps the chosen chain, `OPENDMT3_REFRESH` gives a refresh rate to a virtual screen that reports
+none, and `OPENDMT3_STROBE_WATCH` reads motion clarity's sub-frames back, one frame in 120, and logs them.
 
 While the menu or the question is open during a song (the song's music buffer playing), the game is held still:
 
@@ -628,6 +631,71 @@ Measured on the real client under Wine (1920x1080, locked to the music, the outp
   the layer's 2 to 2.5 ms of GPU a frame took it to 46 to 53 frames a second while a part showed.
 
 The layer's log (`OPENDMT3_INGAME_LOG`) is for the Wine tests.
+
+### Motion clarity
+
+On a display at a whole multiple of 60 Hz from 120 up (within 1 Hz: Windows gives 119.88 and 239.76 Hz as 119 and
+239), with VSync on and **Motion clarity** chosen (`strobe.c`, `logic.c` `strobe_refreshes`), each game frame is
+presented once a refresh over its N refreshes (N = the refresh over 60): the first at the frame's tick,
+drawn with the frame's own work, the others a refresh apart after it (`hooks.c` `present_subframes`). Each is one pass
+(`shaders/crt.hlsl`) from the chain's last two pictures, copied into two kept textures at each frame (the newest and the
+one before), written from the Blur Busters CRT beam simulator (MIT, `third_party/crt-beam-simulator`). In linear light,
+each pixel's light is a budget of N times a gain (0.5 at 120 Hz, 0.6 at 180, 0.7 from 240 up) refreshes, given out as
+early as it can be from the moment the simulated beam reaches its row: a dim pixel is lit for a part of one refresh, a
+bright one for most of the frame. **CRT beam** rolls from the top down over the frame, so the lower rows are lit later
+(the bottom about 12.5 ms after the top at 240 Hz) and their light runs on into the next frame's first refreshes;
+**Black frames** lights every row from the frame's first refresh. The simulator's newest frame is never lit at a whole
+number of refreshes a frame and is left out, and so is its slew for LCD polarity (N plus 0.001): every game frame here
+is exactly N refreshes. A display not at such a rate, VSync off, or no chain leaves every frame shown whole, and so
+does a display whose raster position does not move (its ticks are then not kept mid-refresh, and a sub-frame would now
+and then miss its refresh) or one the flip model finds following the frames. The sub-frames are presented from the
+game's own thread, so the game's next frame has the frame's last refresh for its work and the chain's (8.3 ms at
+120 Hz, 4.2 at 240): the log's `strobe:` line every two seconds counts the sub-frames that left over half a refresh
+late.
+
+Measured under Wine on the GPU (`OPENDMT3_REFRESH` gives Wine's virtual screen, which reports no rate, 240 or 120 Hz;
+`OPENDMT3_STROBE_WATCH` reads one frame in 120 back small, in eight bands from the top): with the CRT beam at 240 Hz the
+bright bands went down the screen over the four sub-frames (sub-frame 0 the top two bands at 148 and 112 with the
+frame before still glowing in the bottom ones, then the next two at 146 and 196, then 170 and 182, then the bottom
+three), presented 0, 4.27, 8.55 and 12.50 ms after the frame's first; black frames lit every band in sub-frame 0 (118
+to 155), less in the next two and none in the last; at 120 Hz the top half was lit in the first and the bottom half in
+the second. Each of Wine's presents also reads the frame back from the card to its virtual screen, a cost a Windows
+present does not have: at four presents a frame on a busy machine the frames there fell to 50 to 52 a second, and 6 to
+8 % of the sub-frames left over half a refresh late (the same screen without them held 60.0, spread under 0.2 ms).
+How it looks, flicker and brightness included, is for a real display.
+
+### The flip model
+
+With **Flip model** on (`flip.c`) and the game starting in a borderless window over its whole monitor with the chain
+running, its device is made with Direct3D 9Ex (`Direct3DCreate9Ex` beside the game's own `Direct3DCreate9`,
+`CreateDeviceEx` with present statistics) and a `D3DSWAPEFFECT_FLIPEX` swap chain of two back buffers (Direct3D adds
+one): each frame's back buffer goes to Windows' compositor instead of being copied into its surface, the way to
+Windows' independent flip and to a variable refresh rate for a borderless window. FLIPEX presents its whole back buffer,
+so the back buffer is the window's own size, presented with no rectangle; when the window changes size (to a window and
+back), a 9Ex reset makes it again at the new size, which keeps every other resource (a window smaller than the game's
+picture keeps the back buffer it has, which Windows scales into it). Anything else (another start, a
+Windows with no 9Ex, a device that is not made so) is the copy model, as before.
+
+- **No managed pool.** A 9Ex device refuses it: every texture, cube and volume texture, vertex and index buffer asked of
+  the managed pool, by the game, its D3DX loader or openDMT3, is made in the default pool as a dynamic one, which can be
+  locked as a managed one can. Two things found under Wine make it a managed pool's stand-in: the device and the
+  Direct3D object answer to every interface but 9Ex's (the game's D3DX asks for `IDirect3DDevice9Ex` and, told it is on
+  9Ex, refuses to make an empty texture in the managed pool: the game's 512 x 512 glyph textures were never made, and
+  the game ended at its start), and a read lock on a texture so made, or on its levels' surfaces, is taken as a write
+  (the game locks its video's planes every frame with `D3DLOCK_READONLY` and writes them: a managed texture's copy in
+  memory keeps that, the default pool's hands nothing to the card, and the title's video stayed green).
+- **Present statistics** come with it, read after each of the game's own frames: over how many refreshes the
+  presents shown since the frame before went. Frames that were one present each (none with motion clarity's
+  sub-frames), nine in ten a refresh apart over two seconds, on a display whose mode gives each frame two or more, mean
+  the display follows the frames (a variable refresh rate, G-SYNC or FreeSync; `logic.c` `display_follows`): the
+  display lock then stops, as there is no refresh to keep a tick in, and so does motion clarity, until the display is
+  found keeping its own refresh again. Wine gives no statistics (zeros), so this part is for Windows.
+
+Measured under Wine on the GPU: a whole song with it at 1920x1080 (152 textures and a buffer moved from the managed
+pool, none refused, 25,764 read locks taken as writes), 7,391 frames at 60.00 a second with the music within 6.3 ms of
+its frames at its stop, the title, its video and its glow drawn as with the copy model, and full screen to a 1350x810
+window and back, the back buffer made again each time. Whether Windows flips it independently, and what it saves from a
+present to the screen, are for PresentMon on Windows.
 
 ## The sound engine's period
 

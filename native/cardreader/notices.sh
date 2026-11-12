@@ -33,6 +33,7 @@ text() {
   echo "- SMAA with its area and search textures, the anti-aliasing SMAA: MIT License"
   echo "- Anime4K's CNN x2 (S), its weights in the upscale filter Anime4K: MIT License"
   echo "- FXAA 3.11, the algorithm the anti-aliasing FXAA is written from: NVIDIA's notice"
+  echo "- The Blur Busters CRT beam simulator, the algorithm motion clarity's sub-frames are written from: MIT License"
   echo "- The mingw-w64 C runtime $MINGW, linked in by the compiler: the licences its copyright file lists"
   echo "- The GCC runtime library (libgcc) $GCC, linked in by the compiler:"
   echo "  GPL 3 with the GCC Runtime Library Exception, which asks nothing of a program built with it"
@@ -41,6 +42,8 @@ text() {
   text "SMAA (third_party/smaa/LICENSE.txt)" "$HERE/third_party/smaa/LICENSE.txt"
   text "Anime4K (third_party/anime4k/LICENSE.txt)" "$HERE/third_party/anime4k/LICENSE.txt"
   text "FXAA 3.11 (third_party/fxaa/NOTICE.txt)" "$HERE/third_party/fxaa/NOTICE.txt"
+  text "The Blur Busters CRT beam simulator (third_party/crt-beam-simulator/LICENSE.txt)" \
+    "$HERE/third_party/crt-beam-simulator/LICENSE.txt"
   text "The mingw-w64 C runtime $MINGW (Debian's copyright file of mingw-w64-i686-dev)" \
     /usr/share/doc/mingw-w64-i686-dev/copyright
 } > "$OUT"

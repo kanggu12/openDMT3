@@ -76,6 +76,8 @@ static int g_every_pass;
 /* The game's window and the parameters it asked for (its own, kept to answer as the game expects). */
 static HWND g_window;
 static D3DPRESENT_PARAMETERS g_game_pp;
+/* The flip model (flip.c): the back buffer the window's own size, flipped to Windows' compositor. */
+static int g_flip;
 /* The real back buffer's size, as asked of Direct3D. */
 static int g_bb_w, g_bb_h;
 /* The game's frame as it is drawn, the chain's input: its own 1280x768, or the picture's size in the window when the
@@ -450,20 +452,45 @@ int post_prepare(D3DPRESENT_PARAMETERS *pp, HWND window, int creating)
         mon_h = mi.rcMonitor.bottom - mi.rcMonitor.top;
     }
     back_buffer_size(client.right, client.bottom, mon_w, mon_h, &g_bb_w, &g_bb_h);
+    /* Flipped, the whole back buffer is presented (no source rectangle): exactly the window's client, at least the
+     * game's picture (a smaller window is the copy model's: flip_wanted). */
+    if (g_flip && client.right >= GAME_W && client.bottom >= GAME_H) {
+        g_bb_w = client.right;
+        g_bb_h = client.bottom;
+    }
     /* What Direct3D makes: that size, copied (a source rectangle can then be presented one to one), no depth surface
-     * of its own (ours is at the game's size), no samples (ours are in the proxy). */
+     * of its own (ours is at the game's size), no samples (ours are in the proxy). With the flip model two back
+     * buffers (Direct3D adds one), flipped. */
     pp->BackBufferWidth = (UINT)g_bb_w;
     pp->BackBufferHeight = (UINT)g_bb_h;
-    pp->BackBufferCount = 1;
-    pp->SwapEffect = D3DSWAPEFFECT_COPY;
+    pp->BackBufferCount = g_flip ? 2 : 1;
+    pp->SwapEffect = g_flip ? D3DSWAPEFFECT_FLIPEX : D3DSWAPEFFECT_COPY;
     pp->MultiSampleType = D3DMULTISAMPLE_NONE;
     pp->MultiSampleQuality = 0;
     pp->EnableAutoDepthStencil = FALSE;
     pp->Flags &= ~(DWORD)(D3DPRESENTFLAG_DISCARD_DEPTHSTENCIL | D3DPRESENTFLAG_LOCKABLE_BACKBUFFER);
-    ingame_log("post: back buffer %dx%d (window %ldx%ld, monitor %dx%d), upscale %s, sharpness %d, anti-aliasing %s",
-               g_bb_w, g_bb_h, client.right, client.bottom, mon_w, mon_h, UPSCALE_NAMES[g_upscale], g_sharpness,
-               AA_NAMES[g_aa]);
+    ingame_log("post: back buffer %dx%d%s (window %ldx%ld, monitor %dx%d), upscale %s, sharpness %d, anti-aliasing %s",
+               g_bb_w, g_bb_h, g_flip ? " flipped" : "", client.right, client.bottom, mon_w, mon_h,
+               UPSCALE_NAMES[g_upscale], g_sharpness, AA_NAMES[g_aa]);
     return 1;
+}
+
+void post_flip(int on)
+{
+    g_flip = on;
+}
+
+int post_client_fits(void)
+{
+    /* The window's client as large as the back buffer (flipped, the whole back buffer is shown in it). */
+    RECT r;
+    if (!g_active || !g_window || !GetClientRect(g_window, &r) || r.right <= 0 || r.bottom <= 0)
+        return 1;
+    /* A client smaller than the game's picture keeps the back buffer post_prepare gives it (never the client's size):
+     * no reset would make the two the same, so it fits as it is (Windows scales the back buffer into it). */
+    if (r.right < GAME_W || r.bottom < GAME_H)
+        return 1;
+    return r.right == g_bb_w && r.bottom == g_bb_h;
 }
 
 /* Make a render-target texture; 0 on failure (logged). */

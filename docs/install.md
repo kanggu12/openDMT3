@@ -153,7 +153,7 @@ on the site, under **My account**: playing on this PC, **Play**, **My records** 
 | Page | What it does |
 | :--- | :--- |
 | **Play** | Who plays, the ready check (what PLAY makes), how to play, the last session's stages |
-| **Screen** | Full screen or a window and its size, vertical sync, frame pacing, the picture's shape, the FPS chip and its corner, the size the game draws at, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time |
+| **Screen** | Full screen or a window and its size, vertical sync, frame pacing, motion clarity (on a display at a whole multiple of 60 Hz from 120 up), the picture's shape, the FPS chip and its corner, the size the game draws at, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time, the flip model |
 | **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), the output device, who mixes the game's sounds, low latency, and the audio offset for a device that plays late |
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen), and how each plays |
 | **Game** | The client data in use, with its client, songs and jackets; the song list (**Save the song list...** and, signed in as a server's admin, **Send the song list to this server**); FREE PLAY; the hidden patterns |
@@ -222,6 +222,15 @@ is read as late as the frame's own work allows.
   judging are held this many milliseconds behind its music, for a device that plays late, such as Bluetooth
   headphones or a TV's speakers over HDMI. The frames reach a new offset over the first second or two of a song,
   running a little slower until then.
+- **Motion clarity** (**Screen**, shown when the main screen runs at a whole multiple of 60 Hz from 120 up, such as
+  120, 180 or 240 Hz, off by default): each frame is shown over its refreshes as a CRT showed it. **CRT beam** lights
+  the picture row by row from the top down, as a CRT's beam did, so its lower rows show later in the frame (the bottom
+  about 12.5 ms after the top at 240 Hz); **Black frames** lights the whole of it at once for a part of the frame. Each
+  pixel stays lit for less of the frame the darker it is, so moving notes smear less, and the picture has less light
+  (half at 120 Hz, 70 % from 240 Hz). It needs VSync on.
+- **Flip model** (**Screen**, **Advanced**, off by default): in full screen, each frame is handed to Windows instead
+  of copied into its own surface (Direct3D 9Ex), the way Windows can show a game as in exclusive full screen and a
+  display's variable refresh rate (G-SYNC, FreeSync) can follow the frames.
 
 When the upscale filter or the anti-aliasing chosen makes frames late on this PC's graphics card, the game steps it
 down one step at a time (SMAA to FXAA to off, then AMD FSR 1, NVIDIA NIS or Anime4K to Smooth) for the rest of the
@@ -414,6 +423,8 @@ The settings `--set` takes, each as its page keeps it:
 | `sharpness` | 0 to 100 | **Screen**, **Sharpness** |
 | `antialiasing` | `off`, `fxaa`, `smaa-low`, `smaa-medium`, `smaa-high`, `smaa-ultra` | **Screen**, **Anti-aliasing** |
 | `pass_times` | `on`, `off` | **Screen**, **Measure the picture's GPU time** |
+| `motion_clarity` | `off`, `crt`, `bfi` | **Screen**, **Motion clarity**: **Off**, **CRT beam**, **Black frames** |
+| `flip_model` | `on`, `off` | **Screen**, **Flip model** |
 | `music_volume`, `key_volume` | 0 to 100 | **Sound**: the music's and the notes' volumes |
 | `sound_device` | `default`, or a GUID from `--sound-devices` | **Sound**, **Device** |
 | `low_latency` | `on`, `off` | **Sound**, **Low latency** |

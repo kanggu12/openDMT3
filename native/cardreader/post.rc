@@ -1,8 +1,9 @@
 // The post-process chain's shader sources (post.c reads them by number and compiles them when the game starts), the
-// product's mark as the launcher draws it (mark.py writes it beside this script's output when build.sh runs), and
-// Anime4K's passes (third_party/anime4k/generate.py writes them).
+// product's mark as the launcher draws it (mark.py writes it beside this script's output when build.sh runs), the
+// sub-frames' shader (strobe.c, motion clarity) and Anime4K's passes (third_party/anime4k/generate.py writes them).
 101 RCDATA "shaders/post.hlsl"
 102 RCDATA "third_party/smaa/SMAA.hlsl"
 103 RCDATA "shaders/smaa.hlsl"
 104 RCDATA "mark.bin"
+105 RCDATA "shaders/crt.hlsl"
 106 RCDATA "third_party/anime4k/anime4k_x2_s.hlsl"

@@ -795,6 +795,25 @@ static double offset_song(int offset_ms, double *longest_ms, double *shortest_ms
     return reached;
 }
 
+/* Motion clarity's refreshes a frame for a display's rate, and the flip model's judgement of a display that follows
+ * the frames (logic.c strobe_refreshes, display_follows). */
+static void test_display_choices(void)
+{
+    check(strobe_refreshes(120) == 2 && strobe_refreshes(180) == 3 && strobe_refreshes(240) == 4 &&
+              strobe_refreshes(360) == 6, "display: whole multiples of 60 from 120 up");
+    check(strobe_refreshes(119) == 2 && strobe_refreshes(239) == 4 && strobe_refreshes(241) == 4,
+          "display: within 1 Hz of one (119.88 and 239.76 Hz as Windows gives them)");
+    check(!strobe_refreshes(60) && !strobe_refreshes(59) && !strobe_refreshes(144) && !strobe_refreshes(165) &&
+              !strobe_refreshes(237) && !strobe_refreshes(0), "display: 60 Hz, 144, 165, 2 Hz off a multiple, none");
+    /* One refresh a frame in nine of ten frames, on a mode that gives four: the display follows them. */
+    check(display_follows(4, 120, 110), "display: a variable refresh rate found (one refresh a frame at 240 Hz)");
+    check(!display_follows(4, 120, 100), "display: not with fewer than nine in ten");
+    check(!display_follows(1, 120, 120), "display: not on a 60 Hz mode, where one refresh a frame is its own");
+    check(!display_follows(4, 59, 59), "display: not on fewer than 60 frames");
+    /* Motion clarity's sub-frames (several presents a frame) are never single steps: none counted, nothing found. */
+    check(!display_follows(2, 0, 0), "display: frames with sub-frames say nothing");
+}
+
 static void test_audio_offset(void)
 {
     Settings s;
@@ -806,6 +825,16 @@ static void test_audio_offset(void)
     settings_read(&s, "OPENDMT3_AUDIO_OFFSET", "501");
     settings_read(&s, "OPENDMT3_AUDIO_OFFSET", "12ms");
     check(s.audio_offset == 180, "audio offset: below 0, past the most or not a number leaves it");
+    /* Motion clarity and the flip model by the launcher's words; anything else leaves each off. */
+    check(s.motion == MOTION_OFF && !s.flip, "settings: motion clarity and the flip model off by default");
+    settings_read(&s, "OPENDMT3_MOTION_CLARITY", "CRT");
+    settings_read(&s, "OPENDMT3_FLIP_MODEL", "on");
+    check(s.motion == MOTION_CRT && s.flip, "settings: the CRT beam and the flip model read");
+    settings_read(&s, "OPENDMT3_MOTION_CLARITY", "bfi");
+    check(s.motion == MOTION_BFI, "settings: black frames read");
+    settings_read(&s, "OPENDMT3_MOTION_CLARITY", "strobe");
+    settings_read(&s, "OPENDMT3_FLIP_MODEL", "flipex");
+    check(s.motion == MOTION_OFF && !s.flip, "settings: other words leave both off");
     double longest, shortest, end;
     double at = offset_song(0, &longest, &shortest, &end);
     check(at >= 0 && at < 0.1 && end > -2.0 && end < 2.0, "audio offset: 0 keeps the game's own start");
@@ -1243,6 +1272,7 @@ int main(void)
     test_music_lock();
     test_jit();
     test_audio_offset();
+    test_display_choices();
     test_display_lock();
     test_guard();
     test_keys();

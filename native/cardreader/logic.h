@@ -40,7 +40,13 @@ typedef struct {
     int audio_offset;      /* OPENDMT3_AUDIO_OFFSET: milliseconds the frames are kept behind a song's music, for a sound
                             * device that plays late (Sound page, Audio offset; 0 to AUDIO_OFFSET_MAX, 0 by default);
                             * with the music lock only */
+    int motion;            /* OPENDMT3_MOTION_CLARITY: MOTION_* (Screen page, Motion clarity; off by default) */
+    int flip;              /* OPENDMT3_FLIP_MODEL=on: Direct3D 9Ex's flip model for the borderless window (Screen page,
+                            * Advanced, Flip model; off by default) */
 } Settings;
+/* Motion clarity's choices (strobe.c): off, a CRT's rolling beam, black frames (every row lit from the frame's first
+ * refresh), by the launcher's names off, crt and bfi (values.py MOTION_CLARITIES). */
+enum { MOTION_OFF = 0, MOTION_CRT = 1, MOTION_BFI = 2 };
 /* The audio offset's most, ms: past the delays of Bluetooth and HDMI outputs (100 to 300 ms). The frames can always be
  * held back to a later music; none is offered the other way: on a 60 Hz display with VSync, frames cannot come sooner
  * than one a refresh, so frames ahead of the game's own start would never be reached. */
@@ -155,6 +161,16 @@ void jit_frame(JitClock *j, int64_t work, int in_time, int early);
 int64_t jit_lead(const JitClock *j, int64_t slack);
 /* The work the lead counts on, ticks: the slowest 1 % of the kept frames (the second slowest of 120). */
 int64_t jit_work(const JitClock *j);
+
+/* Motion clarity's refreshes a frame for a display's rate in Hz: N for a whole multiple N of 60 from 120 up, within
+ * 1 Hz (Windows gives a rate of 119.88 or 239.76 Hz as 119 or 239), 0 for any other rate. */
+int strobe_refreshes(int hz);
+
+/* The flip model's present statistics over two seconds, judged: whether the display follows the frames (a variable
+ * refresh rate). `refreshes_a_frame` is what the display's mode gives a 60 a second frame (4 at 240 Hz); `steps` the
+ * game's own frames that were the only present shown since the one before, `one_steps` those shown one refresh after
+ * it. It follows when the mode gives two or more and nine in ten of at least 60 such frames took one. */
+int display_follows(int refreshes_a_frame, long steps, long one_steps);
 
 /* The post-process chain's safety net: a frame counts against the chain when it took longer than the 60 a second
  * budget (with 1 ms to spare) and would not have without the chain's time; two windows of 60 frames in a row with 30

@@ -23,6 +23,12 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - An audio offset on the Sound page (0 to 500 ms, `--set audio_offset=`), for a sound device that plays late such as
   Bluetooth headphones: with the frames locked to the music, a song's notes and their judging are held that much
   behind its music.
+- Motion clarity on the Screen page, an experiment off by default, offered on a display at a whole multiple of 60 Hz
+  from 120 up: each frame shown over its refreshes as a CRT's rolling beam (from the Blur Busters CRT beam simulator)
+  or with black frames between, for moving notes that smear less (`--set motion_clarity=`).
+- The flip model in the Screen page's Advanced, an experiment off by default: in a borderless full screen, the game's
+  frames handed to Windows by Direct3D 9Ex's flip swap chain instead of copied, the way to Windows' independent flip
+  and a display's variable refresh rate (`--set flip_model=`).
 
 ### Changed
 

@@ -111,6 +111,15 @@ TEXT = {
     "screen.pacing.hint": ("Even makes every frame the same length; Locked to the music also keeps a song's notes on "
                            "its music.",
                            "고르게는 모든 프레임 간격을 같게 합니다. 음악에 맞춤은 노트도 곡의 음악에 맞춥니다."),
+    "screen.motion": ("Motion clarity", "잔상 줄이기"),
+    "screen.motion.off": ("Off", "끔"),
+    "screen.motion.crt": ("CRT beam", "CRT 빔"),
+    "screen.motion.bfi": ("Black frames", "검은 프레임"),
+    "screen.motion.hint": ("Lights each frame for part of its refreshes, as a CRT did, so moving notes smear less and "
+                           "the picture is darker: CRT beam rolls from the top down, Black frames lights the whole "
+                           "screen at once.",
+                           "CRT처럼 한 프레임 동안 화면을 잠깐만 밝혀 움직이는 노트의 잔상이 줄고 화면은 어두워집니다. CRT 빔은 "
+                           "위에서 아래로 훑고, 검은 프레임은 화면 전체를 한꺼번에 밝힙니다."),
     "screen.fps": ("Show FPS", "FPS 표시"),
     "screen.fps.hint.off": ("Shows the frames a second over the game.", "초당 프레임 수를 게임 화면 위에 표시합니다."),
     "screen.fps.hint.on": ("The frames a second and the time of a frame, small and faint in a corner of the game.",
@@ -168,6 +177,10 @@ TEXT = {
     "screen.preload": ("Load ahead", "미리 읽기"),
     "screen.preload.hint": ("Reads songs and videos before they are needed: shorter waits, more memory.",
                             "곡과 영상을 미리 읽습니다. 기다림이 줄고 메모리를 더 씁니다."),
+    "screen.flip": ("Flip model", "플립 모델"),
+    "screen.flip.hint": ("In full screen, hands each frame to Windows instead of copying it (Direct3D 9Ex). Off, each "
+                         "frame is copied.",
+                         "전체 화면에서 프레임을 복사하지 않고 Windows에 그대로 넘깁니다(Direct3D 9Ex). 끄면 프레임을 복사합니다."),
     "screen.pass_times": ("Measure the picture's GPU time", "게임 화면의 GPU 시간 측정"),
     "screen.pass_times.hint": ("Times each step of the picture on the graphics card while the game runs. The times "
                                "go into the launcher's log when the game closes, and so into Help's report.",

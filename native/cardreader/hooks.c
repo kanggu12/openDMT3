@@ -54,6 +54,10 @@ static PresentFn real_present;
 static ResetFn real_reset;
 /* Whether the import slots were turned (DllMain may come before they are bound; the card reader tries again). */
 static int g_hooked;
+/* The game's own present parameters, as it last made or reset its device with them (the flip model's own resets, for a
+ * window that changed size, ask with them as the game would). */
+static D3DPRESENT_PARAMETERS g_game_params;
+static int g_have_params;
 
 /* ------------------------------------------------------------------------------------------------------- log */
 
@@ -363,8 +367,31 @@ static void take_parameters(const D3DPRESENT_PARAMETERS *pp)
                                        : "even (openDMT3's clock)");
 }
 
-/* The display's refresh rate, for the display lock (VSync on): from the device's display mode. */
+/* The display's refresh in counter ticks for motion clarity's sub-frames (0: none; kept apart from the display lock's,
+ * which stops by itself where the raster does not move), and the sub-frames presented and those late by more than half
+ * a refresh in the counter's two seconds. */
+static LONGLONG g_sub_ticks;
+static LONG g_subs, g_subs_late;
+/* While the flip model finds the display following the frames (a variable refresh rate): the display lock's refresh
+ * it stopped, to give back when the display keeps its own refresh again (-1: the lock was not running; 0: none
+ * stopped). */
+static LONGLONG g_vrr_kept;
+
+static void take_refresh_rate(IDirect3DDevice9 *dev);
+
+/* The display's refresh rate, for the display lock (VSync on) and motion clarity's sub-frames: from the device's
+ * display mode. */
 static void take_refresh(IDirect3DDevice9 *dev)
+{
+    /* A new mode is judged afresh: nothing kept from before it. */
+    g_vrr_kept = 0;
+    take_refresh_rate(dev);
+    /* Sub-frames a refresh apart by openDMT3's clock: only with it and VSync, at the rate the display gave. */
+    g_sub_ticks = g_refresh_ticks;
+    strobe_refresh(g_refresh_ticks ? g_refresh_hz : 0, g_vsync);
+}
+
+static void take_refresh_rate(IDirect3DDevice9 *dev)
 {
     D3DDISPLAYMODE mode;
     g_refresh_ticks = 0;
@@ -966,6 +993,26 @@ static void count_present(LONGLONG now, int game)
         g_jit_held = g_jit_missed = g_jit_missed_held = g_jit_measured = 0;
         g_jit_lead_sum = g_jit_work_sum = g_jit_all_sum = g_jit_cpu_sum = 0;
     }
+    /* The flip model: what the presents were shown at (the refreshes the display's mode gives a frame, its rate
+     * rounded to the nearest 60th); a display found to follow the frames (a variable refresh rate) has no refresh to
+     * keep the ticks in, nor sub-frames to show, until it is found to keep its own refresh again. */
+    flip_summary((g_refresh_hz + 30) / 60);
+    if (flip_follows_frames() && !g_vrr_kept && (g_refresh_ticks || strobe_subframes())) {
+        g_vrr_kept = g_refresh_ticks ? g_refresh_ticks : -1;
+        g_refresh_ticks = 0;
+        strobe_refresh(0, g_vsync);
+    } else if (!flip_follows_frames() && g_vrr_kept) {
+        /* Back to a fixed refresh: the display lock and the sub-frames at the rate the display's mode gave. */
+        g_refresh_ticks = g_vrr_kept > 0 ? g_vrr_kept : 0;
+        g_vrr_kept = 0;
+        strobe_refresh(g_refresh_ticks ? g_refresh_hz : 0, g_vsync);
+    }
+    if (g_subs) {
+        /* Motion clarity's sub-frames past each frame's first, and those that left more than half a refresh late. */
+        ingame_log("strobe: %ld sub-frames after the frames' own, %ld of them over half a refresh late", (long)g_subs,
+                   (long)g_subs_late);
+        g_subs = g_subs_late = 0;
+    }
     if (post_running())
         ingame_log("post: %d passes a frame, CPU %.1f us a frame (longest %.1f), GPU %s", g_post_passes,
                    (double)g_post_sum * 1e6 / f / g_frames, (double)g_post_max * 1e6 / f,
@@ -977,6 +1024,9 @@ static void count_present(LONGLONG now, int game)
         if (g_phase_max - g_phase_min <= 0.0) {
             g_refresh_ticks = 0;
             ingame_log("display: the raster position does not move: ticks not kept to the display");
+            /* Nor sub-frames: ticks no longer kept mid-refresh drift against it, and a sub-frame would now and then
+             * miss its refresh or share one (a flash with black frames). */
+            strobe_refresh(0, g_vsync);
         }
     }
     g_phase_min = 2;
@@ -1017,6 +1067,58 @@ void ingame_cost(LONGLONG ticks)
     g_layer_frame += ticks;
 }
 
+/* A present of the device: flipped (flip.c), the whole back buffer, which is the client's size, with no rectangle,
+ * window or region (Direct3D refuses them for FLIPEX); copied, as given. Then, flipped and for a frame's own present
+ * (`own`; not one of motion clarity's sub-frames), its statistics read: one reading a frame, so the presents counted
+ * between two readings are the frame's own and its sub-frames. */
+static HRESULT present_now(IDirect3DDevice9 *dev, const RECT *src, const RECT *dst, HWND window, const RGNDATA *dirty,
+                           int own)
+{
+    if (!flip_device(dev))
+        return real_present(dev, src, dst, window, dirty);
+    HRESULT hr = real_present(dev, NULL, NULL, NULL, NULL);
+    if (own)
+        flip_after_present();
+    return hr;
+}
+
+/* Motion clarity: sub-frames 1 to n - 1 of the frame presented at `presented`, each drawn at once (the back buffer's
+ * copy for the present before it is the GPU's next work, so the draw never reaches it) and presented a refresh after
+ * the one before. */
+static void present_subframes(IDirect3DDevice9 *dev, LONGLONG presented, int n, const RECT *src, const RECT *dst,
+                              HWND window, const RGNDATA *dirty)
+{
+    /* Measuring (strobe.c's watched frames): when each present went, from the frame's first, into one line. */
+    char when[160] = "0.00";
+    int at = 4;
+    for (int k = 1; k < n; k++) {
+        /* Drawn first, so the wait below covers its GPU work. */
+        strobe_draw(dev, k);
+        LARGE_INTEGER t;
+        QueryPerformanceCounter(&t);
+        /* Its refresh: k refreshes after the frame's own present. */
+        LONGLONG due = presented + (LONGLONG)k * g_sub_ticks;
+        if (due > t.QuadPart)
+            wait_ticks(due - t.QuadPart);
+        else if (t.QuadPart - due > g_sub_ticks / 2)
+            g_subs_late++;
+        /* Counted for the two-second line, late or not. */
+        g_subs++;
+        QueryPerformanceCounter(&t);
+        /* Not the frame's own present: the flip model's statistics are read once a frame, at its own. */
+        HRESULT hr = present_now(dev, src, dst, window, dirty, 0);
+        /* Its time from the frame's first, into the watched line while it has room. */
+        if (at < (int)sizeof when - 12)
+            at += snprintf(when + at, sizeof when - (size_t)at, ", %.2f",
+                           (double)(t.QuadPart - presented) * 1000.0 / (double)g_frequency.QuadPart);
+        /* A present that failed (a lost device): the rest wait for the game's reset. */
+        if (FAILED(hr))
+            break;
+    }
+    if (strobe_watched())
+        ingame_log("strobe: frame %ld's %d presents at %s ms from its first", ingame_frame(), n, when);
+}
+
 /* Holding the game still (the menu or the question open during a song): the game's frame is kept and presented again
  * at 60 a second with the layer over it, the messages pumped here (none reaching the game's own code), its sound
  * stopped where it was; then both go on from where they stopped, the next frame a period after the music. */
@@ -1053,11 +1155,15 @@ static void hold_still(IDirect3DDevice9 *dev, HWND window, const RECT *dst, cons
         if (wait > 0)
             wait_ticks(wait);
         /* The kept frame (the game's back buffer is the chain's, untouched while the game waits) through the chain,
-         * the layer over it. */
+         * the layer over it; with motion clarity, kept and shown over its refreshes as the game's own frames are. */
         const RECT *shown = post_present(dev);
+        int subs = shown && strobe_keep(dev) ? strobe_subframes() : 0;
+        if (subs)
+            strobe_draw(dev, 0);
         QueryPerformanceCounter(&t);
         count_present(t.QuadPart, 0);
-        real_present(dev, shown, dst, window, dirty);
+        if (SUCCEEDED(present_now(dev, shown, dst, window, dirty, 1)) && subs > 1)
+            present_subframes(dev, t.QuadPart, subs, shown, dst, window, dirty);
         mark_frame_done(dev);
         /* The sound's fade out, a step a held frame. */
         sound_hold_step();
@@ -1073,10 +1179,20 @@ static void hold_still(IDirect3DDevice9 *dev, HWND window, const RECT *dst, cons
                (double)(t.QuadPart - from.QuadPart) / (double)g_frequency.QuadPart, lost ? " (the device was lost)" : "");
 }
 
+static HRESULT STDMETHODCALLTYPE our_reset(IDirect3DDevice9 *dev, D3DPRESENT_PARAMETERS *pp);
+
 static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *src, const RECT *dst, HWND window,
                                              const RGNDATA *dirty)
 {
     LARGE_INTEGER t0, now;
+    /* Flipped, the whole back buffer is shown in the window: when the window changed size (to a window, or back to
+     * full screen), a reset gives the back buffer its new size first, as the game's own reset would (this frame's
+     * picture is lost with it: one frame of the bars' colour). */
+    if (flip_device(dev) && post_running() && g_have_params && !post_client_fits()) {
+        D3DPRESENT_PARAMETERS pp = g_game_params;
+        HRESULT r = our_reset(dev, &pp);
+        ingame_log("flip: the window changed size: back buffer made again (0x%08lx)", (unsigned long)r);
+    }
     /* The post-process chain first (its time is the frame's work; the wait below is not): what to present. With no
      * chain, the layer goes into the game's own back buffer. */
     const RECT *shown = post_present(dev);
@@ -1086,6 +1202,10 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
         post_layer_without_chain(dev);
     /* Measuring: the press mark over the picture while the game reads the button down. */
     press_mark(dev);
+    /* Motion clarity: the chain's picture kept and its first sub-frame drawn, as part of the frame's own work. */
+    int subs = shown && strobe_keep(dev) ? strobe_subframes() : 0;
+    if (subs)
+        strobe_draw(dev, 0);
     /* The previous frame done on the GPU before this one goes (at most one queued); within the frame's wait below,
      * so it delays nothing that is on time. */
     wait_previous_frame(dev);
@@ -1132,7 +1252,10 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
     if (g_layer_frame > g_layer_max)
         g_layer_max = g_layer_frame;
     g_layer_frame = 0;
-    HRESULT hr = real_present(dev, src, dst, window, dirty);
+    HRESULT hr = present_now(dev, src, dst, window, dirty, 1);
+    /* Motion clarity: the frame's other sub-frames, each in the next refresh. */
+    if (SUCCEEDED(hr) && subs > 1)
+        present_subframes(dev, now.QuadPart, subs, src, dst, window, dirty);
     /* The event the next frame waits for, then the press measured on this frame (measuring only). */
     mark_frame_done(dev);
     /* By pass (OPENDMT3_PASS_TIMES=on): the game's own next frame begins here. */
@@ -1149,11 +1272,23 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
     return hr;
 }
 
+/* The device's own reset: 9Ex's for the flipped one (it keeps every resource), the real Reset otherwise. */
+static HRESULT reset_device(IDirect3DDevice9 *dev, D3DPRESENT_PARAMETERS *pp)
+{
+    return flip_device(dev) ? (HRESULT)flip_reset(dev, pp) : real_reset(dev, pp);
+}
+
 static HRESULT STDMETHODCALLTYPE our_reset(IDirect3DDevice9 *dev, D3DPRESENT_PARAMETERS *pp)
 {
     /* A reset may change the interval (the game going between window and full screen). */
-    if (pp)
+    if (pp) {
         take_parameters(pp);
+        g_game_params = *pp;
+        g_have_params = 1;
+    }
+    /* The flipped swap chain's statistics start again with it. */
+    if (flip_device(dev))
+        flip_before_reset();
     /* The queries go before a reset, as every object of the device's own memory does; made again at the next frame. */
     if (g_frame_done) {
         IDirect3DQuery9_Release(g_frame_done);
@@ -1168,20 +1303,21 @@ static HRESULT STDMETHODCALLTYPE our_reset(IDirect3DDevice9 *dev, D3DPRESENT_PAR
         IDirect3DQuery9_Release(g_ready);
         g_ready = NULL;
     }
-    /* The layer's own state block (drawn without the chain) goes too. */
+    /* The layer's own state block (drawn without the chain) goes too, and motion clarity's kept pictures. */
     post_layer_before_reset();
+    strobe_release();
     HRESULT hr;
     if (!post_running() || !pp) {
-        hr = real_reset(dev, pp);
+        hr = reset_device(dev, pp);
     } else {
         /* The chain's objects go first (a reset fails while any default-pool object is alive), Direct3D gets our back
          * buffer's parameters again for the window as it is now, and the objects come back after. */
         post_before_reset(dev);
         D3DPRESENT_PARAMETERS ours = *pp;
         if (!post_prepare(&ours, layer_window(), 0)) {
-            hr = real_reset(dev, pp);
+            hr = reset_device(dev, pp);
         } else {
-            hr = real_reset(dev, &ours);
+            hr = reset_device(dev, &ours);
             post_after_reset(dev, hr);
         }
     }
@@ -1206,12 +1342,33 @@ static HRESULT STDMETHODCALLTYPE our_create_device(IDirect3D9 *d3d, UINT adapter
     /* The post-process chain asks Direct3D for its own back buffer (the window's monitor's size); the game's
      * parameters stay as it wrote them, so whatever it reads back of them is what it asked for. */
     D3DPRESENT_PARAMETERS ours;
-    int chain = 0;
+    int chain = 0, flip = 0;
     if (pp) {
         ours = *pp;
+        /* The flip model where it is chosen and the window is over its whole monitor: the chain's back buffer then the
+         * client's size and flipped. */
+        flip = flip_wanted(pp, game);
+        post_flip(flip);
         chain = post_prepare(&ours, game, 1);
+        g_game_params = *pp;
+        g_have_params = 1;
     }
-    HRESULT hr = real_create_device(d3d, adapter, type, focus, flags, chain ? &ours : pp, out);
+    HRESULT hr = E_FAIL;
+    if (flip && chain) {
+        hr = (HRESULT)flip_create_device(adapter, (int)type, focus, flags, &ours, out);
+        if (FAILED(hr)) {
+            /* Not made so: the copy model's back buffer, on the game's own Direct3D, as before. */
+            post_flip(0);
+            ours = *pp;
+            chain = post_prepare(&ours, game, 0);
+            flip = 0;
+        }
+    } else {
+        flip = 0;
+        post_flip(0);
+    }
+    if (!flip)
+        hr = real_create_device(d3d, adapter, type, focus, flags, chain ? &ours : pp, out);
     if (FAILED(hr) && chain) {
         /* Not with ours: as the game asked, with no chain. */
         ingame_log("post: the device was not made with the chain's back buffer (0x%08lx): as the game asked",
@@ -1235,7 +1392,8 @@ static HRESULT STDMETHODCALLTYPE our_create_device(IDirect3D9 *d3d, UINT adapter
      * the game's own parameters (nothing of the game's is on it yet). */
     if (chain && !post_attach(*out)) {
         D3DPRESENT_PARAMETERS back = *pp;
-        real_reset(*out, &back);
+        post_flip(0);
+        reset_device(*out, &back);
     }
     /* How the game draws, for study, when asked (after ours, so it sees the game's own calls). */
     trace_attach(*out, pp, flags);
@@ -1247,6 +1405,9 @@ static HRESULT STDMETHODCALLTYPE our_create_device(IDirect3D9 *d3d, UINT adapter
 static IDirect3D9 *WINAPI our_d3d(UINT version)
 {
     IDirect3D9 *d3d = real_d3d(version);
+    /* The flip model, when chosen: Direct3D 9Ex made beside the game's own, for its device (flip.c). */
+    if (d3d)
+        flip_attach_d3d();
     if (d3d) {
         /* CreateDevice is entry 16 of IDirect3D9's table. */
         void *was = patch_method(d3d, 16, (void *)our_create_device);
@@ -1407,13 +1568,16 @@ void ingame_attach(HMODULE module)
     char device[39];
     format_guid(g_settings.device, device);
     ingame_log("start: language %s, cursor %s, pacing %s, frame rate chip %s, sound device %s, upscale %s, sharpness %d, "
-               "anti-aliasing %s, audio offset %d ms", g_settings.korean ? "ko" : "en",
+               "anti-aliasing %s, audio offset %d ms, motion clarity %s", g_settings.korean ? "ko" : "en",
                g_settings.cursor ? "ours" : "the game's",
                g_settings.music_lock ? "music" : g_settings.even_pacing ? "even" : "the client's own",
                g_settings.show_fps ? "on" : "off",
                g_settings.has_device ? device : "default", UPSCALE_NAMES[g_settings.upscale], g_settings.sharpness,
-               AA_NAMES[g_settings.antialiasing], g_settings.audio_offset);
+               AA_NAMES[g_settings.antialiasing], g_settings.audio_offset,
+               g_settings.motion == MOTION_CRT ? "crt" : g_settings.motion == MOTION_BFI ? "bfi" : "off");
     QueryPerformanceFrequency(&g_frequency);
+    /* Motion clarity: the choice, which takes effect where the display's refresh allows (take_refresh). */
+    strobe_choose(g_settings.motion);
     /* Measuring only: every frame's length into a file. */
     char series[MAX_PATH];
     DWORD got_series = GetEnvironmentVariableA("OPENDMT3_INGAME_FRAMES", series, sizeof series);

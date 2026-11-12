@@ -61,6 +61,14 @@ ANTIALIASING_DEFAULT = "off"
 FPS_POSITIONS = ("top_left", "top_right", "bottom_left", "bottom_right")
 FPS_POSITION_DEFAULT = "bottom_right"
 
+# Motion clarity, the in-game layer's (native/cardreader/strobe.c): on a display whose refresh is a whole multiple of
+# 60 Hz from 120 up, each 60 a second frame shown over its refreshes as a CRT lit it, so the eye's following of the
+# moving notes smears less (up to 50 % at 120 Hz, 75 % at 240 Hz), the picture darker: "crt" a rolling beam from the top
+# down, "bfi" black frames (every row lit from the frame's first refresh), "off" each frame shown whole (the default).
+# The Screen page offers it only on such a display; the layer turns it off on any other.
+MOTION_CLARITIES = ("off", "crt", "bfi")
+MOTION_CLARITY_DEFAULT = "off"
+
 # The game's 1280x768 picture (5:3) in a window or screen of another shape: "keep" its shape, the largest such
 # rectangle centred with bars of the launcher's darkest neutral on the other two sides (the default: at 16:9 a
 # stretched picture is 6.7 % wider than drawn, at 21:9 43 %, at 5:4 25 % narrower), or "fill" the window. The pointer
@@ -114,6 +122,9 @@ DEFAULTS = {
                                     # game runs, 10 ms otherwise (the layer's: native/cardreader/engine.c)
     "sound_path": SOUND_PATH_DEFAULT,  # who mixes the game's sounds: Windows' DirectSound (the layer's)
     "audio_offset": 0,              # ms the frames are kept behind a song's music (the layer's music lock; none)
+    "motion_clarity": MOTION_CLARITY_DEFAULT,  # each frame shown whole, or over its refreshes as a CRT (the layer's)
+    "flip_model": False,            # Direct3D 9Ex's flip model for the borderless full screen, in place of the copy
+                                    # (the layer's; an experiment, off by default)
     "upscale": UPSCALE_DEFAULT,     # how the picture is enlarged to the window (the layer's)
     "sharpness": SHARPNESS_DEFAULT, # how much fsr1 and nis sharpen (the layer's)
     "antialiasing": ANTIALIASING_DEFAULT,  # edge smoothing before the enlarging (the layer's)
@@ -123,7 +134,8 @@ DEFAULTS = {
 
 # The choices openDMT3's in-game layer reads when the game starts, not lines of setting.ini.
 LAYER_CHOICES = ("frame_pacing", "show_fps", "fps_position", "sound_device", "upscale", "sharpness", "antialiasing",
-                 "picture_shape", "pass_times", "low_latency", "sound_path", "render_size", "audio_offset")
+                 "picture_shape", "pass_times", "low_latency", "sound_path", "render_size", "audio_offset",
+                 "motion_clarity", "flip_model")
 
 
 class ChoiceError(ValueError):
@@ -210,6 +222,8 @@ def normalize(values):
             out[name] = _named(name, value, SOUND_PATHS)
         elif name == "render_size":
             out[name] = _named(name, value, RENDER_SIZES)
+        elif name == "motion_clarity":
+            out[name] = _named(name, value, MOTION_CLARITIES)
         elif name == "sound_device":
             text = str(value).strip()
             if text.lower() == DEFAULT_DEVICE:
@@ -268,8 +282,8 @@ def layer_environment(values, language="en"):
     the words' language, whether it draws its own pointer, the frame pacing, the frame rate chip and its corner, the
     sound device, who mixes the game's sounds and whether the sound engine's shortest period is asked for, the upscale
     filter with its sharpness, the anti-aliasing, the picture's shape, whether the picture's GPU time is measured by
-    pass, the size the game draws at, the audio offset. PLAY starts the game with these on top of the launcher's own
-    environment."""
+    pass, the size the game draws at, the audio offset, motion clarity, the flip model. PLAY starts the game with these
+    on top of the launcher's own environment."""
     v = normalize(values)
     return {
         # The menu's and the question's words follow the launcher's language.
@@ -301,4 +315,8 @@ def layer_environment(values, language="en"):
         "OPENDMT3_RENDER": v["render_size"],
         # The frames kept this many milliseconds behind a song's music (whole milliseconds as decimal text; 0: none).
         "OPENDMT3_AUDIO_OFFSET": str(v["audio_offset"]),
+        # Each frame shown whole, or over its refreshes as a CRT's beam or black frames, by the layer's names.
+        "OPENDMT3_MOTION_CLARITY": v["motion_clarity"],
+        # The borderless full screen's frames handed to Windows' compositor (flipped) instead of copied into it.
+        "OPENDMT3_FLIP_MODEL": "on" if v["flip_model"] else "off",
     }

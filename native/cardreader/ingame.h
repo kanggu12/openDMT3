@@ -76,13 +76,46 @@ int post_running(void);
  * of those were glass panels (not the chip): frames with a panel are left out of the safety net's judgement. The
  * chain's own cost (post_cost) leaves the layer's out. */
 void post_layer_cost(LONGLONG *cpu_ticks, int *parts, int *panels);
-/* For what openDMT3 draws over the chain's picture before a present (the press mark):
+/* For what openDMT3 draws over the chain's picture before a present (the press mark, motion clarity's sub-frames):
  * the real back buffer the chain draws into (no reference added; NULL while no chain runs) and the client's size the
  * last frame was presented at; and the device's target set to it (ours 1, through the device's own SetRenderTarget,
  * no depth surface) or back to the game's (0: its proxy and its depth surface). */
 struct IDirect3DSurface9;
 struct IDirect3DSurface9 *post_back_buffer(int *w, int *h);
 void post_target(struct IDirect3DDevice9 *dev, int ours);
+/* Motion clarity (strobe.c): the choice (MOTION_*, from the settings), the display's refresh and whether VSync is on
+ * (from the device's mode: sub-frames only at a whole multiple of 60 Hz from 120 up, with VSync), how many sub-frames a
+ * game frame then has (0: off), this frame's picture kept with its first sub-frame to come (0 when it is not: no chain,
+ * off), sub-frame k drawn into the back buffer, and the default pool's objects let go before a reset. */
+void strobe_choose(int mode);
+void strobe_refresh(int hz, int vsync);
+int strobe_subframes(void);
+int strobe_keep(struct IDirect3DDevice9 *dev);
+void strobe_draw(struct IDirect3DDevice9 *dev, int k);
+void strobe_release(void);
+/* Measuring (OPENDMT3_STROBE_WATCH): this frame is one whose sub-frames are read back and logged. */
+int strobe_watched(void);
+/* The flip model (flip.c, OPENDMT3_FLIP_MODEL=on): Direct3D 9Ex made beside the game's Direct3D 9 when the choice is
+ * on; whether the game's device should be flipped (its window windowed over its whole monitor); the device made so
+ * (with present statistics; the managed pool's resources then made in the default pool, dynamic), 0 or a failure to
+ * fall back on; whether a device is that one; its reset (9Ex's own, which keeps every resource); after each present,
+ * its statistics read; every two seconds a line, and whether the display follows the frames (a variable refresh rate:
+ * single presents a refresh apart where its mode gives each frame `refreshes_a_frame`); before a reset, the swap chain
+ * let go. post.c: the back buffer made the client's size and flipped (post_flip before post_prepare), and whether the
+ * client is still that size. */
+struct _D3DPRESENT_PARAMETERS_;
+void flip_attach_d3d(void);
+int flip_wanted(const struct _D3DPRESENT_PARAMETERS_ *pp, HWND window);
+long flip_create_device(UINT adapter, int type, HWND focus, DWORD flags, struct _D3DPRESENT_PARAMETERS_ *pp,
+                        struct IDirect3DDevice9 **out);
+int flip_device(struct IDirect3DDevice9 *dev);
+long flip_reset(struct IDirect3DDevice9 *dev, struct _D3DPRESENT_PARAMETERS_ *pp);
+void flip_after_present(void);
+void flip_summary(int refreshes_a_frame);
+int flip_follows_frames(void);
+void flip_before_reset(void);
+void post_flip(int on);
+int post_client_fits(void);
 /* Where the game's picture is in the window's client area (logic.c picture_rect), as the chain placed it at its last
  * present; w and h 0 while no chain runs (Direct3D's own stretch: the picture fills the client). */
 void post_picture(int *x, int *y, int *w, int *h);

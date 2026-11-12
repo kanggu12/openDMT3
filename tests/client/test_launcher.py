@@ -1609,6 +1609,28 @@ class LauncherTest(FolderCase):
         widgets.Slider._drag(s, SimpleNamespace(x=160))
         self.assertEqual(s.value, 50)
 
+    def test_motion_clarity_is_offered_only_at_whole_multiples_of_60_hz(self):
+        import sys
+        from opendmt3.client import window_room
+        # The in-game layer's own rule: 120, 180, 240 and up, within 1 Hz (119.88 and 239.76 Hz as Windows gives
+        # them), never 60, 144, 165, a rate 2 Hz off a multiple or an unknown rate.
+        rates = (None, 0, 59, 60, 100, 118, 119, 120, 121, 144, 165, 180, 237, 239, 240, 360, 480)
+        self.assertEqual([hz for hz in rates if window_room.strobe_offered(hz)],
+                         [119, 120, 121, 180, 239, 240, 360, 480])
+        # Off Windows the screen's rate is not known, so the row is not offered there.
+        if sys.platform != "win32":
+            self.assertIsNone(window_room.refresh_rate())
+        # --set takes it as the page keeps it, at any rate (the layer turns it off where the display gives none).
+        from opendmt3.client import main
+        self.state.save()
+        self.assertEqual(main.main(["--set", "motion_clarity=crt"]), 0)
+        self.assertEqual(st.LauncherState.load().values["motion_clarity"], "crt")
+        self.assertEqual(main.main(["--set", "motion_clarity=strobe"]), 2)
+        self.assertEqual(st.LauncherState.load().values["motion_clarity"], "crt")
+        # The flip model, the Advanced section's experiment, by --set too.
+        self.assertEqual(main.main(["--set", "flip_model=on"]), 0)
+        self.assertIs(st.LauncherState.load().values["flip_model"], True)
+
     def test_the_picture_choices_have_command_line_twins(self):
         from opendmt3.client import main
         self.state.save()
@@ -1636,8 +1658,9 @@ class LauncherTest(FolderCase):
         text = " ".join(out.getvalue().split())
         for value in values.UPSCALES + ("sharpness", "smaa-") + values.ANTIALIASINGS[-3:] + values.RENDER_SIZES:
             self.assertIn(value, text)
-        # The Sound page's audio offset with its range.
+        # The Sound page's audio offset with its range, and motion clarity's names.
         self.assertIn("audio_offset %d to %d ms" % values.AUDIO_OFFSET_RANGE, text)
+        self.assertIn("motion_clarity " + "|".join(values.MOTION_CLARITIES), text)
         # The size the game draws at, by --set as well.
         self.assertEqual(main.main(["--set", "render_size=display"]), 0)
         self.assertEqual(st.LauncherState.load().values["render_size"], "display")
@@ -1657,8 +1680,10 @@ class LauncherTest(FolderCase):
                  "screen.antialiasing.hint.display"]
         keys += ["screen.render." + value for value in values.RENDER_SIZES]
         keys += ["screen.antialiasing." + value for value in values.ANTIALIASINGS]
-        # The Sound page's audio offset and its hint.
-        keys += ["sound.offset", "sound.offset.hint"]
+        # The Sound page's audio offset and its hint; motion clarity, its hint and its three values.
+        keys += ["sound.offset", "sound.offset.hint", "screen.motion", "screen.motion.hint", "screen.flip",
+                 "screen.flip.hint"]
+        keys += ["screen.motion." + value for value in values.MOTION_CLARITIES]
         for key in keys:
             with self.subTest(key=key):
                 en, ko = i18n.TEXT[key]

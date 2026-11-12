@@ -52,7 +52,8 @@ const char *const SETTINGS_NAMES[] = {"OPENDMT3_LANGUAGE", "OPENDMT3_CURSOR", "O
                                       "OPENDMT3_FPS_POSITION", "OPENDMT3_SOUND_DEVICE", "OPENDMT3_UPSCALE",
                                       "OPENDMT3_SHARPNESS", "OPENDMT3_ANTIALIASING", "OPENDMT3_PICTURE_SHAPE",
                                       "OPENDMT3_PASS_TIMES", "OPENDMT3_LOW_LATENCY", "OPENDMT3_SOUND_PATH",
-                                      "OPENDMT3_RENDER", "OPENDMT3_AUDIO_OFFSET"};
+                                      "OPENDMT3_RENDER", "OPENDMT3_AUDIO_OFFSET", "OPENDMT3_MOTION_CLARITY",
+                                      "OPENDMT3_FLIP_MODEL"};
 
 /* The sound paths' names, in the order of SOUND_PATH_* (the launcher's words for them, values.py SOUND_PATHS). */
 const char *const SOUND_PATH_NAMES[SOUND_PATHS] = {"directsound", "openal", "openal-exclusive"};
@@ -104,6 +105,12 @@ void settings_read(Settings *s, const char *name, const char *value)
         long v = strtol(value, &end, 10);
         if (end && end != value && !*end && v >= 0 && v <= AUDIO_OFFSET_MAX)
             s->audio_offset = (int)v;
+    } else if (!strcmp(name, "OPENDMT3_MOTION_CLARITY")) {
+        /* "crt" the rolling beam, "bfi" black frames; anything else leaves it off (the default). */
+        s->motion = same(value, "crt") ? MOTION_CRT : same(value, "bfi") ? MOTION_BFI : MOTION_OFF;
+    } else if (!strcmp(name, "OPENDMT3_FLIP_MODEL")) {
+        /* "on" asks for the flip model; anything else leaves the copy model (the default). */
+        s->flip = same(value, "on");
     } else if (!strcmp(name, "OPENDMT3_PASS_TIMES")) {
         /* "on" measures the picture's GPU time by pass; anything else leaves it off (the default). */
         s->pass_times = same(value, "on");
@@ -357,6 +364,21 @@ int64_t jit_work(const JitClock *j)
         }
     }
     return top[rank > 1 ? 1 : 0] > 0 ? top[rank > 1 ? 1 : 0] : 0;
+}
+
+int strobe_refreshes(int hz)
+{
+    /* The nearest whole multiple of 60, and how far the rate is from it. */
+    int n = (hz + 30) / 60, off = hz - n * 60;
+    /* From 120 up and within 1 Hz of it (a rate given whole, 239 for 239.76); anything else shows frames whole. */
+    return hz > 0 && n >= 2 && off >= -1 && off <= 1 ? n : 0;
+}
+
+int display_follows(int refreshes_a_frame, long steps, long one_steps)
+{
+    /* A fixed rate of two or more refreshes a frame, two seconds' worth of single presents to judge, and nine in ten
+     * of them a refresh after the one before: the display waits for the frames. */
+    return refreshes_a_frame >= 2 && steps >= 60 && one_steps * 10 >= steps * 9;
 }
 
 int64_t jit_lead(const JitClock *j, int64_t slack)

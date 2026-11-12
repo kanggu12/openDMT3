@@ -56,6 +56,17 @@ def build_screen(app, parent):
                                                             for value in choices.FRAME_PACINGS],
                                                     v["frame_pacing"], lambda value: app.changed("frame_pacing", value)),
                         w("screen.pacing.hint")).pack(fill="x", pady=(0, ui.px(16)))
+    # Motion clarity: only on a main screen at a whole multiple of 60 Hz from 120 up, where each frame has whole
+    # refreshes of its own to be lit over (the in-game layer turns it off on any other).
+    from opendmt3.client import window_room
+    if window_room.strobe_offered(window_room.refresh_rate()):
+        widgets.setting_row(parent, ui, w("screen.motion"),
+                            lambda p: widgets.Segmented(p, ui, [(value, w("screen.motion." + value))
+                                                                for value in choices.MOTION_CLARITIES],
+                                                        v["motion_clarity"],
+                                                        lambda value: app.changed("motion_clarity", value)),
+                            w("screen.motion.hint")).pack(fill="x", pady=(0, ui.px(16)))
+
     def set_fps(on):
         app.changed("show_fps", on)
         # The corner's row is there only while the chip is on, and the hint says the state: draw the page again.
@@ -131,6 +142,10 @@ def build_screen(app, parent):
     widgets.setting_row(parent, ui, w("screen.pass_times"),
                         lambda p: widgets.Toggle(p, ui, v["pass_times"], lambda on: app.changed("pass_times", on)),
                         w("screen.pass_times.hint")).pack(fill="x", pady=(0, ui.px(16)))
+    # Direct3D 9Ex's flip model for the borderless full screen, an experiment (the copy model unless it is on).
+    widgets.setting_row(parent, ui, w("screen.flip"),
+                        lambda p: widgets.Toggle(p, ui, v["flip_model"], lambda on: app.changed("flip_model", on)),
+                        w("screen.flip.hint")).pack(fill="x", pady=(0, ui.px(16)))
 
 
 # --------------------------------------------------------------------------------------------- Sound

@@ -53,3 +53,41 @@ def window_box(room, caption, want_w, want_h):
     x = left + (room_w - w) // 2
     y = top + max(0, (room_h - (h + caption)) // 3)
     return w, h, x, y
+
+
+# GetDeviceCaps' vertical refresh rate (VREFRESH): the screen's refresh in hertz.
+VREFRESH = 116
+
+
+def refresh_rate():
+    """The main screen's refresh rate in hertz as Windows sets it now (the game shows on the main screen), or None
+    where it cannot be read (elsewhere than Windows, or a driver that gives 0 or 1: the hardware's default)."""
+    import sys
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
+        # The whole screen's device context, read and let go at once.
+        dc = user32.GetDC(0)
+        if not dc:
+            return None
+        try:
+            hz = int(gdi32.GetDeviceCaps(dc, VREFRESH))
+        finally:
+            user32.ReleaseDC(0, dc)
+    except (AttributeError, OSError, ValueError):
+        return None
+    # 0 and 1 stand for the display's own default rate, which says nothing of what it is.
+    return hz if hz > 1 else None
+
+
+def strobe_offered(hz):
+    """Whether motion clarity has sub-frames to show at this refresh rate: a whole multiple of 60 from 120 up, within
+    1 Hz (Windows gives 119.88 and 239.76 Hz as 119 and 239), the in-game layer's own rule (native/cardreader/logic.c
+    strobe_refreshes)."""
+    if not hz:
+        return False
+    # The nearest whole multiple of 60, and the rate's distance from it.
+    n = (hz + 30) // 60
+    return n >= 2 and abs(hz - n * 60) <= 1
