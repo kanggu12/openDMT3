@@ -6,6 +6,15 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-13
+
+### Added
+
+- The README and the guides in pictures: the game with openDMT3's parts over it, the server and its clients, the
+  ways to play and to run a server, the first start in three steps, and charts of what was measured.
+- Playing on Linux: the player's guide says how the launcher runs under Wine, with the steps the project's own tests
+  take and what has not been tried.
+
 ### Changed
 
 - What you bring to play is called the client data: the game's PC client and its files, in a folder or in an
@@ -32,5 +41,6 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - Updates inside the launcher, signed by the project, and an installer with repair and removal, in English and
   Korean.
 
-[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/kanggu12/openDMT3/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/kanggu12/openDMT3/releases/tag/v0.1.0
