@@ -27,7 +27,7 @@ make stand-in files of their own.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/architecture-dark.svg">
-    <img alt="The map of the code. On the player's Windows PC the launcher (opendmt3/client: its pages, actions.py, hosting.py, remote.py, updates.py) only reads the game folder, makes openDMT3's own folder at PLAY (core/cabinet/steps.py) and starts the game, which runs with the card reader library and in-game layer of native/cardreader. The launcher reaches a server's site and API (opendmt3/server/web, port 4730) over HTTP, and the game reaches the game server (connection.py, messages.py, port 4725) over the game's own protocol; both use the services (services/) and one SQLite file (db/). Both parts share opendmt3/core" src="docs/images/architecture-light.svg" width="100%">
+    <img alt="The map of the code. On the player's Windows PC the launcher (opendmt3/client: its pages, actions.py, hosting.py, remote.py, updates.py) only reads the client data, makes openDMT3's own folder at PLAY (core/cabinet/steps.py) and starts the game, which runs with the card reader library and in-game layer of native/cardreader. The launcher reaches a server's site and API (opendmt3/server/web, port 4730) over HTTP, and the game reaches the game server (connection.py, messages.py, port 4725) over the game's own protocol; both use the services (services/) and one SQLite file (db/). Both parts share opendmt3/core" src="docs/images/architecture-light.svg" width="100%">
   </picture>
 </p>
 
@@ -35,7 +35,7 @@ One package, `opendmt3`, in three parts ([docs/architecture.md](docs/architectur
 
 | Path | What it is | Start reading at | Its tests |
 | :--- | :--- | :--- | :--- |
-| `opendmt3/core/` | What the other two share: the game folder and its formats, the steps PLAY makes, the originals an earlier version kept, the error words, signing, and `python -m opendmt3 check, setup, restore` | `game.py`, then `cabinet/steps.py` | `tests/core/` |
+| `opendmt3/core/` | What the other two share: the client data and its formats, the steps PLAY makes, the originals an earlier version kept, the error words, signing, and `python -m opendmt3 check, setup, restore` | `game.py`, then `cabinet/steps.py` | `tests/core/` |
 | `opendmt3/server/` | The game server, its services, its database (`db/`) and its site, admin pages and API (`web/`); `python -m opendmt3.server` | `__main__.py`, then `server.py` for the game and `web/app.py` for the site | `tests/server/` |
 | `opendmt3/client/` | The Windows launcher (its window, its pages, its jobs on the command line) and the installer's dialogs | `main.py`, then `app.py` and `actions.py` | `tests/client/` |
 | `native/cardreader/` | The card reader library with the in-game layer, 32-bit C built with MinGW | `crt_r1.c`, then `layer.c` | `test_native.c`, run by `test.sh` |
@@ -158,13 +158,14 @@ The words a person reads are in these tables, in English and Korean side by side
 | The setup wizard and the command lines (English only) | `packaging/docker/wizard.py`, `dmt3`, `opendmt3/client/cli.py`, `opendmt3/server/__main__.py` | `tests/test_setup_wizard.py`, `tests/test_front_door.py` |
 
 A new text goes into both languages of its table. `tests/test_words.py` keeps the project's terms in all of them and
-in the guides: the game's files are named by what they are (the game folder, the PC client, the song list, jackets),
-never by a file name of the game's.
+in the guides: what a player brings is the client data (the PC client and the game's files, in a folder or in an
+archive), and each thing is named by what it is (the PC client, the song list, jackets), never by a file name of the
+game's or by where it came from.
 
 Two texts live beside their code, in English and Korean: the note `README-openDMT3.txt` that removing openDMT3 leaves
-in the game folder's `backup\` when a file there could not be put back (`WORDS` in `opendmt3/client/leaving.py`), and
-the console program's two lines when `openDMT3.exe` is missing or changed (`packaging/windows/console_modules.py`:
-the modules that hold the tables are what is missing then).
+in the client data's `backup\` folder when a file there could not be put back (`WORDS` in
+`opendmt3/client/leaving.py`), and the console program's two lines when `openDMT3.exe` is missing or changed
+(`packaging/windows/console_modules.py`: the modules that hold the tables are what is missing then).
 
 ## Adding a page or an API call
 

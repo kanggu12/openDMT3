@@ -2,12 +2,12 @@
 
 openDMT3 is one Python package, `opendmt3`, in three parts: what every part shares (`core`), the server (`server`,
 run in Docker or with Python) and the Windows client (`client`: the launcher and its installer). The command line
-for a game folder (`python -m opendmt3 check, setup, restore`) is part of `core`.
+for the client data (`python -m opendmt3 check, setup, restore`) is part of `core`.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/system-dark.svg">
-    <img alt="openDMT3's server and its clients. On the player's Windows PC the launcher (opendmt3/client) only reads the game folder and starts the game, the player's own PC client, with openDMT3's card reader library and in-game layer in its process (native/cardreader). A server is one process (opendmt3/server, in Docker or with Python): the site and its API on port 4730 (web/), the game server on port 4725, their services and one SQLite file (services/, db/), and the song list read once from a game folder. The launcher signs in over the HTTP API and asks for the player's card at each PLAY; the game logs in by card and sends its results over the game's own protocol. Browsers on phones and PCs use the site, programs the API with a token, and other players' PCs the same two links. The releases hold the installer and its signed updates, which a server can hand out. opendmt3/core is shared by both parts, packaging/ builds them and tests/ checks them" src="images/system-light.svg" width="100%">
+    <img alt="openDMT3's server and its clients. On the player's Windows PC the launcher (opendmt3/client) only reads the client data and starts the game, the player's own PC client, with openDMT3's card reader library and in-game layer in its process (native/cardreader). A server is one process (opendmt3/server, in Docker or with Python): the site and its API on port 4730 (web/), the game server on port 4725, their services and one SQLite file (services/, db/), and the song list read once from the client data. The launcher signs in over the HTTP API and asks for the player's card at each PLAY; the game logs in by card and sends its results over the game's own protocol. Browsers on phones and PCs use the site, programs the API with a token, and other players' PCs the same two links. The releases hold the installer and its signed updates, which a server can hand out. opendmt3/core is shared by both parts, packaging/ builds them and tests/ checks them" src="images/system-light.svg" width="100%">
   </picture>
 </p>
 
@@ -16,7 +16,7 @@ for a game folder (`python -m opendmt3 check, setup, restore`) is part of `core`
 ```
 opendmt3/
   __init__.py        the version, the one place it is written
-  __main__.py        python -m opendmt3: the game folder's command line (core/cli.py)
+  __main__.py        python -m opendmt3: the client data's command line (core/cli.py)
   core/              what the server and the client share
   server/            the game server, its services, its database and its site
   client/            the launcher and the installer, for Windows
@@ -25,7 +25,7 @@ opendmt3/
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/architecture-dark.svg">
-    <img alt="The parts of openDMT3. On the player's Windows PC the launcher (Tk, opendmt3/client) only reads the game folder, makes openDMT3's own folder from it at PLAY (the client copy, the card reader library with the in-game layer, the settings, the card), and starts the game from there. Playing on this PC, the launcher runs the server inside itself; on another server, it signs in over the HTTP API for the player's card and records. The game logs in by card and sends its results over the game's own protocol. The server (opendmt3/server, with Docker or Python) is one process: the site and its API on port 4730 (Starlette), the game server on port 4725 (asyncio), their services, and one SQLite file. Both parts share opendmt3/core" src="images/architecture-light.svg" width="100%">
+    <img alt="The parts of openDMT3. On the player's Windows PC the launcher (Tk, opendmt3/client) only reads the client data, makes openDMT3's own folder from it at PLAY (the client copy, the card reader library with the in-game layer, the settings, the card), and starts the game from there. Playing on this PC, the launcher runs the server inside itself; on another server, it signs in over the HTTP API for the player's card and records. The game logs in by card and sends its results over the game's own protocol. The server (opendmt3/server, with Docker or Python) is one process: the site and its API on port 4730 (Starlette), the game server on port 4725 (asyncio), their services, and one SQLite file. Both parts share opendmt3/core" src="images/architecture-light.svg" width="100%">
   </picture>
 </p>
 
@@ -36,11 +36,11 @@ other way.
 | Part | What it is |
 |---|---|
 | `core/formats/` | The game's own file formats: the files that hold the others, the settings file, the operator settings, the song lists |
-| `core/cabinet/` | What PLAY makes in openDMT3's own folder from a game folder it only reads, as steps that each check their part and make it when asked; the display fix of the client; starting the game (through a short path when its folder's cannot be given to it) and following it |
-| `core/game.py`, `core/backup.py`, `core/formats/pe.py` | A game folder (what its client is, where the files are, each family of the game's files read as the client reads it: the newest of its base and numbered patches that has a file); the originals an earlier openDMT3 kept in it; the libraries a program imports |
+| `core/cabinet/` | What PLAY makes in openDMT3's own folder from the client data it only reads, as steps that each check their part and make it when asked; the display fix of the client; starting the game (through a short path when its folder's cannot be given to it) and following it |
+| `core/game.py`, `core/backup.py`, `core/formats/pe.py` | The client data (what its client is, where the files are, each family of the game's files read as the client reads it: the newest of its base and numbered patches that has a file); the originals an earlier openDMT3 kept in it; the libraries a program imports |
 | `core/errors.py` | Every error a person reads, with its words in English and Korean |
 | `core/signing.py`, `core/preset.py`, `core/safety.py` | The update packages' signature; the server a build is made for; the guard that keeps windows shut under the tests |
-| `core/cli.py` | `python -m opendmt3 check, setup, restore` on a game folder |
+| `core/cli.py` | `python -m opendmt3 check, setup, restore` on the client data |
 | `server/` (its own modules) | The game server: the connection (handshake, cipher, keep-alive), every message's size, the handlers, and `__main__.py`, which runs it with the site |
 | `server/services/` | What the server does without knowing about messages or HTTP: accounts, records, activity, the song list (`catalog.py`, `cards.py`; any form it comes in, `sources.py`; saved into one file and taken in, `songlist.py`; its pictures in one form, `pictures.py`), backups, the chat webhook, a DJ's profile |
 | `server/web/` | The site, the admin pages and the API, as one ASGI app beside the game server |
@@ -80,10 +80,10 @@ Nothing of the game is kept in openDMT3:
 - **The table** is read from the player's own client, found by its SHA-256 in the client's read-only data.
 - **Each key byte** is recovered from the file itself: every path starts with `Resource\`, `pattern\` or `movie`,
   which only the right key byte gives, and the rest of a path is any bytes a Windows file name holds.
-- **Korean names.** Some names have Korean letters in the client's code page (cp949: 51 names in 11 of the files of a
-  whole game folder), and in six files such a name is the first under its key byte; it pins the key byte like any
+- **Korean names.** Some names have Korean letters in the client's code page (cp949: 51 names in 11 of the files of the
+  whole client data), and in six files such a name is the first under its key byte; it pins the key byte like any
   other name.
-- **Every one of the 92 files** of a whole game folder opens with this one scheme. One that no key byte opens is
+- **Every one of the 92 files** of the whole client data opens with this one scheme. One that no key byte opens is
   another build's: it is left out as not readable (`pak.PakUnreadable`), never called damaged.
 
 The reader is plain Python, so it works in bulk:
@@ -92,7 +92,7 @@ The reader is plain Python, so it works in bulk:
   float32 rounds 32 to 512 consecutive values of seed + i alike, so a word is worked out once per run and repeated,
   and below it `array` and `map` work out every word in C loops. The words are added or taken all at once, as 32-bit
   lanes of one big integer. A megabyte took 220 ms one word at a time and takes 5 to 28 ms; every entry of the 92
-  files of a whole game folder reads the same bytes as before.
+  files of the whole client data reads the same bytes as before.
 - **The key byte search** first tests word 0 of its 256 candidates, whose seeds share three bytes, from one table.
 - **A file opened again** takes its listing (the header, the entries, the key bytes) from its first walk while its
   path, size, times and file number are the same.
@@ -108,7 +108,7 @@ Reading also runs on a few threads (`core/parallel.py`) where they wait on the d
   thread.
 - **The song list's pictures** are read on the reading's thread and converted on the server's picture threads
   (`server/services/pictures.py`, `in_order`): reading them on these threads as well came to the same time (2.0 s
-  either way as PLAY reads a whole game folder, 2.4 s and 2.6 s in the server's image).
+  either way as PLAY reads the whole client data, 2.4 s and 2.6 s in the server's image).
 - **Threads, not processes**: the Python left is a small part of the work, and a process starts slowly on Windows.
 - **Two, not more, for the work that runs Python**: the window's thread waits for Python's lock behind each (the
   PLAY page's header with its discs: 10 ms alone, 24 ms beside two busy threads, 40 ms beside four).
@@ -116,24 +116,24 @@ Reading also runs on a few threads (`core/parallel.py`) where they wait on the d
 A family is a base (`name.pak`) and numbered patches (`name00.pak`, `name01.pak`, ...). The client opens them in number
 order up to the first number missing, and each entry is read from the newest that has it (`core/game.py`, `Layers`).
 
-## Playing a game folder that is only read
+## Playing client data that is only read
 
 `core/cabinet/steps.py` lists what PLAY makes in openDMT3's own folder (`%AppData%\openDMT3\game`, `steps.Own`) from
-the game folder, in order: a copy of the client with the libraries it imports from the game folder, the card reader
-library, the settings file, the operator data with FREE PLAY (taken once: from the game folder's `TECHNIKA\` an earlier
-openDMT3 kept, else a copy of a cabinet's `drive e\TECHNIKA`, else the game folder's `file\`), the hidden patterns,
-the server address. Each step checks its part and says whether it is done; the ready check on PLAY is that list.
-Then the list `openDMT3-files.txt` beside the card reader library names which of the game's paths are openDMT3's
-files.
+the client data, in order: a copy of the client with the libraries it imports from the client data, the card reader
+library, the settings file, the operator data with FREE PLAY (taken once: from the client data's `TECHNIKA\` an
+earlier openDMT3 kept, else a copy of a cabinet's `drive e\TECHNIKA`, else the client data's `file\`), the hidden
+patterns, the server address. Each step checks its part and says whether it is done; the ready check on PLAY is that
+list. Then the list `openDMT3-files.txt` beside the card reader library names which of the game's paths are
+openDMT3's files.
 
-PLAY starts the client copy from openDMT3's folder with the game folder as its current folder. The card reader
+PLAY starts the client copy from openDMT3's folder with the client data's folder as its current folder. The card reader
 library (`native/cardreader/files.c`, `redirect.c`) turns the client's file calls in its import table to its own:
 `CreateFileA/W`, `GetFileAttributesA/W`, `CreateDirectoryA/W` and `DeleteFileA` of a path the list names open
-openDMT3's file instead, and `GetModuleFileNameA/W` for the client answer a path in the game folder. What was measured
-under Wine, the game folder read only, a whole song each, and what each step does about it:
+openDMT3's file instead, and `GetModuleFileNameA/W` for the client answer a path in the client data's folder. What
+was measured under Wine, the client data read only, a whole song each, and what each step does about it:
 
-- The client finds its own folder with `GetModuleFileNameA` and makes it the current folder; answered with the game
-  folder, its relative paths (`pack\`, `Resource\`, `TECHNIKA\`) stay the game folder's.
+- The client finds its own folder with `GetModuleFileNameA` and makes it the current folder; answered with the
+  client data's folder, its relative paths (`pack\`, `Resource\`, `TECHNIKA\`) stay the client data's.
 - Every file of the game goes through the client's own `CreateFileA` (the files that hold the others, opened once and
   kept open), and its crash dumps through `CreateFileW`; nothing of the game's is opened another way.
 - Run from another folder, Windows looks in System32 before the current folder: Wine's own D3DX 9 was loaded and the
@@ -141,29 +141,30 @@ under Wine, the game folder read only, a whole song each, and what each step doe
 - Each entry of a family is read from the newest of its files that has it (where the reads landed: of 31 entries in
   more than one file, every one from the newest). A changed entry goes in a copy of that file; a file written as an
   extra patch was not taken by the game.
-- A game folder outside the ANSI code page (Korean letters on an English Windows) gave the client its own path with
-  question marks, and the game stopped reading its settings; one of 280 characters could not be made the current
-  folder. The longest path the game opens inside its folder is 64 characters. Such a folder is given to the game
+- Client data at a path outside the ANSI code page (Korean letters on an English Windows) gave the client its own
+  path with question marks, and the game stopped reading its settings; one of 280 characters could not be made the
+  current folder. The longest path the game opens inside its folder is 64 characters. Such a folder is given to the game
   through its own 8.3 short name when its drive keeps them, else through a junction of openDMT3's
   (`core/cabinet/launch.py`) in a folder of the player's alone (openDMT3's own under `%LocalAppData%`, or one made for
   the PLAY under a random name in a folder every user shares, with access for the player only), checked again right
   before the game starts and taken away when the game ends.
 - Without its videos the game plays songs without them; without the file with the tutorial it stops at the tutorial.
 
-A game folder an earlier openDMT3 changed (its `backup\` and list) is read through that list: the originals it kept
+Client data an earlier openDMT3 changed (its `backup\` and list) is read through that list: the originals it kept
 are what the steps start from, and the list gives them to the game where openDMT3 gives none of its own. **Put back**
 restores every one. Removing openDMT3 (`client/leaving.py`) puts every file back the same way, then takes out of
 `backup\` the copies the earlier version made itself (marked in its list) and the list. Every way out ends in
 Velopack's uninstall, which runs the launcher once as its hook; the hook does that work too, so the app list leaves
 the folder as **Help**'s **Uninstall** does.
 
-The same steps run without the launcher, from a copy of this repository, on a game folder (or a folder above it):
+The same steps run without the launcher, from a copy of this repository, on the client data's folder (or a folder
+above it):
 
 | Command | Does |
 |---|---|
-| `python -m opendmt3 check [GAME_FOLDER] [--to FOLDER]` | Prints the client's build and each step's state |
-| `python -m opendmt3 setup [GAME_FOLDER] [--to FOLDER] [--window] [--keep-hidden] [--server HOST:PORT]` | Makes openDMT3's folder for the game in `FOLDER` (default `openDMT3-game`): a framed window, the hidden patterns kept hidden, the server the game connects to; then start `FOLDER\Client (openDMT3).exe` with the game folder as the current folder |
-| `python -m opendmt3 restore [GAME_FOLDER]` | Puts back every file an earlier openDMT3 changed |
+| `python -m opendmt3 check [CLIENT_DATA] [--to FOLDER]` | Prints the client's build and each step's state |
+| `python -m opendmt3 setup [CLIENT_DATA] [--to FOLDER] [--window] [--keep-hidden] [--server HOST:PORT]` | Makes openDMT3's folder for the game in `FOLDER` (default `openDMT3-game`): a framed window, the hidden patterns kept hidden, the server the game connects to; then start `FOLDER\Client (openDMT3).exe` with the client data's folder as the current folder |
+| `python -m opendmt3 restore [CLIENT_DATA]` | Puts back every file an earlier openDMT3 changed |
 
 The fixed client is the game's own client with code appended (`core/cabinet/display.py`): a borderless window the size
 of the main monitor with the picture stretched, the mouse read in game coordinates, and the program marked large-address
@@ -184,14 +185,14 @@ the real ones.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/inside-game-dark.svg">
-    <img alt="What openDMT3's card reader library does inside the game's process. At Direct3D 9's Present: frames held to 60.0 a second, locked to the song's music (hooks.c, logic.c); the picture's passes, anti-aliasing, the upscale filter and the safety net (post.c, shaders/); and the in-game layer, the bar, the menu, the question, a toast and the FPS chip (layer.c, look.c), to the graphics card and the screen. DirectSound: the output chosen, held and faded while a panel is open (sound.c). GetKeyboardState and GetCursorPos: the in-game layer's keys kept from the game, the pointer on its pixel (hooks.c, layer.c). CreateFileA/W and GetModuleFileNameA/W: openDMT3's files in place of the few it changes, the game folder only read (files.c, redirect.c). The card reader's own ten calls: the number the launcher wrote, so that player logs in (crt_r1.c)" src="images/inside-game-light.svg" width="100%">
+    <img alt="What openDMT3's card reader library does inside the game's process. At Direct3D 9's Present: frames held to 60.0 a second, locked to the song's music (hooks.c, logic.c); the picture's passes, anti-aliasing, the upscale filter and the safety net (post.c, shaders/); and the in-game layer, the bar, the menu, the question, a toast and the FPS chip (layer.c, look.c), to the graphics card and the screen. DirectSound: the output chosen, held and faded while a panel is open (sound.c). GetKeyboardState and GetCursorPos: the in-game layer's keys kept from the game, the pointer on its pixel (hooks.c, layer.c). CreateFileA/W and GetModuleFileNameA/W: openDMT3's files in place of the few it changes, the client data only read (files.c, redirect.c). The card reader's own ten calls: the number the launcher wrote, so that player logs in (crt_r1.c)" src="images/inside-game-light.svg" width="100%">
   </picture>
 </p>
 
 | File | What it does |
 | :--- | :--- |
 | `crt_r1.c` | The card reader's ten exports, and `DllMain`, which starts the rest |
-| `files.c`, `redirect.c` | The client's file calls turned to openDMT3's: the list beside the library read once (`redirect.c`, plain C the native tests run), each path the game opens matched against it without letter case, openDMT3's file opened in its place with the wide call; the client told it runs from the game folder. `OPENDMT3_FILES_TRACE` (measuring only) writes every call, and every read of one of the game's files with its place, into the in-game log |
+| `files.c`, `redirect.c` | The client's file calls turned to openDMT3's: the list beside the library read once (`redirect.c`, plain C the native tests run), each path the game opens matched against it without letter case, openDMT3's file opened in its place with the wide call; the client told it runs from the client data's folder. `OPENDMT3_FILES_TRACE` (measuring only) writes every call, and every read of one of the game's files with its place, into the in-game log |
 | `hooks.c` | The four imports turned to openDMT3's: `DirectSoundCreate8` (and `DirectSoundCreate`), `Direct3DCreate9`, `GetKeyboardState` and `GetCursorPos` ([the four hooks](#the-four-hooks)) |
 | `layer.c` | The layer's state and its input: the bar and its chips, the menu and the question, the toast, the mark and the frame rate chip ([the layer's parts and their input](#the-layers-parts-and-their-input)) |
 | `text.c` | The layer's words: GDI text in Pretendard Bold and Regular and DMT3 Wide, which the setup puts beside the DLL and the layer loads for the game's process only, kept once drawn so a panel drawn again costs no GDI work |
@@ -529,7 +530,7 @@ page and size (`art.header_shards`), so the title comes in the same turn as the 
 the drag settles, in the guide too; and DISC CHECK's list is drawn once the window's thread is idle, with every change
 since in that one drawing, making again only the cards whose path was looked at, became the one in use or got its
 jackets. A setting changes the remembered state at once (`state.py`, a JSON file in
-`%AppData%\openDMT3`); openDMT3's own folder is made only at PLAY; the game folder never changes.
+`%AppData%\openDMT3`); openDMT3's own folder is made only at PLAY; the client data never changes.
 
 Playing on this PC, `hosting.py` runs the server inside the launcher: the game server and the site on one asyncio loop
 in a thread, the site on this PC only unless **Open this PC's server** is on. The launcher signs the player in to its
@@ -624,8 +625,8 @@ The game server and the site share one process and one event loop, and the loop 
     (`web/cache.py`: under the newest play's number and a count of the changes made to players and plays; a DJ's
     page under that player's own newest play), one per name, made once for every request asking at the same moment,
     at most 5 minutes old.
-- **Pictures**: a game folder's jackets and DJ card pictures, and a song list's taken in, are decoded, made smaller and
-  encoded on up to 8 threads (Pillow does that without the interpreter's lock) while the next ones are read, never
+- **Pictures**: the client data's jackets and DJ card pictures, and a song list's taken in, are decoded, made smaller
+  and encoded on up to 8 threads (Pillow does that without the interpreter's lock) while the next ones are read, never
   more than the cores the process may use (those it is allowed on, within a container's processor quota), each handed
   back in its place: the same files byte for byte as one after another.
 - **Long work** (a password's check, a song list read or taken, a backup made, put back or checked, a reset of plays,
@@ -648,7 +649,7 @@ before that work and after it, the median of three runs or more on a busy PC (32
 | 20 visitors at once, p95: Home / the rankings / the busiest DJ / the most played song | 1,758 / 1,412 / 6,654 / 1,688 ms | 95 / 70 / 150 / 546 ms |  |  |
 | The admin's Cabinets page, one request | 541 ms | 72 ms | 2,027 ms | 229 ms |
 | A song list taken (925 pictures) | 2.19 s | 0.57 s |  |  |
-| A song list read from a game folder (927 files; in the server's image) | 8.75 s (9.67 s) | 7.04 s (7.42 s) |  |  |
+| A song list read from the client data (927 files; in the server's image) | 8.75 s (9.67 s) | 7.04 s (7.42 s) |  |  |
 | The server image's imports | 286 ms | 230 ms |  |  |
 
 <p align="center">

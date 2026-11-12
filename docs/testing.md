@@ -1,8 +1,8 @@
 # Testing
 
-The tests need no game files: they make stand-ins of their own (a game folder with small stand-ins for the game's files,
+The tests need no game files: they make stand-ins of their own (client data with small stand-ins for the game's files,
 a client with the bytes the display fix looks for). Only the Wine tests, and a few unit tests when `OPENDMT3_GAME_DIR`
-is set (`unit*` in [Test cases](test-cases.md)), use a real game folder: your own, which never goes in the repository.
+is set (`unit*` in [Test cases](test-cases.md)), use real client data: your own, which never goes in the repository.
 Nothing a test runs opens a window on your screen: the window tests run on a virtual screen in a container, and the
 launcher refuses to open its window or the game under the unit tests.
 
@@ -12,7 +12,7 @@ launcher refuses to open its window or the game under the unit tests.
 
 | Folder | Holds |
 |---|---|
-| `tests/core/` | The unit tests of `opendmt3/core`: the game folder, its formats, the setup steps, the settings values, the error words |
+| `tests/core/` | The unit tests of `opendmt3/core`: the client data, its formats, the setup steps, the settings values, the error words |
 | `tests/server/` | The unit tests of `opendmt3/server`: the game protocol, the services, the database, the site and the API |
 | `tests/client/` | The unit tests of `opendmt3/client`: the launcher's jobs, its theme and pictures, its link to a server |
 | `tests/` | `test_architecture.py` (the parts' boundary), `test_front_door.py` and `test_setup_wizard.py` (`./dmt3` and its wizard), `test_docs.py` (the guides, CONTRIBUTING.md, CHANGELOG.md and `.github/`), `test_words.py` (the words people read), `test_release_notes.py` (a release's version and notes, the workflows' pins), `test_launcher_licences.py` and `test_windows_build.py` (the Windows build), `test_parallel_runner.py` (the runner below) |
@@ -85,8 +85,8 @@ box) and not where it scrolls.
 ## Wine
 
 `packaging/wine` is the image: Wine, a virtual screen and the tools to click and take screenshots, with no network.
-The tests take the built installer from `packaging/windows/build.sh` and a copy of your own game folder, mounted read
-only (PLAY only reads a game folder, so a game played from one proves nothing of it had to be written).
+The tests take the built installer from `packaging/windows/build.sh` and a copy of your own client data, mounted read
+only (PLAY only reads the client data, so a game played from it proves nothing of it had to be written).
 
 Each script's first lines give its arguments. Those that play take the copy as `GAME_PARENT`, a folder holding it up
 to four levels down, when they start from the installer, or as `GAME_DIR`, the folder itself, for `net_green.sh`,
@@ -94,14 +94,14 @@ to four levels down, when they start from the installer, or as `GAME_DIR`, the f
 build's `OUT_DIR/releases` and `BUILD_DIR` its `OUT_DIR`; the screenshots go to `OUT_DIR`. `LINK_SOURCE` is a folder
 the copy's files may be links into (mounted read only), and `WINE_DLLS` a folder of the 32-bit system DLLs the game
 needs and Wine lacks (`mfc42.dll`, from a Windows PC's `SysWOW64`). `setup_over.sh`, `update.sh`, `update_delta.sh`
-and `repair.sh` need no game folder.
+and `repair.sh` need no client data.
 
 | Script | Passes when |
 |---|---|
 | `install_and_play.sh` | The installer, the guide clicked through, PLAY, and the DJ logged in by card on the launcher's server, still playing 15 seconds later |
 | `play_a_song.sh` | As `install_and_play.sh`, then a whole song with the game's own timers: still open six minutes after the login, its link kept, no crash dump. `GAME_AT=` puts the game on the Desktop under another name (Korean letters, or folders long enough to pass 260 characters: the launcher's log then says it played through its short path); `MODIFIED=1` for a copy whose client is a modified PC client (no screen fit) |
 | `offline_play.sh` | The installer, the guide with Offline, PLAY, and the game as a guest 15 seconds after TOUCH to START, with no card and no server |
-| `two_cabinets.sh` | Two real clients on one server at once, each with its own copy of the game folder and its own player's card: both online from their own addresses, both players logged in by card, neither link lost before the end |
+| `two_cabinets.sh` | Two real clients on one server at once, each with its own copy of the client data and its own player's card: both online from their own addresses, both players logged in by card, neither link lost before the end |
 | `net_green.sh` | The client's link went online once and stayed, keep-alives answered all along |
 | `server_restart.sh` | The game came back online by itself after the server was stopped and started again on the same database, and stayed |
 | `setup_over.sh` | The installer over an older, open launcher asked, updated it and started the new one, the desktop shortcut and playing when Windows starts kept |
@@ -110,7 +110,7 @@ and `repair.sh` need no game folder.
 | `remote_play.sh` | A second machine downloaded the launcher from a server's site, installed it, signed in, and its game logged in on that server by card |
 | `repair.sh` | `--repair` put back a lost launcher file and a changed updater; with `openDMT3.exe` lost, the console program named the installer's Repair; the installer over the same version offered Repair, which put the file back, kept the settings and started the launcher |
 | `ingame.sh` | Every step of [the in-game layer's test](#what-ingamesh-checks), over four plays of the real client: the layer's parts on this PC, then offline with the picture defaults, with FSR 1 at 80 and SMAA High, and with NVIDIA NIS and SMAA Ultra |
-| `remove.sh` | openDMT3 removed three ways (**Help**'s **Uninstall** answered **Delete all**, `--uninstall`, the app list with the game open and then closed) left no install, app list line, shortcut or Run value, and the game folder as its list in `backup\` says (`folder_check.py`) |
+| `remove.sh` | openDMT3 removed three ways (**Help**'s **Uninstall** answered **Delete all**, `--uninstall`, the app list with the game open and then closed) left no install, app list line, shortcut or Run value, and the client data as its list in `backup\` says (`folder_check.py`) |
 
 Each saves a screenshot per stage and fails at the first stage that does not happen.
 

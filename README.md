@@ -7,7 +7,8 @@
 
 <p align="center">
   <b>An open-source launcher and server for DJMAX TECHNIKA 3, on your own PC.</b><br>
-  It plays your own game folder as it is, with card logins, records, rankings and a site for the players.
+  It plays the game from your own client data as it is, with card logins, records, rankings and a site for the
+  players.
 </p>
 
 <p align="center">
@@ -36,59 +37,62 @@ cabinet's, FREE PLAY in place of coins, a card the launcher puts in for you, and
 service.
 
 > [!IMPORTANT]
-> **No game files are included.** You need your own copy of the TECHNIKA 3 game folder, with a client that runs on a
+> **No game files are included.** You need your own copy of the TECHNIKA 3 client data, with a client that runs on a
 > PC. Please use only files you have the right to use. openDMT3 is an unofficial, non-commercial project, not
 > affiliated with or endorsed by NEOWIZ.
 
 ## Quick start
 
-You need your own TECHNIKA 3 game folder, with a client that runs on a PC: a folder, or an archive to unpack
-([what it has to be](docs/game-files.md)). Three steps take you to the game:
+Two ways to begin, each complete on its own: playing on your PC, and running a server for players on their own PCs.
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/steps-dark.svg">
-    <img alt="Playing in three steps. 1, Install: run openDMT3-win-Setup.exe, which installs for your Windows user only, without administrator rights. 2, DISC CHECK: the launcher finds your game folder and says what it is, here a made-up folder that is READY, with its original PC client, its songs and jackets, only read and never changed. 3, PLAY: your card goes in and the game starts" src="docs/images/steps-light.svg" width="100%">
-  </picture>
-</p>
+<table>
+<tr>
+<th width="50%" align="left">Play on your PC</th>
+<th width="50%" align="left">Run a server</th>
+</tr>
+<tr>
+<td valign="top">
 
-**To play, on Windows 10 or 11**, in Windows PowerShell:
+On Windows 10 or 11, with your own client data ([which](docs/client-data.md#which-client-data)):
 
-```powershell
-cd ~
-curl.exe -LO https://github.com/kanggu12/openDMT3/releases/latest/download/openDMT3-win-Setup.exe
-.\openDMT3-win-Setup.exe
-```
+1. Download **[openDMT3-win-Setup.exe](https://github.com/kanggu12/openDMT3/releases/latest/download/openDMT3-win-Setup.exe)**
+   and run it.
+2. Choose **Install**. The launcher opens on its first-start guide, which finds your client data and takes you to
+   **PLAY**.
 
-If Windows says it protected your PC, choose **More info**, then **Run anyway**: the installer is not signed. Then
-choose **Install**: the launcher opens, and its first-start guide takes five steps to **PLAY**. It finds your game
-folders and archives on this PC, says what each one is, and only reads them. On Linux the same installer runs under
-Wine ([how](docs/install.md#on-linux-with-wine)).
+Downloaded with a browser, the installer may make Windows say it protected your PC: **More info**, then **Run anyway**
+(it is not signed). On Linux, the same installer runs under Wine ([how](docs/install.md#on-linux-with-wine)).
 
-**A server with Docker** (Linux, macOS, or Windows in WSL 2):
+**[The player's guide](docs/install.md)**
+
+</td>
+<td valign="top">
+
+On Linux, macOS or Windows in WSL 2: Docker with Compose v2, git, Python 3, and your client data for the song list.
+In a terminal:
 
 ```sh
-git clone https://github.com/kanggu12/openDMT3.git
+git clone https://github.com/kanggu12/openDMT3
 cd openDMT3
 ./dmt3 setup
 ```
 
-A wizard in the terminal asks one question a page, and ends with the site's address and the admin's password.
-`./dmt3` alone lists the other commands.
+A wizard in the terminal asks where your client data is and which installer to hand out (an
+`openDMT3-win-Setup.exe` you downloaded), then ends with the site's address and the admin's password. A server also
+runs [in the launcher](docs/server.md#in-the-launcher) or [with Python](docs/server.md#with-python).
 
-**A server with Python 3.10 or newer** (Linux; on Debian and Ubuntu, with the `python3-venv` package):
+**[The server guide](docs/server.md)**
 
-```sh
-git clone https://github.com/kanggu12/openDMT3.git
-cd openDMT3
-python3 -m venv .venv
-.venv/bin/pip install starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0 python-multipart==0.0.20 pillow==11.3.0
-.venv/bin/python -m opendmt3.server --data data --host 0.0.0.0
-```
+</td>
+</tr>
+</table>
 
-The server prints the site's address; opened on that PC, its first page makes the owner's account.
-
-[Playing on your PC](docs/install.md) and [Running a server](docs/server.md) go step by step.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/steps-dark.svg">
+    <img alt="Playing in three steps. 1, Install: run openDMT3-win-Setup.exe, which installs for your Windows user only, without administrator rights. 2, DISC CHECK: the launcher finds your client data and says what it is, here made-up client data in a folder that is READY, with its original PC client, its songs and jackets, only read and never changed. 3, PLAY: your card goes in and the game starts" src="docs/images/steps-light.svg" width="100%">
+  </picture>
+</p>
 
 ## What it does
 
@@ -96,9 +100,9 @@ The server prints the site's address; opened on that PC, its first page makes th
   <img src="docs/images/ingame.png" alt="openDMT3's own parts over a song, drawn by openDMT3's code over a made-up stage of lanes and notes, none of it the game's. The bar across the top: openDMT3's mark at its left, and at its right the menu, minimise, back to a window, and the X. The menu hangs under its chip: BACK TO THE GAME, SHOW FPS with ON, QUIT THE GAME in red. Under it, three pieces: the question under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a toast hanging from the top edge, Picture quality lowered to keep 60 FPS (FXAA); and the FPS chip in the bottom right corner, 60 FPS over 16.7 ms" width="100%">
 </p>
 
-- **Plays your game folder as it is.** It only reads the game folder. What the game needs on a PC is made in a folder
-  of openDMT3's own: a copy of the client that fills the screen at any Windows scaling and reads the mouse in place,
-  FREE PLAY, the patterns the cabinet hid, the server address.
+- **Plays your client data as it is.** It only reads the client data. What the game needs on a PC is made in a
+  folder of openDMT3's own: a copy of the client that fills the screen at any Windows scaling and reads the mouse in
+  place, FREE PLAY, the patterns the cabinet hid, the server address.
 - **In the game.** A bar at the top edge with a menu and an X that asks first, the game held still while they are
   open, a toast when there is something to say, an FPS chip if you want one, and a pointer of its own. They keep to
   the top band and the corners, never where the notes come, and no key of the keyboard brings them.
@@ -187,12 +191,13 @@ people and launchers on port 4730, and accounts, plays and backups stay in one f
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/ways-to-host-dark.svg">
-    <img alt="Three ways to run a server, each the same server: in the launcher, by turning on Open this PC's server on its Online page, for the other PCs on its network while the launcher is open; with Docker Compose, ./dmt3 setup, a wizard in the terminal, on Linux, macOS or Windows in WSL 2; with Python 3.10 or newer on Linux, python -m opendmt3.server. Each way it is the game on port 4725, the site and its API on port 4730, one SQLite file and its backups in a data folder, and the song list read once from a game folder" src="docs/images/ways-to-host-light.svg" width="100%">
+    <img alt="Three ways to run a server, each the same server: in the launcher, by turning on Open this PC's server on its Online page, for the other PCs on its network while the launcher is open; with Docker Compose, ./dmt3 setup, a wizard in the terminal, on Linux, macOS or Windows in WSL 2; with Python 3.10 or newer on Linux, python -m opendmt3.server. Each way it is the game on port 4725, the site and its API on port 4730, one SQLite file and its backups in a data folder, and the song list read once from the client data" src="docs/images/ways-to-host-light.svg" width="100%">
   </picture>
 </p>
 
-A server takes one thing from the game: the song list, which holds the jackets and the DJ cards too
-([what a server takes](docs/game-files.md#what-a-server-takes)).
+A server takes one thing from the client data: the song list, which holds the jackets and the DJ cards too
+([what a server takes](docs/client-data.md#what-a-server-takes)). [Running a server](docs/server.md) has each way step
+by step.
 
 ## For contributors
 
@@ -203,7 +208,7 @@ it:** the tests make stand-ins of their own.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/system-dark.svg">
-    <img alt="openDMT3's server and its clients. On the player's Windows PC the launcher (opendmt3/client) only reads the game folder and starts the game, the player's own PC client, with openDMT3's card reader library and in-game layer in its process (native/cardreader). A server is one process (opendmt3/server, in Docker or with Python): the site and its API on port 4730 (web/), the game server on port 4725, their services and one SQLite file (services/, db/), and the song list read once from a game folder. The launcher signs in over the HTTP API and asks for the player's card at each PLAY; the game logs in by card and sends its results over the game's own protocol. Browsers on phones and PCs use the site, programs the API with a token, and other players' PCs the same two links. The releases hold the installer and its signed updates, which a server can hand out. opendmt3/core is shared by both parts, packaging/ builds them and tests/ checks them" src="docs/images/system-light.svg" width="100%">
+    <img alt="openDMT3's server and its clients. On the player's Windows PC the launcher (opendmt3/client) only reads the client data and starts the game, the player's own PC client, with openDMT3's card reader library and in-game layer in its process (native/cardreader). A server is one process (opendmt3/server, in Docker or with Python): the site and its API on port 4730 (web/), the game server on port 4725, their services and one SQLite file (services/, db/), and the song list read once from the client data. The launcher signs in over the HTTP API and asks for the player's card at each PLAY; the game logs in by card and sends its results over the game's own protocol. Browsers on phones and PCs use the site, programs the API with a token, and other players' PCs the same two links. The releases hold the installer and its signed updates, which a server can hand out. opendmt3/core is shared by both parts, packaging/ builds them and tests/ checks them" src="docs/images/system-light.svg" width="100%">
   </picture>
 </p>
 
@@ -213,13 +218,13 @@ where the frame pacing, the picture's passes, the in-game layer, the sound devic
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/inside-game-dark.svg">
-    <img alt="What openDMT3's card reader library does inside the game's process, and the files in native/cardreader that do it. At Direct3D 9's Present: frames held to 60.0 a second, locked to the song's music; the picture's passes, anti-aliasing, the upscale filter and the safety net; and the in-game layer, the bar, the menu, the question, a toast and the FPS chip, to the graphics card and the screen. DirectSound: the output chosen, held and faded while a panel is open. GetKeyboardState and GetCursorPos: the in-game layer's keys kept from the game, the pointer on its pixel. CreateFileA/W and GetModuleFileNameA/W: openDMT3's files in place of the few it changes, the game folder only read. The card reader's own ten calls: the number the launcher wrote, so that player logs in" src="docs/images/inside-game-light.svg" width="100%">
+    <img alt="What openDMT3's card reader library does inside the game's process, and the files in native/cardreader that do it. At Direct3D 9's Present: frames held to 60.0 a second, locked to the song's music; the picture's passes, anti-aliasing, the upscale filter and the safety net; and the in-game layer, the bar, the menu, the question, a toast and the FPS chip, to the graphics card and the screen. DirectSound: the output chosen, held and faded while a panel is open. GetKeyboardState and GetCursorPos: the in-game layer's keys kept from the game, the pointer on its pixel. CreateFileA/W and GetModuleFileNameA/W: openDMT3's files in place of the few it changes, the client data only read. The card reader's own ten calls: the number the launcher wrote, so that player logs in" src="docs/images/inside-game-light.svg" width="100%">
   </picture>
 </p>
 
 | Path | What it is |
 | :--- | :--- |
-| `opendmt3/core/` | What the other two share: the game folder and its formats, the steps PLAY makes, the error words, signing |
+| `opendmt3/core/` | What the other two share: the client data and its formats, the steps PLAY makes, the error words, signing |
 | `opendmt3/server/` | The game server, its services, its database (`db/`) and its site, admin pages and API (`web/`) |
 | `opendmt3/client/` | The Windows launcher: its window, its pages, its jobs on the command line, the installer's dialogs |
 | `native/cardreader/` | The card reader library with the in-game layer, 32-bit C built with MinGW |
@@ -246,9 +251,9 @@ change goes in; [Architecture](docs/architecture.md) and [Testing](docs/testing.
 
 | | Minimum | Recommended |
 | :--- | :--- | :--- |
-| **To play** | 64-bit Windows 10 or 11, or Linux with Wine 11 ([how](docs/install.md#on-linux-with-wine)), on an x64 processor (Intel or AMD), a graphics card with Direct3D 9 (NVIDIA, AMD or Intel), a mouse, and your game folder (about 38 GB whole) | Shader model 3.0 on the graphics card for the picture's passes, and a touch screen to play as on the cabinet |
+| **To play** | 64-bit Windows 10 or 11, or Linux with Wine 11 ([how](docs/install.md#on-linux-with-wine)), on an x64 processor (Intel or AMD), a graphics card with Direct3D 9 (NVIDIA, AMD or Intel), a mouse, and your client data (about 38 GB whole) | Shader model 3.0 on the graphics card for the picture's passes, and a touch screen to play as on the cabinet |
 | **The launcher** | About 43 MB to download; installed for your Windows user only, without administrator rights | |
-| **A server** | Docker on Linux, on macOS, or on Windows in WSL 2; or Python 3.10 or newer on Linux; ports 4725 (the game) and 4730 (the site) open to the players' PCs | About 100 MB of memory for 64 cabinets |
+| **A server** | The launcher, for the PCs on its network; Docker with Compose v2, git and Python 3 on Linux, on macOS, or on Windows in WSL 2; or Python 3.10 or newer on Linux; ports 4725 (the game) and 4730 (the site) open to the players' PCs | About 100 MB of memory for 64 cabinets |
 | **On a server** | The song list alone, about 13 MB: no charts, music or videos | |
 
 A card without shader model 3.0 gets Direct3D's own scaling. Tested under Wine, on an NVIDIA graphics card through
@@ -256,15 +261,29 @@ WSL's Direct3D 12 and on Mesa's software renderer; not yet on an AMD or Intel gr
 
 ## Guides
 
+### For players
+
 | Guide | What it covers |
 | :--- | :--- |
-| [Playing on your PC](docs/install.md) | The installer, the first start, the pages, the picture and the sound, records, updates, the command line |
-| [The game's files](docs/game-files.md) | What the game folder has to be, each card's line with the one thing to do, what a server takes |
-| [Running a server](docs/server.md) | Docker or Python, players, the site and the admin pages, backups, the internet, without internet |
-| [The API](docs/api.md) | Everything the site shows and does, as JSON |
+| [Playing on your PC](docs/install.md) | The player's guide: the installer on Windows or with Wine, the first start, the three ways to play, the pages, the picture and the sound, records, updates, the command line |
+| [The client data](docs/client-data.md) | Which client data plays, the forms it comes in, each card's line with the one thing to do, what a server takes |
 | [Troubleshooting](docs/troubleshooting.md) | When something does not work |
-| [License and notice](docs/notice.md) | What the project is, its license, the third-party parts |
+
+### For server owners
+
+| Guide | What it covers |
+| :--- | :--- |
+| [Running a server](docs/server.md) | The server owner's guide: in the launcher, with Docker or with Python, the song list, players, the site and the admin pages, backups, updates, the internet, without internet |
+| [The API](docs/api.md) | Everything the site shows and does, as JSON |
+
+### For contributors
+
+| Guide | What it covers |
+| :--- | :--- |
 | [Architecture](docs/architecture.md), [Protocol](docs/protocol.md), [Testing](docs/testing.md) | How it is built and checked, and what the game and its server say to each other |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Where the code is, running it and its tests, how a change goes in |
+
+[License and notice](docs/notice.md) says what the project is, its license and the third-party parts, for everyone.
 
 ## Credits and license
 

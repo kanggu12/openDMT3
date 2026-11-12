@@ -15,7 +15,7 @@ within a week, and credit in the release notes if you want it.
 - An archive or a song list that, unpacked or taken in, writes outside the folder it goes to, or a song list upload
   the server takes without its checks.
 - An update the launcher puts in without the project's signature beside it.
-- The launcher writing into the game folder (only **Put back** and removing openDMT3 do, and only inside it), or
+- The launcher writing into the client data (only **Put back** and removing openDMT3 do, and only inside it), or
   outside its own folders and what the player asked for: **Unpack** and a song list saved where the player chose, and
   on the Desktop a report and the shortcut that plays at once.
 - Secrets (passwords, card numbers, tokens) in logs, pages or error messages.

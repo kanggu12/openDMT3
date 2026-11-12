@@ -1,12 +1,13 @@
 # Playing on your PC
 
-The launcher plays your TECHNIKA 3 game folder on a Windows PC without changing it, remembers how you want the picture
-and the sound, puts your card in and starts the game. This guide goes from the installer to everyday play.
+The launcher plays the game from your own TECHNIKA 3 client data on a Windows PC without changing it, remembers how you
+want the picture and the sound, puts your card in and starts the game. This guide is the player's: it goes from the
+installer to everyday play. To run a server for other players' PCs, see [Running a server](server.md).
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/steps-dark.svg">
-    <img alt="Playing in three steps. 1, Install: run openDMT3-win-Setup.exe, which installs for your Windows user only, without administrator rights. 2, DISC CHECK: the launcher finds your game folder and says what it is, here a made-up folder that is READY, with its original PC client, its songs and jackets, only read and never changed. 3, PLAY: your card goes in and the game starts" src="images/steps-light.svg" width="100%">
+    <img alt="Playing in three steps. 1, Install: run openDMT3-win-Setup.exe, which installs for your Windows user only, without administrator rights. 2, DISC CHECK: the launcher finds your client data and says what it is, here made-up client data in a folder that is READY, with its original PC client, its songs and jackets, only read and never changed. 3, PLAY: your card goes in and the game starts" src="images/steps-light.svg" width="100%">
   </picture>
 </p>
 
@@ -14,21 +15,30 @@ and the sound, puts your card in and starts the game. This guide goes from the i
 
 - 64-bit Windows 10 or 11 on an x64 processor, a graphics card with Direct3D 9 from any maker (shader model 3.0 for
   the picture's passes), and a mouse or a touch screen ([what it runs on](../README.md#what-it-runs-on)).
-- Your own TECHNIKA 3 game folder, with a client that runs on a PC: a folder or an archive
-  ([The game's files](game-files.md)). No game files come with openDMT3.
+- Your own TECHNIKA 3 client data, with a client that runs on a PC, in a folder or in an archive
+  ([The client data](client-data.md)). No game files come with openDMT3.
 - To play on someone's server: its address, and an ID and password from its owner.
 
 ## Install
 
 1. Get `openDMT3-win-Setup.exe` from the [releases](https://github.com/kanggu12/openDMT3/releases/latest), or the
    installer on your server's **Download** page (its name carries the server's address).
-2. Run it. If Windows says it protected your PC: **More info**, then **Run anyway** (the installer is not signed).
-   Windows 11's Smart App Control, when it is on, blocks unsigned programs, this one among them, and has no **Run
-   anyway**.
+2. Run it. Downloaded with a browser, it may make Windows say it protected your PC: **More info**, then **Run anyway**
+   (the installer is not signed). Windows 11's Smart App Control, when it is on, blocks unsigned programs, this one
+   among them, and has no **Run anyway**.
 3. Choose **Install**. It installs for your Windows user only, with a desktop shortcut to the launcher and without
    administrator rights, and opens the launcher. One from a server's **Download** page says which server it is set up
    for, and the launcher opens on that server: its address is filled in on **LOG IN** (and **Online**), so you only
    connect and sign in.
+
+In Windows PowerShell, the first two steps are these commands. A file `curl.exe` downloads is not marked as from the
+internet, so step 2's question does not come; Smart App Control, when it is on, still blocks it:
+
+```powershell
+cd ~
+curl.exe -LO https://github.com/kanggu12/openDMT3/releases/latest/download/openDMT3-win-Setup.exe
+.\openDMT3-win-Setup.exe
+```
 
 Run again, the installer updates an older openDMT3, offers **Repair** or **Open openDMT3** over the same version, and
 asks before going back from a newer one. It closes an open launcher first, and does not go on while a game the
@@ -49,23 +59,24 @@ in-game layer, updates and **Repair**, drawn on the processor and on a graphics 
    wine openDMT3-win-Setup.exe
    ```
 
-The launcher looks for game folders in your Desktop, Downloads and Documents (Wine shows your own folders there), and
+The launcher looks for client data in your Desktop, Downloads and Documents (Wine shows your own folders there), and
 **Choose a folder...** takes any other. Two parts are Windows' own and do nothing under Wine: the desktop shortcut
 (Windows makes it through PowerShell) and playing when Windows starts. Not tried yet: a Linux desktop's own graphics
 driver and sound devices (the tests draw on Mesa and play to a silent device), and the Steam Deck.
 
 ## The first start
 
-The guide takes five steps, and everything in it can be changed later:
+Between **Install** and **PLAY**, the launcher opens on its first-start guide, where **DISC CHECK** is the step that
+finds your client data. Everything in it can be changed later:
 
 1. **POWER ON**: the language (at first the one Windows is shown in), and what you need.
-2. **DISC CHECK**: a card for each game folder and archive found on this PC, with its state (**READY**, **UNPACK**, or
-   **DOES NOT WORK HERE** with the one thing to do), what it holds, and its buttons. **Choose a folder...** and
-   **Choose an archive...** take one from anywhere, and **Unpack...** makes the game folder from an archive
-   ([The game's files](game-files.md) has every form and what each line means).
+2. **DISC CHECK**: a card for each folder and archive found on this PC that holds client data, with its state
+   (**READY**, **UNPACK**, or **DOES NOT WORK HERE** with the one thing to do), what it holds, and its buttons.
+   **Choose a folder...** and **Choose an archive...** take one from anywhere, and **Unpack...** unpacks the client
+   data from an archive ([The client data](client-data.md) has every form and what each line means).
 3. **SOUND CHECK**: full screen or a window, a mouse or a touch screen, the volumes.
 4. **LOG IN**: who plays: a player on this PC, a player on another server, or a guest offline (below).
-5. **STAGE START**: what PLAY makes in openDMT3's own folder. Your game folder stays as it is.
+5. **STAGE START**: what PLAY makes in openDMT3's own folder. Your client data stays as it is.
 
 ## Three ways to play
 
@@ -145,7 +156,7 @@ on the site, under **My account**: playing on this PC, **Play**, **My records** 
 | **Screen** | Full screen or a window and its size, vertical sync, frame pacing, the picture's shape, the FPS chip and its corner, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time |
 | **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), and the output device |
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen), and how each plays |
-| **Game** | The game folder and its client, the song list (its songs and jackets; **Save the song list...** and, signed in as a server's admin, **Send the song list to this server**), FREE PLAY, the hidden patterns |
+| **Game** | The client data in use, with its client, songs and jackets; the song list (**Save the song list...** and, signed in as a server's admin, **Send the song list to this server**); FREE PLAY; the hidden patterns |
 | **Online** | The way to play, the players on this PC, opening this PC's server to the other PCs on your network |
 | **Records** | The chosen player's numbers, the last 12 weeks, recent plays and best scores |
 | **Help** | The checks, what to do when the game closes by itself, putting the files back, a report for an issue, the launcher's log, Repair, Uninstall |
@@ -219,16 +230,16 @@ The game reports only the stages you clear, at the end of a session: a failed st
 On the PC that keeps the players, turn on **Online**, **Open this PC's server**. The page lists this PC's addresses on
 the network. On each other PC, choose **Another server**, type one of those addresses and sign in with a player made
 on the first PC. The server runs while that launcher is open. Windows may ask whether to allow it on private networks:
-allow it.
+allow it. To keep a server running without a launcher, see [Running a server](server.md).
 
 ## The song list for a server
 
 A server takes one thing from the game: the song list, which holds the jackets and the DJ cards too
-([what a server takes](game-files.md#what-a-server-takes)). **Game**, **Save the song list...** saves it from your
-game folder into one file, `openDMT3-song-list.zip` (about 13 MB), in the launcher's own Save dialog (on the desktop
+([what a server takes](client-data.md#what-a-server-takes)). **Game**, **Save the song list...** saves it from your
+client data into one file, `openDMT3-song-list.zip` (about 13 MB), in the launcher's own Save dialog (on the desktop
 unless you type another path); the server's admin uploads it on the site's **Admin**, **Song list**. Signed in to
 another server as its admin (**Online**, **Another server**), **Send the song list to this server** sends it there at
-once, asked first. The game folder is only read; the file is checked as a server takes it before it is saved.
+once, asked first. The client data is only read; the file is checked as a server takes it before it is saved.
 
 ## Without this window
 
@@ -250,23 +261,23 @@ package, the dialog says the whole update is downloading instead. The launcher p
 openDMT3 project, and checks it before any of it reaches the folder openDMT3 is installed in. The update waits while
 the game is open.
 
-## Your game folder stays as it is
+## Your client data stays as it is
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/pieces-dark.svg">
-    <img alt="Your TECHNIKA 3 game folder, with a PC client, is only read by the openDMT3 launcher on your Windows PC. The launcher finds it, sets the picture and the sound, puts your card in, and PLAY starts the game from a folder of openDMT3's own. The launcher signs in to a server for your card; the game logs in there by card and sends the stages you clear. The server is the site and its API on port 4730, the game server on port 4725 and one SQLite file of accounts and plays: the one inside the launcher, or one on any PC with Docker or Python" src="images/pieces-light.svg" width="100%">
+    <img alt="Your TECHNIKA 3 client data, with a PC client, is only read by the openDMT3 launcher on your Windows PC. The launcher finds it, sets the picture and the sound, puts your card in, and PLAY starts the game from a folder of openDMT3's own. The launcher signs in to a server for your card; the game logs in there by card and sends the stages you clear. The server is the site and its API on port 4730, the game server on port 4725 and one SQLite file of accounts and plays: the one inside the launcher, or one on any PC with Docker or Python" src="images/pieces-light.svg" width="100%">
   </picture>
 </p>
 
-PLAY only reads the game folder: openDMT3 keeps what it needs to play it in a folder of its own,
+PLAY only reads the client data: openDMT3 keeps what it needs to play it in a folder of its own,
 `%AppData%\openDMT3\game`, and gives the game those files in place of its own while it runs. What the game writes
-as it runs (its rankings, a crash dump) goes there too. So the game folder may be in Program Files, on a drive mounted
-read only, or on a disc.
+as it runs (its rankings, a crash dump) goes there too. So the client data may be in Program Files, on a drive
+mounted read only, or on a disc.
 
 | What | Why |
 | :--- | :--- |
-| A copy of the client, with the libraries it loads from the game folder | The copy fills the screen as a borderless window at any Windows scaling, reads the mouse at the right place, and may use 4 GB of memory addresses instead of 2 (a modified PC client gets only the 4 GB, without the screen fit, which is made for the PC client as released); the libraries beside it, so Windows loads the game's own and not another program's of the same name |
+| A copy of the client, with the libraries it loads from the client data | The copy fills the screen as a borderless window at any Windows scaling, reads the mouse at the right place, and may use 4 GB of memory addresses instead of 2 (a modified PC client gets only the 4 GB, without the screen fit, which is made for the PC client as released); the libraries beside it, so Windows loads the game's own and not another program's of the same name |
 | The settings file | No exclusive full screen (it fails on current drivers), your screen and sound choices |
 | The operator data (rankings, bookkeeping and the cabinet's settings) | FREE PLAY on: a PC has no coin slot. Taken once from the game: a copy of a cabinet's drives brings the cabinet's own; the rankings the game writes stay here |
 | The lists of the songs each stage offers | Shows the patterns the cabinet hid from guests (only with **Show hidden patterns** on) |
@@ -274,20 +285,20 @@ read only, or on a disc.
 | The card reader library, with the fonts its words use (Pretendard Bold and Regular, DMT3 Wide) and their licenses | Gives the game these files, lets the launcher put your card in, and adds the bar with the menu and the X, the question, the toast, the pointer, frame pacing, the upscale filter and anti-aliasing, the FPS chip and the sound device; offline it holds no card, so the game plays with **NO ID CARD** |
 | `openDMT3-card.txt` | The card number the launcher puts in while the game runs (not offline) |
 
-When the game folder's path has letters this Windows' language cannot give the game, or is too long for it, the
-launcher gives the game a short path to the same folder for that run: the folder's own short (8.3) name when the drive
-keeps one, else a link of the launcher's in a folder only you may use.
+When the path of the folder holding the client data has letters this Windows' language cannot give the game, or is
+too long for it, the launcher gives the game a short path to the same folder for that run: the folder's own short
+(8.3) name when the drive keeps one, else a link of the launcher's in a folder only you may use.
 
-An older openDMT3 changed the game folder itself and kept the originals in its `backup\`. Such a folder plays as it
-is: the launcher reads the originals from `backup\`. Its card says so, with **Put back...**, and **Help**, **Game
-files**, **Put back** puts every original back and removes the files the older openDMT3 added; the game then starts
-the way it did before openDMT3. It takes only paths inside the game folder from the list in `backup\`,
-so a game folder from someone else cannot make it touch anything outside.
+An older openDMT3 changed files of the client data itself and kept the originals in its `backup\` folder. Such client
+data plays as it is: the launcher reads the originals from `backup\`. Its card says so, with **Put back...**, and
+**Help**, **Game files**, **Put back** puts every original back and removes the files the older openDMT3 added; the
+game then starts the way it did before openDMT3. It takes only paths inside the client data's folder from the list in
+`backup\`, so client data from someone else cannot make it touch anything outside.
 
 **Help**, **Repair** compares the program's own files with the package the installer left in
 `%LocalAppData%\openDMT3\packages\` and puts back any that are missing or changed (a cleaner or an antivirus took one,
 a disk fault changed one), with no download. A file of the running launcher is moved aside and replaced; the launcher
-then says to open it again. Settings, players, records and the game folder are not touched.
+then says to open it again. Settings, players, records and the client data are not touched.
 
 ## Removing openDMT3
 
@@ -298,17 +309,17 @@ then says to open it again. Settings, players, records and the game folder are n
 
 Either way it:
 
-- puts back what an older openDMT3 changed in the game folder, as **Help**, **Game files**, **Put back** does, and
+- puts back what an older openDMT3 changed in the client data, as **Help**, **Game files**, **Put back** does, and
   takes its copies and its list out of `backup\`;
 - removes the desktop shortcut and playing when Windows starts;
 - says so in its last step and closes; the program is gone a few seconds later (the install folder and its line in
   Windows' Settings, Apps), with no window of its own.
 
 Removing openDMT3 in Windows' Settings, Apps does the same, except that it always keeps settings, players and records.
-While the game is open its files cannot change: a folder an older openDMT3 changed stays as it left it, and a note in
-the game folder's `backup\` (`README-openDMT3.txt`) says which originals to copy back.
+While the game is open its files cannot change: client data an older openDMT3 changed stays as it left it, and a note
+in its `backup\` folder (`README-openDMT3.txt`) says which originals to copy back.
 
-Originals that were in `backup\` before openDMT3 first changed the folder stay there, and so do the copies an older
+Originals that were in `backup\` before openDMT3 first changed the client data stay there, and so do the copies an older
 openDMT3 listed there without a mark: nothing can tell them apart from a copy kept by hand, so they are left for you
 to delete.
 
@@ -331,12 +342,12 @@ not know is said, with the list of the ones it does.
 | Command | Does |
 | :--- | :--- |
 | `--version` | Prints the launcher's version |
-| `--status` | Prints the game folder, how this PC plays, the language and the ready check (exit 0 when PLAY can go) |
-| `--find` | Lists the game folders and the archives holding one in the usual places, each with what its card says (an archive from the list of what is in it, its songs not counted) |
-| `--inspect PATH` | Says what a path is (a game folder, an archive, part of one, or nothing of the game's), as its card does; exit 0 when it can be used |
-| `--unpack ARCHIVE [--to FOLDER] [--yes]` | Unpacks the game folder from an archive, beside it unless `--to`, with its progress; the password comes from standard input when it has one |
+| `--status` | Prints the client data in use, how this PC plays, the language and the ready check (exit 0 when PLAY can go) |
+| `--find` | Lists the client data found in the usual places, in folders and in archives, each with what its card says (an archive from the list of what is in it, its songs not counted) |
+| `--inspect PATH` | Says what a path is (client data in a folder or in an archive, part of it, or nothing of the game's), as its card does; exit 0 when it can be used |
+| `--unpack ARCHIVE [--to FOLDER] [--yes]` | Unpacks the client data from an archive, beside it unless `--to`, with its progress; the password comes from standard input when it has one |
 | `--sound-devices` | Lists Windows' output devices with their GUIDs, the chosen one marked, as **Sound** offers them |
-| `--folder PATH` | Uses this game folder (or the one below it); an archive is unpacked first (beside it unless `--to FOLDER`) |
+| `--folder PATH` | Uses the client data in this folder (or up to four levels below it); an archive is unpacked first (beside it unless `--to FOLDER`) |
 | `--mode this_pc` / `server` / `offline` | Where logins and records are kept, as **Online** chooses |
 | `--server URL` | Connects to another server and plays on it from now on |
 | `--sign-in ID` | Signs in to that server; the password comes from standard input, or is asked for |

@@ -1,10 +1,11 @@
 """The words people read keep to the project's terms (the design of what openDMT3 takes from the game, its term table):
 the launcher's and the site's words, the errors' words, the site's pages, the server's lines for a path, the setup
 wizard, the command lines' help, the README and the guides in docs/ never say the words that misled before or name the
-game's files. The thing a server takes is "the song list" (it holds the jackets and the DJ cards too); the game's own
-files are "the game's files"; no "game data", "server files", "assets", "archive" for the game's own files, "disc
-pictures", a "song list file" or a game file's name. The one sentence allowed to say "game data" is the notice that
-openDMT3's software contains none.
+game's files. What a player brings is "the client data" (the game's PC client and its files, in a folder or in an
+archive; never the "game folder", which named one of its forms); the thing a server takes is "the song list" (it holds
+the jackets and the DJ cards too); the game's own files are "the game's files"; no "game data", "server files",
+"assets", "archive" for the game's own files, "disc pictures", a "song list file" or a game file's name. The one
+sentence allowed to say "game data" is the notice that openDMT3's software contains none.
 
 Code spans and code blocks in the guides are not prose (a path such as client/assets/ is a path), nor are comments and
 docstrings in the code (they are for people changing it). "layer" is the in-game layer in the guides for contributors;
@@ -49,7 +50,17 @@ BANNED = [
     # The game's own file names: never in a sentence a person reads.
     (r"\b(?:config|discinfo|discimg|script|icon|emblem)(?:\d\d)?\.pak\b", "the file with the song list, ..."),
     (r"\bdiscstock\.csv\b", "the song list"),
+] + [
+    # What a player brings is the client data (since 0.1.0's release: LATER): "game folder" named it by one of its two
+    # forms, and an archive is none. A folder is still a folder where a sentence is about a place on the disk.
+    (r"\bgame\s+folders?\b", "the client data (or the folder holding it, where the sentence is about the disk)"),
+    (r"게임\s*폴더", "클라이언트 데이터 (디스크의 자리를 말할 때는 클라이언트 데이터가 든 폴더)"),
 ]
+# The words banned after a release: that release's notes, as published, keep the words they were released with
+# (test_the_changelog checks them from the release after it on).
+LATER = BANNED[-2:]
+# The first release whose notes were published before LATER was banned: the changelog's sections from it down.
+BEFORE_LATER = "## [0.1.0]"
 # The concept words: never in a sentence a person reads, in either language.
 CONCEPT = [
     (r"\bfriends?\b", "players, or the other PCs"),
@@ -180,8 +191,13 @@ class WordsTest(unittest.TestCase):
         # Every release's notes, and the changes not released yet: each section is a release's notes on GitHub.
         with open(os.path.join(ROOT, "CHANGELOG.md"), encoding="utf-8") as f:
             text = f.read()
-        # Players read them: the layer in the game is said in their words, as on the launcher's pages.
-        self.check("CHANGELOG.md", [prose(text)], BANNED + CONCEPT + [LAYER])
+        # Players read them: the layer in the game is said in their words, as on the launcher's pages. The notes of a
+        # release published before a word was banned stay as published (LATER).
+        newer, mark, published = text.partition(BEFORE_LATER)
+        self.assertTrue(mark, "the changelog has no section %s" % BEFORE_LATER)
+        self.check("CHANGELOG.md", [prose(newer)], BANNED + CONCEPT + [LAYER])
+        self.check("CHANGELOG.md, as released", [prose(mark + published)],
+                   [rule for rule in BANNED if rule not in LATER] + CONCEPT + [LAYER])
 
     def test_every_word_asked_for_by_name_is_in_its_table(self):
         # A key that is not in the table is shown as the key itself ("status.fix_first" on a window): every key the
@@ -217,6 +233,11 @@ class WordsTest(unittest.TestCase):
         self.assertEqual([w for w, _ in found("A server for friends, for a Friend at home; 지인들과 집 안의 PC", CONCEPT)],
                          ["friends", "Friend", "at home", "지인", "집 안"])
         self.assertEqual(found("friendship, a cat home, 편집에서 고릅니다", CONCEPT), [])
+        # The client data's old name, in both languages and across a line's end; never a code name such as
+        # state.game_folder, nor a path in a code span.
+        self.assertEqual([w for w, _ in found("Your Game folder, the game\nfolders, 게임 폴더와 게임폴더", BANNED)],
+                         ["Game folder", "game\nfolders", "게임 폴더", "게임폴더"])
+        self.assertEqual(found("state.game_folder, no_game_folder, " + prose("`--game GAME_FOLDER`"), BANNED), [])
         self.assertEqual(prose("a `client/assets/fonts` path\n```\nassets\n```\n"), "a  path\n\n")
 
 

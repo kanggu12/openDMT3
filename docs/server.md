@@ -8,37 +8,64 @@ To the server, each game that connects is a cabinet, the arcade's name for the m
 launcher is one. The server knows each by the address it connects from, and the site's **Home** page and the
 **Admin**, **Cabinets** tab list them.
 
-You do not need one to play alone: the launcher has a server inside for that ([Playing on your PC](install.md)). Run
-one when others play from their own PCs.
+This guide is the server owner's. You do not need a server to play alone: the launcher has one inside for that
+([Playing on your PC](install.md), the player's guide). Run one when others play from their own PCs, in one of three
+ways, each the same server:
+
+| Way | Where it runs | For |
+| :--- | :--- | :--- |
+| [In the launcher](#in-the-launcher) | The launcher's own server on a Windows PC, while the launcher is open | The other PCs on that PC's network |
+| [With Docker](#with-docker) | Docker Compose with `./dmt3`, on Linux, macOS, or Windows in WSL 2 | A server that stays on, for every player who can reach it |
+| [With Python](#with-python) | Python 3.10 or newer on Linux, from a copy of this repository | The same, without Docker |
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/ways-to-host-dark.svg">
-    <img alt="Three ways to run a server, each the same server: in the launcher, by turning on Open this PC's server on its Online page, for the other PCs on its network while the launcher is open; with Docker Compose, ./dmt3 setup, a wizard in the terminal, on Linux, macOS or Windows in WSL 2; with Python 3.10 or newer on Linux, python -m opendmt3.server. Each way it is the game on port 4725, the site and its API on port 4730, one SQLite file and its backups in a data folder, and the song list read once from a game folder" src="images/ways-to-host-light.svg" width="100%">
+    <img alt="Three ways to run a server, each the same server: in the launcher, by turning on Open this PC's server on its Online page, for the other PCs on its network while the launcher is open; with Docker Compose, ./dmt3 setup, a wizard in the terminal, on Linux, macOS or Windows in WSL 2; with Python 3.10 or newer on Linux, python -m opendmt3.server. Each way it is the game on port 4725, the site and its API on port 4730, one SQLite file and its backups in a data folder, and the song list read once from the client data" src="images/ways-to-host-light.svg" width="100%">
   </picture>
 </p>
 
 ## What you need
 
-- A PC that stays on, with Docker (on Linux, on macOS, or on Windows in WSL 2, where `./dmt3` runs) or with Python
-  3.10 or newer (on Linux).
-- Your own game folder or an archive holding it on the server PC, or the song list the launcher saved from it
-  ([what a server takes](game-files.md#what-a-server-takes)). The server keeps only the song list.
+- A PC that stays on. With Docker: Docker with Compose v2, git and Python 3 (`./dmt3` is a Python script), on Linux,
+  on macOS, or on Windows in WSL 2. With Python: Python 3.10 or newer and git, on Linux. In the launcher: the launcher
+  on a Windows PC, nothing else.
+- Your own client data on the server PC, in a folder or an archive, or the song list the launcher saved from it
+  ([what a server takes](client-data.md#what-a-server-takes)). The server keeps only the song list.
 - The launcher's installer, `openDMT3-win-Setup.exe`, from the
   [releases](https://github.com/kanggu12/openDMT3/releases/latest), to hand out from the site.
 
+## In the launcher
+
+A PC that plays can be the server for the other PCs on its network, with nothing else to install.
+
+1. On that PC, add the players on the launcher's **Online** page (each an ID, a DJ name and a password), then turn on
+   **Open this PC's server**. The page lists this PC's addresses on the network, such as `http://192.168.0.5:4730`.
+2. On each other PC, in the launcher's **Online** page (or its first-start guide's **LOG IN**), choose **Another
+   server**, type one of those addresses, **Connect**, and sign in with a player made on the first PC.
+3. When Windows asks whether openDMT3 may use the network, allow it on private networks.
+
+The server runs while that launcher is open, and keeps its logins and records in
+`%AppData%\openDMT3\server\openDMT3.sqlite` on that PC, with a backup a day beside it. Its song list is read from
+that PC's own client data when the launcher opens, so the first PLAY does not wait for it. The other players open the
+same addresses in a browser for the site.
+[Playing on your PC](install.md#with-the-other-pcs-on-your-network) has the player's side.
+
 ## With Docker
 
-From a copy of this repository, `./dmt3` does it (plain Python 3, nothing to install):
+On Linux, macOS, or Windows in WSL 2. It needs Docker with Compose v2, git, and Python 3 (`./dmt3` is a Python script,
+with nothing to install):
 
 ```sh
+git clone https://github.com/kanggu12/openDMT3.git
+cd openDMT3
 ./dmt3 setup
 ```
 
 A wizard in the terminal, one question a page, each answer's meaning shown as you give it. Esc goes back a page,
 Enter on to the next:
 
-1. **Welcome**: what will happen, and what you need: Docker, and your own game folder, an archive holding it, or a
+1. **Welcome**: what will happen, and what you need: Docker, and your own client data (a folder or an archive), or a
    song list the launcher saved.
 2. **Docker and ports**: Docker, Compose and the ports 4725 and 4730, each problem with its fix (`r` checks again).
 3. **This server's address**: the addresses this PC has, and the site and game addresses the other PCs use at the one
@@ -46,12 +73,13 @@ Enter on to the next:
 4. **The first admin account**: its ID (1 to 8 letters or digits). A database that has accounts already makes none.
 5. **The admin's password**: typed twice, or left empty and made for you, shown once at the end.
 6. **The song list**: type or paste a path (Tab completes; a Windows path such as `C:\Games\...` works under WSL)
-   to your game folder (or a folder above it), an archive holding the game, or a song list the launcher saved, or
+   to your client data's folder (or a folder above it), an archive holding it, or a song list the launcher saved, or
    pick one found on the Desktop, in Downloads or Documents (Windows' too, under WSL) with Up and Down. It is looked
-   at as you type, and says its one line: `Game folder, original PC client, 177 songs: ready`, then the song list,
-   the jackets and the DJ cards. An archive with a password gets a box for it. Links inside a game folder are
-   followed: the folders they point into are mounted read-only too. Empty: none now.
-7. **The installer to hand out**: the one `./dmt3 build` left, a file, or none for now, with its version and size.
+   at as you type, and says its one line: `Client data in a folder, original PC client, 177 songs: ready`, then the
+   song list, the jackets and the DJ cards. An archive with a password gets a box for it. Links inside the client
+   data's folder are followed: the folders they point into are mounted read-only too. Empty: none now.
+7. **The installer to hand out**: the one `./dmt3 build` left, a file (an `openDMT3-win-Setup.exe` downloaded from the
+   [releases](https://github.com/kanggu12/openDMT3/releases/latest)), or none for now, with its version and size.
 8. **Confirm**: every answer on one page; a number goes back to change it.
 9. **Setting up**: the image, the data folder, the account, the song list, the jackets, the DJ cards, the installer,
    the server and the check, each on its own line.
@@ -61,7 +89,7 @@ A terminal that cannot draw the pages (`TERM=dumb`, a window smaller than 64 by 
 prompts. With options, or from a script, `setup` asks nothing:
 
 ```sh
-./dmt3 setup --game /path/to/game --installer openDMT3-win-Setup.exe
+./dmt3 setup --game /path/to/client/data --installer openDMT3-win-Setup.exe
 ```
 
 It does these, in order; run again, each one that is done already changes nothing:
@@ -71,7 +99,8 @@ It does these, in order; run again, each one that is done already changes nothin
 - builds the server's image and makes the data folder;
 - makes the first (owner's) account `BOSS` with the admin pages and prints its password (`--admin ID` for another
   ID, `--password` to give one; nothing is made when the database has accounts already);
-- imports the song list (`--game PATH`: a game folder, an archive holding one, or a song list the launcher saved);
+- imports the song list (`--game PATH`: the client data in a folder or an archive, or a song list the launcher
+  saved);
 - puts the installer on the site's **Download** page (without `--installer`, the one `./dmt3 build` left, when there
   is one);
 - starts the server (`--no-start` to leave it stopped).
@@ -80,24 +109,24 @@ Run it again with `--game`, `--installer` or `--address` for a new song list, a 
 
 ### The song list
 
-A server takes one thing from the game: the song list (titles, composers and levels), which holds the jackets and the
-DJ cards (their tables and pictures) too. Nothing else: no charts, music or videos, since every player has the whole
-game on their own PC. The jackets and the DJ cards are optional: without the jackets the songs show without them,
-without the DJ cards every DJ card keeps the basic icon and plate, and with no song list at all the site shows song
-numbers. Each part is one line when it is read; a part that is missing says what still works, and its details go to
-`catalog.log` in the data folder.
+A server takes one thing from the client data: the song list (titles, composers and levels), which holds the jackets
+and the DJ cards (their tables and pictures) too. Nothing else: no charts, music or videos, since every player has the
+whole game on their own PC. The jackets and the DJ cards are optional: without the jackets the songs show without
+them, without the DJ cards every DJ card keeps the basic icon and plate, and with no song list at all the site shows
+song numbers. Each part is one line when it is read; a part that is missing says what still works, and its details go
+to `catalog.log` in the data folder.
 
-It comes from any of these, by what it is, not by its name ([The game's files](game-files.md) has the forms and
+It comes from any of these, by what it is, not by its name ([The client data](client-data.md) has the forms and
 each line):
 
 | What | How it is read |
 | :--- | :--- |
-| Your game folder, at the path or up to four levels below it (a copy of a cabinet's drives included) | Where it is, read-only, each file as the game reads it; names in any letter case, as Windows reads them |
-| An archive holding the game (a split one by its first part; one inside another, two levels at most; one with a password) | Its entries listed first; only the files the server needs taken out into a folder of the reading's own, read there and removed |
-| A song list the launcher saved (**Game**, **Save the song list...**, or `--save-song-list`), or `./dmt3 catalog GAME --save FILE` made | Checked as an upload from anyone and taken in whole, or not at all |
+| Your client data in a folder, at the path or up to four levels below it (a copy of a cabinet's drives included) | Where it is, read-only, each file as the game reads it; names in any letter case, as Windows reads them |
+| Your client data in an archive (a split one by its first part; one inside another, two levels at most; one with a password) | Its entries listed first; only the files the server needs taken out into a folder of the reading's own, read there and removed |
+| A song list the launcher saved (**Game**, **Save the song list...**, or `--save-song-list`), or `./dmt3 catalog PATH --save FILE` made | Checked as an upload from anyone and taken in whole, or not at all |
 
-Whatever came in, the server keeps the same files, so a song list taken in gives byte for byte what reading its game
-folder gives. What comes in is untrusted:
+Whatever came in, the server keeps the same files, so a song list taken in gives byte for byte what reading its
+client data gives. What comes in is untrusted:
 
 - **An archive's entries** with an absolute path, a drive letter, `..`, a device name, a stream or a link are
   refused, and so is more than the free space holds. Its password is asked for at the terminal, passed to the
@@ -105,33 +134,33 @@ folder gives. What comes in is untrusted:
 - **A song list** holds only its own names and kinds, its sizes are capped, its tables' shapes checked, and every
   picture decoded and encoded again; nothing changes until all of it passed.
 
-After a game update, or from another PC's game:
+After a game update, or from another PC's client data:
 
 ```sh
-./dmt3 catalog /path/to/game                 # a game folder
-./dmt3 catalog ~/Downloads/technika.7z.001   # an archive, a split one by its first part
+./dmt3 catalog /path/to/client/data          # the client data in a folder
+./dmt3 catalog ~/Downloads/technika.7z.001   # in an archive, a split one by its first part
 ./dmt3 catalog openDMT3-song-list.zip        # a song list the launcher saved
-./dmt3 catalog /path/to/game --save .        # save a song list here, for a server elsewhere
+./dmt3 catalog /path/to/client/data --save . # save a song list here, for a server elsewhere
 ```
 
 It looks at the path first, as the wizard does, then imports it into the server's data folder; a running server shows
-the new list at once. The path is mounted read-only into a container that goes away, with the folders a game folder's
-links point into. That container runs as the server's own user, which owns the data folder, whenever that user can
-read the path (and write where `--save` writes). It runs as root only when it must (a folder only its owner may read,
-such as WSL's Windows drives), and then root only reads: the data folder (or the saved file's folder) is written by
-that folder's owner alone, never through a link left in it. The server's image has the official 7-Zip, with its
+the new list at once. The path is mounted read-only into a container that goes away, with the folders the client
+data's links point into. That container runs as the server's own user, which owns the data folder, whenever that user
+can read the path (and write where `--save` writes). It runs as root only when it must (a folder only its owner may
+read, such as WSL's Windows drives), and then root only reads: the data folder (or the saved file's folder) is written
+by that folder's owner alone, never through a link left in it. The server's image has the official 7-Zip, with its
 license.
 
 **Admin**, **Song list** is the site's page for it:
 
 - what the server takes and whether it has it, part by part;
-- **Found on the server PC**: the game's files the server sees (the game folder kept for it, and outside Docker its
-  user's Downloads, Desktop and Documents), each with its one line and **Import**, asked first;
+- **Found on the server PC**: the client data the server sees (the folder kept for it, and outside Docker its user's
+  Downloads, Desktop and Documents), each with its one line and **Import**, asked first;
 - **Another folder on the server PC**: a path box with its quick folders and a folder browser (in Docker, where the
   server sees only the folder kept for it, the page names `./dmt3 catalog PATH` instead);
 - **Upload a song list**, up to 64 MB.
 
-When the server's own user can read the game folder, the wizard (or `--keep-game`) keeps it mounted read-only
+When the server's own user can read the client data's folder, the wizard (or `--keep-game`) keeps it mounted read-only
 (`GAME_DIR`, and `GAME_LINKS` for the folder its links point into, in `.env` beside `compose.yaml`), so it is found
 there. **Admin**, **Status** has the **Song list** card: when each part was last read, how many there are, what is
 missing and why, and where it came from. The API's twins are `GET` and `POST /api/v1/server/song_list` and
@@ -147,9 +176,9 @@ missing and why, and where it came from. The API's twins are `GET` and `POST /ap
 | `./dmt3 backup`, `./dmt3 backups`, `./dmt3 restore NAME` | The server's `--backup`, `--backups` and `--restore NAME` ([Backups](#backups)) |
 | `./dmt3 add-player ID [--password P] [--dj NAME] [--admin]` | The server's `--add-player` ([Players](#players)) |
 | `./dmt3 check` | The site answers `/health` and the game's port takes a connection |
-| `./dmt3 catalog [PATH] [--save FILE]` | Imports the song list from a game folder, an archive holding one, or a song list ([The song list](#the-song-list); the folder kept mounted when not given); `--save` saves one instead |
+| `./dmt3 catalog [PATH] [--save FILE]` | Imports the song list from the client data in a folder or an archive, or from a song list ([The song list](#the-song-list); the folder kept mounted when not given); `--save` saves one instead |
 | `./dmt3 doctor` | Docker, the server's image, the two ports and the data folder, each problem with its fix |
-| `git pull`, then `./dmt3 up` | Updates the server: its image is built again from the new code, and the data stays |
+| `git pull`, then `./dmt3 up` | Updates the server: its image is built again from the new code, and the data stays ([Updating the server](#updating-the-server)) |
 
 The commands that reach the database run the server's own command line ([Command line](#command-line)) in its
 container: in the running one, or in a new one that goes away. The same with Docker Compose itself, from the top of
@@ -159,8 +188,8 @@ the repository:
 docker compose up -d --build
 # the first (owner's) account; its password is printed:
 docker compose run --rm server --add-player BOSS --admin
-# the song list, imported once from your own game folder, an archive holding it, or a song list:
-docker compose run --rm -v /path/to/game:/game:ro server --catalog /game --setup-only
+# the song list, imported once from your own client data (a folder or an archive) or a song list:
+docker compose run --rm -v /path/to/client/data:/game:ro server --catalog /game --setup-only
 # the installer for the site's Download page:
 docker compose cp openDMT3-win-Setup.exe server:/data/downloads/
 ```
@@ -168,21 +197,29 @@ docker compose cp openDMT3-win-Setup.exe server:/data/downloads/
 The data lives in a named volume (`opendmt3_data`), and the server runs as its own user, not root.
 
 After an update the **Download** page hands out the installer it had until `./dmt3 setup --installer FILE` puts the new
-one there; [Handing out updates](#handing-out-updates) has the files the players' launchers update from.
+one there ([Updating the server](#updating-the-server)); [Handing out updates](#handing-out-updates) has the files the
+players' launchers update from.
 
 ## With Python
 
-From a copy of this repository (the server runs from it; nothing installs `opendmt3` itself):
+On Linux, with Python 3.10 or newer and git. The server runs from a copy of this repository; nothing installs
+`opendmt3` itself. The song list is read once from your client data, before the first start (without it the site
+shows song numbers):
 
 ```sh
+git clone https://github.com/kanggu12/openDMT3.git
+cd openDMT3
 python3 -m venv .venv
 .venv/bin/pip install starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0 python-multipart==0.0.20 pillow==11.3.0
-.venv/bin/python -m opendmt3.server --data data --host 0.0.0.0 --catalog /path/to/game
+.venv/bin/python -m opendmt3.server --data data --catalog /path/to/your/client/data --setup-only
+.venv/bin/python -m opendmt3.server --data data --host 0.0.0.0
 ```
 
-On Debian and Ubuntu, `python3 -m venv` needs the `python3-venv` package. To read an archive, the server needs 7-Zip on
-that PC: the one `OPENDMT3_7ZIP` names, else the official 7-Zip's `7zz` (the only one that opens RAR5), else a `7z` or
-`7za` on the PATH. A game folder or a song list needs none.
+On Debian and Ubuntu, `python3 -m venv` needs the `python3-venv` package. The `--catalog` line takes the client data
+in a folder (or a folder above it), an archive holding it, or a song list the launcher saved, says each part in one
+line, and exits; run it again for a new song list. To read an archive, the server needs 7-Zip on that PC: the one
+`OPENDMT3_7ZIP` names, else the official 7-Zip's `7zz` (the only one that opens RAR5), else a `7z` or `7za` on the
+PATH. Client data in a folder, or a song list, needs none.
 
 Then open the site at the address the server prints (`site on ...`) on the server PC: while the server has no account,
 that page makes the first one, the owner's. On a server PC without a browser,
@@ -190,8 +227,7 @@ that page makes the first one, the owner's. On a server PC without a browser,
 Docker, use `--add-player` as above: there the site never sees a visit from the server PC.) Put
 `openDMT3-win-Setup.exe` in `data/downloads/` to hand it out.
 
-To update, stop the server, `git pull` in the copy of the repository, run the `pip install` line above again, and
-start the server again.
+To update, see [Updating the server](#updating-the-server).
 
 ## Players
 
@@ -279,6 +315,21 @@ server opens. It then joins the list as **Uploaded**, to restore as any other; a
 with the reason, and nothing of it stays. The API takes the file as the body of `POST /api/v1/backups/upload`
 ([api.md](api.md)). Each kind of backup keeps its newest seven.
 
+## Updating the server
+
+A release changes the server and the launcher together; the data folder stays as it is, and a newer server takes an
+older database forward on its first start (a copy of it is kept first).
+
+- **With Docker**: `git pull`, then `./dmt3 up`: the image is built again from the new code, and the data stays.
+  Then `./dmt3 setup --installer FILE` with the release's `openDMT3-win-Setup.exe`, so the **Download** page hands out
+  the new launcher.
+- **With Python**: stop the server, `git pull` in the copy of the repository, run the `pip install` line again, and
+  start the server again. Put the new `openDMT3-win-Setup.exe` in `data/downloads/`.
+- **In the launcher**: the launcher's own update (**Launcher**, **Check for updates**) updates its server too.
+
+The players' launchers update themselves: from the project's releases, or from this server when it hands the updates
+out (below).
+
 ## Handing out updates
 
 Put a release's update files, from its page in the [releases](https://github.com/kanggu12/openDMT3/releases), into
@@ -363,7 +414,7 @@ The cabinets' links never wait for the site's work:
 - **A restore or a reset of plays** from the **Backups** tab or the API holds the game server's writes and reads
   while it works, so no play is lost between the backup it makes first and the copy (or the deletion). The command
   line's `--restore` cannot hold them, so stop the server first for that one.
-- **Pictures.** Reading a song list from a game folder converts its pictures on up to 8 of the server's cores at
+- **Pictures.** Reading a song list from the client data converts its pictures on up to 8 of the server's cores at
   once, fewer when the server may use fewer (a container started with `--cpus 2` uses two).
 
 ## Without internet
@@ -404,9 +455,9 @@ openDMT3 makes these files readable by their owner only (on Linux and macOS).
 | `--host ADDRESS` | The address to listen on: `0.0.0.0` for other PCs (`127.0.0.1` by default) |
 | `--web-host ADDRESS` | The site's address to listen on, when not `--host`'s: `127.0.0.1` behind a proxy on the server PC |
 | `--port N`, `--web-port N` | The game's port (4725) and the site's (4730; 0 for no site) |
-| `--catalog PATH` | Imports the song list (with its jackets and the DJ cards) from a game folder, an archive holding one (`OPENDMT3_ARCHIVE_PASSWORD` for its password) or a song list, each part one line, then starts. Run as root on a data folder someone else owns, root only reads: the data folder is written as its owner |
+| `--catalog PATH` | Imports the song list (with its jackets and the DJ cards) from the client data in a folder or in an archive (`OPENDMT3_ARCHIVE_PASSWORD` for its password), or from a song list, each part one line, then starts. Run as root on a data folder someone else owns, root only reads: the data folder is written as its owner |
 | `--catalog PATH --save FILE` | Saves the song list from `PATH` into `FILE` (a folder: `openDMT3-song-list.zip` in it) instead, checked as a server takes it, and exits; the server's data is not touched |
-| `--game GAME_FOLDER` | The game folder the admin's **Song list** tab finds and imports again (`OPENDMT3_GAME`; in Docker, `GAME_DIR`) |
+| `--game FOLDER` | The folder holding the client data, which the admin's **Song list** tab finds and imports again (`OPENDMT3_GAME`; in Docker, `GAME_DIR`) |
 | `--site-address URL` | The site's address as the players reach it, for the message to send a player (`OPENDMT3_SITE_ADDRESS`; in Docker, `SITE_ADDRESS`); without it, the address the admin's browser used |
 | `--add-player ID [--password P] [--dj NAME] [--admin]` | Makes an account, prints it, and exits |
 | `--backup`, `--backups`, `--restore NAME` | Backs up now, lists the backups, puts the database back to one |

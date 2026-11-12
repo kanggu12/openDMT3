@@ -6,6 +6,15 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+### Changed
+
+- What you bring to play is called the client data: the game's PC client and its files, in a folder or in an
+  archive. The launcher, the site, the setup wizard and the guides say so in English and Korean, and each card on
+  DISC CHECK says whether it is client data in a folder or in an archive.
+- The README and the guides have one path for playing and one for running a server, each complete on its own: the
+  player's guide from the installer to PLAY, and the server guide with a server in the launcher, with Docker or with
+  Python, and how to update it. The client data guide says which client data plays, with what its card says.
+
 ## [0.1.0] - 2026-11-13
 
 ### Added

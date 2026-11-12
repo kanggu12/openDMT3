@@ -10,12 +10,12 @@ openDMT3 is an unofficial, non-commercial community project. It is not affiliate
 and TECHNIKA are trademarks of NEOWIZ, and the game is NEOWIZ's copyrighted work.
 
 openDMT3 is a launcher and a server. The repository and its releases contain none of the game's files: no game client,
-songs, charts, images, videos or sounds. The launcher works only with a game folder its owner provides, with a client
+songs, charts, images, videos or sounds. The launcher works only with client data its owner provides, with a client
 that runs on a PC, and only reads it: what it needs to play it is made in a folder of openDMT3's own. A server reads
 only the song list, which holds the jackets and the DJ cards too (no charts, music or videos), from its owner's own
-game folder, from an archive holding it, or from a song list openDMT3's own code made from that folder (the
+client data, in a folder or in an archive, or from a song list openDMT3's own code made from that client data (the
 launcher's **Save the song list...**); without it its pages show song numbers and no jackets
-([The game's files](game-files.md)).
+([The client data](client-data.md)).
 
 What the repository does hold is openDMT3's own code and what it takes to work with those files: the names of the game's
 files it reads, the shapes of the messages the game sends and of the replies it reads ([docs/protocol.md](protocol.md)),
@@ -52,14 +52,14 @@ linked from the site's footer, with openDMT3's own license and the fonts' in ful
 
 ## If you play
 
-- openDMT3 works with a game folder you provide; it does not come with one. Please use files you have the right to
+- openDMT3 works with client data you provide; it does not come with any. Please use files you have the right to
   use, within the rules that apply where you are.
 - For questions about a server, please ask the person who runs it.
 
 ## If you run a server
 
-- A server reads only the song list (with its jackets and the DJ cards) from your own game folder, an archive holding
-  it, or a song list openDMT3 made from it, and keeps it in its `data` folder.
+- A server reads only the song list (with its jackets and the DJ cards) from your own client data, in a folder or in
+  an archive, or from a song list openDMT3 made from it, and keeps it in its `data` folder.
 - Players get the launcher from your server's **Download** page, with the accounts you make on the admin pages.
 - If a rights holder asks you to take something down, please do so.
 

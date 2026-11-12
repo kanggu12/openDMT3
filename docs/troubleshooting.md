@@ -7,7 +7,8 @@ desktop for an issue, with your Windows user name, your sign-in and your card nu
 
 ## The installer
 
-- **Windows protected your PC**: the installer is not signed. **More info**, then **Run anyway**.
+- **Windows protected your PC**, for an installer downloaded with a browser: the installer is not signed. **More
+  info**, then **Run anyway**.
 - **Windows blocks it with no Run anyway**: Smart App Control is on ([Install](install.md#install), step 2).
 - **The game is open**: the installer does not go on while a game the launcher started is open. Finish it and close
   the game, then press **Try again**.
@@ -16,22 +17,25 @@ desktop for an issue, with your Windows user name, your sign-in and your card nu
 ## The launcher does not find the game
 
 - The guide looks up to four folders below the Desktop, Downloads, Documents and the top of each drive. Anywhere
-  else, **Choose a folder...** (the game folder, or any folder above it) or **Choose an archive...**.
+  else, **Choose a folder...** (the folder holding the client data, or any folder above it) or **Choose an
+  archive...**.
 - **The cabinet's client: does not work here, the PC client is needed.** The folder has only the cabinet's client,
   which needs the cabinet's security keys.
 - **The file with the tutorial is missing**, or **the file with the charts**: the game stops when the tutorial, or a
-  song, starts. Copy the game folder again, or unpack the archive again. Without the videos or the previews the game
+  song, starts. Copy the client data again, or unpack the archive again. Without the videos or the previews the game
   plays: songs without their videos, the song select without previews.
 - **Songs have no charts**: the card says how many of the songs the game offers have none, in any of its modes (a song
   no mode offers is never shown, so the card counts it nowhere); the game stops if one of them starts. When it is the
-  first song the game shows, the folder does not play here. Copy the game folder again, or unpack the archive again.
+  first song the game shows, the client data does not play here. Copy the client data again, or unpack the archive
+  again.
 
-[The game's files](game-files.md#what-a-card-says) has the lines a card says, each with the one thing to do.
+[The client data](client-data.md#what-a-card-says) has the lines a card says, each with the one thing to do, and
+[which client data plays](client-data.md#which-client-data).
 
 ## PLAY does not start the game
 
 - **The game is open**: close it first. The launcher makes its copies for the game only while the game is closed.
-- **Choose the game folder first**, or a red line in the ready check on **Play**: the line says what to fix, with a
+- **Choose the client data first**, or a red line in the ready check on **Play**: the line says what to fix, with a
   way to its page.
 - **Cannot reach** a server: playing on another server, the launcher asks it for your card at every PLAY. Check that
   the server is running and its address on **Online**; or choose **Offline** to play without it.
@@ -117,15 +121,15 @@ address; `./dmt3 logs` shows the server's log.
   first of them. Any address can sign in 20 times a minute, right or wrong. Behind a proxy, start the server with
   `--proxy` and the proxy's own address, so the server tells visitors apart.
 - **The song list was not imported**: the import says its one line
-  ([The game's files](game-files.md#what-a-card-says)); the details of a part that could not be read are in
+  ([The client data](client-data.md#what-a-card-says)); the details of a part that could not be read are in
   `catalog.log` in the data folder.
 
 ## Putting everything back
 
-PLAY changes nothing in the game folder. A folder an older openDMT3 changed: **Help**, **Game files**, **Put back**
-(or `openDMT3-cmd.exe --put-back`) puts every original back from the game folder's `backup\` and removes the
-files the older openDMT3 added. **Help**, **Uninstall** does the same, then takes openDMT3 off this PC
+PLAY changes nothing in the client data. Client data an older openDMT3 changed: **Help**, **Game files**, **Put back**
+(or `openDMT3-cmd.exe --put-back`) puts every original back from its `backup\` folder and removes the files the older
+openDMT3 added. **Help**, **Uninstall** does the same, then takes openDMT3 off this PC
 ([Removing openDMT3](install.md#removing-opendmt3)).
 
 If openDMT3 was removed while the game was open, the note it left in `backup\` (`README-openDMT3.txt`) names each
-file to copy back over the one in the game folder, and each file to delete.
+file to copy back over the one in the client data, and each file to delete.
