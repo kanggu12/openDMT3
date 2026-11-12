@@ -13,7 +13,7 @@
                                        uninstall openDMT3 from this PC; the game files an older openDMT3 changed
                                        go back first (--delete-data: its settings, players and records too)
   openDMT3.exe --status                print the folder, how this PC plays, the language, the sound (its device,
-                                       low latency and the steps the last game's sound went in) and the ready
+                                       mixer, low latency and the steps the last game's sound went in) and the ready
                                        check
   openDMT3.exe --find                  list the client data found in the usual places, in folders and in
                                        archives, each with what it is, as the first-start guide's cards say it
@@ -612,6 +612,8 @@ def parse(argv):
                         + ", fps_position " + "|".join(choices.FPS_POSITIONS)
                         # The picture's shape: the game's own kept (the default) or the window filled.
                         + ", picture_shape " + "|".join(choices.PICTURE_SHAPES)
+                        # The size the game draws at: its own 1280x768 (the default) or the screen's.
+                        + ", render_size " + "|".join(choices.RENDER_SIZES)
                         # The Sound page's Mixer, by the layer's names.
                         + ", sound_path " + "|".join(choices.SOUND_PATHS)
                         # Motion clarity's names, as the Screen page offers them on a screen at a multiple of 60 Hz.

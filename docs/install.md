@@ -206,6 +206,16 @@ is read as late as the frame's own work allows.
 - **Position** (**Screen**, shown while **Show FPS** is on): the chip's corner, **Bottom right** by default (above the
   game's FREE PLAY, where it covers none of the game's own labels); **Top left**, **Top right** or **Bottom left** can
   be chosen instead.
+- **Motion clarity** (**Screen**, shown when the main screen runs at a whole multiple of 60 Hz from 120 up, such as
+  120, 180 or 240 Hz, off by default): each frame is shown over its refreshes as a CRT showed it. **CRT beam** lights
+  the picture row by row from the top down, as a CRT's beam did, so its lower rows show later in the frame (the bottom
+  about 12.5 ms after the top at 240 Hz); **Black frames** lights the whole of it at once for a part of the frame. Each
+  pixel stays lit for less of the frame the darker it is, so moving notes smear less, and the picture keeps
+  less of its light (half at 120 Hz, 70 % from 240 Hz). It needs VSync on.
+- **Flip model** (**Screen**, **Advanced**, off by default): in full screen, each frame is handed to Windows instead
+  of copied into its own surface (Direct3D 9Ex), the way Windows can show a game as in exclusive full screen and a
+  display's variable refresh rate (G-SYNC, FreeSync) can follow the frames.
+
 - **Device** (**Sound**): **Windows' default output** (the default), or one of Windows' output devices by name. When
   the chosen device is not connected, the game plays on Windows' default output, and the page says so.
 - **Mixer** (**Sound**): who mixes the game's sounds. **DirectSound** (the default) is Windows' own, as the game was
@@ -215,23 +225,13 @@ is read as late as the frame's own work allows.
   page says so.
 - **Low latency** (**Sound**, on by default; while **Exclusive** has the device, the game's sound does not go through
   Windows' mixing and this does not apply): while the game runs, Windows mixes that device's sound in the shortest
-  steps its driver allows: 2.7 ms on many devices, where 10 ms is usual. Every program playing on the device goes in
+  steps its driver allows: 2.7 ms with Windows' own audio driver, where 10 ms is usual. Every program playing on the device goes in
   those steps too, until the game closes. After a game, the row says the steps its sound went in on the device chosen
   now; a driver that allows nothing shorter keeps its 10 ms.
 - **Audio offset** (**Sound**, 0 ms by default, up to 500): with **Locked to the music**, a song's notes and their
   judging are held this many milliseconds behind its music, for a device that plays late, such as Bluetooth
   headphones or a TV's speakers over HDMI. The frames reach a new offset over the first second or two of a song,
   running a little slower until then.
-- **Motion clarity** (**Screen**, shown when the main screen runs at a whole multiple of 60 Hz from 120 up, such as
-  120, 180 or 240 Hz, off by default): each frame is shown over its refreshes as a CRT showed it. **CRT beam** lights
-  the picture row by row from the top down, as a CRT's beam did, so its lower rows show later in the frame (the bottom
-  about 12.5 ms after the top at 240 Hz); **Black frames** lights the whole of it at once for a part of the frame. Each
-  pixel stays lit for less of the frame the darker it is, so moving notes smear less, and the picture has less light
-  (half at 120 Hz, 70 % from 240 Hz). It needs VSync on.
-- **Flip model** (**Screen**, **Advanced**, off by default): in full screen, each frame is handed to Windows instead
-  of copied into its own surface (Direct3D 9Ex), the way Windows can show a game as in exclusive full screen and a
-  display's variable refresh rate (G-SYNC, FreeSync) can follow the frames.
-
 When the upscale filter or the anti-aliasing chosen makes frames late on this PC's graphics card, the game steps it
 down one step at a time (SMAA to FXAA to off, then AMD FSR 1, NVIDIA NIS or Anime4K to Smooth) for the rest of the
 run, says so in a toast at the top of the game, and the launcher's log says which step it took.

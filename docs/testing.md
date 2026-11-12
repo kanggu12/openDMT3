@@ -176,7 +176,7 @@ music.**
   chain and layer work timed whole; eight turns of 4 s with the chip and without, five with the bar, five with the
   question): the chip's median turn under 0.2 ms, the others' said (`ingame/costs.py turns`).
 - Those options reach the layer and are run by its post-process chain: the frame presented is the chain's, FSR 1
-  differs from bilinear on the same frame, and the screen shows the chain's output where the game holds still
+  and Anime4K differ from bilinear on the same frame, and the screen shows the chain's output where the game holds still
   (`ingame/picture.py`).
 - The game's sound goes through DSOAL and OpenAL Soft, which PLAY put beside the library; when the game closes the
   launcher's log says OpenAL Soft mixed it, and the game's exit code is 0.

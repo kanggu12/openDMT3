@@ -2192,7 +2192,8 @@ def main():
                                               "hr": "0x88780078"}}
     for mixer, name in (("directsound", "_sound-last-game"), ("openal", "_sound-mixer-fell-back"),
                         ("openal-exclusive", "_sound-exclusive")):
-        # Exclusive has no Low latency row: the shared engine is not on its way.
+        # Each mixer with the last game's lines; Low latency's row stays for every mixer (with Exclusive it does not
+        # apply, as its hint says).
         app.state.set_value("sound_path", mixer)
         app.go("sound")
         settle(app)

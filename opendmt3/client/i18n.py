@@ -139,7 +139,7 @@ TEXT = {
     "screen.render.game": ("1280×768", "1280×768"),
     "screen.render.display": ("Screen size", "화면 크기"),
     "screen.render.hint.game": ("The game draws its own 1280×768 picture and the upscale filter enlarges it.",
-                                "게임이 제 1280×768 화면을 그리고 확대 필터가 키웁니다."),
+                                "게임이 원래 크기인 1280×768로 그리고, 확대 필터로 화면에 맞춰 키웁니다."),
     "screen.render.hint.display": ("The game draws at the screen's size: the edges of its art, and all it moves or "
                                    "scales, are drawn in the screen's own pixels. The upscale filter is not used.",
                                    "게임이 화면 크기로 그립니다. 그림의 가장자리와 움직이거나 커지는 것이 화면의 화소 "
@@ -153,7 +153,7 @@ TEXT = {
     "screen.upscale.hint": ("How the game's 1280×768 picture is enlarged to the window: sharp bilinear, bilinear, "
                             "AMD FSR 1, NVIDIA NIS or Anime4K, a small neural network made for drawn art.",
                             "게임의 1280×768 화면을 창 크기로 확대하는 방식입니다. 선명한 쌍선형, 쌍선형, AMD FSR 1, NVIDIA NIS, "
-                            "그림체용 작은 신경망인 Anime4K 중에서 고릅니다."),
+                            "그림에 맞춘 작은 신경망인 Anime4K 중에서 고릅니다."),
     "screen.sharpness": ("Sharpness", "선명도"),
     "screen.sharpness.hint": ("How much AMD FSR 1 and NVIDIA NIS sharpen, from 0 to 100.",
                               "AMD FSR 1과 NVIDIA NIS가 게임 화면을 얼마나 선명하게 할지 0~100으로 고릅니다."),
@@ -213,7 +213,7 @@ TEXT = {
                          "device to itself, so no other program plays on it while the game runs, and Low latency "
                          "does not apply. When OpenAL Soft cannot open the device, DirectSound plays.",
                          "게임 소리를 누가 섞을지 고릅니다. DirectSound는 게임이 만들어진 대로 Windows가 섞습니다. "
-                         "OpenAL Soft는 직접 섞어 더 짧은 길로 장치에 보냅니다. 단독은 OpenAL Soft가 장치를 혼자 써서, "
+                         "OpenAL Soft는 직접 섞어 더 짧은 경로로 장치에 보냅니다. 단독은 OpenAL Soft가 장치를 혼자 써서, "
                          "게임이 켜져 있는 동안 다른 프로그램은 그 장치로 소리를 내지 못하고 저지연은 쓰이지 않습니다. "
                          "OpenAL Soft가 장치를 열지 못하면 DirectSound로 소리를 냅니다."),
     "sound.mixer.fell_back": ("In the last game, OpenAL Soft could not open the device, so DirectSound played.",
@@ -224,10 +224,10 @@ TEXT = {
                                "도움말 페이지의 복구로 고치세요."),
     "sound.low_latency": ("Low latency", "저지연"),
     "sound.low_latency.hint": ("While the game runs, Windows mixes this device's sound in the shortest steps its "
-                               "driver allows: 2.7 ms on many devices, where 10 ms is usual. Every program playing on "
-                               "it goes in those steps too.",
+                               "driver allows: 2.7 ms with Windows' own audio driver, where 10 ms is usual. Every "
+                               "program playing on it goes in those steps too.",
                                "게임이 켜져 있는 동안 Windows가 이 장치의 소리를 드라이버가 허락하는 가장 짧은 단위로 "
-                               "섞습니다. 보통 10 ms인데 많은 장치에서 2.7 ms가 됩니다. 이 장치로 소리를 내는 다른 "
+                               "섞습니다. 보통 10 ms인데 Windows 기본 오디오 드라이버에서는 2.7 ms가 됩니다. 이 장치로 소리를 내는 다른 "
                                "프로그램도 같은 단위로 섞입니다."),
     "sound.low_latency.held": ("In the last game, this device's sound went in {ms} ms steps ({usual} ms without this).",
                                "지난 게임에서는 이 장치의 소리를 {ms} ms 단위로 섞었습니다(끄면 {usual} ms)."),

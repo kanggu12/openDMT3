@@ -162,8 +162,8 @@ and when frames come late anyway they step down by themselves.
 
 ### Sound with less delay
 
-While the game runs, Windows mixes its sound device in the shortest steps the device's driver allows: 2.7 ms on many
-devices, where 10 ms is usual ([how](docs/architecture.md#the-sound-engines-period)). The game's sounds can also be
+While the game runs, Windows mixes its sound device in the shortest steps the device's driver allows: 2.7 ms with
+Windows' own audio driver, where 10 ms is usual ([how](docs/architecture.md#the-sound-engines-period)). The game's sounds can also be
 mixed by OpenAL Soft through DSOAL, on a shorter way to the device: under Wine, from a sound's start to its sound
 out, 12 to 16 ms against DirectSound's 44 ([measured](docs/architecture.md#the-mixer)). For headphones or a TV that
 play late, an audio offset holds a song's notes and their judging behind its music.
@@ -188,8 +188,8 @@ logins with the DJ card, the stages a player clears (song, pattern, score) and t
 with its rankings, song and DJ pages and its admin pages, and the server in Docker. It is checked with the game's own
 PC client under Wine, from the installer to a whole song, on one PC and across two machines.
 
-Experiments, off by default: motion clarity on a display at 120 Hz or more (each frame shown as a CRT's rolling beam
-or with black frames between, from the Blur Busters CRT beam simulator), and the flip model (Direct3D 9Ex's flip
+Experiments, off by default: motion clarity on a display at 120, 180 or 240 Hz (each frame shown as a CRT's rolling
+beam or with black frames between, from the Blur Busters CRT beam simulator), and the flip model (Direct3D 9Ex's flip
 swap chain, the way to Windows' independent flip and a variable refresh rate). How they look and what they save is
 for real displays to say.
 

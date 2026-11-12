@@ -363,8 +363,10 @@ def gather(dist, repo, modules, installed=None, owners=None, python_root=None, k
     if os.path.isfile(os.path.join(cabinet, "CRT_R1.dll")):
         # Beside the library in the program, and beside it wherever the launcher puts it (core/cabinet/native.py).
         notes.row("openDMT3's card reader library (CRT_R1.dll), with AMD FidelityFX Super Resolution 1, NVIDIA Image "
-                  "Scaling, SMAA and FXAA 3.11 in it, and the runtime its compiler links in",
-                  "MIT (openDMT3, FSR 1, NIS, SMAA); NVIDIA's notice (FXAA 3.11); the mingw-w64 runtime's licences; "
+                  "Scaling, Anime4K, SMAA, FXAA 3.11 and the Blur Busters CRT beam simulator in it, and the runtime "
+                  "its compiler links in",
+                  "MIT (openDMT3, FSR 1, NIS, Anime4K, SMAA, the CRT beam simulator); NVIDIA's notice (FXAA 3.11); "
+                  "the mingw-w64 runtime's licences; "
                   "GPL 3 with the GCC Runtime Library Exception (libgcc)",
                   [notes.copy("card-reader-NOTICES.txt", os.path.join(cabinet, "card-reader-NOTICES.txt"))])
     if any(os.path.isfile(os.path.join(cabinet, name)) for name in ("openDMT3-dsoal.dll", "dsoal-aldrv.dll")):

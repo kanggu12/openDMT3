@@ -85,7 +85,8 @@ LICENCE_PARTS = (
     ("Python 3.12", "licenses.use.python", "licenses.lic.python"),
     ("7-Zip 25.01", "licenses.use.7zip", "licenses.lic.7zip"),
     ("Tcl/Tk, Velopack, PyInstaller", "licenses.use.launcher", "licenses.lic.launcher"),
-    ("AMD FidelityFX Super Resolution 1, NVIDIA Image Scaling, SMAA, FXAA 3.11", "licenses.use.passes",
+    ("AMD FidelityFX Super Resolution 1, NVIDIA Image Scaling, Anime4K, SMAA, FXAA 3.11, Blur Busters CRT beam "
+     "simulator", "licenses.use.passes",
      "licenses.lic.passes"),
     ("mingw-w64, GCC", "licenses.use.runtime", "licenses.lic.runtime"),
     ("DSOAL, OpenAL Soft 1.25.2", "licenses.use.mixer", "licenses.lic.mixer"),

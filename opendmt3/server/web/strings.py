@@ -507,8 +507,9 @@ TEXT = {
                           "게임이 든 압축 파일 열기(서버와 런처)"),
     "licenses.use.launcher": ("The launcher for Windows the Download page hands out: its window, its installer and "
                               "its updates", "다운로드 페이지가 주는 Windows용 런처의 창, 설치 파일, 업데이트"),
-    "licenses.use.passes": ("The launcher's card reader library: the upscale filters and anti-aliasing in the game",
-                            "런처의 카드 리더 라이브러리: 게임 화면의 확대 필터와 안티에일리어싱"),
+    "licenses.use.passes": ("The launcher's card reader library: the upscale filters, anti-aliasing and motion "
+                            "clarity in the game",
+                            "런처의 카드 리더 라이브러리: 게임 화면의 확대 필터, 안티에일리어싱, 잔상 줄이기"),
     "licenses.use.runtime": ("Built into the card reader library by its compiler",
                              "컴파일러가 카드 리더 라이브러리에 넣는 런타임"),
     "licenses.use.mixer": ("The launcher's OpenAL Soft mixer for the game's sound, beside the card reader library",
@@ -532,15 +533,15 @@ TEXT = {
     "licenses.lic.launcher": ("Tcl/Tk license (BSD-style), MIT (Velopack), GPL 2 with the Bootloader Exception "
                               "(PyInstaller)", "Tcl/Tk 라이선스(BSD 계열), MIT(Velopack), GPL 2와 Bootloader "
                               "Exception(PyInstaller)"),
-    "licenses.lic.passes": ("MIT (FSR 1, NIS, SMAA), NVIDIA's notice (FXAA 3.11)",
-                            "MIT(FSR 1, NIS, SMAA), NVIDIA의 고지(FXAA 3.11)"),
+    "licenses.lic.passes": ("MIT (FSR 1, NIS, Anime4K, SMAA, the CRT beam simulator), NVIDIA's notice (FXAA 3.11)",
+                            "MIT(FSR 1, NIS, Anime4K, SMAA, CRT 빔 시뮬레이터), NVIDIA의 고지(FXAA 3.11)"),
     "licenses.lic.runtime": ("ZPL 2.1 and other permissive licenses (mingw-w64), GPL 3 with the GCC Runtime Library "
                              "Exception (GCC)", "ZPL 2.1과 그 밖의 허용 라이선스(mingw-w64), GPL 3와 GCC Runtime "
                              "Library Exception(GCC)"),
     "licenses.lic.mixer": ("GNU LGPL 2.1 or later (DSOAL), GNU LGPL 2 or later (OpenAL Soft), with BSD 3-Clause, "
                            "PFFFT's and MIT licenses for some code; each release carries their source",
                            "GNU LGPL 2.1 이상(DSOAL), GNU LGPL 2 이상(OpenAL Soft), 일부 코드는 BSD 3-Clause, PFFFT, "
-                           "MIT 라이선스. 릴리스마다 원천을 함께 둠"),
+                           "MIT 라이선스. 릴리스마다 소스 코드를 함께 둠"),
     "licenses.lic.system": ("Each its own: GPL, LGPL, BSD, MIT and others", "패키지마다 다름: GPL, LGPL, BSD, MIT 등"),
     "licenses.lic.fonts": ("SIL Open Font License 1.1", "SIL Open Font License 1.1"),
     "licenses.texts": ("The launcher carries every full text in its program's licenses folder, with NOTICES.txt "
