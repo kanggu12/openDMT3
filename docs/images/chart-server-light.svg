@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-24 -24 1008 388" width="1008" height="388" font-family="Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 'Malgun Gothic', Helvetica, Arial, sans-serif" role="img" aria-label="64 cabinets and 20 visitors that never pause, for three minutes, on a history of 300,000 plays, before and after the server's work: A cabinet's keep-alive, median 7,802 milliseconds before, 6.8 after; A card login, median 6,363 milliseconds before, 136 after; A page of the site, median 7,714 milliseconds before, 235 after; A page of the site, 95th percentile 10,816 milliseconds before, 745 after. Pages answered in the three minutes: 500 before, 12,103 after. The server held 91 MB of memory.">
+<rect x="-24" y="-24" width="1008" height="388" fill="#f3f5f8"/>
+<text x="0" y="18" font-size="19" font-weight="700" fill="#0b0e12" text-anchor="start" data-box="0,960">64 cabinets and 20 visitors at once</text>
+<text x="0" y="42" font-size="13" fill="#47515d" text-anchor="start" data-box="0,960">How long each waited, before and after the server's work. Closer to the left is better.</text>
+<path d="M300.0,70 V236" stroke="#dfe3e8" stroke-width="1"/>
+<text x="300" y="252" font-size="11.5" fill="#47515d" text-anchor="middle" data-box="260,340">1 ms</text>
+<path d="M425.6,70 V236" stroke="#dfe3e8" stroke-width="1"/>
+<text x="425.551" y="252" font-size="11.5" fill="#47515d" text-anchor="middle" data-box="385.551,465.551">10 ms</text>
+<path d="M551.1,70 V236" stroke="#dfe3e8" stroke-width="1"/>
+<text x="551.103" y="252" font-size="11.5" fill="#47515d" text-anchor="middle" data-box="511.103,591.103">100 ms</text>
+<path d="M676.7,70 V236" stroke="#dfe3e8" stroke-width="1"/>
+<text x="676.654" y="252" font-size="11.5" fill="#47515d" text-anchor="middle" data-box="636.654,716.654">1 s</text>
+<path d="M802.2,70 V236" stroke="#dfe3e8" stroke-width="1"/>
+<text x="802.205" y="252" font-size="11.5" fill="#47515d" text-anchor="middle" data-box="762.205,842.205">10 s</text>
+<text x="960" y="62" font-size="11.5" fill="#47515d" text-anchor="end" data-box="880,961">faster</text>
+<text x="0" y="100.5" font-size="13" fill="#0b0e12" text-anchor="start" data-box="0,288">A cabinet's keep-alive, median</text>
+<path d="M404.5,96.0 H788.7" stroke="#dfe3e8" stroke-width="2"/>
+<circle cx="788.7" cy="96.0" r="5.5" fill="#7a8592" stroke="#f3f5f8" stroke-width="2"/>
+<circle cx="404.5" cy="96.0" r="5.5" fill="#2a5ff0" stroke="#f3f5f8" stroke-width="2"/>
+<text x="393.523" y="100.5" font-size="12" font-weight="600" fill="#0b0e12" text-anchor="end" data-box="294,404.523">6.8 ms</text>
+<text x="799.672" y="100.5" font-size="12" fill="#47515d" text-anchor="start" data-box="788.672,912">7.8 s</text>
+<text x="960" y="100.5" font-size="13.5" font-weight="700" fill="#0b0e12" text-anchor="end" data-box="900,961">1,147x</text>
+<text x="0" y="140.5" font-size="13" fill="#0b0e12" text-anchor="start" data-box="0,288">A card login, median</text>
+<path d="M567.9,136.0 H777.6" stroke="#dfe3e8" stroke-width="2"/>
+<circle cx="777.6" cy="136.0" r="5.5" fill="#7a8592" stroke="#f3f5f8" stroke-width="2"/>
+<circle cx="567.9" cy="136.0" r="5.5" fill="#2a5ff0" stroke="#f3f5f8" stroke-width="2"/>
+<text x="556.869" y="140.5" font-size="12" font-weight="600" fill="#0b0e12" text-anchor="end" data-box="294,567.869">136 ms</text>
+<text x="788.555" y="140.5" font-size="12" fill="#47515d" text-anchor="start" data-box="777.555,912">6.4 s</text>
+<text x="960" y="140.5" font-size="13.5" font-weight="700" fill="#0b0e12" text-anchor="end" data-box="900,961">47x</text>
+<text x="0" y="180.5" font-size="13" fill="#0b0e12" text-anchor="start" data-box="0,288">A page of the site, median</text>
+<path d="M597.7,176.0 H788.1" stroke="#dfe3e8" stroke-width="2"/>
+<circle cx="788.1" cy="176.0" r="5.5" fill="#7a8592" stroke="#f3f5f8" stroke-width="2"/>
+<circle cx="597.7" cy="176.0" r="5.5" fill="#2a5ff0" stroke="#f3f5f8" stroke-width="2"/>
+<text x="586.691" y="180.5" font-size="12" font-weight="600" fill="#0b0e12" text-anchor="end" data-box="294,597.691">235 ms</text>
+<text x="799.053" y="180.5" font-size="12" fill="#47515d" text-anchor="start" data-box="788.053,912">7.7 s</text>
+<text x="960" y="180.5" font-size="13.5" font-weight="700" fill="#0b0e12" text-anchor="end" data-box="900,961">33x</text>
+<text x="0" y="220.5" font-size="13" fill="#0b0e12" text-anchor="start" data-box="0,288">A page of the site, 95th percentile</text>
+<path d="M660.6,216.0 H806.5" stroke="#dfe3e8" stroke-width="2"/>
+<circle cx="806.5" cy="216.0" r="5.5" fill="#7a8592" stroke="#f3f5f8" stroke-width="2"/>
+<circle cx="660.6" cy="216.0" r="5.5" fill="#2a5ff0" stroke="#f3f5f8" stroke-width="2"/>
+<text x="649.603" y="220.5" font-size="12" font-weight="600" fill="#0b0e12" text-anchor="end" data-box="294,660.603">745 ms</text>
+<text x="817.482" y="220.5" font-size="12" fill="#47515d" text-anchor="start" data-box="806.482,912">10.8 s</text>
+<text x="960" y="220.5" font-size="13.5" font-weight="700" fill="#0b0e12" text-anchor="end" data-box="900,961">15x</text>
+<circle cx="5.0" cy="276.0" r="5" fill="#7a8592" stroke="#f3f5f8" stroke-width="2"/>
+<text x="18" y="280" font-size="12" fill="#47515d" text-anchor="start" data-box="18,70">before</text>
+<circle cx="89.0" cy="276.0" r="5" fill="#2a5ff0" stroke="#f3f5f8" stroke-width="2"/>
+<text x="102" y="280" font-size="12" fill="#47515d" text-anchor="start" data-box="102,154">after</text>
+<text x="960" y="280" font-size="12" fill="#47515d" text-anchor="end" data-box="200,961">Pages answered in the three minutes: 500 before, 12,103 after. Memory: 91 MB.</text>
+<text x="0" y="306" font-size="11.5" fill="#47515d" text-anchor="start" data-box="0,960">A made-up history of 300,000 plays and 1,000 players; the median of three runs or more on a busy 32-core PC (tests/e2e/load).</text>
+<text x="0" y="324" font-size="11.5" fill="#47515d" text-anchor="start" data-box="0,960">docs/architecture.md, Performance.</text>
+</svg>

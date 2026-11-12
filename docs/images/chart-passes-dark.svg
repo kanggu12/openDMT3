@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-24 -24 1008 462" width="1008" height="462" font-family="Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 'Malgun Gothic', Helvetica, Arial, sans-serif" role="img" aria-label="The picture's passes on the graphics card, each choice's time a frame at 1920x1080 and at 3840x2160, of the 16.7 milliseconds a frame has at 60 a second: Off (sharp bilinear) 0.12 and 0.31 milliseconds; Smooth (bilinear) 0.11 and 0.32 milliseconds; AMD FSR 1, the default 0.49 and 1.21 milliseconds; NVIDIA NIS 0.49 and 1.36 milliseconds; FSR 1 and FXAA 0.56 and 1.20 milliseconds; FSR 1 and SMAA Low 0.62 and 1.37 milliseconds; FSR 1 and SMAA Ultra 0.79 and 1.47 milliseconds. An RTX 4090 held at its resting 225 MHz under WSL 2 through Wine; at its boost clock each takes about an eleventh of that.">
+<rect x="-24" y="-24" width="1008" height="462" fill="#101317"/>
+<text x="0" y="18" font-size="19" font-weight="700" fill="#eef2f6" text-anchor="start" data-box="0,960">The picture's passes: a small part of each frame</text>
+<text x="0" y="42" font-size="13" fill="#aab4bf" text-anchor="start" data-box="0,960">The graphics card's time for each choice, a frame. At 60 frames a second a frame has 16.7 ms.</text>
+<path d="M230.0,78 V322" stroke="#232931" stroke-width="1"/>
+<text x="230" y="338" font-size="11.5" fill="#7a8592" text-anchor="middle" data-box="190,270">0</text>
+<path d="M362.5,78 V322" stroke="#232931" stroke-width="1"/>
+<text x="362.5" y="338" font-size="11.5" fill="#7a8592" text-anchor="middle" data-box="322.5,402.5">0.5 ms</text>
+<path d="M495.0,78 V322" stroke="#232931" stroke-width="1"/>
+<text x="495" y="338" font-size="11.5" fill="#7a8592" text-anchor="middle" data-box="455,535">1 ms</text>
+<path d="M627.5,78 V322" stroke="#232931" stroke-width="1"/>
+<text x="627.5" y="338" font-size="11.5" fill="#7a8592" text-anchor="middle" data-box="587.5,667.5">1.5 ms</text>
+<path d="M760.0,78 V322" stroke="#232931" stroke-width="1"/>
+<text x="760" y="338" font-size="11.5" fill="#7a8592" text-anchor="middle" data-box="720,800">2 ms</text>
+<text x="860" y="70" font-size="11.5" fill="#7a8592" text-anchor="end" data-box="790,862">1920x1080</text>
+<text x="960" y="70" font-size="11.5" fill="#7a8592" text-anchor="end" data-box="876,961">3840x2160</text>
+<text x="0" y="105.5" font-size="13" fill="#eef2f6" text-anchor="start" data-box="0,218">Off (sharp bilinear)</text>
+<path d="M262.6,101.0 H313.2" stroke="#232931" stroke-width="2"/>
+<circle cx="262.6" cy="101.0" r="5.5" fill="#2a5ff0" stroke="#101317" stroke-width="2"/>
+<circle cx="313.2" cy="101.0" r="5.5" fill="#8fb2ff" stroke="#101317" stroke-width="2"/>
+<text x="860" y="105.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="790,862">0.12 ms</text>
+<text x="960" y="105.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="876,961">0.31 ms</text>
+<text x="0" y="139.5" font-size="13" fill="#eef2f6" text-anchor="start" data-box="0,218">Smooth (bilinear)</text>
+<path d="M259.4,135.0 H313.5" stroke="#232931" stroke-width="2"/>
+<circle cx="259.4" cy="135.0" r="5.5" fill="#2a5ff0" stroke="#101317" stroke-width="2"/>
+<circle cx="313.5" cy="135.0" r="5.5" fill="#8fb2ff" stroke="#101317" stroke-width="2"/>
+<text x="860" y="139.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="790,862">0.11 ms</text>
+<text x="960" y="139.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="876,961">0.32 ms</text>
+<text x="0" y="173.5" font-size="13" font-weight="600" fill="#eef2f6" text-anchor="start" data-box="0,218">AMD FSR 1, the default</text>
+<path d="M359.1,169.0 H550.6" stroke="#232931" stroke-width="2"/>
+<circle cx="359.1" cy="169.0" r="5.5" fill="#2a5ff0" stroke="#101317" stroke-width="2"/>
+<circle cx="550.6" cy="169.0" r="5.5" fill="#8fb2ff" stroke="#101317" stroke-width="2"/>
+<text x="860" y="173.5" font-size="12.5" font-weight="600" fill="#eef2f6" text-anchor="end" data-box="790,862">0.49 ms</text>
+<text x="960" y="173.5" font-size="12.5" font-weight="600" fill="#eef2f6" text-anchor="end" data-box="876,961">1.21 ms</text>
+<text x="0" y="207.5" font-size="13" fill="#eef2f6" text-anchor="start" data-box="0,218">NVIDIA NIS</text>
+<path d="M361.2,203.0 H589.6" stroke="#232931" stroke-width="2"/>
+<circle cx="361.2" cy="203.0" r="5.5" fill="#2a5ff0" stroke="#101317" stroke-width="2"/>
+<circle cx="589.6" cy="203.0" r="5.5" fill="#8fb2ff" stroke="#101317" stroke-width="2"/>
+<text x="860" y="207.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="790,862">0.49 ms</text>
+<text x="960" y="207.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="876,961">1.36 ms</text>
+<text x="0" y="241.5" font-size="13" fill="#eef2f6" text-anchor="start" data-box="0,218">FSR 1 and FXAA</text>
+<path d="M378.9,237.0 H547.2" stroke="#232931" stroke-width="2"/>
+<circle cx="378.9" cy="237.0" r="5.5" fill="#2a5ff0" stroke="#101317" stroke-width="2"/>
+<circle cx="547.2" cy="237.0" r="5.5" fill="#8fb2ff" stroke="#101317" stroke-width="2"/>
+<text x="860" y="241.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="790,862">0.56 ms</text>
+<text x="960" y="241.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="876,961">1.20 ms</text>
+<text x="0" y="275.5" font-size="13" fill="#eef2f6" text-anchor="start" data-box="0,218">FSR 1 and SMAA Low</text>
+<path d="M393.2,271.0 H593.0" stroke="#232931" stroke-width="2"/>
+<circle cx="393.2" cy="271.0" r="5.5" fill="#2a5ff0" stroke="#101317" stroke-width="2"/>
+<circle cx="593.0" cy="271.0" r="5.5" fill="#8fb2ff" stroke="#101317" stroke-width="2"/>
+<text x="860" y="275.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="790,862">0.62 ms</text>
+<text x="960" y="275.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="876,961">1.37 ms</text>
+<text x="0" y="309.5" font-size="13" fill="#eef2f6" text-anchor="start" data-box="0,218">FSR 1 and SMAA Ultra</text>
+<path d="M439.6,305.0 H620.6" stroke="#232931" stroke-width="2"/>
+<circle cx="439.6" cy="305.0" r="5.5" fill="#2a5ff0" stroke="#101317" stroke-width="2"/>
+<circle cx="620.6" cy="305.0" r="5.5" fill="#8fb2ff" stroke="#101317" stroke-width="2"/>
+<text x="860" y="309.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="790,862">0.79 ms</text>
+<text x="960" y="309.5" font-size="12.5" fill="#eef2f6" text-anchor="end" data-box="876,961">1.47 ms</text>
+<circle cx="5.0" cy="362.0" r="5" fill="#2a5ff0" stroke="#101317" stroke-width="2"/>
+<text x="18" y="366" font-size="12" fill="#aab4bf" text-anchor="start" data-box="18,110">1920x1080</text>
+<circle cx="135.0" cy="362.0" r="5" fill="#8fb2ff" stroke="#101317" stroke-width="2"/>
+<text x="148" y="366" font-size="12" fill="#aab4bf" text-anchor="start" data-box="148,240">3840x2160</text>
+<text x="0" y="390" font-size="11.5" fill="#7a8592" text-anchor="start" data-box="0,960">An RTX 4090 held at its resting 225 MHz under WSL 2, through Wine: at its boost clock each takes about an eleventh. The picture's shape kept.</text>
+<text x="0" y="408" font-size="11.5" fill="#7a8592" text-anchor="start" data-box="0,960">docs/testing.md, the picture's GPU time by pass; NIS as measured after its scaler's change.</text>
+</svg>

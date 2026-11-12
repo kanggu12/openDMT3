@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-24 -24 1008 310" width="1008" height="310" font-family="Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 'Malgun Gothic', Helvetica, Arial, sans-serif" role="img" aria-label="Frames on time and on the music: the game's own frame limiter against openDMT3's clock, locked to the music. The spread of a frame's length (standard deviation): 2.33 milliseconds against 0.00. The slowest frame in a hundred: 20.6 milliseconds against 16.8, where a frame at 60 a second is 16.7. Measured on an RTX 4090 at 1920x1080 on the game's title screen. Over a whole song of 123 seconds on Wine's software renderer, the music ended 1.2 seconds ahead of the frames with the game's own pacing, and within 7 milliseconds of them locked to the music.">
+<rect x="-24" y="-24" width="1008" height="310" fill="#f3f5f8"/>
+<text x="0" y="18" font-size="19" font-weight="700" fill="#0b0e12" text-anchor="start" data-box="0,960">Frames on time, and on the music</text>
+<text x="0" y="42" font-size="13" fill="#47515d" text-anchor="start" data-box="0,960">The game's own frame limiter against openDMT3's clock, locked to the song's music (the default).</text>
+<text x="0" y="82" font-size="13.5" font-weight="600" fill="#0b0e12" text-anchor="start" data-box="0,288">Spread of a frame's length</text>
+<text x="0" y="101" font-size="12" fill="#47515d" text-anchor="start" data-box="0,288">standard deviation: lower is steadier</text>
+<path d="M0.0,122.0 H193.6 Q197.6,122.0 197.6,126.0 V138.0 Q197.6,142.0 193.6,142.0 H0.0 Z" fill="#7a8592"/>
+<text x="205.584" y="137" font-size="12.5" font-weight="600" fill="#0b0e12" text-anchor="start" data-box="0,328">2.33 ms</text>
+<text x="8" y="167" font-size="12.5" font-weight="600" fill="#0b0e12" text-anchor="start" data-box="0,328">0.00 ms</text>
+<path d="M0.5,116 V176" stroke="#47515d" stroke-width="1"/>
+<text x="336" y="82" font-size="13.5" font-weight="600" fill="#0b0e12" text-anchor="start" data-box="336,624">The slowest frame in 100</text>
+<text x="336" y="101" font-size="12" fill="#47515d" text-anchor="start" data-box="336,624">a frame at 60 a second is 16.7 ms</text>
+<path d="M496.9,116 V182" stroke="#dfe3e8" stroke-width="1"/>
+<path d="M336.0,122.0 H530.5 Q534.5,122.0 534.5,126.0 V138.0 Q534.5,142.0 530.5,142.0 H336.0 Z" fill="#7a8592"/>
+<text x="542.509" y="137" font-size="12.5" font-weight="600" fill="#0b0e12" text-anchor="start" data-box="336,664">20.6 ms</text>
+<path d="M336.0,152.0 H493.9 Q497.9,152.0 497.9,156.0 V168.0 Q497.9,172.0 493.9,172.0 H336.0 Z" fill="#2a5ff0"/>
+<text x="505.891" y="167" font-size="12.5" font-weight="600" fill="#0b0e12" text-anchor="start" data-box="336,664">16.8 ms</text>
+<path d="M336.5,116 V176" stroke="#47515d" stroke-width="1"/>
+<text x="672" y="82" font-size="13.5" font-weight="600" fill="#0b0e12" text-anchor="start" data-box="672,960">Music ahead of the frames</text>
+<text x="672" y="101" font-size="12" fill="#47515d" text-anchor="start" data-box="672,960">at the end of a whole song, 123 s</text>
+<path d="M672.0,122.0 H863.7 Q867.7,122.0 867.7,126.0 V138.0 Q867.7,142.0 863.7,142.0 H672.0 Z" fill="#7a8592"/>
+<text x="875.692" y="137" font-size="12.5" font-weight="600" fill="#0b0e12" text-anchor="start" data-box="672,1000">1,200 ms</text>
+<path d="M672.0,152.0 H672.6 Q673.1,152.0 673.1,152.6 V171.4 Q673.1,172.0 672.6,172.0 H672.0 Z" fill="#2a5ff0"/>
+<text x="681.142" y="167" font-size="12.5" font-weight="600" fill="#0b0e12" text-anchor="start" data-box="672,1000">7 ms</text>
+<path d="M672.5,116 V176" stroke="#47515d" stroke-width="1"/>
+<rect x="0" y="202" width="11" height="11" rx="2" fill="#7a8592"/>
+<text x="18" y="212" font-size="12" fill="#47515d" text-anchor="start" data-box="18,200">the game's own limiter</text>
+<rect x="210" y="202" width="11" height="11" rx="2" fill="#2a5ff0"/>
+<text x="228" y="212" font-size="12" fill="#47515d" text-anchor="start" data-box="228,510">openDMT3's clock, locked to the music</text>
+<text x="0" y="238" font-size="11.5" fill="#47515d" text-anchor="start" data-box="0,960">The first two: an RTX 4090 at 1920x1080, the game's title screen. The third: Wine's software renderer, 1920x1080, a whole song.</text>
+<text x="0" y="256" font-size="11.5" fill="#47515d" text-anchor="start" data-box="0,960">From docs/testing.md and docs/architecture.md.</text>
+</svg>
