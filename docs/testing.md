@@ -412,6 +412,13 @@ What they say:
 - A timestamp costs about 10 us of the card's time here and an empty pass about 25 (Wine's Direct3D over OpenGL over
   D3D12): each step's time holds one timestamp, and a pass's own work is its time less about 25 us.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/chart-passes-dark.svg">
+    <img alt="The picture's passes on the graphics card, each choice's time a frame at 1920x1080 and at 3840x2160, of the 16.7 milliseconds a frame has at 60 a second: Off 0.12 and 0.31 milliseconds; Smooth 0.11 and 0.32; AMD FSR 1, the default, 0.49 and 1.21; NVIDIA NIS 0.49 and 1.36; FSR 1 and FXAA 0.56 and 1.20; FSR 1 and SMAA Low 0.62 and 1.37; FSR 1 and SMAA Ultra 0.79 and 1.47. An RTX 4090 held at its resting 225 MHz under WSL 2 through Wine; at its boost clock each takes about an eleventh of that" src="images/chart-passes-light.svg" width="100%">
+  </picture>
+</p>
+
 #### The pictures, before and after
 
 `pictures:keep` and `pictures:fill` with the build before, then with the build after given its session

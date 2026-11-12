@@ -6,8 +6,8 @@ for a game folder (`python -m opendmt3 check, setup, restore`) is part of `core`
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="images/architecture-dark.svg">
-    <img alt="The parts of openDMT3. On the player's Windows PC the launcher (Tk, opendmt3/client) only reads the game folder, makes openDMT3's own folder from it at PLAY (the client copy, the card reader library with the in-game layer, the settings, the card), and starts the game from there. Playing on this PC, the launcher runs the server inside itself; on another server, it signs in over the HTTP API for the player's card and records. The game logs in by card and sends its results over the game's own protocol. The server (opendmt3/server, with Docker or Python) is one process: the site and its API on port 4730 (Starlette), the game server on port 4725 (asyncio), their services, and one SQLite file. Both parts share opendmt3/core" src="images/architecture-light.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="images/system-dark.svg">
+    <img alt="openDMT3's server and its clients. On the player's Windows PC the launcher (opendmt3/client) only reads the game folder and starts the game, the player's own PC client, with openDMT3's card reader library and in-game layer in its process (native/cardreader). A server is one process (opendmt3/server, in Docker or with Python): the site and its API on port 4730 (web/), the game server on port 4725, their services and one SQLite file (services/, db/), and the song list read once from a game folder. The launcher signs in over the HTTP API and asks for the player's card at each PLAY; the game logs in by card and sends its results over the game's own protocol. Browsers on phones and PCs use the site, programs the API with a token, and other players' PCs the same two links. The releases hold the installer and its signed updates, which a server can hand out. opendmt3/core is shared by both parts, packaging/ builds them and tests/ checks them" src="images/system-light.svg" width="100%">
   </picture>
 </p>
 
@@ -21,6 +21,13 @@ opendmt3/
   server/            the game server, its services, its database and its site
   client/            the launcher and the installer, for Windows
 ```
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/architecture-dark.svg">
+    <img alt="The parts of openDMT3. On the player's Windows PC the launcher (Tk, opendmt3/client) only reads the game folder, makes openDMT3's own folder from it at PLAY (the client copy, the card reader library with the in-game layer, the settings, the card), and starts the game from there. Playing on this PC, the launcher runs the server inside itself; on another server, it signs in over the HTTP API for the player's card and records. The game logs in by card and sends its results over the game's own protocol. The server (opendmt3/server, with Docker or Python) is one process: the site and its API on port 4730 (Starlette), the game server on port 4725 (asyncio), their services, and one SQLite file. Both parts share opendmt3/core" src="images/architecture-light.svg" width="100%">
+  </picture>
+</p>
 
 The parts depend in one direction: `client` may use `server` and `core`, `server` uses `core`, and `core` uses neither.
 `tests/test_architecture.py` reads every module's imports (those inside functions too) and fails when one runs the
@@ -174,6 +181,13 @@ PLAY starts the game with (`OPENDMT3_LANGUAGE`, `OPENDMT3_CURSOR`, `OPENDMT3_PAC
 the game's imports to its own: the slots of the game's import table that hold the real functions get ours, which call
 the real ones.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/inside-game-dark.svg">
+    <img alt="What openDMT3's card reader library does inside the game's process. At Direct3D 9's Present: frames held to 60.0 a second, locked to the song's music (hooks.c, logic.c); the picture's passes, anti-aliasing, the upscale filter and the safety net (post.c, shaders/); and the in-game layer, the bar, the menu, the question, a toast and the FPS chip (layer.c, look.c), to the graphics card and the screen. DirectSound: the output chosen, held and faded while a panel is open (sound.c). GetKeyboardState and GetCursorPos: the in-game layer's keys kept from the game, the pointer on its pixel (hooks.c, layer.c). CreateFileA/W and GetModuleFileNameA/W: openDMT3's files in place of the few it changes, the game folder only read (files.c, redirect.c). The card reader's own ten calls: the number the launcher wrote, so that player logs in (crt_r1.c)" src="images/inside-game-light.svg" width="100%">
+  </picture>
+</p>
+
 | File | What it does |
 | :--- | :--- |
 | `crt_r1.c` | The card reader's ten exports, and `DllMain`, which starts the rest |
@@ -215,6 +229,10 @@ the real ones.
   when the fix's call sites are in the client.
 
 ### The layer's parts and their input
+
+<p align="center">
+  <img src="images/ingame.png" alt="The in-game layer's parts as its own code draws them, over a made-up stage of lanes and notes, none of it the game's: the bar with openDMT3's mark, the menu, minimise, back to a window and the X; the menu under its chip; the question under the X with its line during a song; the safety net's toast; the FPS chip in the bottom right corner" width="100%">
+</p>
 
 - **The bar** comes when the pointer, moved to the game's very top edge or onto the mark at its top centre with no
   button down, rests there 150 ms and the game has had no press or release for 1.5 s, or when a finger is drawn down
@@ -449,6 +467,13 @@ own cursor):
   gap of 5 ms of silence and no click at the music's starts and stops, and from the device's opening to the game's
   first sound every sample is silence.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/chart-pacing-dark.svg">
+    <img alt="Frames on time and on the music: the game's own frame limiter against openDMT3's clock, locked to the music. The spread of a frame's length (standard deviation): 2.33 milliseconds against 0.00. The slowest frame in a hundred: 20.6 milliseconds against 16.8, where a frame at 60 a second is 16.7. Measured on an RTX 4090 at 1920x1080 on the game's title screen. Over a whole song of 123 seconds on Wine's software renderer, the music ended 1.2 seconds ahead of the frames with the game's own pacing, and within 7 milliseconds of them locked to the music" src="images/chart-pacing-light.svg" width="100%">
+  </picture>
+</p>
+
 For measuring under Wine only (never set by the launcher): `OPENDMT3_QUEUE=deep` leaves the queue as Direct3D has it,
 `OPENDMT3_LATENCY_WATCH` logs each press's time to its frame done on the GPU, `OPENDMT3_SAFETY=off` keeps the chosen
 chain, and `OPENDMT3_REFRESH` gives a refresh rate to a virtual screen that reports none.
@@ -625,6 +650,13 @@ before that work and after it, the median of three runs or more on a busy PC (32
 | A song list taken (925 pictures) | 2.19 s | 0.57 s |  |  |
 | A song list read from a game folder (927 files; in the server's image) | 8.75 s (9.67 s) | 7.04 s (7.42 s) |  |  |
 | The server image's imports | 286 ms | 230 ms |  |  |
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/chart-server-dark.svg">
+    <img alt="64 cabinets and 20 visitors that never pause, for three minutes, on a history of 300,000 plays, before and after the server's work: a cabinet's keep-alive, median, 7,802 milliseconds before and 6.8 after; a card login, median, 6,363 before and 136 after; a page of the site, median, 7,714 before and 235 after; a page of the site, 95th percentile, 10,816 before and 745 after. Pages answered in the three minutes: 500 before, 12,103 after. The server held 91 MB of memory" src="images/chart-server-light.svg" width="100%">
+  </picture>
+</p>
 
 ## Security
 

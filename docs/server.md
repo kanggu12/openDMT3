@@ -11,6 +11,13 @@ launcher is one. The server knows each by the address it connects from, and the 
 You do not need one to play alone: the launcher has a server inside for that ([Playing on your PC](install.md)). Run
 one when others play from their own PCs.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/ways-to-host-dark.svg">
+    <img alt="Three ways to run a server, each the same server: in the launcher, by turning on Open this PC's server on its Online page, for the other PCs on its network while the launcher is open; with Docker Compose, ./dmt3 setup, a wizard in the terminal, on Linux, macOS or Windows in WSL 2; with Python 3.10 or newer on Linux, python -m opendmt3.server. Each way it is the game on port 4725, the site and its API on port 4730, one SQLite file and its backups in a data folder, and the song list read once from a game folder" src="images/ways-to-host-light.svg" width="100%">
+  </picture>
+</p>
+
 ## What you need
 
 - A PC that stays on, with Docker (on Linux, on macOS, or on Windows in WSL 2, where `./dmt3` runs) or with Python
@@ -336,6 +343,13 @@ caller (a sign-in on the site, or an API token):
 
 The site's files (its styles, fonts, pictures and the launcher's updates) are not counted. Retry-After says in seconds
 when to ask again; the site shows the same in a page of its own.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/chart-server-dark.svg">
+    <img alt="64 cabinets and 20 visitors that never pause, for three minutes, on a history of 300,000 plays, before and after the server's work: a cabinet's keep-alive, median, 7,802 milliseconds before and 6.8 after; a card login, median, 6,363 before and 136 after; a page of the site, median, 7,714 before and 235 after; a page of the site, 95th percentile, 10,816 before and 745 after. Pages answered in the three minutes: 500 before, 12,103 after. The server held 91 MB of memory" src="images/chart-server-light.svg" width="100%">
+  </picture>
+</p>
 
 The cabinets' links never wait for the site's work:
 

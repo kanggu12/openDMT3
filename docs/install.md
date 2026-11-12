@@ -3,6 +3,13 @@
 The launcher plays your TECHNIKA 3 game folder on a Windows PC without changing it, remembers how you want the picture
 and the sound, puts your card in and starts the game. This guide goes from the installer to everyday play.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/steps-dark.svg">
+    <img alt="Playing in three steps. 1, Install: run openDMT3-win-Setup.exe, which installs for your Windows user only, without administrator rights. 2, DISC CHECK: the launcher finds your game folder and says what it is, here a made-up folder that is READY, with its original PC client, its songs and jackets, only read and never changed. 3, PLAY: your card goes in and the game starts" src="images/steps-light.svg" width="100%">
+  </picture>
+</p>
+
 ## What you need
 
 - 64-bit Windows 10 or 11 on an x64 processor, a graphics card with Direct3D 9 from any maker (shader model 3.0 for
@@ -42,6 +49,13 @@ The guide takes five steps, and everything in it can be changed later:
 
 ## Three ways to play
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/ways-to-play-dark.svg">
+    <img alt="Three ways to play. On this PC: a server inside the launcher keeps the logins and the records in one file on this PC. Another server: the launcher and the game on your PC log in on a server someone runs, with an ID and a password from its owner, and the records stay on that server. Offline: no server; everyone plays as a guest with NO ID CARD, and no records are kept" src="images/ways-to-play-light.svg" width="100%">
+  </picture>
+</p>
+
 | Way | Logins and records | What you need |
 | :--- | :--- | :--- |
 | **On this PC** | A server inside the launcher keeps them in one file on this PC | Nothing else |
@@ -62,6 +76,10 @@ FREE PLAY, so it needs no coins. The launcher has already put your card in: the 
 openDMT3 adds a few things of its own over the game, in the look of the game's own panels (its dialogs' title tab
 and metal frame, its glossy buttons) on an opaque frosted glass, and in the launcher's language. None of them is in
 the middle of the game, where the notes come, and no key of the keyboard brings any of them:
+
+<p align="center">
+  <img src="images/ingame.png" alt="openDMT3's own parts over a song, drawn by openDMT3's code over a made-up stage of lanes and notes, none of it the game's. The bar across the top: openDMT3's mark at its left, and at its right the menu, minimise, back to a window, and the X. The menu hangs under its chip: BACK TO THE GAME, SHOW FPS with ON, QUIT THE GAME in red. Under it, three pieces: the question under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a toast hanging from the top edge, Picture quality lowered to keep 60 FPS (FXAA); and the FPS chip in the bottom right corner, 60 FPS over 16.7 ms" width="100%">
+</p>
 
 - **The bar.** Move the pointer to the very top edge of the game, or onto the small tab at its top center, and let it
   rest there with its button up (or draw a finger down from the top edge): a bar comes down over the game's own top
@@ -213,6 +231,13 @@ openDMT3 project, and checks it before any of it reaches the folder openDMT3 is 
 the game is open.
 
 ## Your game folder stays as it is
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/pieces-dark.svg">
+    <img alt="Your TECHNIKA 3 game folder, with a PC client, is only read by the openDMT3 launcher on your Windows PC. The launcher finds it, sets the picture and the sound, puts your card in, and PLAY starts the game from a folder of openDMT3's own. The launcher signs in to a server for your card; the game logs in there by card and sends the stages you clear. The server is the site and its API on port 4730, the game server on port 4725 and one SQLite file of accounts and plays: the one inside the launcher, or one on any PC with Docker or Python" src="images/pieces-light.svg" width="100%">
+  </picture>
+</p>
 
 PLAY only reads the game folder: openDMT3 keeps what it needs to play it in a folder of its own,
 `%AppData%\openDMT3\game`, and gives the game those files in place of its own while it runs. What the game writes
