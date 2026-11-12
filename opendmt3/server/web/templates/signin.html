@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ w("signin.title") }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1>TECHNIKA <b>3</b></h1><p class="sub">{{ w("site.tagline") }}</p></div>
+</section>
+<section class="narrow">
+  <div class="card">
+    <h2>{{ w("signin.title") }}</h2>
+    <p class="muted">{{ w("signin.text") }}</p>
+    {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
+    {# Right after the first-run page made the owner's account: said once, with the ID typed already. #}
+    {% if made %}<p class="alert ok" role="status">{{ w("signin.made", login_id=made) }}</p>{% endif %}
+    {# After a try that failed the ID stays typed and the password box takes the focus; the password is never kept. #}
+    <form method="post" action="/signin?next={{ target|urlencode }}" class="form">
+      <input type="hidden" name="csrf" value="{{ signin_token }}">
+      <label>{{ w("signin.id") }}<input name="login_id" value="{{ login_id }}" autocomplete="username" autocapitalize="characters" required{% if not login_id %} autofocus{% endif %}></label>
+      <label>{{ w("signin.password") }}<input name="password" type="password" autocomplete="current-password" required{% if login_id %} autofocus{% endif %}></label>
+      <button class="btn primary">{{ w("signin.button") }}</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

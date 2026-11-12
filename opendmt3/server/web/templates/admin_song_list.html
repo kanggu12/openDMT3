@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{# The upload field, the site's own (_upload.html), with the page's words. #}
+{% from "_upload.html" import drop with context %}
+{% block title %}{{ w("admin.song_list") }} · {{ w("admin.title") }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
+</section>
+<section class="page">
+  {% set tab = "song_list" %}{% include "_admin_tabs.html" %}
+  {% if notice %}<p class="alert ok" role="status">{{ notice }}</p>{% endif %}
+  {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
+  {# What the server takes from the game, as OpenDMTQ's setup page shows each thing: what it is, the forms it may come
+     in, whether it is needed; then whether the server has it, part by part. #}
+  <div class="card song-list">
+    <h3>{{ w("songlist.title") }}</h3>
+    <p class="lead">{{ w("songlist.lead") }}</p>
+    <div class="takes">
+      <div class="take">
+        <p>{{ w("songlist.take.text") }}</p>
+        <p class="muted small">{{ w("songlist.take.need") }}</p>
+      </div>
+    </div>
+    <div class="states">
+      {% for part in ("songs", "jackets", "cards") %}{% set item = data[part] %}
+      <div class="state-item">
+        <span class="label">{{ w("data." + part) }}</span>
+        <span class="state {{ 'ok' if item.at else 'wait' }}"><i class="dot{{ ' on' if item.at }}" aria-hidden="true"></i>{{ w("songlist.state.ready") if item.at else w("songlist.state.not_yet") }}</span>
+        {% if item.at %}<span class="muted small">{% if part == "cards" %}{{ w("data.count.cards", **item.count) }}{% else %}{{ w("data.count." + part, n=item.count) }}{% endif %}</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% for item in data.missing %}{% if item.part != "songs" and item.text %}
+    <p class="alert look data-missing">{{ w("data.missing." + item.part) }} {{ item.text }}</p>
+    {% endif %}{% endfor %}
+    {% if data.source and data.source.from and data.read_at %}
+    <p class="muted small">{{ w("data.source." + data.source.from, path=data.source.path, when=(data.read_at|when), made=(data.source.made|when)) }}</p>
+    {% endif %}
+  </div>
+  {# The game's files the server sees on its PC (the game folder it was given, and outside Docker its user's usual
+     places), one line each with its state, and Import for those that are ready. #}
+  <div class="card">
+    <h3>{{ w("songlist.found") }}</h3>
+    {% if found.found %}
+    <div class="found">
+      {% for item in found.found %}
+      <div class="found-row">
+        <div class="found-what">
+          <code class="path">{{ item.path }}</code>
+          <p class="verdict {{ 'ok' if item.ready else 'bad' }}"><span aria-hidden="true">{{ "✓" if item.ready else "✕" }}</span> {{ item.said }}</p>
+        </div>
+        {% if item.ready %}
+        <form method="post" action="/admin/song_list" data-ask="{{ w('songlist.import.ask', path=item.path) }}" data-ask-title="{{ w('songlist.import.title') }}" data-ask-detail="{{ w('songlist.import.detail') }}" data-ask-yes="{{ w('songlist.import') }}" data-ask-tone="warn">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="import"><input type="hidden" name="path" value="{{ item.path }}">
+          <button class="btn primary">{{ w("songlist.import") }}</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% elif found.places %}
+    <p class="muted">{{ w("songlist.found.none") }}</p>
+    {% else %}
+    <p class="muted">{{ w("songlist.found.nowhere") }}</p>
+    {% endif %}
+    {% if found.places %}
+    <p class="muted small">{{ w("songlist.found.where") }} {% for place in found.places %}<code>{{ place }}</code>{{ ", " if not loop.last }}{% endfor %}</p>
+    {% endif %}
+  </div>
+  {# Another folder of the server PC: a path typed or pasted, its quick folders, and a folder browser to click through
+     (in Docker the server sees only the folder kept for it, so the page names the command instead). #}
+  <div class="card">
+    <h3>{{ w("songlist.other") }}</h3>
+    {% if browsing %}
+    <p class="muted">{{ w("songlist.other.lead") }}</p>
+    <form method="get" action="/admin/song_list" class="form path-row">
+      <label class="grow">{{ w("songlist.other.path") }}<input name="browse" value="{{ browsing.path }}" spellcheck="false" autocomplete="off"></label>
+      <button class="btn">{{ w("songlist.other.open") }}</button>
+    </form>
+    <div class="chips">
+      {% for place in found.places %}<a class="chip" href="/admin/song_list?browse={{ quote(place) }}">{{ place }}</a>{% endfor %}
+      <a class="chip" href="/admin/song_list?browse=/">/</a>
+    </div>
+    <div class="browser">
+      <div class="crumbs">
+        <span class="steps">{% for name, path in browsing.crumbs %}<a href="/admin/song_list?browse={{ quote(path) }}">{{ name }}</a>{{ " › " if not loop.last }}{% endfor %}</span>
+        {% if browsing.up %}<a class="btn small" href="/admin/song_list?browse={{ quote(browsing.up) }}">{{ w("songlist.other.up") }}</a>{% endif %}
+      </div>
+      {% if browsing.links %}
+      <ul class="folders">
+        {% for name, path in browsing.links %}<li><a href="/admin/song_list?browse={{ quote(path) }}"><i class="folder" aria-hidden="true"></i>{{ name }}</a></li>{% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted small">{{ w("songlist.other.empty") }}</p>
+      {% endif %}
+      <form method="post" action="/admin/song_list" data-ask="{{ w('songlist.import.ask', path=browsing.path) }}" data-ask-title="{{ w('songlist.import.title') }}" data-ask-detail="{{ w('songlist.import.detail') }}" data-ask-yes="{{ w('songlist.import') }}" data-ask-tone="warn">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="import"><input type="hidden" name="path" value="{{ browsing.path }}">
+        <button class="btn primary">{{ w("songlist.other.here") }}</button>
+      </form>
+    </div>
+    {% else %}
+    <p class="muted">{{ w("songlist.other.container") }}</p>
+    <p><code>{{ command }}</code></p>
+    {% endif %}
+  </div>
+  {# A song list the launcher saved (or ./dmt3 catalog --save made): its token comes first in the form, so the server
+     reads no byte of the file before it; one past the limit is told here before it is sent (site.js). #}
+  <div class="card">
+    <h3>{{ w("songlist.upload") }}</h3>
+    <form method="post" action="/admin/song_list/upload" enctype="multipart/form-data" class="form row upload" data-upload-most="{{ upload_most }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {{ drop("song-list-file", w("songlist.upload.file"), ".zip,application/zip") }}
+      <button class="btn primary">{{ w("songlist.upload.button") }}</button>
+    </form>
+    <p class="alert bad upload-too-large" role="alert" hidden>{{ too_large }}</p>
+    <p class="muted small">{{ w("songlist.upload.hint", mb=upload_mb) }}</p>
+  </div>
+</section>
+{% endblock %}

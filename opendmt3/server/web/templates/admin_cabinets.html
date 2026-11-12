@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ w("admin.cabinets") }} · {{ w("admin.title") }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
+</section>
+<section class="page">
+  {% set tab = "cabinets" %}{% include "_admin_tabs.html" %}
+  {% if notice %}<p class="alert ok">{{ notice }}</p>{% endif %}
+  {% if error %}<p class="alert bad">{{ error }}</p>{% endif %}
+  <div class="card">
+    {% if not cabinets %}<p class="muted">{{ w("cabinets.none") }}</p>{% else %}
+    <table class="table">
+      <thead><tr><th>{{ w("cabinets.name") }}</th><th>{{ w("admin.cabinet.player") }}</th><th class="wide-only">{{ w("admin.cabinet.client") }}</th><th class="wide-only">{{ w("cabinets.last") }}</th><th class="num">{{ w("cabinets.sessions") }}</th><th class="num">{{ w("cabinets.plays") }}</th></tr></thead>
+      <tbody>
+      {% for c in cabinets %}
+        <tr>
+          <td>
+            <form method="post" class="inline-name">
+              <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="rename"><input type="hidden" name="id" value="{{ c.id }}">
+              <input name="name" value="{{ c.name or '' }}" placeholder="{{ c.host }}" maxlength="32" aria-label="{{ w('cabinets.name') }}">
+              <button class="btn small">{{ w("cabinets.rename") }}</button>
+            </form>
+            <span class="muted small"><code>{{ c.host }}</code></span>
+          </td>
+          {# On a phone the row is a block and the headers are gone: each cell says what it is. #}
+          <td data-label="{{ w('admin.cabinet.player') }}">{% if c.connected %}<span class="tag ok">{{ w("cabinets.now") }}</span> {{ c.player or w("cabinets.guest") }}{% else %}<span class="muted">-</span>{% endif %}</td>
+          <td class="wide-only" data-label="{{ w('admin.cabinet.client') }}">{{ c.version or "-" }}</td>
+          <td class="wide-only muted" data-label="{{ w('cabinets.last') }}">{{ c.last_seen|when }}</td>
+          <td class="num" data-label="{{ w('cabinets.sessions') }}">{{ c.sessions }}</td>
+          <td class="num" data-label="{{ w('cabinets.plays') }}">{{ c.plays }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

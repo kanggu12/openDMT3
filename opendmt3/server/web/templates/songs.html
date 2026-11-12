@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ w("title.songs") }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · {{ w("nav.songs") }}</p><h1 class="word">{{ w("nav.songs") }}</h1><p class="sub">{{ w("songs.sub") }}</p></div>
+</section>
+<section class="page">
+  {# Typing hides the rows that do not match at once (site.js, no request); Find asks the server, without script too. #}
+  <form class="search" method="get" action="/songs" role="search">
+    <input id="song-filter" type="search" name="q" value="{{ query }}" placeholder="{{ w('songs.search') }}" aria-label="{{ w('songs.search') }}" autocomplete="off">
+    <button class="btn">{{ w("songs.find") }}</button>
+  </form>
+  {% if total %}<p class="muted small song-count" id="song-count" aria-live="polite" data-words="{{ w('songs.count', n='{n}', of='{of}') }}" data-total="{{ total }}">{{ w("songs.count", n=rows|length, of=total) }}</p>{% endif %}
+  <div class="card">
+    <p class="muted" id="song-none" data-words="{{ w('songs.nomatch', query='{query}') }}"{% if rows or not total %} hidden{% endif %}>{{ w("songs.nomatch", query=query) }}</p>
+    {% if not total %}
+    <p class="muted">{{ w("songs.none") }}</p>
+    {% endif %}
+    {% if rows %}
+    <table class="table songs">
+      <thead><tr><th>{{ w("songs.song") }}</th><th class="num">{{ w("songs.plays") }}</th><th class="num wide-only">{{ w("songs.players") }}</th><th class="num">{{ w("songs.best") }}</th></tr></thead>
+      <tbody>
+      {% for s in rows %}
+        <tr class="{{ 'quiet' if not s.plays }}" data-find="{{ (s.title ~ ' ' ~ s.composer)|lower }}" data-number="{{ s.number }}"><td><div class="songcell">{% if s.jacket %}<img class="jacket" src="/jackets/{{ s.number }}.png" alt="" width="40" height="40" loading="lazy">{% elif rows|selectattr("jacket")|first %}<span class="jacket none" aria-hidden="true"></span>{% endif %}<div><a class="song" href="/songs/{{ s.number }}">{{ s.title }}</a>{% if s.composer %}<span class="by">{{ s.composer }}</span>{% endif %}</div></div></td><td class="num">{{ s.plays or "-" }}</td><td class="num wide-only">{{ s.players or "-" }}</td><td class="num score">{{ "{:,}".format(s.best) if s.best is not none else "-" }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

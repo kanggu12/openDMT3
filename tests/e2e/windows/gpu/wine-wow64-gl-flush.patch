@@ -1,0 +1,111 @@
+Wine's WoW64 OpenGL: a write-only buffer map with explicit flushes copies only its flushed ranges.
+
+For wine-11.0 (dlls/opengl32/unix_wgl.c), used by the GPU test image only (Dockerfile beside this file).
+
+In WoW64 mode a 32-bit program's GL buffer map is a copy in its low 4 GB whenever the driver's mapping lies above
+them, which with Mesa's d3d12 driver is always: the whole mapped range is read in from the driver's mapping when the
+map is made and written back when it is unmapped. wined3d's streaming uploads (every DrawPrimitiveUP the game and
+openDMT3's in-game layer make) map their whole 512 KiB buffer write-only with GL_MAP_FLUSH_EXPLICIT_BIT, write a few
+bytes and flush them, so each draw copied 1 MiB, half of it read from write-combined GPU memory: about 1.2 ms a draw
+on this PC (500 draws a frame took 582 ms; with this change 9 ms; a 64-bit program, 5 ms).
+
+GL leaves writes outside a flushed range of such a map undefined and keeps every byte not written, so for a
+write-only map with explicit flushes nothing is read in, and each flushed range is copied to the driver's mapping
+when it is flushed, before the driver's own flush; nothing goes back at the unmap. Every other map is as it was.
+
+--- a/dlls/opengl32/unix_wgl.c
++++ b/dlls/opengl32/unix_wgl.c
+@@ -169,6 +169,8 @@
+     void *host_ptr;
+     void *map_ptr;
+     size_t copy_length;
++    BOOL flush_copy;     /* a write-only map with explicit flushes on a copy: each flushed range copied at its flush */
++    size_t map_length;   /* that map's length, the bound of its flushes */
+     void *vm_ptr;
+     SIZE_T vm_size;
+     BOOL pinned;
+@@ -2621,6 +2623,18 @@
+     if (!buffer_vm_alloc( teb, buffer, length + (offset & 0xf) )) goto unmap;
+     buffer->map_ptr = (char *)buffer->vm_ptr + (offset & 0xf);
+     buffer->copy_length = (access & GL_MAP_WRITE_BIT) ? length : 0;
++    /* Write-only with explicit flushes (wined3d's streaming uploads map a whole buffer, write a few bytes and flush
++     * them): only the flushed ranges are copied, each at its flush before the driver's, and the mapping is never read
++     * in. GL leaves writes outside a flushed range undefined and nothing else goes back, so this is the same buffer;
++     * the copies of the whole mapping both ways cost a millisecond a map where it is write-combined GPU memory. */
++    if ((access & (GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_READ_BIT)) == GL_MAP_FLUSH_EXPLICIT_BIT)
++    {
++        buffer->copy_length = 0;
++        buffer->flush_copy = TRUE;
++        buffer->map_length = length;
++        TRACE( "returning copy buffer %p, its flushed ranges copied\n", buffer->map_ptr );
++        return buffer->map_ptr;
++    }
+     if (!(access & (GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT)))
+     {
+         static int once;
+@@ -2870,6 +2884,8 @@
+         memcpy( buffer->host_ptr, buffer->map_ptr, buffer->copy_length );
+         buffer->copy_length = 0;
+     }
++    /* A write-only map with explicit flushes went back range by range at its flushes. */
++    buffer->flush_copy = FALSE;
+ 
+     buffer->host_ptr = buffer->map_ptr = NULL;
+     return TRUE;
+@@ -2923,13 +2939,29 @@
+     return wow64_gl_unmap_named_buffer( teb, buffer, funcs->p_glUnmapNamedBufferEXT );
+ }
+ 
++/* A flushed range of a write-only map on a copy: from the copy to the driver's mapping, before the driver flushes
++ * it (the range is the mapping's, as glFlushMappedBufferRange gives it; one past the mapping is left to the driver's
++ * error). */
++static void flush_copy( struct buffer *buffer, GLintptr offset, GLsizeiptr length )
++{
++    if (!buffer->flush_copy || !buffer->map_ptr || !buffer->host_ptr || offset < 0 || length <= 0) return;
++    if ((size_t)offset > buffer->map_length || (size_t)length > buffer->map_length - offset) return;
++    TRACE( "Copying %#zx at %#zx from wow64 buffer %p to buffer %p\n", (size_t)length, (size_t)offset,
++           buffer->map_ptr, buffer->host_ptr );
++    memcpy( (char *)buffer->host_ptr + offset, (char *)buffer->map_ptr + offset, length );
++}
++
+ void wow64_glFlushMappedBufferRange( TEB *teb, GLenum target, GLintptr offset, GLsizeiptr length )
+ {
+     const struct opengl_funcs *funcs = teb->glTable;
+     struct buffer *buffer;
+ 
+     pthread_mutex_lock( &wgl_lock );
+-    if ((buffer = get_target_buffer( teb, target ))) flush_buffer( teb, buffer, offset, length );
++    if ((buffer = get_target_buffer( teb, target )))
++    {
++        flush_copy( buffer, offset, length );
++        flush_buffer( teb, buffer, offset, length );
++    }
+     if (use_driver_buffer_map( buffer )) funcs->p_glFlushMappedBufferRange( target, offset, length );
+     pthread_mutex_unlock( &wgl_lock );
+ }
+@@ -2940,7 +2972,11 @@
+     struct buffer *buffer;
+ 
+     pthread_mutex_lock( &wgl_lock );
+-    if ((buffer = get_named_buffer( teb, name ))) flush_buffer( teb, buffer, offset, length );
++    if ((buffer = get_named_buffer( teb, name )))
++    {
++        flush_copy( buffer, offset, length );
++        flush_buffer( teb, buffer, offset, length );
++    }
+     if (use_driver_buffer_map( buffer )) funcs->p_glFlushMappedNamedBufferRange( name, offset, length );
+     pthread_mutex_unlock( &wgl_lock );
+ }
+@@ -2951,7 +2987,11 @@
+     struct buffer *buffer;
+ 
+     pthread_mutex_lock( &wgl_lock );
+-    if ((buffer = get_named_buffer( teb, name ))) flush_buffer( teb, buffer, offset, length );
++    if ((buffer = get_named_buffer( teb, name )))
++    {
++        flush_copy( buffer, offset, length );
++        flush_buffer( teb, buffer, offset, length );
++    }
+     if (use_driver_buffer_map( buffer )) funcs->p_glFlushMappedNamedBufferRangeEXT( name, offset, length );
+     pthread_mutex_unlock( &wgl_lock );
+ }

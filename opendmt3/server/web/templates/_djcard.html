@@ -1,0 +1,13 @@
+{# The DJ card as the game draws it beside the name: the icon, the plate with its plate pattern over it and the comment
+   over both, then the level and the name. Pictures only when the server read them from its owner's game files.
+   Needs: card (cards.view), name. #}
+<div class="djcard">
+  {% if card.pictures %}
+  <img class="dj-icon" src="/cards/icon/{{ card.icon }}.png" alt="" width="104" height="64">
+  <span class="dj-plate"><img src="/cards/plate/{{ card.plate }}.png" alt="" width="204" height="64">
+    {%- if card.pattern %}<img class="over" src="/cards/pattern/{{ card.pattern }}.png" alt="" width="204" height="64">{% endif -%}
+    {%- if card.comment %}<span class="dj-comment">{{ card.comment }}</span>{% endif -%}
+  </span>
+  {% elif card.comment %}<span class="dj-comment plain">{{ card.comment }}</span>{% endif %}
+  <span class="dj-who">{% if card.level %}<span class="dj-level">Lv {{ card.level }}</span>{% endif %}<span class="dj-name">{{ name }}</span></span>
+</div>

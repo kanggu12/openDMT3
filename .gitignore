@@ -1,0 +1,13 @@
+# A working folder of your own (notes, and any copy of your game's files): never part of the repository.
+/_work/
+
+# Game data and the live database of a running server.
+/data/
+# Compose's variables for this PC: the game folder kept mounted into the server (./dmt3 setup writes it).
+/.env
+
+__pycache__/
+*.pyc
+/build/
+# A virtual environment made in the clone (CONTRIBUTING.md, Your first change).
+/.venv/

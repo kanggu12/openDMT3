@@ -1,0 +1,80 @@
+"""The notices of the code built into openDMT3's card reader library go wherever the library goes: native/cardreader
+makes them beside it, a build keeps them beside it, and the launcher puts them in place with it."""
+
+import os
+import shutil
+import tempfile
+import unittest
+from unittest import mock
+
+from opendmt3.core.cabinet import native, steps
+
+# The repository's top folder (this file is in tests/core/).
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+class CardReaderNoticesTest(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        # A stand-in for the built library (a copy of the repository has none), and its notices beside it.
+        self.dll = os.path.join(self.tmp, "CRT_R1.dll")
+        with open(self.dll, "wb") as f:
+            f.write(b"MZ openDMT3 library stand-in")
+        self.notices = os.path.join(self.tmp, native.NOTICES)
+
+    def test_the_notices_go_wherever_the_library_goes(self):
+        with open(self.notices, "w", encoding="utf-8") as f:
+            f.write("the library's notices")
+        with mock.patch.dict(os.environ, {"OPENDMT3_CARD_READER": self.dll}):
+            self.assertEqual(native.notices(), self.notices)
+            sources = steps.CardReader()._sources()
+        # Every file the step writes comes from this map: the notices are one of them, from beside the library.
+        self.assertEqual(sources[steps.CardReader.NOTICES], self.notices)
+        self.assertEqual(sources[steps.CardReader.REL], self.dll)
+        # Recorded and put back with the library's other files.
+        self.assertIn(steps.CardReader.NOTICES, steps.CardReader.FILES)
+
+    def test_the_notices_under_an_earlier_launchers_name_go_when_the_files_are_written_again(self):
+        with open(self.notices, "w", encoding="utf-8") as f:
+            f.write("the library's notices")
+        # openDMT3's folder as an earlier launcher left it: the notices named after the library's file.
+        own = steps.Own(os.path.join(self.tmp, "own"))
+        os.makedirs(own.folder)
+        former = own.path("openDMT3-CRT_R1-NOTICES.txt")
+        with open(former, "w", encoding="utf-8") as f:
+            f.write("the notices of an earlier library")
+        self.assertEqual(steps.CardReader.FORMER, (os.path.basename(former),))
+        with mock.patch.dict(os.environ, {"OPENDMT3_CARD_READER": self.dll}):
+            # The new name is not there yet, so the step is not done, and doing it leaves one copy: today's.
+            self.assertFalse(steps.CardReader().status(None, own, None).done)
+            steps.CardReader().apply(None, own, None)
+        self.assertFalse(os.path.exists(former))
+        with open(own.path("openDMT3-card-reader-NOTICES.txt"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), "the library's notices")
+        self.assertEqual(sorted(os.listdir(own.folder)), sorted(steps.CardReader.FILES))
+
+    def test_a_library_without_notices_goes_alone(self):
+        # A library a test made has none: the step still works, without them.
+        with mock.patch.dict(os.environ, {"OPENDMT3_CARD_READER": self.dll}):
+            self.assertIsNone(native.notices())
+            self.assertNotIn(steps.CardReader.NOTICES, steps.CardReader()._sources())
+
+    def test_the_build_makes_them_and_keeps_them_beside_the_library(self):
+        # native/cardreader/build.sh writes them beside CRT_R1.dll (notices.sh, every third-party text in full) ...
+        with open(os.path.join(ROOT, "native", "cardreader", "build.sh"), encoding="utf-8") as f:
+            self.assertIn("notices.sh /out/card-reader-NOTICES.txt", f.read())
+        with open(os.path.join(ROOT, "native", "cardreader", "notices.sh"), encoding="utf-8") as f:
+            script = f.read()
+        for text in ("third_party/fsr/LICENSE.txt", "third_party/nis/LICENSE.txt", "third_party/smaa/LICENSE.txt",
+                     "third_party/fxaa/NOTICE.txt", "/usr/share/doc/mingw-w64-i686-dev/copyright"):
+            self.assertIn(text, script)
+        # ... and the launcher's build keeps them beside it in bin/, where native.notices() finds them.
+        with open(os.path.join(ROOT, "packaging", "windows", "openDMT3.spec"), encoding="utf-8") as f:
+            self.assertIn('for name in ("CRT_R1.dll", "card-reader-NOTICES.txt")', f.read())
+        self.assertEqual(native.NOTICES, "card-reader-NOTICES.txt")
+
+
+if __name__ == "__main__":
+    unittest.main()

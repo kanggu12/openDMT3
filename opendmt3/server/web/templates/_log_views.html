@@ -1,0 +1,2 @@
+{# The Logs tab's two views, a strip under the admin tabs; `view` names the one showing. #}
+<nav class="tabs quiet">{% for key, href in [("changes", "/admin/log"), ("plays", "/admin/log/plays")] %}<a href="{{ href }}" class="{{ 'on' if view == key }}"{% if view == key %} aria-current="page"{% endif %}>{{ w("log.view." + key) }}</a>{% endfor %}</nav>

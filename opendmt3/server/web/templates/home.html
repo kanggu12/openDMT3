@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ w("title.home") }} · {% endblock %}
+{% block main %}
+<section class="hero"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1>TECHNIKA <b>3</b></h1><p class="sub">{{ w("site.tagline") }}</p></div>
+</section>
+<section class="grid">
+  <div class="card dj">
+    <h3>{{ w("home.dj") }}</h3>
+    <p class="dj-name">{{ user.dj_name }}</p>
+    <p class="muted">ID {{ user.login_id }}</p>
+    <div class="cardline"><span class="label">{{ w("home.card") }}</span><code>···· {{ user.card[-4:] }}</code></div>
+    <p class="muted small">{{ w("home.card.text") }}</p>
+  </div>
+  {# The way to play, beside who plays: the first thing a new player needs, before the lists. #}
+  <div class="card">
+    <h3>{{ w("home.get") }}</h3>
+    <p>{{ w("home.get.text") }}</p>
+    <a class="btn primary" href="/download">{{ w("download.heading") }}</a>
+  </div>
+  <div class="card">
+    <h3>{{ w("home.cabinets") }}</h3>
+    {% if not cabinets %}<p class="muted">{{ w("home.cabinets.none") }}</p>{% endif %}
+    <ul class="cabinets">
+    {% for c in cabinets %}
+      <li><span class="dot {{ 'on' if c.player else '' }}"></span>{% if c.address %}<span class="addr">{{ c.address }}</span>{% endif %}
+        <span class="state">{% if c.player %}{{ w("home.cabinet.playing", dj=c.player) }}{% else %}{{ w("home.cabinet.free") }}{% endif %}</span></li>
+    {% endfor %}
+    </ul>
+  </div>
+  {# The first DJs of the mode the Rankings page opens on, and the way to the whole ranking. #}
+  <div class="card">
+    <h3>{{ w("home.top", mode=top.name) if top else w("title.rankings") }}</h3>
+    {% if not top %}<p class="muted">{{ w("rankings.none") }}</p>{% else %}
+    <ol class="past-top">
+      {% for r in top.rows %}
+      <li class="{{ 'me' if r.player == user.id }}"><span class="past-place place-{{ r.place }}">{{ r.place }}</span><a href="/dj/{{ r.player }}">{{ r.dj_name }}</a><span class="score">{{ "{:,}".format(r.total) }}</span></li>
+      {% endfor %}
+    </ol>
+    <p class="cut"><a href="/rankings?mode={{ top.mode }}">{{ w("home.top.all") }}</a></p>
+    {% endif %}
+  </div>
+  {# The newest plays that beat their player's best on the chart before them, each with by how much: the widest
+     rows of the page, across both columns. #}
+  <div class="card records wide">
+    <h3>{{ w("home.records") }}</h3>
+    {% if not records %}<p class="muted">{{ w("home.records.none") }}</p>{% endif %}
+    <ul class="plays">
+    {% for p in records %}
+      <li><a class="song" href="/songs/{{ p.song }}">{{ p.title }}</a>
+        <span class="muted">{{ w("song.chart.level" if p.level else "song.chart", mode=p.mode_name, n=p.pattern, level=p.level) }}{% if p.dj %} · <a href="/dj/{{ p.player }}">{{ p.dj }}</a>{% endif %} · {{ p.at|when }}</span>
+        <span class="score">{{ "{:,}".format(p.score) }}<span class="gain" title="{{ w('home.records.before', score='{:,}'.format(p.before)) }}">+{{ "{:,}".format(p.gain) }}</span></span></li>
+    {% endfor %}
+    </ul>
+  </div>
+  {% for title, plays, total, show_dj in [(w("home.mine"), mine, mine_total, False), (w("home.everyone"), everyone, everyone_total, True)] %}
+  <div class="card">
+    <h3>{{ title }}</h3>
+    {% if not plays %}<p class="muted">{{ w("home.plays.none") }}</p>{% endif %}
+    <ul class="plays">
+    {% for p in plays %}
+      {# NEW: the play beat its player's best on the chart when it was played. #}
+      <li><a class="song" href="/songs/{{ p.song }}">{{ p.title }}</a>
+        <span class="muted">{% if p.new %}<span class="tag" title="{{ w('home.new.title') }}">NEW</span>{% endif %}{{ w("song.chart.level" if p.level else "song.chart", mode=p.mode_name, n=p.pattern, level=p.level) }}{% if show_dj and p.dj %} · <a href="/dj/{{ p.player }}">{{ p.dj }}</a>{% endif %} · {{ p.at|when }}</span>
+        <span class="score">{{ "{:,}".format(p.score) }}</span></li>
+    {% endfor %}
+    </ul>
+    {% if total > plays|length %}<p class="muted small cut">{{ w("list.latest", n=plays|length, of="{:,}".format(total)) }}</p>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}

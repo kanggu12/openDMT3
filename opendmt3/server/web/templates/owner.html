@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ w("owner.title") }} · {% endblock %}
+{% block main %}
+<section class="narrow">
+  <div class="card">
+    <h2>{{ w("owner.title") }}</h2>
+    <p class="muted">{{ w("owner.text") }}</p>
+    {% if error %}<p class="alert bad">{{ error }}</p>{% endif %}
+    <form method="post" action="/owner" class="form">
+      <input type="hidden" name="csrf" value="{{ owner_token }}">
+      <label>{{ w("account.id") }}<input name="login_id" maxlength="8" autocapitalize="characters" required autofocus></label>
+      <label>{{ w("account.password") }}<input name="password" type="password" minlength="{{ password_min }}" maxlength="{{ password_max }}" required></label>
+      <label>{{ w("account.dj") }}<input name="dj_name" maxlength="8"></label>
+      <button class="btn primary">{{ w("owner.button") }}</button>
+    </form>
+    {# The rules of an ID, a DJ name and a password, before one is broken (the launcher's own line for them). #}
+    <p class="muted small">{{ w("owner.hint", min=password_min, max=password_max) }}</p>
+  </div>
+</section>
+{% endblock %}

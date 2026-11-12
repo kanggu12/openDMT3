@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{# A page that is not there (404), one that cannot be shown right now (503: unavailable), or a caller past their share
+   of the server's work (429: busy, the seconds to wait). #}
+{% block title %}{{ w("error.busy.title") if busy else w("error.unavailable.title") if unavailable else w("error.title") }} · {% endblock %}
+{% block main %}
+<section class="narrow">
+  <div class="card">
+    <h2>{{ w("error.busy.title") if busy else w("error.unavailable.title") if unavailable else w("error.title") }}</h2>
+    {# One second has words of its own ("1 second"). #}
+    <p class="muted">{{ (w("error.busy.text.one") if busy == 1 else w("error.busy.text", seconds=busy)) if busy else w("error.unavailable.text") if unavailable else w("error.text") }}</p>
+    <a class="btn" href="/">{{ w("error.home") }}</a>
+  </div>
+</section>
+{% endblock %}

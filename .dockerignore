@@ -1,0 +1,7 @@
+# The server image (packaging/docker/Dockerfile) takes only the package and openDMT3's license beside it (the site's
+# Licenses page shows it); nothing else goes into its build.
+*
+!opendmt3/
+!LICENSE
+**/__pycache__
+**/*.pyc

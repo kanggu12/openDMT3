@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ w("admin.players") }} · {{ w("admin.title") }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
+</section>
+<section class="page">
+  {% set tab = "players" %}{% include "_admin_tabs.html" %}
+  {% if notice %}<p class="alert ok">{{ notice }}</p>{% endif %}
+  {% if error %}<p class="alert bad">{{ error }}</p>{% endif %}
+  {# After a new account or password: what the player needs, as text to copy (selected whole on focus, site.js). #}
+  {% if message %}
+  <div class="card">
+    <h3><label for="message">{{ w("admin.message") }}</label></h3>
+    <textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea>
+    {# The address in it is one only this PC reaches: which address to send in its place. #}
+    {% if message_local %}<p class="alert look message-local">{{ w("admin.message.local", address=message_local) }}</p>{% endif %}
+  </div>
+  {% endif %}
+  <div class="card">
+    <h3>{{ w("admin.make") }}</h3>
+    <form method="post" class="form row">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="make">
+      <label>{{ w("account.id") }}<input name="login_id" maxlength="8" autocapitalize="characters" required></label>
+      <label>{{ w("account.dj") }}<input name="dj_name" maxlength="8"></label>
+      <label>{{ w("account.password") }}<input name="password" type="password" maxlength="16" placeholder="{{ w('account.password.auto') }}"></label>
+      <label class="check"><input type="checkbox" name="is_admin"> {{ w("account.admin") }}</label>
+      <button class="btn primary">{{ w("admin.make") }}</button>
+    </form>
+  </div>
+  <div class="card">
+    <table class="table">
+      <thead><tr><th>ID</th><th>{{ w("account.dj") }}</th><th></th><th>{{ w("admin.last") }}</th><th></th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr class="{{ 'off' if r.disabled }}">
+          <td><code>{{ r.login_id }}</code></td>
+          {# The DJ name, changed in its row by the account page's rules. #}
+          <td>
+            <form method="post" class="inline-name">
+              <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="rename"><input type="hidden" name="login_id" value="{{ r.login_id }}">
+              <input name="dj_name" value="{{ r.dj_name }}" maxlength="{{ dj_max }}" required aria-label="{{ w('account.dj') }} ({{ r.login_id }})">
+              <button class="btn small">{{ w("admin.rename") }}</button>
+            </form>
+          </td>
+          <td>{% if r.is_admin %}<span class="tag">{{ w("admin.role") }}</span>{% endif %}{% if r.disabled %}<span class="tag bad">{{ w("admin.disabled") }}</span>{% endif %}</td>
+          {# On a phone the row is a block and the headers are gone: a cell that is not its own name says what it is. #}
+          <td class="muted" data-label="{{ w('admin.last') }}">{{ r.last_login|when if r.last_login else w("admin.never") }}</td>
+          <td class="actions">
+            {# A new password ends the account's sign-ins and shows once: asked first, as a reset and a delete are. #}
+            <form method="post" data-ask="{{ w('admin.newpass.ask', login_id=r.login_id) }}" data-ask-title="{{ w('admin.newpass') }}" data-ask-detail="{{ w('admin.newpass.detail') }}" data-ask-yes="{{ w('admin.newpass') }}" data-ask-tone="warn"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="password"><input type="hidden" name="login_id" value="{{ r.login_id }}"><button class="btn small">{{ w("admin.newpass") }}</button></form>
+            {% for action, label in [("enable" if r.disabled else "disable", w("admin.enable") if r.disabled else w("admin.disable")), ("admin_off" if r.is_admin else "admin_on", w("admin.rights.take") if r.is_admin else w("admin.rights.give"))] %}
+            <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ action }}"><input type="hidden" name="login_id" value="{{ r.login_id }}"><button class="btn small">{{ label }}</button></form>
+            {% endfor %}
+            {# The player's plays reset (the database backed up first), asked first in the site's own dialog. #}
+            <form method="post" data-ask="{{ w('admin.reset.ask', login_id=r.login_id) }}" data-ask-title="{{ w('admin.reset.title') }}" data-ask-detail="{{ w('admin.reset.detail') }}" data-ask-yes="{{ w('admin.reset') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="reset_plays"><input type="hidden" name="login_id" value="{{ r.login_id }}"><button class="btn small danger">{{ w("admin.reset") }}</button></form>
+            {% if r.login_id != user.login_id %}
+            <form method="post" data-ask="{{ w('admin.delete.ask', login_id=r.login_id) }}" data-ask-title="{{ w('admin.delete.title') }}" data-ask-detail="{{ w('admin.delete.detail') }}" data-ask-yes="{{ w('admin.delete') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="delete"><input type="hidden" name="login_id" value="{{ r.login_id }}"><button class="btn small danger">{{ w("admin.delete") }}</button></form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {# Every player's plays reset at once (the database backed up first), asked first in the site's own dialog. #}
+  <div class="card">
+    <h3>{{ w("admin.reset.all") }}</h3>
+    <form method="post" class="form row" data-ask="{{ w('admin.reset.all.ask') }}" data-ask-title="{{ w('admin.reset.all') }}" data-ask-detail="{{ w('admin.reset.all.detail') }}" data-ask-yes="{{ w('admin.reset') }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="reset_all">
+      <p class="muted small grow">{{ w("admin.reset.all.hint") }}</p>
+      <button class="btn danger">{{ w("admin.reset.all") }}</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

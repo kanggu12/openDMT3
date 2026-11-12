@@ -1,0 +1,28 @@
+name: release
+
+# A tag like v1.2.3: all of CI again on the tag's commit, and the tag, __version__ and CHANGELOG.md naming one version
+# with notes for it. No release is built or published here: a release's update packages carry the project's signature,
+# made with a key that never leaves the release machine, so the release is built, signed and published there
+# (packaging/release.sh, CONTRIBUTING.md). These checks need no key, and a tag that fails them shows it on GitHub.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  # All of CI, on the tag's commit.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  version:
+    runs-on: ubuntu-24.04
+    # It reads three files; a job that runs longer is stalled.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      # The script the release machine runs before it builds (packaging/release.sh), with the runner's own Python.
+      - name: The tag, __version__ and CHANGELOG.md name one version
+        run: python3 .github/release_notes.py "$GITHUB_REF_NAME"

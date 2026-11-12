@@ -1,0 +1,431 @@
+{
+ "djmax-photos.zip list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/djmax-photos.zip"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = notes\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3461597\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nEncrypted = -\nComment = \nCRC = \nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 0\n\nPath = notes/photo.jpg\nFolder = -\nSize = 30000\nPacked Size = 30000\nModified = 2026-11-11 20:48:11.3494744\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = C873DE65\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 36\n\nPath = notes/readme.txt\nFolder = -\nSize = 14\nPacked Size = 14\nModified = 2026-11-11 20:48:11.3461597\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = 374E3D08\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 30081\n\n"
+ },
+ "missing-last__technika3-split.7z.001 list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/missing-last/technika3-split.7z.001"
+  ],
+  "code": 2,
+  "err": "\nERROR: arch2/a/missing-last/technika3-split.7z.001 : technika3-split.7z\nOpen ERROR: Cannot open the file as [7z] archive\n\n\nERRORS:\nUnexpected end of archive\n\n",
+  "out": ""
+ },
+ "missing__technika3-split.7z.001 list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/missing/technika3-split.7z.001"
+  ],
+  "code": 2,
+  "err": "\nERROR: arch2/a/missing/technika3-split.7z.001 : technika3-split.7z\nOpen ERROR: Cannot open the file as [7z] archive\n\n\nERRORS:\nUnexpected end of archive\n\n",
+  "out": ""
+ },
+ "missing__technika3-splitrar.part1.rar listprops": {
+  "args": [
+   "l",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/missing/technika3-splitrar.part1.rar"
+  ],
+  "code": 2,
+  "err": "",
+  "out": "\n7-Zip (z) 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n 64-bit locale=C.UTF-8 Threads:32 OPEN_MAX:1048576, ASM\n\nScanning the drive for archives:\n1 file, 204800 bytes (200 KiB)\n\nListing archive: arch2/a/missing/technika3-splitrar.part1.rar\n\n--\nPath = arch2/a/missing/technika3-splitrar.part1.rar\nType = Rar5\nERROR = Missing volume : technika3-splitrar.part2.rar\nPhysical Size = 204800\nCharacteristics = Volume Locator QuickOpen:204684\nEncrypted = -\nSolid = -\nBlocks = 1\nMethod = v6:1M:m3\nMultivolume = +\nVolume Index = 0\nVolumes = 1\n\n----------\nPath = TECHNIKA 3/pack/filler.pak\nFolder = -\nSize = 600000\nPacked Size = 204604\nModified = 2026-11-11 20:48:11.346159747\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = +\nCRC = 5AC281C6\nHost OS = Unix\nMethod = v6:m3:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = 0\nChecksum = \nNT Security = \n\n\nErrors: 1\n"
+ },
+ "technika3-cut.7z list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-cut.7z"
+  ],
+  "code": 2,
+  "err": "\nERROR: arch2/a/technika3-cut.7z : arch2/a/technika3-cut.7z\nOpen ERROR: Cannot open the file as [7z] archive\n\n\nERRORS:\nUnexpected end of archive\n\n",
+  "out": ""
+ },
+ "technika3-cut.rar list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-cut.rar"
+  ],
+  "code": 2,
+  "err": "",
+  "out": "Path = TECHNIKA 3/pack/filler.pak\nFolder = -\nSize = 600000\nPacked Size = 600000\nModified = 2026-11-11 20:48:11.346159747\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = B1040792\nHost OS = Unix\nMethod = v6:m0:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = \nChecksum = \nNT Security = \n\n"
+ },
+ "technika3-cut.zip listprops": {
+  "args": [
+   "l",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-cut.zip"
+  ],
+  "code": 2,
+  "err": "",
+  "out": "\n7-Zip (z) 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n 64-bit locale=C.UTF-8 Threads:32 OPEN_MAX:1048576, ASM\n\nScanning the drive for archives:\n1 file, 394603 bytes (386 KiB)\n\nListing archive: arch2/a/technika3-cut.zip\n\n--\nPath = arch2/a/technika3-cut.zip\nType = zip\nERRORS:\nUnexpected end of archive\nPhysical Size = 394603\nCharacteristics = Local\n\n----------\nPath = TECHNIKA 3\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = D\nEncrypted = -\nComment = \nCRC = \nMethod = Store\nCharacteristics = Local\nHost OS = \nVersion = 20\nVolume Index = 0\nOffset = 0\n\nPath = TECHNIKA 3/Client.exe\nFolder = -\nSize = 40018\nPacked Size = 40018\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = \nEncrypted = -\nComment = \nCRC = AB710E97\nMethod = Store\nCharacteristics = Local\nHost OS = \nVersion = 10\nVolume Index = 0\nOffset = 41\n\nPath = TECHNIKA 3/file\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = D\nEncrypted = -\nComment = \nCRC = \nMethod = Store\nCharacteristics = Local\nHost OS = \nVersion = 20\nVolume Index = 0\nOffset = 40110\n\nPath = TECHNIKA 3/file/game\nFolder = -\nSize = 25\nPacked Size = 25\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = \nEncrypted = -\nComment = \nCRC = EEBA1013\nMethod = Store\nCharacteristics = Local\nHost OS = \nVersion = 10\nVolume Index = 0\nOffset = 40156\n\nPath = TECHNIKA 3/pack\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = D\nEncrypted = -\nComment = \nCRC = \nMethod = Store\nCharacteristics = Local\nHost OS = \nVersion = 20\nVolume Index = 0\nOffset = 40231\n\nPath = TECHNIKA 3/pack/Config.pak\nFolder = -\nSize = 8192\nPacked Size = 8192\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = \nEncrypted = -\nComment = \nCRC = A5D54316\nMethod = Store\nCharacteristics = Local\nHost OS = \nVersion = 10\nVolume Index = 0\nOffset = 40277\n\nPath = TECHNIKA 3/pack/DiscInfo.pak\nFolder = -\nSize = 8192\nPacked Size = 8192\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = \nEncrypted = -\nComment = \nCRC = 1857F855\nMethod = Store\nCharacteristics = Local\nHost OS = \nVersion = 10\nVolume Index = 0\nOffset = 48525\n\nPath = TECHNIKA 3/pack/filler.pak\nFolder = -\nSize = 600000\nPacked Size = 600000\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = \nEncrypted = -\nComment = \nCRC = B1040792\nMethod = Store\nCharacteristics = Local\nHost OS = \nVersion = 10\nVolume Index = 0\nOffset = 56775\n\n\nErrors: 1\n"
+ },
+ "technika3-damaged.7z extract": {
+  "args": [
+   "x",
+   "-y",
+   "-bso0",
+   "-bse1",
+   "-bsp1",
+   "-sccUTF-8",
+   "-p",
+   "-otrial-linux2/x/technika3-damaged.7z",
+   "arch2/a/technika3-damaged.7z"
+  ],
+  "code": 2,
+  "err": "",
+  "out": "  0M Scan\b\b\b\b\b\b\b\b\b         \b\b\b\b\b\b\b\b\b  0%\b\b\b\b    \b\b\b\bERROR: CRC Failed : TECHNIKA 3/pack/filler.pak\n100% 7 - TECHNIKA 3/pack/filler.pak\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b                                   \b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b"
+ },
+ "technika3-damaged.7z test": {
+  "args": [
+   "t",
+   "-bso1",
+   "-bse1",
+   "-bsp0",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-damaged.7z"
+  ],
+  "code": 2,
+  "err": "",
+  "out": "\n7-Zip (z) 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n 64-bit locale=C.UTF-8 Threads:32 OPEN_MAX:1048576, ASM\n\nScanning the drive for archives:\n1 file, 656766 bytes (642 KiB)\n\nTesting archive: arch2/a/technika3-damaged.7z\n--\nPath = arch2/a/technika3-damaged.7z\nType = 7z\nPhysical Size = 656766\nHeaders Size = 296\nMethod = LZMA2:768k\nSolid = +\nBlocks = 1\n\nERROR: CRC Failed : TECHNIKA 3/pack/filler.pak\n\nSub items Errors: 1\n\nArchives with Errors: 1\n\nSub items Errors: 1\n"
+ },
+ "technika3-damaged.rar test": {
+  "args": [
+   "t",
+   "-bso1",
+   "-bse1",
+   "-bsp0",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-damaged.rar"
+  ],
+  "code": 2,
+  "err": "",
+  "out": "\n7-Zip (z) 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n 64-bit locale=C.UTF-8 Threads:32 OPEN_MAX:1048576, ASM\n\nScanning the drive for archives:\n1 file, 657199 bytes (642 KiB)\n\nTesting archive: arch2/a/technika3-damaged.rar\n--\nPath = arch2/a/technika3-damaged.rar\nType = Rar5\nPhysical Size = 657199\nCharacteristics = Locator QuickOpen:656875\nEncrypted = -\nSolid = -\nBlocks = 8\nMethod = v6:1M:m0\nMultivolume = -\nVolumes = 1\n\nERROR: CRC Failed : TECHNIKA 3/pack/filler.pak\n\nSub items Errors: 1\n\nArchives with Errors: 1\n\nSub items Errors: 1\n"
+ },
+ "technika3-damaged.zip test": {
+  "args": [
+   "t",
+   "-bso1",
+   "-bse1",
+   "-bsp0",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-damaged.zip"
+  ],
+  "code": 2,
+  "err": "",
+  "out": "\n7-Zip (z) 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n 64-bit locale=C.UTF-8 Threads:32 OPEN_MAX:1048576, ASM\n\nScanning the drive for archives:\n1 file, 657673 bytes (643 KiB)\n\nTesting archive: arch2/a/technika3-damaged.zip\n--\nPath = arch2/a/technika3-damaged.zip\nType = zip\nPhysical Size = 657673\n\nERROR: CRC Failed : TECHNIKA 3/pack/filler.pak\n\nSub items Errors: 1\n\nArchives with Errors: 1\n\nSub items Errors: 1\n"
+ },
+ "technika3-dotdot.zip list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-dotdot.zip"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = TECHNIKA 3/pack/Config.pak\nFolder = -\nSize = 8192\nPacked Size = 8192\nModified = 2026-11-11 20:48:10\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = A5D54316\nMethod = Store\nCharacteristics = \nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 0\n\nPath = TECHNIKA 3/pack/DiscInfo.pak\nFolder = -\nSize = 100\nPacked Size = 100\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = V 01800000 0rw-------\nEncrypted = -\nComment = \nCRC = 5E0E5D8F\nMethod = Store\nCharacteristics = \nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 8248\n\nPath = TECHNIKA 3/Client.exe\nFolder = -\nSize = 11\nPacked Size = 11\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = V 01800000 0rw-------\nEncrypted = -\nComment = \nCRC = 1F2A2FE8\nMethod = Store\nCharacteristics = \nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 8406\n\nPath = ../../outside.txt\nFolder = -\nSize = 7\nPacked Size = 7\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = V 01800000 0rw-------\nEncrypted = -\nComment = \nCRC = E637D124\nMethod = Store\nCharacteristics = \nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 8468\n\nPath = /abs/outside.txt\nFolder = -\nSize = 7\nPacked Size = 7\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = V 01800000 0rw-------\nEncrypted = -\nComment = \nCRC = E637D124\nMethod = Store\nCharacteristics = \nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 8522\n\nPath = TECHNIKA 3/CON\nFolder = -\nSize = 7\nPacked Size = 7\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = V 01800000 0rw-------\nEncrypted = -\nComment = \nCRC = E637D124\nMethod = Store\nCharacteristics = \nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 8575\n\nPath = TECHNIKA 3/name:stream\nFolder = -\nSize = 7\nPacked Size = 7\nModified = 2026-11-11 20:48:12\nCreated = \nAccessed = \nAttributes = V 01800000 0rw-------\nEncrypted = -\nComment = \nCRC = E637D124\nMethod = Store\nCharacteristics = \nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 8626\n\n"
+ },
+ "technika3-fake.7z listprops": {
+  "args": [
+   "l",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-fake.7z"
+  ],
+  "code": 2,
+  "err": "\nERROR: arch2/a/technika3-fake.7z : arch2/a/technika3-fake.7z\nOpen ERROR: Cannot open the file as [7z] archive\n\n\nERRORS:\nIs not archive\n\n",
+  "out": "\n7-Zip (z) 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n 64-bit locale=C.UTF-8 Threads:32 OPEN_MAX:1048576, ASM\n\nScanning the drive for archives:\n1 file, 5000 bytes (5 KiB)\n\nListing archive: arch2/a/technika3-fake.7z\n\n\nErrors: 1\n"
+ },
+ "technika3-korean.7z list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-korean.7z"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = 한글 폴더\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:12.1756870\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = 한글 폴더/TECHNIKA 3\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:12.1807151\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = 한글 폴더/TECHNIKA 3/file\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:12.1807151\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = 한글 폴더/TECHNIKA 3/pack\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:12.1797064\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = 한글 폴더/TECHNIKA 3/Client.exe\nSize = 40018\nPacked Size = 656470\nModified = 2026-11-11 20:48:12.1807697\nAttributes = A -rw-r--r--\nCRC = AB710E97\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = 한글 폴더/TECHNIKA 3/file/game\nSize = 25\nPacked Size = \nModified = 2026-11-11 20:48:12.1807151\nAttributes = A -rw-r--r--\nCRC = EEBA1013\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = 한글 폴더/TECHNIKA 3/pack/Config.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:12.1796130\nAttributes = A -rw-r--r--\nCRC = A5D54316\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = 한글 폴더/TECHNIKA 3/pack/DiscInfo.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:12.1797064\nAttributes = A -rw-r--r--\nCRC = 1857F855\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = 한글 폴더/TECHNIKA 3/pack/filler.pak\nSize = 600000\nPacked Size = \nModified = 2026-11-11 20:48:12.1798585\nAttributes = A -rw-r--r--\nCRC = B1040792\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\n"
+ },
+ "technika3-link.7z list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-link.7z"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = TECHNIKA 3\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:12.2314272\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/file\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:12.2314272\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/pack\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:12.2321471\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/Client.exe\nSize = 40018\nPacked Size = 656481\nModified = 2026-11-11 20:48:12.2308582\nAttributes = A -rw-r--r--\nCRC = AB710E97\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/file/game\nSize = 25\nPacked Size = \nModified = 2026-11-11 20:48:12.2314272\nAttributes = A -rw-r--r--\nCRC = EEBA1013\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/pack/Config.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:12.2319740\nAttributes = A -rw-r--r--\nCRC = A5D54316\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/pack/DiscInfo.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:12.2320405\nAttributes = A -rw-r--r--\nCRC = 1857F855\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/pack/filler.pak\nSize = 600000\nPacked Size = \nModified = 2026-11-11 20:48:12.2321471\nAttributes = A -rw-r--r--\nCRC = B1040792\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/pack/link.pak\nSize = 11\nPacked Size = \nModified = 2026-11-11 20:48:12.2321471\nAttributes = A lrwxrwxrwx\nCRC = 291FB90A\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\n"
+ },
+ "technika3-nested.zip list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-nested.zip"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = technika3.7z\nFolder = -\nSize = 656766\nPacked Size = 656766\nModified = 2026-11-11 20:48:11.4300635\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = 9DBE33DC\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 0\n\n"
+ },
+ "technika3-pw.7z list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-pw.7z"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = TECHNIKA 3\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3357054\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/file\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3461597\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/pack\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3434143\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/Client.exe\nSize = 40018\nPacked Size = 656480\nModified = 2026-11-11 20:48:11.3410777\nAttributes = A -rw-r--r--\nCRC = AB710E97\nEncrypted = +\nMethod = LZMA2:768k 7zAES:19\nBlock = 0\n\nPath = TECHNIKA 3/file/game\nSize = 25\nPacked Size = \nModified = 2026-11-11 20:48:11.3461597\nAttributes = A -rw-r--r--\nCRC = EEBA1013\nEncrypted = +\nMethod = LZMA2:768k 7zAES:19\nBlock = 0\n\nPath = TECHNIKA 3/pack/Config.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:11.3423377\nAttributes = A -rw-r--r--\nCRC = A5D54316\nEncrypted = +\nMethod = LZMA2:768k 7zAES:19\nBlock = 0\n\nPath = TECHNIKA 3/pack/DiscInfo.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:11.3434143\nAttributes = A -rw-r--r--\nCRC = 1857F855\nEncrypted = +\nMethod = LZMA2:768k 7zAES:19\nBlock = 0\n\nPath = TECHNIKA 3/pack/filler.pak\nSize = 600000\nPacked Size = \nModified = 2026-11-11 20:48:11.3461597\nAttributes = A -rw-r--r--\nCRC = B1040792\nEncrypted = +\nMethod = LZMA2:768k 7zAES:19\nBlock = 0\n\n"
+ },
+ "technika3-pw.7z test": {
+  "args": [
+   "t",
+   "-bso1",
+   "-bse1",
+   "-bsp0",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-pw.7z"
+  ],
+  "code": 2,
+  "err": "",
+  "out": "\n7-Zip (z) 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n 64-bit locale=C.UTF-8 Threads:32 OPEN_MAX:1048576, ASM\n\nScanning the drive for archives:\n1 file, 656804 bytes (642 KiB)\n\nTesting archive: arch2/a/technika3-pw.7z\n--\nPath = arch2/a/technika3-pw.7z\nType = 7z\nPhysical Size = 656804\nHeaders Size = 324\nMethod = LZMA2:768k 7zAES\nSolid = +\nBlocks = 1\n\nERROR: Data Error in encrypted file. Wrong password? : TECHNIKA 3/Client.exe\nERROR: Data Error in encrypted file. Wrong password? : TECHNIKA 3/file/game\nERROR: Data Error in encrypted file. Wrong password? : TECHNIKA 3/pack/Config.pak\nERROR: Data Error in encrypted file. Wrong password? : TECHNIKA 3/pack/DiscInfo.pak\nERROR: Data Error in encrypted file. Wrong password? : TECHNIKA 3/pack/filler.pak\n\nSub items Errors: 5\n\nArchives with Errors: 1\n\nSub items Errors: 5\n"
+ },
+ "technika3-pw.7z testpw": {
+  "args": [
+   "t",
+   "-bso1",
+   "-bse1",
+   "-bsp0",
+   "-sccUTF-8",
+   "-pmade-up-1",
+   "arch2/a/technika3-pw.7z"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "\n7-Zip (z) 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n 64-bit locale=C.UTF-8 Threads:32 OPEN_MAX:1048576, ASM\n\nScanning the drive for archives:\n1 file, 656804 bytes (642 KiB)\n\nTesting archive: arch2/a/technika3-pw.7z\n--\nPath = arch2/a/technika3-pw.7z\nType = 7z\nPhysical Size = 656804\nHeaders Size = 324\nMethod = LZMA2:768k 7zAES\nSolid = +\nBlocks = 1\n\nEverything is Ok\n\nFolders: 3\nFiles: 5\nSize:       656427\nCompressed: 656804\n"
+ },
+ "technika3-pw.rar testwrong": {
+  "args": [
+   "t",
+   "-bso1",
+   "-bse1",
+   "-bsp0",
+   "-sccUTF-8",
+   "-pnot-it",
+   "arch2/a/technika3-pw.rar"
+  ],
+  "code": 2,
+  "err": "",
+  "out": "\n7-Zip (z) 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n 64-bit locale=C.UTF-8 Threads:32 OPEN_MAX:1048576, ASM\n\nScanning the drive for archives:\n1 file, 659069 bytes (644 KiB)\n\nTesting archive: arch2/a/technika3-pw.rar\n--\nPath = arch2/a/technika3-pw.rar\nType = Rar5\nPhysical Size = 659069\nCharacteristics = Locator QuickOpen:658549\nEncrypted = -\nSolid = -\nBlocks = 8\nMethod = v6:1M:m3\nMultivolume = -\nVolumes = 1\n\nERROR: Wrong password : TECHNIKA 3/pack/filler.pak\nERROR: Wrong password : TECHNIKA 3/pack/Config.pak\nERROR: Wrong password : TECHNIKA 3/pack/DiscInfo.pak\nERROR: Wrong password : TECHNIKA 3/file/game\nERROR: Wrong password : TECHNIKA 3/Client.exe\n\nSub items Errors: 5\n\nArchives with Errors: 1\n\nSub items Errors: 5\n"
+ },
+ "technika3-pw.zip testwrong": {
+  "args": [
+   "t",
+   "-bso1",
+   "-bse1",
+   "-bsp0",
+   "-sccUTF-8",
+   "-pnot-it",
+   "arch2/a/technika3-pw.zip"
+  ],
+  "code": 2,
+  "err": "",
+  "out": "\n7-Zip (z) 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n 64-bit locale=C.UTF-8 Threads:32 OPEN_MAX:1048576, ASM\n\nScanning the drive for archives:\n1 file, 657733 bytes (643 KiB)\n\nTesting archive: arch2/a/technika3-pw.zip\n--\nPath = arch2/a/technika3-pw.zip\nType = zip\nPhysical Size = 657733\n\nERROR: Wrong password : TECHNIKA 3/Client.exe\nERROR: Wrong password : TECHNIKA 3/file/game\nERROR: Wrong password : TECHNIKA 3/pack/Config.pak\nERROR: Wrong password : TECHNIKA 3/pack/DiscInfo.pak\nERROR: Wrong password : TECHNIKA 3/pack/filler.pak\n\nSub items Errors: 5\n\nArchives with Errors: 1\n\nSub items Errors: 5\n"
+ },
+ "technika3-pwnames.7z list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-pwnames.7z"
+  ],
+  "code": 2,
+  "err": "\nERROR: arch2/a/technika3-pwnames.7z : Cannot open encrypted archive. Wrong password?\n\n\n",
+  "out": ""
+ },
+ "technika3-pwnames.7z listpw": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-pmade-up-1",
+   "arch2/a/technika3-pwnames.7z"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = TECHNIKA 3\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3357054\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/file\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3461597\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/pack\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3434143\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/Client.exe\nSize = 40018\nPacked Size = 656480\nModified = 2026-11-11 20:48:11.3410777\nAttributes = A -rw-r--r--\nCRC = AB710E97\nEncrypted = +\nMethod = LZMA2:768k 7zAES:19\nBlock = 0\n\nPath = TECHNIKA 3/file/game\nSize = 25\nPacked Size = \nModified = 2026-11-11 20:48:11.3461597\nAttributes = A -rw-r--r--\nCRC = EEBA1013\nEncrypted = +\nMethod = LZMA2:768k 7zAES:19\nBlock = 0\n\nPath = TECHNIKA 3/pack/Config.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:11.3423377\nAttributes = A -rw-r--r--\nCRC = A5D54316\nEncrypted = +\nMethod = LZMA2:768k 7zAES:19\nBlock = 0\n\nPath = TECHNIKA 3/pack/DiscInfo.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:11.3434143\nAttributes = A -rw-r--r--\nCRC = 1857F855\nEncrypted = +\nMethod = LZMA2:768k 7zAES:19\nBlock = 0\n\nPath = TECHNIKA 3/pack/filler.pak\nSize = 600000\nPacked Size = \nModified = 2026-11-11 20:48:11.3461597\nAttributes = A -rw-r--r--\nCRC = B1040792\nEncrypted = +\nMethod = LZMA2:768k 7zAES:19\nBlock = 0\n\n"
+ },
+ "technika3-pwnames.rar list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-pwnames.rar"
+  ],
+  "code": 2,
+  "err": "\nERROR: arch2/a/technika3-pwnames.rar : Cannot open encrypted archive. Wrong password?\n\n\n",
+  "out": ""
+ },
+ "technika3-split.7z.001 extract": {
+  "args": [
+   "x",
+   "-y",
+   "-bso0",
+   "-bse1",
+   "-bsp1",
+   "-sccUTF-8",
+   "-p",
+   "-otrial-linux2/x/technika3-split.7z.001",
+   "arch2/a/technika3-split.7z.001"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "  0M Scan\b\b\b\b\b\b\b\b\b         \b\b\b\b\b\b\b\b\b  0% 1 Open\b\b\b\b\b\b\b\b\b\b\b           \b\b\b\b\b\b\b\b\b\b\b  0%\b\b\b\b    \b\b\b\b"
+ },
+ "technika3-split.7z.001 list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-split.7z.001"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = TECHNIKA 3\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3357054\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/file\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3461597\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/pack\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3434143\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/Client.exe\nSize = 40018\nPacked Size = 656470\nModified = 2026-11-11 20:48:11.3410777\nAttributes = A -rw-r--r--\nCRC = AB710E97\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/file/game\nSize = 25\nPacked Size = \nModified = 2026-11-11 20:48:11.3461597\nAttributes = A -rw-r--r--\nCRC = EEBA1013\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/pack/Config.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:11.3423377\nAttributes = A -rw-r--r--\nCRC = A5D54316\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/pack/DiscInfo.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:11.3434143\nAttributes = A -rw-r--r--\nCRC = 1857F855\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/pack/filler.pak\nSize = 600000\nPacked Size = \nModified = 2026-11-11 20:48:11.3461597\nAttributes = A -rw-r--r--\nCRC = B1040792\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\n"
+ },
+ "technika3-splitrar.part1.rar list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-splitrar.part1.rar"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = TECHNIKA 3/pack/filler.pak\nFolder = -\nSize = 600000\nPacked Size = 601173\nModified = 2026-11-11 20:48:11.346159747\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = B1040792\nHost OS = Unix\nMethod = v6:m3:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = 0\nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/pack/Config.pak\nFolder = -\nSize = 8192\nPacked Size = 8192\nModified = 2026-11-11 20:48:11.342337786\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = A5D54316\nHost OS = Unix\nMethod = v6:m0:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = 2\nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/pack/DiscInfo.pak\nFolder = -\nSize = 8192\nPacked Size = 8230\nModified = 2026-11-11 20:48:11.343414335\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = 1857F855\nHost OS = Unix\nMethod = v6:m3:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = 2\nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/file/game\nFolder = -\nSize = 25\nPacked Size = 25\nModified = 2026-11-11 20:48:11.346159747\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = EEBA1013\nHost OS = Unix\nMethod = v6:m0:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = 3\nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/Client.exe\nFolder = -\nSize = 40018\nPacked Size = 40018\nModified = 2026-11-11 20:48:11.341077757\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = AB710E97\nHost OS = Unix\nMethod = v6:m0:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = 3\nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/pack\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.343414335\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = \nHost OS = Unix\nMethod = v6:m0\nCharacteristics = Dir Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = 3\nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/file\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.346159747\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = \nHost OS = Unix\nMethod = v6:m0\nCharacteristics = Dir Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = 3\nChecksum = \nNT Security = \n\nPath = TECHNIKA 3\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.335705436\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = \nHost OS = Unix\nMethod = v6:m0\nCharacteristics = Dir Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = 3\nChecksum = \nNT Security = \n\n"
+ },
+ "technika3-splitzip.zip.001 list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3-splitzip.zip.001"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = TECHNIKA 3\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3357054\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nEncrypted = -\nComment = \nCRC = \nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 0\n\nPath = TECHNIKA 3/Client.exe\nFolder = -\nSize = 40018\nPacked Size = 40018\nModified = 2026-11-11 20:48:11.3410777\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = AB710E97\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 41\n\nPath = TECHNIKA 3/file\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3461597\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nEncrypted = -\nComment = \nCRC = \nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 40110\n\nPath = TECHNIKA 3/file/game\nFolder = -\nSize = 25\nPacked Size = 25\nModified = 2026-11-11 20:48:11.3461597\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = EEBA1013\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 40156\n\nPath = TECHNIKA 3/pack\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3434143\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nEncrypted = -\nComment = \nCRC = \nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 40231\n\nPath = TECHNIKA 3/pack/Config.pak\nFolder = -\nSize = 8192\nPacked Size = 8192\nModified = 2026-11-11 20:48:11.3423377\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = A5D54316\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 40277\n\nPath = TECHNIKA 3/pack/DiscInfo.pak\nFolder = -\nSize = 8192\nPacked Size = 8192\nModified = 2026-11-11 20:48:11.3434143\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = 1857F855\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 48525\n\nPath = TECHNIKA 3/pack/filler.pak\nFolder = -\nSize = 600000\nPacked Size = 600000\nModified = 2026-11-11 20:48:11.3461597\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = B1040792\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 56775\n\n"
+ },
+ "technika3.7z extract": {
+  "args": [
+   "x",
+   "-y",
+   "-bso0",
+   "-bse1",
+   "-bsp1",
+   "-sccUTF-8",
+   "-p",
+   "-otrial-linux2/x/technika3.7z",
+   "arch2/a/technika3.7z"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "  0M Scan\b\b\b\b\b\b\b\b\b         \b\b\b\b\b\b\b\b\b  0%\b\b\b\b    \b\b\b\b"
+ },
+ "technika3.7z list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3.7z"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = TECHNIKA 3\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3357054\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/file\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3461597\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/pack\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3434143\nAttributes = D drwxr-xr-x\nCRC = \nEncrypted = -\nMethod = \nBlock = \n\nPath = TECHNIKA 3/Client.exe\nSize = 40018\nPacked Size = 656470\nModified = 2026-11-11 20:48:11.3410777\nAttributes = A -rw-r--r--\nCRC = AB710E97\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/file/game\nSize = 25\nPacked Size = \nModified = 2026-11-11 20:48:11.3461597\nAttributes = A -rw-r--r--\nCRC = EEBA1013\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/pack/Config.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:11.3423377\nAttributes = A -rw-r--r--\nCRC = A5D54316\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/pack/DiscInfo.pak\nSize = 8192\nPacked Size = \nModified = 2026-11-11 20:48:11.3434143\nAttributes = A -rw-r--r--\nCRC = 1857F855\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\nPath = TECHNIKA 3/pack/filler.pak\nSize = 600000\nPacked Size = \nModified = 2026-11-11 20:48:11.3461597\nAttributes = A -rw-r--r--\nCRC = B1040792\nEncrypted = -\nMethod = LZMA2:768k\nBlock = 0\n\n"
+ },
+ "technika3.rar list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3.rar"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = TECHNIKA 3/pack/filler.pak\nFolder = -\nSize = 600000\nPacked Size = 600000\nModified = 2026-11-11 20:48:11.346159747\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = B1040792\nHost OS = Unix\nMethod = v6:m0:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = \nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/pack/Config.pak\nFolder = -\nSize = 8192\nPacked Size = 8192\nModified = 2026-11-11 20:48:11.342337786\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = A5D54316\nHost OS = Unix\nMethod = v6:m0:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = \nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/pack/DiscInfo.pak\nFolder = -\nSize = 8192\nPacked Size = 8192\nModified = 2026-11-11 20:48:11.343414335\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = 1857F855\nHost OS = Unix\nMethod = v6:m0:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = \nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/file/game\nFolder = -\nSize = 25\nPacked Size = 25\nModified = 2026-11-11 20:48:11.346159747\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = EEBA1013\nHost OS = Unix\nMethod = v6:m0:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = \nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/Client.exe\nFolder = -\nSize = 40018\nPacked Size = 40018\nModified = 2026-11-11 20:48:11.341077757\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = AB710E97\nHost OS = Unix\nMethod = v6:m0:1M\nCharacteristics = CRC Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = \nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/pack\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.343414335\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = \nHost OS = Unix\nMethod = v6:m0\nCharacteristics = Dir Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = \nChecksum = \nNT Security = \n\nPath = TECHNIKA 3/file\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.346159747\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = \nHost OS = Unix\nMethod = v6:m0\nCharacteristics = Dir Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = \nChecksum = \nNT Security = \n\nPath = TECHNIKA 3\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.335705436\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nAlternate Stream = -\nEncrypted = -\nSolid = -\nSplit Before = -\nSplit After = -\nCRC = \nHost OS = Unix\nMethod = v6:m0\nCharacteristics = Dir Time:uMn\nSymbolic Link = \nHard Link = \nCopy Link = \nVolume Index = \nChecksum = \nNT Security = \n\n"
+ },
+ "technika3.zip list": {
+  "args": [
+   "l",
+   "-ba",
+   "-slt",
+   "-sccUTF-8",
+   "-p",
+   "arch2/a/technika3.zip"
+  ],
+  "code": 0,
+  "err": "",
+  "out": "Path = TECHNIKA 3\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3357054\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nEncrypted = -\nComment = \nCRC = \nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 0\n\nPath = TECHNIKA 3/Client.exe\nFolder = -\nSize = 40018\nPacked Size = 40018\nModified = 2026-11-11 20:48:11.3410777\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = AB710E97\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 41\n\nPath = TECHNIKA 3/file\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3461597\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nEncrypted = -\nComment = \nCRC = \nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 40110\n\nPath = TECHNIKA 3/file/game\nFolder = -\nSize = 25\nPacked Size = 25\nModified = 2026-11-11 20:48:11.3461597\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = EEBA1013\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 40156\n\nPath = TECHNIKA 3/pack\nFolder = +\nSize = 0\nPacked Size = 0\nModified = 2026-11-11 20:48:11.3434143\nCreated = \nAccessed = \nAttributes = D drwxr-xr-x\nEncrypted = -\nComment = \nCRC = \nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 20\nVolume Index = 0\nOffset = 40231\n\nPath = TECHNIKA 3/pack/Config.pak\nFolder = -\nSize = 8192\nPacked Size = 8192\nModified = 2026-11-11 20:48:11.3423377\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = A5D54316\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 40277\n\nPath = TECHNIKA 3/pack/DiscInfo.pak\nFolder = -\nSize = 8192\nPacked Size = 8192\nModified = 2026-11-11 20:48:11.3434143\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = 1857F855\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 48525\n\nPath = TECHNIKA 3/pack/filler.pak\nFolder = -\nSize = 600000\nPacked Size = 600000\nModified = 2026-11-11 20:48:11.3461597\nCreated = \nAccessed = \nAttributes =  -rw-r--r--\nEncrypted = -\nComment = \nCRC = B1040792\nMethod = Store\nCharacteristics = NTFS\nHost OS = Unix\nVersion = 10\nVolume Index = 0\nOffset = 56775\n\n"
+ }
+}

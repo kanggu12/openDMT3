@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{# Each page names itself first ("Rankings · openDMT3"); its template's title block ends with the separator. #}
+<title>{% block title %}{% endblock %}openDMT3</title>
+{# Every static address carries the version: a browser keeps the file for a year and asks again after an update. #}
+<link rel="icon" href="/static/favicon.ico?v={{ version }}" sizes="16x16 32x32 48x48">
+<link rel="stylesheet" href="/static/site.css?v={{ version }}">
+{# The site's faces (static/fonts/README.md), here rather than in site.css so their addresses carry the version too.
+   DMT3 Wide is the launcher's own file; DMT3 Text is Pretendard cut to KS X 1001's syllables and Latin, every weight
+   in one 450 KB file (a rarer syllable comes from the next font in the list); the wide face has no Hangul, so in a
+   heavy wide title it comes from DMT3 Text held at bold, a file of its own that joins the title's face. #}
+<style>
+@font-face { font-family: "DMT3 Wide"; src: url("/fonts/DMT3Wide-Regular.ttf?v={{ version }}") format("truetype"); font-display: swap; }
+@font-face { font-family: "DMT3 Text"; src: url("/static/fonts/dmt3-text.woff2?v={{ version }}") format("woff2"); font-weight: 45 930; font-display: swap; }
+@font-face { font-family: "DMT3 Wide"; src: url("/static/fonts/dmt3-text-bold-hangul.woff2?v={{ version }}") format("woff2"); font-display: swap; unicode-range: U+1100-11FF, U+3130-318F, U+AC00-D7A3; }
+</style>
+</head>
+{# Each section in one of the game's colours: rankings in POP's pink, songs in STAR's lime, the console in amber. #}
+{% set section = 'console' if path.startswith('/admin') or path.startswith('/owner') else ('pop' if path.startswith('/rankings') or path.startswith('/dj/') else ('star' if path.startswith('/songs') else 'technika')) %}
+<body class="lang-{{ lang }}" data-section="{{ section }}">
+<header class="bar">
+  <a class="brand" href="/" aria-label="openDMT3"><span class="logo" aria-hidden="true"><span class="o">OPEN</span><span class="m">DMT<b>3</b></span><span class="s">SERVER</span></span></a>
+  {% if user %}
+  {# The menu: the item of the page showing is lit and says so to screen readers (aria-current). #}
+  <nav class="menu">
+    {% for href, key, on in [("/", "nav.home", path == "/"), ("/rankings", "nav.rankings", path.startswith("/rankings") or path.startswith("/dj/")), ("/songs", "nav.songs", path.startswith("/songs")), ("/download", "nav.download", path.startswith("/download")), ("/admin/players", "nav.admin", path.startswith("/admin"))] if key != "nav.admin" or user.is_admin %}
+    <a href="{{ href }}" class="{{ 'on' if on }}"{% if on %} aria-current="page"{% endif %}>{{ w(key) }}</a>
+    {% endfor %}
+  </nav>
+  {% endif %}
+  <div class="tools">
+    {# The language switch comes back to this page (next=, checked to be a path of this site). #}
+    <span class="langs"><a href="/lang/ko?next={{ here|urlencode }}" lang="ko" class="{{ 'on' if lang == 'ko' }}">KOR</a><a href="/lang/en?next={{ here|urlencode }}" lang="en" class="{{ 'on' if lang == 'en' }}">ENG</a></span>
+    {% if user %}
+    <a class="who{{ ' on' if path == '/account' }}" href="/account" title="{{ w('me.title') }}"{% if path == '/account' %} aria-current="page"{% endif %}><span class="badge">{{ user.dj_name[:1] }}</span><span class="who-name">{{ user.dj_name }}</span></a>
+    <form method="post" action="/signout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small">{{ w("nav.signout") }}</button></form>
+    {% endif %}
+  </div>
+</header>
+{# Maintenance (Admin, Status): the cabinets cannot log in while it is on; said on every page, beside the notice. #}
+{% if site_maintenance %}<div class="site-notice maintenance" role="status"><span class="label">{{ w("maintenance.bar") }}</span><span class="text">{{ w("maintenance.bar.text") }}</span></div>{% endif %}
+{# The admin's notice (Admin, Status), one line on every page. #}
+{% if site_notice %}<div class="site-notice" role="status"><span class="label">{{ w("notice.bar") }}</span><span class="text">{{ site_notice }}</span></div>{% endif %}
+<main>
+{% block main %}{% endblock %}
+</main>
+<footer class="foot">
+  {# OpenDMTQ's two lines with openDMT3's names, one above the other. #}
+  <div class="notice-lines"><p>{{ w("footer.notice") }}</p><p>{{ w("footer.rights") }}</p></div>
+  <p><a href="/licenses"{% if path == '/licenses' %} aria-current="page"{% endif %}>{{ w("footer.licenses") }}</a></p>
+  <p class="ver">openDMT3 {{ version }}</p>
+</footer>
+<dialog class="ask" id="ask" aria-labelledby="ask-question">
+  <form method="dialog" class="panel">
+    <span class="tab" id="ask-title"></span>
+    <p class="question" id="ask-question"></p>
+    <p class="detail" id="ask-detail"></p>
+    <div class="answers"><button class="btn" value="cancel" id="ask-cancel">{{ w("common.cancel") }}</button><button class="btn danger fill" value="yes" id="ask-yes"></button></div>
+  </form>
+</dialog>
+<script src="/static/site.js?v={{ version }}"></script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ w("licenses.title") }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("licenses.title") }}</h1><p class="sub">{{ w("licenses.sub") }}</p></div>
+</section>
+<section class="narrow wide-ish">
+  {# openDMT3's own licence first, as OpenDMTQ's page has it: what it covers, what it does not, and its text in full
+     when the server has it beside the package. #}
+  <div class="card">
+    <h3>{{ w("licenses.mit") }}</h3>
+    <p>{{ w("licenses.own") }}</p>
+    <p class="muted">{{ w("licenses.game") }}</p>
+    {% if own %}<details class="licence"><summary>{{ w("licenses.show") }}</summary><pre>{{ own }}</pre></details>{% endif %}
+  </div>
+  {# The parts the server and the launcher it hands out are made with, each with what it is for and its licence
+     (common.LICENCE_PARTS, which the API's twin gives too), and where their full texts are. #}
+  <div class="card">
+    <h3>{{ w("licenses.parts") }}</h3>
+    <table class="table parts">
+      <thead><tr><th>{{ w("licenses.th.part") }}</th><th>{{ w("licenses.th.use") }}</th><th>{{ w("licenses.th.licence") }}</th></tr></thead>
+      <tbody>
+      {% for part, use, licence in parts %}
+        {# On a phone the row is a block and the headers are gone: each cell says what it is. #}
+        <tr><td class="part">{{ part }}</td><td data-label="{{ w('licenses.th.use') }}">{{ w(use) }}</td><td class="muted" data-label="{{ w('licenses.th.licence') }}">{{ w(licence) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted small">{{ w("licenses.texts") }}</p>
+  </div>
+  {# Each font the pages use or the site hands out, what it was made from, and the licence it is under, in full
+     (the list is common.LICENCE_FACES, which the API's twin gives too). #}
+  {% for key, faces in licences %}
+  <div class="card">
+    <h3>{{ w("licenses.ofl") }}</h3>
+    <ul class="faces">{% for face in faces %}<li>{{ w(face) }}</li>{% endfor %}</ul>
+    <details class="licence"><summary>{{ w("licenses.show") }}</summary><pre>{{ texts[key] }}</pre></details>
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}

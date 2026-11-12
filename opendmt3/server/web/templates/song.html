@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ song.title }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text{{ ' with-disc' if song.jacket }}">{% if song.jacket %}<img class="disc" src="/jackets/{{ song.number }}.png" alt="" width="112" height="112">{% endif %}<div><p class="kicker">openDMT3 · {{ w("song.kicker", n=song.number) }}</p><h1 class="title">{{ song.title }}</h1><p class="sub">{{ [song.genre, song.composer] | select | join(" · ") }}</p></div></div>
+</section>
+<section class="page">
+  {% if not song.charts %}
+  <div class="card"><p class="muted">{{ w("song.none") }}</p></div>
+  {% endif %}
+  <div class="charts">
+  {% for c in song.charts %}
+    <div class="card">
+      <h3>{{ w("song.chart.level" if c.level else "song.chart", mode=c.mode_name, n=c.pattern, level=c.level) }}</h3>
+      <table class="table board">
+        <thead><tr><th class="num">#</th><th>{{ w("rankings.dj") }}</th><th class="num">{{ w("song.score") }}</th><th class="wide-only">{{ w("song.when") }}</th></tr></thead>
+        <tbody>
+        {% for r in c.rows[:shown] %}
+          <tr class="{{ 'me' if r.player == user.id }}"><td class="num place">{{ r.place }}</td><td><a href="/dj/{{ r.player }}">{{ r.dj_name }}</a></td><td class="num score">{{ "{:,}".format(r.score) }}</td><td class="muted small when wide-only">{{ r.at|when }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% if c.rows|length > shown %}<p class="muted small cut">{{ w("list.top", n=shown, of="{:,}".format(c.rows|length)) }}</p>{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+</section>
+{% endblock %}

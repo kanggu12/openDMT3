@@ -1,0 +1,53 @@
+# The openDMT3 server (game and site) with Docker Compose. ./dmt3 runs these for you (./dmt3 setup, up, down, ...);
+# the plain commands, from the top of the clone:
+#   docker compose up -d --build
+# The first (owner's) account: in Docker the site sees visits from the container network, not from this PC, so the
+# first-run page is never shown; make it here (the password is printed):
+#   docker compose run --rm server --add-player BOSS --admin
+# The song list (with its jackets and the DJ cards), imported once from your own game folder, an archive holding it,
+# or a song list the launcher saved (mounted read-only):
+#   docker compose run --rm -v /path/to/game:/game:ro server --catalog /game --setup-only
+# (./dmt3 catalog PATH does the same, with the folders a game folder's links point into mounted too; the site's Admin,
+# Song list takes an uploaded song list.)
+# The installer for the site's Download page:
+#   docker compose cp openDMT3-win-Setup.exe server:/data/downloads/
+# The project's name: its container (opendmt3-server-1), its network (opendmt3_default) and its data volume
+# (opendmt3_data) carry it.
+name: opendmt3
+services:
+  server:
+    build:
+      context: .
+      dockerfile: packaging/docker/Dockerfile
+    image: opendmt3-server:local
+    restart: unless-stopped
+    ports:
+      # The game's port, for cabinets on other PCs.
+      - "4725:4725"
+      # The site and the launcher's API, for the other PCs too. Behind a reverse proxy on this PC (docs/server.md,
+      # "Over the internet"), publish it on this PC only, "127.0.0.1:4730:4730", and name the proxy as the container
+      # sees it (its network's gateway) with: command: ["--proxy", "GATEWAY"]
+      - "4730:4730"
+    environment:
+      # The game folder mounted below, which the admin's Song list tab imports again (none: not offered).
+      OPENDMT3_GAME: ${GAME_DIR:-}
+      # The site's address as the players reach it (./dmt3 setup keeps the one chosen there in .env): the message to
+      # send a player carries it (none: the address the admin's browser used).
+      OPENDMT3_SITE_ADDRESS: ${SITE_ADDRESS:-}
+    volumes:
+      # A named volume: it starts out owned by the image's own user, who keeps the database in it.
+      - data:/data
+      # Optional: your game folder, read-only, at its own path inside the container, and the folder its links point
+      # into. Set GAME_DIR (and GAME_LINKS) in .env beside this file; ./dmt3 setup writes them when the server's own
+      # user can read the folder. Without them a folder of this repository stands in, which the server never reads.
+      - type: bind
+        source: ${GAME_DIR:-./packaging/docker}
+        target: ${GAME_DIR:-/opt/no-game}
+        read_only: true
+      - type: bind
+        source: ${GAME_LINKS:-./packaging/docker}
+        target: ${GAME_LINKS:-/opt/no-game-links}
+        read_only: true
+
+volumes:
+  data:

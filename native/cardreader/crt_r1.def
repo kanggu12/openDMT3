@@ -1,0 +1,13 @@
+; The plain export names the game imports, each mapped to its __stdcall decorated symbol.
+LIBRARY CRT_R1.dll
+EXPORTS
+CommOpen=CommOpen@4
+CommClose=CommClose@4
+CommSetting=CommSetting@8
+CRT286_GetStatus=CRT286_GetStatus@8
+CRT286_Eject=CRT286_Eject@4
+RF_DetectCard=RF_DetectCard@4
+RF_GetCardID=RF_GetCardID@8
+RF_LoadSecKey=RF_LoadSecKey@16
+RF_ReadBlock=RF_ReadBlock@16
+RF_WriteBlock=RF_WriteBlock@16

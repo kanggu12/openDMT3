@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ w("download.title") }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · {{ w("nav.download") }}</p><h1 class="word">{{ w("download.heading") }}</h1><p class="sub">{{ w("download.sub") }}</p></div>
+</section>
+<section class="narrow wide-ish">
+  <div class="card">
+    {% if installer %}
+    <a class="btn primary big" href="/download/windows">{{ w("download.button") }}</a>
+    {# The file's size and when it was put on this server, with its version when the file says it. #}
+    <p class="muted small file-facts">{{ w("download.facts.version" if installer.version else "download.facts", version=installer.version, size="%.1f"|format(installer.size / 1048576), when=(installer.at|when)) }}</p>
+    {% else %}
+    <p class="alert">{{ w("download.none") }}</p>
+    {% endif %}
+    {# "Then" follows the button; with no installer there is nothing before the steps for it to follow. #}
+    {% if installer %}<h3>{{ w("download.steps") }}</h3>{% endif %}
+    <ol class="steps">
+      {# Without an installer here the launcher comes from the project's releases, with no server filled in: the
+         first two steps say that file and the address to type. #}
+      <li>{{ w("download.step1", file=file) if installer else w("download.step1.none") }}</li>
+      <li>{{ w("download.step2", address=address) if installer else w("download.step2.none", address=address) }}</li>
+      <li>{{ w("download.step3", login_id=user.login_id) }}</li>
+    </ol>
+    <p class="muted small">{{ w("download.need") }}</p>
+  </div>
+</section>
+{% endblock %}

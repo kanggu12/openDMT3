@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ w("me.title") }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("me.title") }}</h1><p class="sub">{{ w("me.sub") }}</p></div>
+</section>
+<section class="narrow wide-ish">
+  {% if notice %}<p class="alert ok">{{ notice }}</p>{% endif %}
+  {% if error %}<p class="alert bad">{{ error }}</p>{% endif %}
+  <div class="card">
+    <h3>{{ w("me.card") }}</h3>
+    {% set name = user.dj_name %}{% include "_djcard.html" %}
+    <form method="post" class="form card-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="card">
+      <label>{{ w("me.card.comment") }}<input name="comment" value="{{ user.comment }}" maxlength="{{ comment_max }}"></label>
+      {% if choices.icon %}
+      {# One group of pictures per choice; each opens on its own, the chosen one ringed. #}
+      {% for kind, now in (("icon", card.icon), ("plate", card.plate), ("pattern", card.pattern)) %}
+      <details class="picker"><summary>{{ w("me.card." + kind) }} <span class="muted">{{ w("me.card.count", n=choices[kind]|length) }}</span></summary>
+        <div class="choices {{ kind }}">
+          {# A pattern is seen over the plate chosen now (pattern 0, none, is the plate alone). #}
+          {% for c in choices[kind] %}<label class="choice" title="{{ w('me.card.number', n=c.number) }}{{ ' · ' + c.grade if c.grade }}"{% if kind == "pattern" %} style="background-image: url(/cards/plate/{{ card.plate }}.png)"{% endif %}><input type="radio" name="{{ kind }}" value="{{ c.number }}"{{ " checked" if c.number == now }}><img src="/cards/{{ kind }}/{{ c.number }}.png" alt="{{ w('me.card.number', n=c.number) }}" loading="lazy" width="{{ 104 if kind == 'icon' else 204 }}" height="64"></label>{% endfor %}
+        </div>
+      </details>
+      {% endfor %}
+      {% else %}<p class="muted small">{{ w("me.card.no_pictures") }}</p>{% endif %}
+      <div><button class="btn primary">{{ w("me.card.save") }}</button></div>
+    </form>
+    <p class="muted small">{{ w("me.card.hint", max=comment_max) }}</p>
+  </div>
+  <div class="card">
+    <h3>{{ w("account.dj") }}</h3>
+    <form method="post" class="form row">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="dj_name">
+      <label>{{ w("me.dj.new") }}<input name="dj_name" value="{{ user.dj_name }}" maxlength="{{ dj_max }}" required></label>
+      <button class="btn primary">{{ w("me.dj.save") }}</button>
+    </form>
+    <p class="muted small">{{ w("me.dj.hint", max=dj_max) }}</p>
+  </div>
+  <div class="card">
+    <h3>{{ w("me.password") }}</h3>
+    <form method="post" class="form row">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="password">
+      {# The ID rides along so browsers file the new password under this account. #}
+      <input type="hidden" name="username" value="{{ user.login_id }}" autocomplete="username">
+      <label>{{ w("me.password.current") }}<input name="current" type="password" maxlength="{{ password_max }}" autocomplete="current-password" required></label>
+      <label>{{ w("me.password.new") }}<input name="new" type="password" maxlength="{{ password_max }}" autocomplete="new-password" required></label>
+      <label>{{ w("me.password.again") }}<input name="again" type="password" maxlength="{{ password_max }}" autocomplete="new-password" required></label>
+      <button class="btn primary">{{ w("me.password.save") }}</button>
+    </form>
+    <p class="muted small">{{ w("me.password.hint", min=password_min, max=password_max) }}</p>
+  </div>
+  {# The API's named tokens: made here for a program of the player's own, shown once (selected whole on focus, site.js),
+     listed with when each was made and last used, revoked after the site's own question. #}
+  <div class="card" id="tokens">
+    <h3>{{ w("me.tokens") }}</h3>
+    {% if made %}
+    <div class="made-token">
+      <label for="made-token">{{ w("me.tokens.made", name=made.name) }}</label>
+      <textarea id="made-token" class="message token" readonly rows="2">{{ made.token }}</textarea>
+    </div>
+    {% endif %}
+    <form method="post" action="/account" class="form row">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="token_make">
+      <label>{{ w("me.tokens.name") }}<input name="name" maxlength="{{ token_name_max }}" required></label>
+      <label>{{ w("me.tokens.scope") }}<select name="scope"><option value="read">{{ w("me.tokens.read") }}</option><option value="write">{{ w("me.tokens.write") }}</option></select></label>
+      <button class="btn primary">{{ w("me.tokens.make") }}</button>
+    </form>
+    {% if tokens %}
+    <table class="table tokens">
+      <thead><tr><th>{{ w("me.tokens.name") }}</th><th>{{ w("me.tokens.scope") }}</th><th>{{ w("me.tokens.created") }}</th><th>{{ w("me.tokens.used") }}</th><th></th></tr></thead>
+      <tbody>
+      {% for t in tokens %}
+        <tr>
+          <td class="token-name">{{ t.name }}</td>
+          {# On a phone the row is a block and the headers are gone: each cell says what it is. #}
+          <td data-label="{{ w('me.tokens.scope') }}"><span class="tag">{{ w("me.tokens." + t.scope) }}</span></td>
+          <td class="muted" data-label="{{ w('me.tokens.created') }}">{{ t.created_at|when }}</td>
+          <td class="muted" data-label="{{ w('me.tokens.used') }}">{{ t.used_at|when if t.used_at else w("me.tokens.never") }}</td>
+          <td class="actions"><form method="post" action="/account" data-ask="{{ w('me.tokens.revoke.ask', name=t.name) }}" data-ask-title="{{ w('me.tokens.revoke.title') }}" data-ask-detail="{{ w('me.tokens.revoke.detail') }}" data-ask-yes="{{ w('me.tokens.revoke') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="token_revoke"><input type="hidden" name="id" value="{{ t.id }}"><button class="btn small danger">{{ w("me.tokens.revoke") }}</button></form></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">{{ w("me.tokens.none") }}</p>{% endif %}
+    <p class="muted small">{{ w("me.tokens.hint", most=tokens_most) }}</p>
+  </div>
+</section>
+{% endblock %}

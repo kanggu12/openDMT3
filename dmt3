@@ -1,0 +1,1117 @@
+#!/usr/bin/env python3
+"""dmt3: the one command for running an openDMT3 server with Docker Compose, and for building and testing this tree.
+
+Run ./dmt3 alone for the list of commands. Plain Python 3, nothing to install: every server command runs the server's
+own command line (python -m opendmt3.server) inside its container, so this file adds no server feature of its own.
+"""
+
+import argparse
+import contextlib
+import glob
+import io
+import os
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+
+# This clone's folder; symlinks resolved, so a link to this file on PATH works too.
+ROOT = os.path.dirname(os.path.realpath(__file__))
+# The Compose file every server command uses, at the top of the clone.
+COMPOSE_FILE = os.path.join(ROOT, "compose.yaml")
+# The Compose project's name, as compose.yaml sets it (name:): its data volume is PROJECT_data.
+PROJECT = "opendmt3"
+# The server image compose.yaml builds and names.
+IMAGE = "opendmt3-server:local"
+# The one service in compose.yaml.
+SERVICE = "server"
+# The ports inside the container: the game's, then the site's (opendmt3/server/__main__.py).
+GAME_PORT, WEB_PORT = 4725, 4730
+# The server's own command line inside the container, for `exec` (a `run` gets it from the image's entry point).
+SERVER_CLI = ["python", "-m", "opendmt3.server", "--data", "/data"]
+# The setup wizard, beside the Docker files: plain Python too, loaded only when ./dmt3 setup asks nothing.
+WIZARD = os.path.join("packaging", "docker", "wizard.py")
+# Where ./dmt3 build leaves the Windows build by default; setup looks there for the installer to hand out.
+BUILD_DIR = os.path.join(ROOT, "build", "windows")
+# The installer's file name, the one the site's Download page hands out from /data/downloads.
+INSTALLER = "openDMT3-win-Setup.exe"
+# The one line pyflakes is known to report: updates.py imports velopack only to see whether it is there.
+KNOWN_LINT = "'velopack' imported but unused"
+# The file beside compose.yaml that Compose reads its variables from: GAME_DIR and GAME_LINKS, the game folder kept
+# mounted read-only into the server (the admin's Song list tab imports it again), and SITE_ADDRESS, the site's address
+# as the players reach it (the message to send a player carries it).
+ENV_FILE = os.path.join(ROOT, ".env")
+# The server image's own user (packaging/docker/Dockerfile): what it cannot read, the site's Read again cannot either.
+SERVER_UID = 4725
+# Where a game folder or a folder its links point into is never mounted inside the container: the container's own
+# system folders and the server's (/app holds its code, /data its volume), and the top of every path.
+NOT_MOUNTED = ("/", "/app", "/bin", "/boot", "/data", "/dev", "/etc", "/home", "/lib", "/lib32", "/lib64", "/libx32",
+               "/media", "/mnt", "/opt", "/proc", "/root", "/run", "/sbin", "/srv", "/sys", "/tmp", "/usr", "/var")
+# Inside these nothing is mounted at all: they are the kernel's, or the server's own.
+NOT_UNDER = ("/app/", "/data/", "/dev/", "/proc/", "/sys/")
+# How many entries of a game folder are looked at for links (a whole game folder has a few hundred).
+LINKS_LOOKED_AT = 20000
+# An archive's password, passed to the server's container by name only (never on a command line others can read).
+PASSWORD_ENV = "OPENDMT3_ARCHIVE_PASSWORD"
+
+
+# ------------------------------------------------------------------------------------------------ output
+
+def say(text):
+    """A line of ours, flushed at once so it stays in order with Docker's own output."""
+    print(text, flush=True)
+
+
+def ok(text):
+    """A check that passed."""
+    say("  ok    %s" % text)
+
+
+def problem(text, fix):
+    """A check that failed, with the command or step that fixes it."""
+    say("  FAIL  %s\n        fix: %s" % (text, fix))
+
+
+def die(text, code=1):
+    """Stop with a reason on stderr."""
+    print("dmt3: %s" % text, file=sys.stderr)
+    raise SystemExit(code)
+
+
+# ------------------------------------------------------------------------------------------------ commands built
+
+def compose(*args):
+    """A docker compose command on this clone's compose.yaml."""
+    return ["docker", "compose", "-f", COMPOSE_FILE] + list(args)
+
+
+def in_server(cli_args, running):
+    """The server's own command line with these arguments: in the running container, or in a new one that goes away.
+
+    A new container gets --data /data --host 0.0.0.0 from the image's entry point (packaging/docker/Dockerfile);
+    the running one is entered with exec, which skips the entry point, so --data is given here."""
+    if running:
+        # -T: no terminal needed, so it works from scripts and pipes too.
+        return compose("exec", "-T", SERVICE, *SERVER_CLI, *cli_args)
+    return compose("run", "--rm", "-T", SERVICE, *cli_args)
+
+
+def player_args(args):
+    """The server's --add-player arguments from ours."""
+    cli = ["--add-player", args.id]
+    # Only what was given: the server makes and prints a password, and uses the ID as the DJ name, otherwise.
+    if args.password:
+        cli += ["--password", args.password]
+    if args.dj:
+        cli += ["--dj", args.dj]
+    if args.admin:
+        cli.append("--admin")
+    return cli
+
+
+def count_accounts():
+    """A command that prints how many accounts the server's database has (0 before the first start)."""
+    code = ("import os, sqlite3\n"
+            "p = '/data/openDMT3.sqlite'\n"
+            # Only an existing file is opened: sqlite3 would otherwise make an empty one.
+            "print(sqlite3.connect(p).execute('SELECT COUNT(*) FROM accounts').fetchone()[0] if os.path.exists(p) "
+            "else 0)\n")
+    return compose("run", "--rm", "-T", "--no-deps", "--entrypoint", "python", SERVICE, "-c", code)
+
+
+def setup_plan(args, accounts):
+    """The commands of a first run, in order, each as (key, what it does, command); the wizard shows each key's line.
+    accounts: how many there are already."""
+    steps = [("image", "the server image", compose("build", SERVICE)),
+             # The data volume and its downloads folder, made by the image's own user, who owns /data.
+             ("data", "the data folder", compose("run", "--rm", "-T", "--no-deps", "--entrypoint", "mkdir", SERVICE,
+                                                 "-p", "/data/downloads"))]
+    if accounts == 0:
+        # The owner's account: through Docker's network the site never sees a visit from the server PC, so its
+        # first-run page never shows; the server makes the account and prints its password (or takes the one given).
+        made = ["--add-player", args.admin, "--admin"] + (["--password", args.password]
+                                                          if getattr(args, "password", None) else [])
+        steps.append(("account", "the first account, %s, with the admin pages" % args.admin,
+                      compose("run", "--rm", "-T", SERVICE, *made)))
+    if args.game:
+        # The song list (with its jackets and the DJ cards), from the owner's game folder, an archive holding it or a
+        # song list the launcher saved (never kept: only what the server needs is read).
+        steps.append(("catalog", "the song list from %s" % args.game, catalog_command(args.game)))
+    # No --installer: the one ./dmt3 build left; an empty one (the wizard's "none for now"): none.
+    installer = default_installer() if args.installer is None else args.installer
+    if installer:
+        # The installer for the site's Download page, copied into the volume by the image's own user.
+        steps.append(("installer", "the installer for the Download page",
+                      compose("run", "--rm", "-T", "--no-deps", "-v", "%s:/in/%s:ro" % (os.path.abspath(installer),
+                                                                                         INSTALLER),
+                              "--entrypoint", "cp", SERVICE, "/in/" + INSTALLER, "/data/downloads/" + INSTALLER)))
+    if not args.no_start:
+        # Last, the server itself.
+        steps.append(("server", "the server", compose("up", "-d", SERVICE)))
+    return steps
+
+
+def setup_steps(args, accounts):
+    """The commands of a first run, in order, each with what it does. accounts: how many there are already."""
+    return [(what, cmd) for _, what, cmd in setup_plan(args, accounts)]
+
+
+# ------------------------------------------------------------------------------------------------ the game folder
+
+def game_mounts(folder):
+    """The folders to mount read-only, each at its own path inside the container, so that the game folder reads there
+    as it does here: the folder itself, then each folder its links point into outside it (archives kept elsewhere
+    and linked in), the fewest that hold them all. Returns (mounts, refused): refused are the folders a link needs
+    that are never mounted (NOT_MOUNTED, NOT_UNDER, or a path with a colon, which a mount cannot name)."""
+    top = os.path.abspath(folder)
+    wanted, seen = [top], 0
+    for here, dirs, names in os.walk(top):
+        for name in dirs + names:
+            path = os.path.join(here, name)
+            if not os.path.islink(path):
+                continue
+            # The link's own target, and where a chain of links ends: both must be there inside the container.
+            for target in (os.path.normpath(os.path.join(here, os.readlink(path))), os.path.realpath(path)):
+                if os.path.exists(target):
+                    wanted.append(target if os.path.isdir(target) else os.path.dirname(target))
+        seen += len(names)
+        if seen > LINKS_LOOKED_AT:
+            # A folder this large is no game folder alone (a whole drive, say): what was found is enough.
+            break
+    mounts, refused = [], []
+    # Shortest first, so a folder inside one already kept goes with it.
+    for path in sorted(set(wanted), key=lambda p: (len(p), p)):
+        if any(path == kept or path.startswith(kept.rstrip("/") + "/") for kept in mounts):
+            continue
+        if path in NOT_MOUNTED or path.startswith(NOT_UNDER) or ":" in path:
+            refused.append(path)
+        else:
+            mounts.append(path)
+    return mounts, refused
+
+
+def mount_args(mounts):
+    """docker compose run's -v for each folder, read-only at its own path."""
+    out = []
+    for path in mounts:
+        out += ["-v", "%s:%s:ro" % (path, path)]
+    return out
+
+
+def source_mounts(path):
+    """What to mount read-only for a path the song list is read from: a folder and the folders its links point into
+    (game_mounts); a file (an archive, a split archive's first part, a song list) with the folder it is in, where a
+    split archive's other parts are too."""
+    path = os.path.abspath(path)
+    if os.path.isdir(path):
+        return game_mounts(path)[0]
+    return [os.path.dirname(path)]
+
+
+def catalog_command(path, save=None):
+    """The server's --catalog in a container that goes away: what the path needs mounted read-only at its own path,
+    run as the image's own user, which owns the data folder, whenever it can read the path (and write where --save
+    writes); as root only when it must (a game folder only its owner may read, as WSL's Windows drives are), and then
+    root only reads: the server writes the data folder, or the saved file, as that folder's owner alone
+    (catalog.read_as). With save, the song list is saved into that file instead (its folder mounted to write in), and
+    the server's data is not touched. An archive's password goes in by the environment's name alone (PASSWORD_ENV),
+    when it is set."""
+    mounts = mount_args(source_mounts(path))
+    password = ["-e", PASSWORD_ENV] if os.environ.get(PASSWORD_ENV) else []
+    folder = None
+    if save:
+        out = os.path.abspath(save)
+        folder = out if os.path.isdir(out) else os.path.dirname(out)
+    user = ["--user", "root"] if needs_root(path, folder) else []
+    if save:
+        return compose("run", "--rm", "-T", "--no-deps", *user, *mounts, "-v", "%s:%s" % (folder, folder),
+                       *password, SERVICE, "--catalog", os.path.abspath(path), "--save", out)
+    return compose("run", "--rm", "-T", "--no-deps", *user, *mounts, *password, SERVICE,
+                   "--catalog", os.path.abspath(path), "--setup-only")
+
+
+def needs_root(path, save_folder=None):
+    """True when the server's own user could not read what --catalog reads at path (server_can_read for a folder; a
+    file, and a split archive's other parts, and the folder they are in) or could not write into save_folder."""
+    path = os.path.abspath(path)
+    if os.path.isdir(path):
+        if not server_can_read(path):
+            return True
+    elif not _file_readable(path):
+        return True
+    if save_folder is not None:
+        try:
+            st = os.stat(save_folder)
+        except OSError:
+            return True
+        # A folder the server's user may make a file in: write and enter.
+        if not _allows(st, 0o3):
+            return True
+    return False
+
+
+def _allows(st, bits):
+    """True when the server's own user has these rights (read 4, write 2, enter 1) by the file's mode: as its owner,
+    as its group, or as anyone."""
+    if st.st_uid == SERVER_UID:
+        return st.st_mode >> 6 & bits == bits
+    if st.st_gid == SERVER_UID:
+        return st.st_mode >> 3 & bits == bits
+    return st.st_mode & bits == bits
+
+
+def _file_readable(path):
+    """True when the server's own user could read a file at its own path inside the container: the file, the other
+    parts of a split archive it is the first of, and their folder (mounted as it is), listed and entered."""
+    folder = os.path.dirname(path)
+    if folder == "/root" or folder.startswith("/root/"):
+        # Mounted at its own path, it would sit in the image's /root, which only the image's root user may enter.
+        return False
+    library()
+    from opendmt3.server.services import sources
+    number, stem = sources.part_of(path)
+    try:
+        if not _allows(os.stat(folder), 0o5):
+            return False
+        names = [path]
+        if number is not None:
+            # Every part beside it: the reading opens them all.
+            names += [os.path.join(folder, n) for n in os.listdir(folder)
+                      if (sources.part_of(os.path.join(folder, n))[1] or "").lower() == stem.lower()]
+        return all(_allows(os.stat(name), 0o4) for name in names)
+    except OSError:
+        return False
+
+
+def kept_game(folder):
+    """GAME_DIR and GAME_LINKS for .env: the game folder, and one folder that holds every folder its links point
+    into ("" for none, or when that folder would be one that is never mounted)."""
+    mounts, refused = game_mounts(folder)
+    links = mounts[1:]
+    if refused or not links:
+        return mounts[0], ""
+    common = os.path.commonpath(links)
+    # Several folders: the one that holds them all, when it may be mounted.
+    if common in NOT_MOUNTED or common.startswith(NOT_UNDER):
+        return mounts[0], ""
+    return mounts[0], common
+
+
+def server_can_read(folder):
+    """True when the server's own user could read what --catalog reads in the game folder (its programs and its
+    archives, following links), so the site's Read again works with the folder mounted; False when any is readable
+    by its owner only (WSL's Windows drives give every file to root alone)."""
+    top = os.path.abspath(folder)
+    if top == "/root" or top.startswith("/root/"):
+        # Mounted at its own path, it would sit in the image's /root, which only the image's root user may enter.
+        return False
+    mounts = game_mounts(top)[0]
+    found = []
+    for here, _, names in os.walk(top):
+        found += [os.path.join(here, n) for n in names if n.lower().endswith((".exe", ".pak"))]
+    for path in found:
+        real = os.path.realpath(path)
+        try:
+            st = os.stat(real)
+        except OSError:
+            continue
+        # Readable by others, by the server's user's group, or the server's user owns it.
+        if not _allows(st, 0o4):
+            return False
+        # Every folder on the way to it, from the top of its mount, listed and entered by the server's user (what is
+        # above a mount the container makes itself, open to all): the file by its path here, and where a link leads.
+        for name in (path, real):
+            base = next((m for m in sorted(mounts, key=len, reverse=True)
+                         if name == m or name.startswith(m.rstrip("/") + "/")), None)
+            here = os.path.dirname(name)
+            while base is not None:
+                try:
+                    if not _allows(os.stat(here), 0o5):
+                        return False
+                except OSError:
+                    break
+                if here == base or os.path.dirname(here) == here:
+                    break
+                here = os.path.dirname(here)
+    return bool(found)
+
+
+def read_env():
+    """The variables in .env beside compose.yaml, as {name: value} (quotes taken off)."""
+    out = {}
+    try:
+        with open(ENV_FILE, encoding="utf-8") as f:
+            for line in f:
+                name, sep, value = line.strip().partition("=")
+                if sep and not name.startswith("#"):
+                    value = value.strip()
+                    # A quoted value loses its quotes (write_env writes single quotes, which keep it as it is).
+                    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+                        value = value[1:-1]
+                    out[name.strip()] = value
+    except OSError:
+        pass
+    return out
+
+
+def env_value(value):
+    """A value as .env writes it: in single quotes, which Compose reads as they are (no $ or escapes inside)."""
+    if "'" in value or "\n" in value:
+        # Single quotes cannot hold one of their own; such a folder is read with ./dmt3 catalog, not kept mounted.
+        raise ValueError("a path with a quote or a line break cannot be kept in .env: %r" % value)
+    return "'%s'" % value
+
+
+def write_env(values):
+    """Set these variables in .env (others in it stay as they are); a value of None takes the variable out."""
+    lines, done = [], set()
+    try:
+        with open(ENV_FILE, encoding="utf-8") as f:
+            old = f.read().splitlines()
+    except OSError:
+        old = []
+    for line in old:
+        name = line.split("=", 1)[0].strip()
+        if name in values:
+            done.add(name)
+            if values[name] is not None:
+                lines.append("%s=%s" % (name, env_value(values[name])))
+            continue
+        lines.append(line)
+    for name, value in values.items():
+        if name not in done and value is not None:
+            lines.append("%s=%s" % (name, env_value(value)))
+    with open(ENV_FILE + ".new", "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    os.replace(ENV_FILE + ".new", ENV_FILE)
+
+
+def site_address(text):
+    """The site's address for players from what was chosen or typed: a whole address as it is (https://dmt3.example/),
+    an address or a name of this PC with the site's port. Always with its last slash, as a browser shows it."""
+    text = text.strip()
+    if "://" not in text:
+        # An address of this PC as the wizard lists them, or a name: the site's own port on it.
+        text = "http://%s:%d" % (text, WEB_PORT)
+    return text if text.endswith("/") else text + "/"
+
+
+def keep_address(address):
+    """SITE_ADDRESS in .env, so the server starts knowing the address players reach its site at: the message to send a
+    player carries it, never the address the admin's own browser used."""
+    write_env({"SITE_ADDRESS": site_address(address)})
+
+
+def site_lines():
+    """Where the running server's site is, as the last line of ./dmt3 status and of a setup: the address kept for the
+    players (SITE_ADDRESS, chosen at setup), else this PC's own address on its network, and the one this PC itself
+    opens. None while the site's port is not published (the server is down)."""
+    code, out = run(compose("port", SERVICE, str(WEB_PORT)), capture=True)
+    if code != 0 or not out.strip():
+        return None
+    port = published(out)[1]
+    here = "http://127.0.0.1:%d/" % port
+    kept = read_env().get("SITE_ADDRESS")
+    if not kept:
+        # None chosen: the address the default route leaves from is the one other PCs most likely reach.
+        first = lan_addresses()[0][0]
+        kept = None if first.startswith("127.") else "http://%s:%d/" % (first, port)
+    if not kept or kept == here or "//127." in kept or "//localhost" in kept:
+        return "The site: %s (this PC only)." % here
+    return "The site: %s (on this PC also %s)." % (kept, here)
+
+
+def default_installer():
+    """The installer ./dmt3 build left in its default folder, or None."""
+    path = os.path.join(BUILD_DIR, "releases", INSTALLER)
+    return path if os.path.isfile(path) else None
+
+
+def simple_command(args, running):
+    """The one command a plain subcommand runs, or None for the ones that do more (setup, check, doctor, test)."""
+    name = args.command
+    if name == "up":
+        # --no-build: start from an image loaded from a file (docs/server.md, "Without internet").
+        return compose("up", "-d") + ([] if args.no_build else ["--build"])
+    if name == "down":
+        return compose("down")
+    if name == "restart":
+        return compose("restart", SERVICE)
+    if name == "status":
+        return compose("ps", SERVICE)
+    if name == "logs":
+        return compose("logs", "--tail", str(args.tail)) + (["-f"] if args.follow else []) + [SERVICE]
+    if name == "backup":
+        return in_server(["--backup"], running)
+    if name == "backups":
+        return in_server(["--backups"], running)
+    if name == "restore":
+        return in_server(["--restore", args.name], running)
+    if name == "add-player":
+        return in_server(player_args(args), running)
+    if name == "build":
+        # The Windows launcher and its installer, built in containers (packaging/windows/build.sh).
+        return [os.path.join(ROOT, "packaging", "windows", "build.sh"), os.path.abspath(args.out)]
+    return None
+
+
+def test_commands(python, one_process=False, jobs=0):
+    """The checks of ./dmt3 test, each with its name: the unit tests (on several processes at once, tests/parallel.py,
+    unless one_process; jobs of them, or as many as the cores up to eight), the boundary test on its own, then
+    pyflakes."""
+    units = [python, "-m", "tests.parallel"] + (["--one-process"] if one_process else []) + (
+        ["--jobs", str(jobs)] if jobs else [])
+    return [("unit tests", units),
+            ("the boundary test", [python, "-m", "unittest", "tests.test_architecture"]),
+            # The front door itself is linted too (it is Python without the .py ending), and so are the scripts that
+            # build and release what is handed out (packaging/, with the setup wizard, and .github/). On the same
+            # Python as the tests: --python names one with the libraries and pyflakes, as a virtual environment has
+            # them where the system's pip refuses to install (PEP 668).
+            ("pyflakes", [python, "-m", "pyflakes", "opendmt3", "tests", "dmt3", "packaging", ".github"])]
+
+
+def unexpected_lint(output):
+    """pyflakes' lines other than the one known line (see KNOWN_LINT)."""
+    return [line for line in output.splitlines() if line.strip() and KNOWN_LINT not in line]
+
+
+def published(port_output):
+    """The host and port `docker compose port` printed, as an address to reach from this PC."""
+    host, _, port = port_output.strip().rpartition(":")
+    # A port published on every address is reachable at the loopback one; brackets come off an IPv6 address.
+    host = host.strip("[]")
+    if host in ("0.0.0.0", "::", ""):
+        host = "127.0.0.1"
+    return host, int(port)
+
+
+# ------------------------------------------------------------------------------------------------ running them
+
+def run(cmd, capture=False):
+    """Run one command from the clone's folder; with capture, return its output instead of showing it."""
+    try:
+        if capture:
+            done = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            return done.returncode, done.stdout
+        return subprocess.run(cmd, cwd=ROOT).returncode, ""
+    except FileNotFoundError:
+        # The program itself is missing (docker, most likely): doctor says how to get it.
+        die("%s is not installed; run ./dmt3 doctor" % cmd[0])
+
+
+def is_running():
+    """True when the server's container is up."""
+    code, out = run(compose("ps", "--status", "running", "-q", SERVICE), capture=True)
+    return code == 0 and bool(out.strip())
+
+
+def library():
+    """This clone's own package, importable from the front door (its host side looks at a path as the server would,
+    with the same code: opendmt3/server/services/catalog.py, plain Python)."""
+    if ROOT not in sys.path:
+        sys.path.insert(0, ROOT)
+    from opendmt3.server.services import catalog
+    return catalog
+
+
+def look(path, password=None):
+    """What a path is, as the server would say it (sources.look, plain Python on this PC), with its parts' lines
+    ("parts": [(ok, text)]) for a game folder and a song list. An archive this PC has no 7-Zip for is opened by the
+    server's own (its image has the official 7-Zip): ready, said so."""
+    library()
+    from opendmt3.server.services import catalog, sources
+    found = sources.look(path, password)
+    found["parts"] = []
+    if found.get("key") == "error.source.no_7zip":
+        found.update(ready=True, line="An archive: the server's own 7-Zip looks into it when it reads it")
+    elif found["kind"] == "folder" and found.get("survey") and not found["survey"]["problem"]:
+        found["parts"] = catalog.lines(found["survey"])
+    elif found["kind"] == "song list" and found["ready"]:
+        manifest = found["manifest"]
+        report = {"songs": manifest["songs"], "jackets": manifest["jackets"], "cards": manifest["cards"],
+                  "missing": manifest["missing"]}
+        found["parts"] = catalog.lines(report)
+    return found
+
+
+def missing(text):
+    """A part that is not there, which the rest does without."""
+    say("  no    %s" % text)
+
+
+def show_look(found):
+    """A path's look (look()) as lines: its one line, ok or not, then its parts."""
+    if not found["ready"]:
+        problem(found["line"], "name your game folder (or one above it), an archive holding it, or a song list the "
+                               "launcher saved")
+        return
+    ok(found["line"])
+    for good, text in found["parts"]:
+        (ok if good else missing)(text)
+
+
+def cmd_catalog(args):
+    """Import the song list (with its jackets and the DJ cards) from a game folder, an archive holding one, or a song
+    list the launcher saved, after a game update too: a look first, then the server's --catalog in a container that
+    goes away. The running server shows it at once. With --save, a song list is saved into a file instead."""
+    path = args.game or read_env().get("GAME_DIR")
+    if not path:
+        die("name your game folder, an archive holding it, or a song list: ./dmt3 catalog PATH")
+    say("Looking at %s" % path)
+    found = look(path, os.environ.get(PASSWORD_ENV))
+    if found.get("key") in ("error.source.password", "error.source.wrong_password") and sys.stdin.isatty():
+        # The archive's password, asked as the launcher asks it, never shown and never on a command line.
+        say("  " + found["line"])
+        import getpass
+        os.environ[PASSWORD_ENV] = getpass.getpass("  Password: ")
+        found = look(path, os.environ[PASSWORD_ENV])
+    show_look(found)
+    if not found["ready"]:
+        return 1
+    if os.path.isdir(path):
+        _, refused = game_mounts(path)
+        for folder in refused:
+            # A link into such a folder cannot be followed inside the container; its part is said missing below.
+            missing("links into %s cannot be followed inside the container" % folder)
+    if not docker_ready():
+        die("Docker is not ready; run ./dmt3 doctor")
+    if args.save:
+        say("== saving the song list")
+        return run(catalog_command(path, save=args.save))[0]
+    say("== reading it into the server's data folder")
+    code = run(catalog_command(path))[0]
+    if code == 0 and is_running():
+        say("The running server shows the new song list now.")
+    return code
+
+
+def cmd_setup(args):
+    say("openDMT3 server setup")
+    code, out = run(count_accounts(), capture=True) if docker_ready() else (1, "")
+    if code != 0:
+        # Without a working Docker nothing below can run; doctor names what is missing.
+        die("Docker is not ready; run ./dmt3 doctor")
+    accounts = int(out.strip().splitlines()[-1]) if out.strip() else 0
+    if accounts:
+        say("  accounts in the database: %d (no first account is made)" % accounts)
+    if args.address:
+        # Before the server starts, so it starts knowing the address its players reach it at.
+        keep_address(args.address)
+        say("  the site's address for players: %s" % site_address(args.address))
+    for key, what, cmd in setup_plan(args, accounts):
+        if key == "server" and args.game and args.keep_game and os.path.isdir(args.game):
+            # Before the server starts, so it starts with the game folder mounted (Admin, Song list, Import).
+            keep_game(args.game)
+        say("== %s" % what)
+        if run(cmd)[0] != 0:
+            die("could not set up %s (see above)" % what)
+    if not args.game:
+        say("No song list yet: ./dmt3 catalog PATH reads it (a game folder, an archive holding it, or a song list).")
+    if not args.no_start:
+        # The address players reach it at first (the one to open and to send), then this PC's own.
+        say(site_lines() or "The site: http://127.0.0.1:%d/ (this PC only)." % WEB_PORT)
+    return 0
+
+
+def keep_game(folder):
+    """GAME_DIR and GAME_LINKS in .env, so the server starts with the game folder mounted read-only."""
+    game_dir, links = kept_game(folder)
+    write_env({"GAME_DIR": game_dir, "GAME_LINKS": links or None})
+    say("  the game folder stays mounted read-only: %s%s" % (game_dir, " (and %s)" % links if links else ""))
+
+
+def docker_ready():
+    """True when docker and its compose plugin answer."""
+    return bool(shutil.which("docker")) and run(["docker", "compose", "version"], capture=True)[0] == 0
+
+
+def cmd_check(args):
+    """The running server answers /health on the site's port, and its game port takes a connection."""
+    failed = 0
+    for port, name in ((WEB_PORT, "the site"), (GAME_PORT, "the game port")):
+        code, out = run(compose("port", SERVICE, str(port)), capture=True)
+        if code != 0 or not out.strip():
+            problem("%s is not published: the server is not running" % name, "./dmt3 up")
+            failed += 1
+            continue
+        host, port_here = published(out)
+        if port == WEB_PORT:
+            failed += not check_health(host, port_here)
+        else:
+            failed += not check_connect(host, port_here)
+    return 1 if failed else 0
+
+
+def check_health(host, port):
+    """GET /health; True when it answers 200 (a 503 carries the reason)."""
+    url = "http://%s:%d/health" % (host if ":" not in host else "[%s]" % host, port)
+    try:
+        with urllib.request.urlopen(url, timeout=5) as reply:
+            ok("the site answers %s (%d)" % (url, reply.status))
+            return True
+    except urllib.error.HTTPError as e:
+        # The server's own reason, such as a database it cannot write.
+        problem("%s answered %d: %s" % (url, e.code, e.read(300).decode("utf-8", "replace").strip()),
+                "./dmt3 logs")
+    except OSError as e:
+        problem("%s does not answer (%s)" % (url, e), "./dmt3 logs, then ./dmt3 restart")
+    return False
+
+
+def check_connect(host, port):
+    """A TCP connection to the game port; True when it is taken."""
+    try:
+        with socket.create_connection((host, port), timeout=5):
+            ok("the game port takes a connection at %s:%d" % (host, port))
+            return True
+    except OSError as e:
+        problem("the game port at %s:%d does not take a connection (%s)" % (host, port, e),
+                "./dmt3 logs, then ./dmt3 restart")
+        return False
+
+
+def port_free(port):
+    """True when nothing on this PC listens on the port (a listener is tried on every address)."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        # As a server binds it: connections of a server just stopped, still closing (TIME_WAIT), are no listener.
+        if os.name != "nt":
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(("0.0.0.0", port))
+            return True
+        except OSError:
+            return False
+
+
+def doctor_checks():
+    """Each thing the server needs as (key, ok, text, fix): ok None for a line that only says something. Stops after
+    a check nothing else can be looked at without (docker, its answer, compose). The setup wizard shows the same."""
+    out = []
+    if not shutil.which("docker"):
+        # Nothing else can be looked at without it.
+        return [("docker", False, "docker is not installed",
+                 "install Docker Engine (Linux) or Docker Desktop (Windows, macOS)")]
+    out.append(("docker", True, "docker is installed", None))
+    if run(["docker", "info"], capture=True)[0] != 0:
+        return out + [("docker", False, "Docker does not answer",
+                       "start Docker (sudo systemctl start docker, or open Docker Desktop)")]
+    out.append(("docker", True, "Docker answers", None))
+    if run(["docker", "compose", "version"], capture=True)[0] != 0:
+        return out + [("compose", False, "docker compose is missing",
+                       "install the Docker Compose plugin (docker-compose-plugin)")]
+    out.append(("compose", True, "docker compose is installed", None))
+    built = run(["docker", "image", "inspect", IMAGE], capture=True)[0] == 0
+    if built:
+        out.append(("image", True, "the server image %s is built" % IMAGE, None))
+    else:
+        out.append(("image", False, "the server image %s is not built" % IMAGE,
+                    "./dmt3 up (it builds the image first)"))
+    running = is_running()
+    for port in (GAME_PORT, WEB_PORT):
+        if running:
+            # The ports are the running server's own.
+            out.append(("port", True, "port %d is the server's" % port, None))
+        elif port_free(port):
+            out.append(("port", True, "port %d is free" % port, None))
+        else:
+            out.append(("port", False, "port %d is taken by another program" % port,
+                        "stop that program, or publish another port under ports: in compose.yaml"))
+    volume = "%s_data" % PROJECT
+    if run(["docker", "volume", "inspect", volume], capture=True)[0] != 0:
+        # Not a problem: setup makes it. Nothing is made here, so doctor changes nothing.
+        out.append(("volume", True, "no data folder yet (the volume %s): ./dmt3 setup makes it" % volume, None))
+    elif not built:
+        # The write check runs as the image's own user, so it waits for the image (named above).
+        out.append(("volume", None, "the data folder is looked at once the image is built", None))
+    else:
+        # The image's own user must be able to write the volume (the database, backups, downloads).
+        writable = compose("run", "--rm", "-T", "--no-deps", "--entrypoint", "test", SERVICE, "-w", "/data")
+        if run(writable, capture=True)[0] == 0:
+            out.append(("volume", True, "the data folder (the volume %s) is writable by the server" % volume, None))
+        else:
+            out.append(("volume", False, "the server cannot write its data folder (the volume %s)" % volume,
+                        "docker compose run --rm --no-deps --user root --entrypoint chown server -R opendmt3 /data"))
+    return out
+
+
+def cmd_doctor(args):
+    """Each thing the server needs, with the fix for each one missing."""
+    checks = doctor_checks()
+    for _, good, text, fix in checks:
+        if good is None:
+            say("        " + text)
+        elif good:
+            ok(text)
+        else:
+            problem(text, fix)
+    # docker, its answer and compose stop the look: nothing after them was looked at.
+    if checks[-1][0] in ("docker", "compose") and not checks[-1][1]:
+        return 1
+    found = sum(1 for _, good, _, _ in checks if good is False)
+    say("problems: %d" % found)
+    return 1 if found else 0
+
+
+# ------------------------------------------------------------------------------------------------ the wizard
+
+def wizard():
+    """The setup wizard's module (packaging/docker/wizard.py), loaded from its path."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("dmt3_wizard", os.path.join(ROOT, WIZARD))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def lan_addresses():
+    """This PC's addresses on its networks as (address, interface), the one with the default route first; Docker's
+    own bridges, loopback and WSL's own inner address left out (other PCs never reach those)."""
+    found = []
+    code, out = run(["ip", "-4", "-o", "addr", "show"], capture=True) if shutil.which("ip") else (1, "")
+    if code == 0:
+        for line in out.splitlines():
+            parts = line.split()
+            # "2: eth0    inet 192.168.0.2/24 brd ..."
+            if len(parts) >= 4 and parts[2] == "inet":
+                name, address = parts[1], parts[3].split("/")[0]
+                if name == "lo" or name.startswith(("docker", "br-", "veth")) or address.startswith("127."):
+                    continue
+                found.append((address, name))
+    # The address the default route leaves from (no packet is sent: a UDP socket only picks its way).
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("192.0.2.1", 9))
+            main = s.getsockname()[0]
+    except OSError:
+        main = None
+    if main and not main.startswith("127.") and main not in [a for a, _ in found]:
+        found.append((main, "the default route"))
+    # The default route's first, then the rest as found; this PC alone last.
+    found.sort(key=lambda item: item[0] != main)
+    return found + [("127.0.0.1", "this PC only")]
+
+
+def usual_places():
+    """The folders people keep a game in: Desktop, Downloads and Documents of this PC's users, Windows' ones too
+    under WSL (and under OneDrive there)."""
+    homes = [os.path.expanduser("~")]
+    # Under sudo, ~ is root's; the person's own folders are under SUDO_USER's home.
+    if os.environ.get("SUDO_USER"):
+        homes.append(os.path.expanduser("~" + os.environ["SUDO_USER"]))
+    homes += sorted(glob.glob("/mnt/c/Users/*"))
+    places = []
+    for home in homes:
+        for name in ("Desktop", "Downloads", "Documents", "OneDrive/Desktop", "OneDrive/Documents"):
+            places.append(os.path.join(home, name))
+    return [p for p in dict.fromkeys(places) if os.path.isdir(p)]
+
+
+def found_games(places=None, depth=4, budget=6.0):
+    """Game folders at or below the usual places, up to `depth` levels down, looked for for at most `budget`
+    seconds (Windows' drives under WSL are slow to list)."""
+    library()
+    from opendmt3.core.game import Game
+    found, until = [], time.monotonic() + budget
+    for base in places if places is not None else usual_places():
+        top = base.rstrip(os.sep).count(os.sep)
+        for here, dirs, names in os.walk(base):
+            if time.monotonic() > until:
+                return found
+            # The archives' folder is large and holds no game folder; hidden folders hold none either.
+            dirs[:] = sorted(d for d in dirs if d.lower() != "pack" and not d.startswith("."))
+            if here.count(os.sep) - top >= depth:
+                dirs[:] = []
+            try:
+                if "pack" in (n.lower() for n in os.listdir(here)) and Game._looks_like_game(here):
+                    found.append(here)
+                    # A game folder holds no other.
+                    dirs[:] = []
+            except OSError:
+                continue
+    return found
+
+
+class FrontDoor:
+    """What the wizard's pages look at and do on this PC, with the front door's own functions."""
+
+    def __init__(self):
+        # Each path's look, by the path and the password tried (reading a game folder's indexes takes a second).
+        self.surveyed = {}
+
+    def docker_checks(self):
+        # The volume line is the doctor's; the wizard needs only what stops a setup.
+        return [c for c in doctor_checks() if c[1] is not None]
+
+    def addresses(self):
+        return lan_addresses()
+
+    def accounts(self):
+        """How many accounts the database has: 0 without a data volume, None when it cannot be told yet."""
+        if run(["docker", "volume", "inspect", "%s_data" % PROJECT], capture=True)[0] != 0:
+            return 0
+        if run(["docker", "image", "inspect", IMAGE], capture=True)[0] != 0:
+            # Counted in the image, which is not built yet; the setup counts again before it makes one.
+            return None
+        code, out = run(count_accounts(), capture=True)
+        return int(out.strip().splitlines()[-1]) if code == 0 and out.strip() else None
+
+    def survey(self, path, password=None):
+        """What a path is (look()): kept by the path and the password, so each is looked at once."""
+        key = (os.path.abspath(path), password)
+        if key not in self.surveyed:
+            self.surveyed[key] = look(path, password)
+        return self.surveyed[key]
+
+    def lines(self, found):
+        """A look's lines: its one line, then its parts."""
+        return [(found["ready"], found["line"])] + list(found["parts"])
+
+    def mounts(self, path):
+        mounts, refused = game_mounts(path)
+        return mounts, refused, server_can_read(path)
+
+    def found_games(self):
+        """The game's files in the usual places, each with its line (sources.found, as the Status page's list)."""
+        library()
+        from opendmt3.server.services import sources
+        found = sources.found(usual_places())
+        for item in found:
+            if item.get("key") == "error.source.no_7zip":
+                # Opened by the server's own 7-Zip during the setup.
+                item.update(ready=True, line="An archive: the server's own 7-Zip looks into it when it reads it")
+        return found
+
+    def default_installer(self):
+        return default_installer()
+
+    def installer_info(self, path):
+        if not os.path.isfile(path):
+            return None
+        library()
+        from opendmt3.server.services import downloads
+        return {"size": os.path.getsize(path), "version": downloads.version(path)}
+
+    def build_command(self):
+        return compose("build", SERVICE)
+
+    def plan(self, a):
+        """The front door's steps for the wizard's answers (an archive's password, when one was typed, goes to the
+        server's container by the environment's name: catalog_command)."""
+        if getattr(a, "archive_password", ""):
+            os.environ[PASSWORD_ENV] = a.archive_password
+        # The build's installer, the file typed, or "" for none (setup_plan takes "" as none).
+        installer = {"build": default_installer(), "file": a.installer_path()}.get(a.installer) or ""
+        args = argparse.Namespace(admin=a.admin.strip().upper(), password=a.password or None, game=a.game_path(),
+                                  installer=os.path.abspath(installer) if installer else "", no_start=False,
+                                  keep_game=False)
+        return setup_plan(args, a.accounts)
+
+    def keep_game(self, folder):
+        game_dir, links = kept_game(folder)
+        write_env({"GAME_DIR": game_dir, "GAME_LINKS": links or None})
+
+    def keep_address(self, address):
+        """The address chosen on the wizard's Address page, kept for the server (keep_address)."""
+        keep_address(address)
+
+    def stream(self, cmd, on_line):
+        """A command, each line of its output to on_line as it comes; (exit code, every line)."""
+        lines = []
+        try:
+            child = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                     stdin=subprocess.DEVNULL, text=True, errors="replace")
+        except FileNotFoundError:
+            return 127, ["%s is not installed" % cmd[0]]
+        for line in child.stdout:
+            lines.append(line.rstrip("\n"))
+            on_line(line)
+        return child.wait(), lines
+
+    def check(self, wait=90):
+        """The running server's /health and game port, after waiting up to `wait` seconds for the site to answer;
+        each as (ok, text)."""
+        until = time.monotonic() + wait
+        while time.monotonic() < until:
+            code, out = run(compose("port", SERVICE, str(WEB_PORT)), capture=True)
+            if code == 0 and out.strip():
+                host, port = published(out)
+                try:
+                    with urllib.request.urlopen("http://%s:%d/health" % (host, port), timeout=3):
+                        break
+                except (OSError, urllib.error.HTTPError):
+                    pass
+            time.sleep(1)
+        # cmd_check's own lines, read back.
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            cmd_check(None)
+        out = []
+        for line in captured.getvalue().splitlines():
+            if line.startswith("  ok"):
+                out.append((True, line[8:].strip()))
+            elif line.startswith("  FAIL"):
+                out.append((False, line[8:].strip()))
+        return out
+
+
+# The libraries the site's and the API's tests need; a Python without them skips those tests.
+SITE_LIBRARIES = ("starlette", "jinja2", "multipart", "uvicorn", "httpx")
+
+
+def cmd_test(args):
+    """Unit tests, the boundary test and pyflakes; the first that fails ends the run with its code."""
+    python = args.python or sys.executable
+    # Said before the run: which tests this Python leaves out, and how to run them all.
+    probe = "import importlib.util, sys; print(' '.join(m for m in sys.argv[1:] if not importlib.util.find_spec(m)))"
+    missing = run([python, "-c", probe] + list(SITE_LIBRARIES), capture=True)[1].strip()
+    if missing:
+        say("the site's and the API's tests are skipped: %s has no %s (./dmt3 test --python PATH runs them with "
+            "another Python)" % (python, ", ".join(missing.split())))
+    for name, cmd in test_commands(python, args.one_process, args.jobs):
+        say("== %s" % name)
+        if name == "pyflakes":
+            code, out = run(cmd, capture=True)
+            if "No module named pyflakes" in out:
+                die("pyflakes is not installed for %s: %s -m pip install pyflakes" % (python, python))
+            # Any line beyond the known one fails the run.
+            extra = unexpected_lint(out)
+            for line in extra:
+                say(line)
+            if extra:
+                return 1
+            say("  no new lines (%s, known)" % KNOWN_LINT)
+            continue
+        code = run(cmd)[0]
+        if code != 0:
+            return code
+    return 0
+
+
+# ------------------------------------------------------------------------------------------------ arguments
+
+COMMANDS = [
+    ("setup", "first run, as a wizard (with options, without questions): the image, the data folder, the first "
+              "account, the song list, the installer, then up"),
+    ("catalog", "import the song list (with its jackets and the DJ cards) from your game folder, an archive holding "
+                "it, or a song list the launcher saved; --save FILE saves one"),
+    ("up", "start the server (building the image first)"),
+    ("down", "stop the server"),
+    ("restart", "restart the server"),
+    ("status", "the server's container and its health"),
+    ("logs", "the server's log"),
+    ("backup", "back the database up now"),
+    ("backups", "list the backups"),
+    ("restore", "put the database back to a backup (the current one is backed up first)"),
+    ("add-player", "make an account; its password is printed"),
+    ("check", "the running server answers /health and its game port takes a connection"),
+    ("doctor", "what the server needs, with the fix for each problem"),
+    ("build", "build the Windows launcher and its installer (packaging/windows/build.sh)"),
+    ("test", "the unit tests, the boundary test and pyflakes"),
+]
+
+
+class _Help(argparse.HelpFormatter):
+    """argparse's help, its lines never broken inside a name (openDMT3-song-list.zip, --keep-game): only at spaces,
+    as the launcher's own help is."""
+
+    def _split_lines(self, text, width):
+        # argparse's own wrap breaks at hyphens too; a file's name must stay whole to be read and typed.
+        import textwrap
+        return textwrap.wrap(" ".join(text.split()), width, break_on_hyphens=False)
+
+
+def parser():
+    """The command line: one subcommand each, in the order ./dmt3 lists them."""
+    ap = argparse.ArgumentParser(prog="dmt3", formatter_class=_Help,
+                                 description="Run an openDMT3 server with Docker Compose, and build and test this "
+                                             "tree.")
+    sub = ap.add_subparsers(dest="command", metavar="<command>")
+    # Made in COMMANDS' order, so --help lists them as ./dmt3 alone does.
+    p = {name: sub.add_parser(name, help=text, formatter_class=_Help) for name, text in COMMANDS}
+    p["setup"].add_argument("--address", metavar="ADDRESS",
+                            help="this PC's address as the players reach it (192.168.0.5, a name, or a whole "
+                                 "https://... address behind a proxy): the message to send a player carries it")
+    p["setup"].add_argument("--game", metavar="PATH",
+                            help="import the song list from your game folder, an archive holding it, or a song list "
+                                 "the launcher saved")
+    p["setup"].add_argument("--admin", metavar="ID", default="BOSS", help="the first account's ID (BOSS when not given)")
+    p["setup"].add_argument("--installer", metavar="FILE",
+                            help="the installer to hand out (by default the one ./dmt3 build left, when there is one)")
+    p["setup"].add_argument("--password", help="the first account's password (made and printed when not given)")
+    p["setup"].add_argument("--keep-game", action="store_true",
+                            help="keep the game folder mounted read-only, so the Song list tab can import it again")
+    p["setup"].add_argument("--no-start", action="store_true", help="set up without starting the server")
+    p["catalog"].add_argument("game", nargs="?", metavar="PATH",
+                              help="your game folder (or one above it), an archive holding it, or a song list the "
+                                   "launcher saved (the game folder kept mounted, GAME_DIR in .env, when not given)")
+    p["catalog"].add_argument("--save", metavar="FILE",
+                              help="save the song list into FILE (or a folder: openDMT3-song-list.zip in it) instead of "
+                                   "importing it, for a server elsewhere")
+    p["up"].add_argument("--no-build", action="store_true", help="start from the image as it is")
+    p["logs"].add_argument("-f", "--follow", action="store_true", help="keep showing new lines")
+    p["logs"].add_argument("-n", "--tail", type=int, default=200, help="how many of the last lines (200)")
+    p["restore"].add_argument("name", help="a backup's name, as ./dmt3 backups lists it")
+    p["add-player"].add_argument("id", help="the account's ID, for the site and the launcher")
+    p["add-player"].add_argument("--password", help="its password (made and printed when not given)")
+    p["add-player"].add_argument("--dj", metavar="NAME", help="its DJ name (the ID when not given)")
+    p["add-player"].add_argument("--admin", action="store_true", help="with the admin pages")
+    p["build"].add_argument("out", nargs="?", default=BUILD_DIR, help="the output folder (build/windows)")
+    p["test"].add_argument("--python", metavar="PATH",
+                           help="the Python that runs the tests, with the site's libraries (this one when not given)")
+    p["test"].add_argument("--one-process", action="store_true",
+                           help="every unit test in one process, one after another (they run on several at once)")
+    p["test"].add_argument("--jobs", type=int, default=0, metavar="N",
+                           help="the unit tests on N processes at once (default: the cores, at most eight)")
+    return ap
+
+
+def usage():
+    """The list of commands, for ./dmt3 alone."""
+    width = max(len(name) for name, _ in COMMANDS)
+    lines = ["usage: ./dmt3 <command> [options]   (./dmt3 <command> --help for its options)", ""]
+    lines += ["  %-*s  %s" % (width, name, text) for name, text in COMMANDS]
+    return "\n".join(lines)
+
+
+def asked_nothing(argv):
+    """True when the command line was `setup` and nothing else."""
+    return list(sys.argv[1:] if argv is None else argv) == ["setup"]
+
+
+def main(argv=None):
+    args = parser().parse_args(argv)
+    if not args.command:
+        # ./dmt3 alone lists what it does.
+        say(usage())
+        return 0
+    if args.command == "setup" and asked_nothing(argv) and sys.stdin.isatty() and sys.stdout.isatty():
+        # ./dmt3 setup alone, at a terminal: the wizard. With options, or from a script, it runs as before.
+        return wizard().run(FrontDoor())
+    special = {"setup": cmd_setup, "catalog": cmd_catalog, "check": cmd_check, "doctor": cmd_doctor,
+               "test": cmd_test}
+    if args.command in special:
+        return special[args.command](args)
+    # Only the commands that reach the database need to know whether the container is up.
+    running = is_running() if args.command in ("backup", "backups", "restore", "add-player") else False
+    code = run(simple_command(args, running))[0]
+    if args.command == "status" and code == 0:
+        # The health beside the container's state, then where the site is (the address to open and to send).
+        code = cmd_check(args)
+        where = site_lines()
+        if where:
+            say(where)
+    return code
+
+
+if __name__ == "__main__":
+    # Piping into `head` and the like ends quietly instead of with a BrokenPipeError traceback. Only when run as the
+    # program: the unit tests load this file as a module (tests/test_front_door.py), and their process must keep
+    # Python's own handling, where a write to a closed socket is an error, not the end of the process.
+    if hasattr(signal, "SIGPIPE"):
+        # Where there is such a signal: Windows' Python has none (there a closed pipe is an error of its own).
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    sys.exit(main())

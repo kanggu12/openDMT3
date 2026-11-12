@@ -1,0 +1,217 @@
+# What a change has to pass, with no game files and no screen: on every push to main and every pull request, and on a
+# release's tag first (release.yml). A maintainer runs each job on a Linux PC the same way before it goes in
+# (docs/testing.md).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # A tag runs this whole workflow on its commit first (release.yml).
+  workflow_call:
+
+permissions:
+  contents: read
+
+# Every action from elsewhere is pinned by its commit, its release in a comment: a tag moved later never runs here
+# (tests/test_release_notes.py checks each).
+
+jobs:
+  # The unit tests on the oldest Python a server runs on and on the one the server's image and the launcher run, with
+  # the site's libraries at the versions those pin; the parts' boundary on its own, so a broken boundary shows as its
+  # own step; pyflakes over the package, the tests, the front door and the scripts that build and release it.
+  test:
+    runs-on: ubuntu-24.04
+    # A stalled download fails after 15 minutes, not GitHub's six hours: several times what this job takes.
+    timeout-minutes: 15
+    strategy:
+      # Each Python's result is seen, whichever fails first.
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: The site's libraries, the test client and the linter
+        run: >-
+          python -m pip install starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0 python-multipart==0.0.20
+          httpx==0.28.1 pillow==11.3.0 pyflakes==3.2.0
+
+      # The official 7-Zip, the release the server's image and the launcher bring, by the same address and hash as
+      # packaging/windows/sevenzip.sh: the tests of archives run with it, whatever 7-Zip the runner has or lacks.
+      - name: The official 7-Zip for the tests of archives
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/7z.tar.xz" https://www.7-zip.org/a/7z2501-linux-x64.tar.xz
+          echo "4ca3b7c6f2f67866b92622818b58233dc70367be2f36b498eb0bdeaaa44b53f4  $RUNNER_TEMP/7z.tar.xz" | sha256sum -c --quiet
+          tar -xJf "$RUNNER_TEMP/7z.tar.xz" -C "$RUNNER_TEMP" 7zz
+          echo "OPENDMT3_7ZIP=$RUNNER_TEMP/7zz" >> "$GITHUB_ENV"
+
+      # On the runner's cores at once, as ./dmt3 test runs them (tests/parallel.py), a line for each class.
+      - name: Unit tests
+        run: python -m tests.parallel -v
+
+      - name: The boundary test
+        run: python -m unittest tests.test_architecture -v
+
+      # The one known line (updates.py imports velopack only to see whether it is there) is let through; any other
+      # fails the step.
+      - name: pyflakes
+        run: |
+          python -m pyflakes opendmt3 tests dmt3 packaging .github > lint.txt || true
+          cat lint.txt
+          ! grep -v "'velopack' imported but unused" lint.txt | grep -q .
+
+  # openDMT3's card reader library (native/cardreader), built for the game's 32 bits with MinGW-w64, with its notices,
+  # and its native tests under Wine, both in containers with no network (build.sh, test.sh); then the official 7-Zip
+  # for Windows taken out of its release as the launcher's build takes it (packaging/windows/sevenzip.sh). The library,
+  # its notices and 7-Zip go to the windows job, which builds the launcher with them.
+  native:
+    runs-on: ubuntu-24.04
+    # The Wine image takes most of it (WineHQ's packages): several times that is a stalled job.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: The card reader library and its notices
+        run: native/cardreader/build.sh "$PWD/_work/windows-parts"
+
+      - name: Its native tests under Wine
+        run: native/cardreader/test.sh
+
+      - name: The official 7-Zip for Windows
+        run: packaging/windows/sevenzip.sh "$PWD/_work/windows-parts"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-parts
+          path: |
+            _work/windows-parts/CRT_R1.dll
+            _work/windows-parts/card-reader-NOTICES.txt
+            _work/windows-parts/7zip/
+          retention-days: 14
+
+  # The launcher's screens on a virtual screen in a container with no network: the first-start guide, every page, the
+  # dialogs, the installer's states and the keyboard focus, in English and Korean at 1180x760, 960x640 and 1600x1000,
+  # each measured for text cut off, a label never told its width, a squeezed button or anything past the window's edge
+  # (tests/e2e/ui/run.sh). Every size must end with 0 problems.
+  ui:
+    runs-on: ubuntu-24.04
+    # Building the test machine and six sizes of screens: several times that is a stalled job.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Every screen, with the layout check
+        run: |
+          tests/e2e/ui/run.sh "$PWD/_work/ui" en ko | tee ui.txt
+          # Each language at each size said its screens and 0 problems: six lines, none with a problem.
+          test "$(grep -cE '^(en|ko)-[0-9]+x[0-9]+: [0-9]+ screens, 0 problems$' ui.txt)" = 6
+
+      # What the screens looked like, for looking through: also when it passed.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ui-screens
+          path: _work/ui
+          retention-days: 14
+
+  # The site's pages in headless Chrome against the server's image on made-up data, both in containers on a network of
+  # their own: every page in English and Korean at a desktop and a phone width, the questions asked first, the upload
+  # fields by mouse, keyboard and screen reader, both uploads, the songs filter, a token shown once and maintenance off
+  # and on (tests/e2e/web/run.sh).
+  web:
+    runs-on: ubuntu-24.04
+    # The server's image and Chrome's: several times what this job takes is a stalled job.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Every page, with the layout check
+        run: tests/e2e/web/run.sh "$PWD/_work/web"
+
+      # What the browser saw, for looking through: also when it passed.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: web-pages
+          path: _work/web
+          retention-days: 14
+
+  # The server's image as packaging/docker/Dockerfile builds it: every part's license text in it, then started as
+  # compose starts it, answering /health, running as its own user, and stopped.
+  server:
+    runs-on: ubuntu-24.04
+    # A stalled download fails after 15 minutes, not GitHub's six hours: several times what this job takes.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: The server's image
+        run: docker build -f packaging/docker/Dockerfile -t opendmt3-server:ci .
+
+      - name: Every part's license text in the image
+        run: >-
+          docker run --rm --network none -v "$PWD/packaging/docker:/check:ro" --entrypoint python opendmt3-server:ci
+          -I /check/check_licences.py
+
+      - name: Started, answering /health, as its own user
+        run: |
+          docker run -d --name odt3-ci-server -p 127.0.0.1:14730:4730 opendmt3-server:ci >/dev/null
+          # Up when /health answers (the server makes its database first).
+          code=000
+          for _ in $(seq 1 60); do
+            code=$(curl -s -o /tmp/health.json -w '%{http_code}' http://127.0.0.1:14730/health || true)
+            [ "$code" = 200 ] && break
+            sleep 1
+          done
+          docker logs odt3-ci-server > /tmp/server.log 2>&1
+          cat /tmp/server.log /tmp/health.json
+          test "$code" = 200
+          # The version this tree carries, in the answer and on the site's pages.
+          version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' opendmt3/__init__.py)
+          grep -q "\"version\":\"$version\"" /tmp/health.json
+          curl -sf http://127.0.0.1:14730/licenses | grep -q "openDMT3 $version"
+          # Its own user (packaging/docker/Dockerfile), not root.
+          test "$(docker exec odt3-ci-server id -u)" = 4725
+          docker rm -f odt3-ci-server >/dev/null
+
+  # The launcher on Windows itself: the unit tests of what runs on a player's PC (the game folder and its setup, the
+  # launcher, the server it runs for playing on that PC, the licenses gathered for it) on Windows' own paths, files and
+  # processes; then the launcher built with PyInstaller as a release builds it, with the card reader library and 7-Zip
+  # from the native job, its licenses gathered, and started: --version, and --inspect on a made-up folder
+  # (tests/e2e/windows/built_launcher.py). No game files anywhere, and nothing opens a window.
+  windows:
+    needs: native
+    runs-on: windows-latest
+    # PyInstaller and the unit tests: several times what this job takes is a stalled job.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: windows-parts
+          path: windows-parts
+
+      # The launcher's build machine's versions (packaging/windows/Dockerfile), and the test client.
+      - name: The launcher's libraries, PyInstaller and the test client
+        run: >-
+          python -m pip install pyinstaller==6.16.0 pillow==11.3.0 velopack==1.2.161 starlette==0.47.3 jinja2==3.1.6
+          uvicorn==0.35.0 python-multipart==0.0.20 httpx==0.28.1
+
+      # tests/core, tests/client and tests/server with the build scripts' tests, those that stay on Linux named with why
+      # (tests/e2e/windows/unit_tests.py).
+      - name: Unit tests on Windows
+        env:
+          # The official 7-Zip for Windows the launcher brings, from the native job: the tests of archives run with it.
+          OPENDMT3_7ZIP: ${{ github.workspace }}\windows-parts\7zip\7z.exe
+        run: python tests/e2e/windows/unit_tests.py
+
+      - name: The launcher built and started
+        run: python tests/e2e/windows/built_launcher.py windows-parts _work/windows-ci

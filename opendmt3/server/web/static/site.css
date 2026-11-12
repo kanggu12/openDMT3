@@ -1,0 +1,573 @@
+/* openDMT3's site, in the launcher's theme: gunmetal surfaces (the same family as OpenDMTQ, the sister project
+   for TECHNIKA Q), panels with the game's cut corner, titles standing upright in heavy wide chrome letters like the
+   TECHNIKA 3 logo, and colour only where it means something: each section in one of the game's colours (the title
+   screen's blue, STAR MIXING's lime, the console's amber), lime for "fine", amber for "look", pink for errors. */
+
+/* The faces (DMT3 Wide, DMT3 Text and the bold Hangul that joins DMT3 Wide) are declared in templates/base.html, so
+   their addresses carry the version as every static address does (a browser keeps them for a year). */
+
+:root {
+  /* Surfaces, darkest first: each layer a step lighter than the one it sits on. */
+  --field: #101317; --bar: rgba(12, 14, 17, 0.86); --deck: #1a1f25; --deck-top: #232931; --rail: #2b323b;
+  --rail-up: #3a434e; --seam: #343c47; --well: #0d1014;
+  --chalk: #eef2f6; --ash: #aab4bf; --faint: #7a8592; --ink: #0b0e12;
+  /* The game's colours. */
+  --blue: #2a5ff0; --blue-hi: #5b8cff; --blue-deep: #0d2a8f; --lime: #b4f02a; --pink: #ff4fa0; --amber: #ffb33d;
+  --cyan: #5fd3ff;
+  /* The section in use (the title screen's blue unless a section says otherwise). */
+  --accent: var(--blue-hi); --accent-light: #2f6bff; --accent-deep: var(--blue-deep); --accent-fill: var(--blue);
+  --accent-ink: #ffffff;
+  /* Glass: gunmetal at 86 %, a sheen at the head, a light rim along the top. */
+  --glass: rgba(26, 31, 37, 0.86);
+  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0, rgba(255, 255, 255, 0.012) 110px, transparent 240px);
+  --chrome: linear-gradient(180deg, #fff 0%, #e3e8ee 44%, #727c88 53%, #b6bec7 72%, #f3f5f8 100%);
+  --wide: "DMT3 Wide", "Bahnschrift", "Arial", sans-serif;
+  --text-face: "DMT3 Text", system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --cut: 14px;
+  --quick: 0.14s;
+  color-scheme: dark;
+}
+/* The game's colours by section: rankings in POP's pink, songs in STAR's lime, the console in amber. */
+body[data-section="console"] { --accent: var(--amber); --accent-light: #e3961f; --accent-deep: #4f3306; --accent-fill: var(--amber); --accent-ink: var(--ink); }
+body[data-section="pop"] { --accent: var(--pink); --accent-light: #e8338a; --accent-deep: #5c0c35; --accent-fill: var(--pink); --accent-ink: var(--ink); }
+body[data-section="star"] { --accent: var(--lime); --accent-light: #8fcc12; --accent-deep: #2c4406; --accent-fill: var(--lime); --accent-ink: var(--ink); }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100vh; display: flex; flex-direction: column;
+  color: var(--chalk); font: 15px/1.6 var(--text-face); letter-spacing: -0.006em;
+  background-color: var(--field);
+  /* The game's perforated metal, faint, all over; it stays while the page scrolls. */
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.045) 1px, transparent 1.3px);
+  background-size: 6px 6px; background-attachment: fixed;
+}
+/* Korean breaks between words, never inside one (the browser's default would split a word between syllables). */
+body.lang-ko { word-break: keep-all; overflow-wrap: anywhere; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-family: ui-monospace, Consolas, monospace; font-size: 0.9em; background: rgba(255, 255, 255, 0.07); padding: 0.05em 0.3em; }
+.muted { color: var(--ash); }
+.small { font-size: 13px; }
+h1, h2, h3 { margin: 0 0 10px; font-weight: 700; }
+h2 { font-size: 20px; }
+/* Card headings: small wide capitals with a seam to the right edge, like the launcher's sections. */
+h3 { display: flex; align-items: center; gap: 12px; font: 400 11px/1.4 var(--wide); letter-spacing: 0.08em;
+     text-transform: uppercase; color: var(--ash); margin-bottom: 14px; }
+h3::after { content: ""; flex: 1; height: 1px; background: var(--seam); }
+body.lang-ko h3 { font: 600 14px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* ------------------------------------------------------------------------------------------------ bar */
+.bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 26px; flex-wrap: wrap;
+       padding: 12px 32px; background: var(--bar); border-bottom: 1px solid var(--seam);
+       -webkit-backdrop-filter: blur(12px) saturate(1.3); backdrop-filter: blur(12px) saturate(1.3); }
+.brand { color: var(--chalk); display: inline-flex; }
+.brand:hover { text-decoration: none; }
+/* The name as a mark: OPEN spaced out beside a splinter, DMT3 in chrome with the TECHNIKA 3 logo's blue 3. */
+.logo { display: grid; grid-template-columns: auto auto; align-items: end; column-gap: 6px; line-height: 1; }
+.logo .o { grid-column: 1 / -1; display: flex; align-items: center; gap: 7px; font: 400 9px/1 var(--wide);
+           letter-spacing: 0.32em; color: var(--chalk); margin-bottom: 3px; }
+.logo .o::after { content: ""; flex: 1; min-width: 34px; height: 5px; background: linear-gradient(90deg, #8f99a4, var(--blue-hi));
+                  clip-path: polygon(0 0, 100% 70%, 100% 100%, 0 100%); }
+.logo .m { font: 400 27px/0.95 var(--wide); letter-spacing: -0.01em; background: var(--chrome);
+           -webkit-background-clip: text; background-clip: text; color: transparent;
+           filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.6)); }
+.logo .m b { font-weight: 400; background: linear-gradient(180deg, #fff 0%, #e9eefc 38%, var(--blue-hi) 60%, var(--blue-hi) 100%);
+             -webkit-background-clip: text; background-clip: text; color: transparent; }
+.logo .s { font: 400 8px/1 var(--wide); letter-spacing: 0.08em; color: var(--blue-hi); margin-bottom: 3px; }
+.menu { display: flex; align-items: stretch; gap: 4px; }
+.menu a { position: relative; display: flex; align-items: center; padding: 8px 12px; font: 400 12px/1 var(--wide);
+          letter-spacing: 0.04em; color: var(--ash); }
+.menu a::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: -13px; height: 2px; background: transparent; }
+.menu a:hover { color: var(--chalk); text-decoration: none; }
+.menu a.on { color: var(--chalk); }
+.menu a.on::after { background: var(--accent); }
+.tools { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.langs { display: inline-flex; gap: 2px; }
+.langs a { padding: 5px 9px; font: 400 10px/1 var(--wide); letter-spacing: 0.06em; color: var(--ash); background: var(--rail);
+           clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%); }
+.langs a.on { background: var(--accent-fill); color: var(--accent-ink); }
+.langs a:hover { text-decoration: none; color: var(--chalk); }
+.langs a.on:hover { color: var(--accent-ink); }
+.who { display: flex; align-items: center; gap: 8px; color: var(--chalk); text-decoration: none; }
+a.who:hover, a.who.on { text-decoration: none; }
+a.who:hover .who-name, a.who.on .who-name { color: var(--accent); }
+.badge { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-fill); color: var(--accent-ink);
+         display: grid; place-items: center; font-weight: 700; }
+.who-name { font-weight: 600; }
+.tools form { margin: 0; }
+
+/* The admin's notice under the bar on every page: amber, the site's colour for "look". */
+.site-notice { display: flex; gap: 12px; align-items: baseline; padding: 10px 32px; background: var(--deck);
+               border-bottom: 1px solid var(--seam); box-shadow: inset 3px 0 0 var(--amber); }
+.site-notice .label { flex: none; font: 400 10px/1.4 var(--wide); letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber); }
+body.lang-ko .site-notice .label { font: 600 13px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
+.site-notice .text { min-width: 0; overflow-wrap: anywhere; }
+
+/* ----------------------------------------------------------------------------------------------- hero */
+/* The head of a page: shards in the section's colour cutting in from the right, the title in chrome. */
+.hero { position: relative; overflow: hidden; height: 220px; border-bottom: 1px solid var(--seam);
+        background: linear-gradient(90deg, var(--field) 38%, transparent 70%); }
+/* A page's own hero is as tall as its words need, never less than the others': a long song title on two or three lines
+   keeps its genre and composer under it (a fixed height cut them off). */
+.hero.small { height: auto; min-height: 172px; }
+.hero.small .hero-text { padding-bottom: 26px; }
+.hero-text { position: relative; z-index: 1; padding: 42px 32px 0; max-width: 1180px; margin: 0 auto; }
+.hero-text > * { max-width: 62%; }
+.kicker { font: 400 10px/1.4 var(--wide); letter-spacing: 0.1em; color: var(--accent); margin: 0 0 8px; }
+.hero h1 { font: 400 40px/1.05 var(--wide); letter-spacing: -0.01em; margin: 0 0 10px; padding-bottom: 2px;
+           background: var(--chrome); -webkit-background-clip: text; background-clip: text; color: transparent;
+           filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7)); }
+body.lang-ko .hero h1.word { font: 700 38px/1.15 var(--text-face); letter-spacing: -0.02em; }
+.hero h1 b { font-weight: 400; background: linear-gradient(180deg, #fff 0%, #e9eefc 38%, var(--accent) 60%, var(--accent) 100%);
+             -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero .sub { color: var(--ash); margin: 0; }
+.shards { position: absolute; inset: 0; z-index: 0; }
+.shards i { position: absolute; display: block; }
+.shards i:nth-child(1) { right: 6%; top: -40%; width: 260px; height: 180%; clip-path: polygon(70% 0, 100% 8%, 10% 100%); background: var(--accent-light); opacity: 0.6; }
+.shards i:nth-child(2) { right: 22%; top: -20%; width: 200px; height: 160%; clip-path: polygon(60% 0, 85% 10%, 0 100%); background: var(--accent-deep); opacity: 0.9; }
+.shards i:nth-child(3) { right: -4%; top: 10%; width: 300px; height: 120%; clip-path: polygon(100% 0, 80% 100%, 0 70%); background: var(--accent-light); opacity: 0.5; }
+.shards i:nth-child(4) { right: 34%; top: 30%; width: 160px; height: 110%; clip-path: polygon(80% 0, 100% 5%, 20% 100%); background: var(--accent-deep); opacity: 0.8; }
+.shards i:nth-child(5) { right: 14%; top: 55%; width: 340px; height: 60%; clip-path: polygon(100% 0, 95% 30%, 0 100%); background: var(--accent); opacity: 0.35; }
+
+/* ---------------------------------------------------------------------------------------------- pages */
+main { flex: 1; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; padding: 24px 32px 40px; max-width: 1180px; margin: 0 auto; }
+.grid .wide { grid-column: 1 / -1; }
+/* A column of cards in a grid cell (a DJ's page): its cards keep their own heights. */
+.grid .column { display: grid; gap: 18px; align-content: start; min-width: 0; }
+.grid .column .card { margin-bottom: 0; }
+.narrow { max-width: 520px; margin: 32px auto; padding: 0 16px; }
+.narrow.wide-ish { max-width: 760px; }
+.page { padding: 24px 32px 40px; max-width: 1180px; margin: 0 auto; }
+/* A panel: gunmetal glass, a shade lighter at its head, the top-right corner cut like the game's plates. */
+.card { position: relative; margin-bottom: 18px; padding: 22px 24px; background: var(--glass-sheen), var(--glass);
+        box-shadow: var(--glass-rim); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+        clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
+/* The light along the cut: a seam of one pixel lying on the diagonal. */
+.card::after { content: ""; position: absolute; width: calc(var(--cut) * 1.4142); height: 1px; top: calc(var(--cut) / 2);
+               right: calc(var(--cut) * -0.2071); transform: rotate(45deg); background: rgba(255, 255, 255, 0.22); }
+.dj-name { font: 700 30px/1.15 var(--text-face); margin: 0; }
+body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
+.cardline { display: flex; gap: 12px; align-items: baseline; margin: 14px 0 6px; }
+.cardline .label { color: var(--ash); font-size: 13px; }
+.cabinets { list-style: none; margin: 0; padding: 0; }
+.cabinets li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--seam); }
+.cabinets li:last-child { border-bottom: 0; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex: none; }
+.dot.on { background: var(--lime); box-shadow: 0 0 8px rgba(180, 240, 42, 0.7); }
+.addr { font-family: ui-monospace, Consolas, monospace; font-size: 13px; color: var(--ash); }
+.state { margin-left: auto; }
+.plays { list-style: none; margin: 0; padding: 0; }
+.plays li { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--seam); }
+.plays li:last-child { border-bottom: 0; }
+.plays .song { font-weight: 600; overflow-wrap: anywhere; }
+.plays .muted { grid-column: 1; font-size: 13px; }
+.plays .score { grid-column: 2; grid-row: 1 / span 2; align-self: center; font: 400 15px/1 var(--wide); color: var(--lime); }
+/* A new record's gain over the best it beat, small under its score. */
+.plays .gain { display: block; margin-top: 5px; text-align: right; font: 400 11px/1 var(--wide); color: var(--ash); }
+/* NEW before a play's chart, the tag's own colours on the muted line. */
+.plays .muted .tag { vertical-align: 1px; }
+/* Under a list cut at its limit: how many it shows of how many. */
+.cut { margin: 10px 0 0; }
+.steps { padding-left: 20px; }
+.steps li { margin-bottom: 8px; }
+
+/* ------------------------------------------------------------------------------------------- controls */
+/* Everything one can press: quiet metal cut at two corners like PLAY, lighting up at the pointer. */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px; min-width: 96px;
+       padding: 0 18px; border: 0; margin: 0; font: 600 14px/1 var(--text-face); white-space: nowrap; text-decoration: none;
+       color: var(--chalk); background: linear-gradient(180deg, var(--rail-up), var(--rail)); cursor: pointer;
+       clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+       transition: background-color var(--quick), color var(--quick), filter var(--quick), transform var(--quick); }
+.btn:hover { background: linear-gradient(180deg, #4a5461, var(--rail-up)); color: #fff; text-decoration: none; }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: -3px; }
+.btn.primary { color: var(--accent-ink); background: var(--accent-fill); }
+.btn.primary:hover { color: var(--accent-ink); background: var(--accent-fill); filter: brightness(1.12); }
+.btn.primary:focus-visible { outline-color: var(--accent-ink); }
+.btn.big { height: 52px; font-size: 17px; padding: 0 30px; margin-bottom: 18px; }
+.btn.small { height: 34px; min-width: 76px; font-size: 13px; padding: 0 12px; }
+.btn.danger { color: #ffb8d9; background: linear-gradient(180deg, #5a3a52, #4b3044); }
+.btn.danger:hover { color: var(--ink); background: var(--pink); }
+.btn.danger.fill { color: var(--ink); background: var(--pink); }
+.btn.warn.fill { color: var(--ink); background: var(--amber); }
+.btn.warn.fill:hover { filter: brightness(1.1); }
+.btn.danger.fill:hover { filter: brightness(1.1); }
+.form { display: grid; gap: 14px; }
+.form label { display: grid; gap: 6px; font-size: 13px; color: var(--ash); }
+.form.row { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: end; }
+.form .check { display: flex; align-items: center; gap: 8px; color: var(--chalk); }
+input { height: 42px; background: var(--well); color: var(--chalk); border: 1px solid var(--seam); padding: 0 12px;
+        font: 15px var(--text-face); min-width: 0; }
+input[type="checkbox"] { height: auto; accent-color: var(--accent-fill); }
+input:focus { outline: none; border-color: var(--cyan); }
+/* A list to pick from (the plays log's filter), a field like the others. */
+select { height: 42px; min-width: 0; background: var(--well); color: var(--chalk); border: 1px solid var(--seam); padding: 0 8px;
+         font: 15px var(--text-face); }
+select:focus { outline: none; border-color: var(--cyan); }
+/* Older and newer pages of a long list, under it. */
+.pages { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
+.alert { position: relative; background: var(--glass); box-shadow: var(--glass-rim); padding: 11px 14px 11px 18px; margin: 0 0 16px; }
+.alert::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--amber); }
+.alert.ok::before { background: var(--lime); }
+.alert.bad::before { background: var(--pink); }
+/* Tabs lean like the mode bar on the game's mode select. */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.tabs a { padding: 9px 22px; font: 400 11px/1 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash);
+          background: var(--rail); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+body.lang-ko .tabs a { font: 600 13px/1 var(--text-face); text-transform: none; letter-spacing: 0; }
+.tabs a:hover { color: var(--chalk); background: var(--rail-up); text-decoration: none; }
+.tabs a.on { color: var(--accent-ink); background: var(--accent-fill); }
+.table { width: 100%; border-collapse: collapse; }
+.table th { text-align: left; font: 400 10px/1.4 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash);
+            padding: 8px 10px; border-bottom: 1px solid var(--seam); }
+body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: none; letter-spacing: 0; }
+.table td { padding: 10px; border-bottom: 1px solid var(--seam); vertical-align: middle; }
+.table tr:last-child td { border-bottom: 0; }
+.table tr.off td { color: var(--faint); }
+/* A row's actions side by side at its right end. The cell stays a table cell (as a flex box it stood apart from the row,
+   and the row's rule stepped up under it); its forms and links line up inside it and wrap when the room runs out. */
+.table .actions { text-align: right; }
+.table .actions > * { vertical-align: middle; margin: 3px 0 3px 6px; }
+/* A form stands beside the row's other actions, not on a line of its own. A link that is a button keeps its own box:
+   .btn sets its words in its middle as a flex box, and as a plain inline block they rose to its top. */
+.table .actions > form { display: inline-block; }
+/* A tag is one word or two on one line (a scope's "Read and write" broke in two inside its own chip). */
+.tag { display: inline-block; font: 400 9px/1.6 var(--wide); letter-spacing: 0.06em; padding: 1px 7px; margin-right: 4px;
+       color: var(--accent-ink); background: var(--accent-fill); white-space: nowrap; }
+.tag.bad { color: var(--ink); background: var(--pink); }
+
+/* ------------------------------------------------------------------------------------ rankings, songs */
+/* Places and scores line up as columns of digits. */
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.table th.num { text-align: right; }
+.board .place { width: 44px; font: 400 14px/1 var(--wide); color: var(--ash); }
+.board .score, .songs .score { font: 400 14px/1 var(--wide); color: var(--chalk); }
+.table tr.me td { background: rgba(255, 255, 255, 0.04); }
+.table tr.me td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.table tr.quiet td { color: var(--faint); }
+.table tr.quiet a { color: var(--ash); }
+.table a { color: var(--chalk); font-weight: 600; }
+.table a:hover { color: var(--accent); }
+/* The first three on metal plates; the place in the game's big chrome digits, the first one lit. */
+.podium { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+.plate { position: relative; display: flex; align-items: center; gap: 16px; padding: 18px 20px; color: var(--chalk);
+         background: var(--glass-sheen), var(--glass); box-shadow: var(--glass-rim);
+         clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
+.plate:hover { text-decoration: none; background: var(--glass-sheen), rgba(35, 41, 49, 0.9); }
+.plate.place-1 { box-shadow: var(--glass-rim), inset 0 -2px 0 var(--accent); }
+.plate .numeral { font: 400 54px/1 var(--wide); background: var(--chrome); -webkit-background-clip: text; background-clip: text;
+                  color: transparent; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6)); }
+.plate.place-1 .numeral { font-size: 64px; background: linear-gradient(180deg, #fff 0%, #ffe3f0 38%, var(--accent) 60%, var(--accent) 100%);
+                          -webkit-background-clip: text; background-clip: text; }
+.plate .who { display: grid; min-width: 0; }
+.plate .name { font: 700 17px/1.3 var(--text-face); overflow-wrap: anywhere; }
+.plate .total { font: 400 22px/1.2 var(--wide); color: var(--accent); }
+.plate .label { color: var(--ash); font-size: 12px; }
+/* The reader's own plate says so in words (the table's "You" tag), beside the name. */
+.plate .name .tag { vertical-align: 3px; margin: 0 0 0 6px; }
+.search { display: flex; gap: 8px; margin-bottom: 18px; max-width: 520px; }
+/* How many songs the filter shows, right under the box. */
+.song-count { margin: -10px 0 14px; }
+/* A row the filter hides stays hidden whatever else sets its display. */
+.table tr[hidden] { display: none; }
+/* The installer's size, date and version under its button. */
+.file-facts { margin: -10px 0 16px; }
+.search input { flex: 1; }
+.songs .by { display: block; color: var(--ash); font-size: 12px; font-weight: 400; }
+/* Two boards a row at most: each needs room for a name, a score and a date on one line. */
+.charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 18px; }
+.board td.when { white-space: nowrap; }
+.charts .card { margin-bottom: 0; }
+.hero h1.title { font: 700 34px/1.2 var(--text-face); letter-spacing: -0.02em; background: none; color: var(--chalk);
+                 filter: none; overflow-wrap: anywhere; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+/* The DJ card as the game draws it: the icon, then the plate with its pattern and the comment over it. */
+.djcard { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
+.dj-icon { display: block; width: 104px; height: 64px; }
+.dj-plate { position: relative; display: block; width: 204px; height: 64px; max-width: 100%; }
+.dj-plate img { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* The comment in white with a dark outline, centred on the plate, as the game sets it. */
+.dj-comment { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+              padding: 0 10px; font: 700 15px/1.1 var(--text-face); color: #fff; text-align: center;
+              text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 3px #000; overflow: hidden; }
+.dj-comment.plain { position: static; padding: 0; font-size: 14px; }
+.dj-who { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.dj-level { font: 400 13px/1 var(--wide); color: var(--amber); letter-spacing: 0.04em; }
+.dj-name { font-weight: 700; overflow-wrap: anywhere; }
+/* The choices: pictures in a grid that scrolls in its own box, the chosen one ringed. */
+.picker summary { cursor: pointer; padding: 6px 0; }
+.choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; max-height: 320px;
+           overflow-y: auto; padding: 6px; background: var(--well); }
+.choices.plate, .choices.pattern { grid-template-columns: repeat(auto-fill, minmax(204px, 1fr)); }
+.choice { position: relative; display: block; cursor: pointer; }
+.choice input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.choice img { display: block; width: 100%; max-width: 204px; height: auto; border-radius: 3px; outline: 2px solid transparent; outline-offset: 1px; }
+/* Icons at the game's own size (stretched, they blur); patterns over the plate chosen now, at the plate's size. */
+.choices.icon .choice img { max-width: 104px; }
+.choices.pattern .choice { width: 204px; max-width: 100%; background-size: 100% 100%; border-radius: 3px; }
+.choice input:checked + img { outline-color: var(--accent); }
+.choice input:focus-visible + img { outline-color: var(--cyan); }
+.stat { display: grid; gap: 4px; }
+.stat .value { font: 400 26px/1.1 var(--wide); color: var(--chalk); }
+.stat .value.small-value { font: 600 16px/1.6 var(--text-face); }
+.stat .label { color: var(--ash); font-size: 13px; }
+/* A DJ's weeks: one thin bar per week, this week last, grown from one hairline; the numbers live in each bar's tip
+   (hover or keyboard focus) and in the table under it. The bar is the section's deeper accent (checked against
+   the card for contrast and lightness). */
+.weeks-max { margin: 4px 0 6px; color: var(--faint); font-size: 12px; }
+.weeks { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: end; gap: 2px; height: 120px;
+         border-bottom: 1px solid var(--seam); }
+.wk { position: relative; height: 100%; display: flex; align-items: flex-end; justify-content: center; outline: none; }
+/* .col, not .bar: .bar is the site's header. */
+.wk .col { display: block; width: min(24px, 72%); background: var(--accent-light); border-radius: 4px 4px 0 0; }
+.wk:hover .col, .wk:focus-visible .col { background: var(--accent); }
+.wk:focus-visible { box-shadow: inset 0 0 0 1px var(--cyan); }
+.wk .tip { display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+           white-space: nowrap; padding: 4px 8px; background: var(--deck-top); box-shadow: var(--glass-rim);
+           color: var(--chalk); font-size: 12px; z-index: 2; pointer-events: none; }
+/* The tips at either end open inward, so they never run off the card. */
+.wk:nth-child(-n+3) .tip { left: 0; transform: none; }
+.wk:nth-last-child(-n+3) .tip { left: auto; right: 0; transform: none; }
+.wk:hover .tip, .wk:focus-visible .tip { display: block; }
+.weeks-axis { display: flex; justify-content: space-between; margin-top: 6px; color: var(--faint); font-size: 12px; }
+.as-table { margin-top: 10px; }
+.as-table summary { cursor: pointer; color: var(--ash); font-size: 13px; }
+.stats.activity { margin-top: 18px; }
+/* A DJ's places in the rankings, each a way to its ranking. */
+.stats.places { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--seam); }
+a.stat:hover { text-decoration: none; }
+a.stat:hover .value { color: var(--accent); }
+.plays .song { color: var(--chalk); }
+.plays a.song:hover { color: var(--accent); }
+
+/* --------------------------------------------------------------------------------------------- dialog */
+/* The game's popup over the page: the page blurred and dimmed behind, a glass panel with the cut corner, its title on a
+   tab hanging from the top edge in the dialog's colour, the question right under it, the buttons saying what they do. */
+/* A browser without <dialog> never shows the closed one (site.js then asks with the browser's own box). */
+.ask:not([open]) { display: none; }
+.ask { --tone: var(--pink); --tone-top: #ff7ab8; --tone-bottom: #f0388f;
+       width: min(464px, calc(100vw - 32px)); padding: 0; border: 0; color: var(--chalk); background: transparent; overflow: visible;
+       /* The panel is clipped to its cut corner, so its shadow and glow come from a filter on what is left. */
+       filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 30px color-mix(in srgb, var(--tone) 22%, transparent)); }
+.ask.warn { --tone: var(--amber); --tone-top: #ffcd70; --tone-bottom: #f5a52a; }
+.ask::backdrop { background: rgba(16, 19, 23, 0.58); -webkit-backdrop-filter: blur(9px); backdrop-filter: blur(9px); }
+.ask[open] { animation: ask-rise 0.16s cubic-bezier(0.2, 0.7, 0.3, 1); }
+@keyframes ask-rise { from { transform: translateY(14px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ask[open] { animation: none; } }
+.ask .panel { position: relative; padding: 60px 38px 28px; text-align: center; background: var(--glass-sheen), rgba(26, 31, 37, 0.94);
+              box-shadow: var(--glass-rim);
+              clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%); }
+.ask .tab { position: absolute; top: 0; left: 50%; transform: translateX(-50%); padding: 0 40px; height: 30px; display: grid;
+            place-items: center; white-space: nowrap; font: 400 10px/1 var(--wide); letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--ink); background: linear-gradient(180deg, var(--tone-top), var(--tone-bottom));
+            clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 14px 100%); }
+body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
+.ask .question { margin: 0 0 8px; font: 600 18px/1.4 var(--text-face); text-wrap: balance; overflow-wrap: anywhere; }
+.ask .detail { margin: 0; color: var(--ash); font-size: 14px; text-wrap: balance; }
+.ask .answers { display: flex; justify-content: center; gap: 12px; margin-top: 26px; }
+.ask .answers .btn { min-width: 132px; }
+
+/* Licenses: the parts' table, each part's names in the site's own ink and its licence quieter; on a phone each row
+   stacks as the other tables do, the names first. Then what each font is, then its licence in full, folded. */
+.table.parts td { vertical-align: top; }
+.table.parts td.part { color: var(--chalk); font-weight: 600; }
+.faces { margin: 0 0 12px; padding-left: 18px; }
+.faces li { margin-bottom: 6px; }
+.licence summary { cursor: pointer; color: var(--ash); font-size: 13px; }
+.licence pre { margin: 10px 0 0; padding: 12px; max-height: 360px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+               background: var(--well); color: var(--ash); font: 12px/1.5 ui-monospace, Consolas, monospace; }
+
+/* ---------------------------------------------------------------------------------------------- foot */
+.foot { border-top: 1px solid var(--seam); padding: 18px 32px; color: var(--faint); font-size: 12px; display: flex; gap: 24px; flex-wrap: wrap; }
+.foot p { margin: 0; max-width: 820px; }
+/* The notice's two lines stacked, as OpenDMTQ's footer has them. */
+.foot .notice-lines { display: grid; gap: 4px; max-width: 820px; }
+.foot .ver { margin-left: auto; }
+
+/* --------------------------------------------------------------------------------------------- phones */
+@media (max-width: 760px) {
+  .bar { padding: 10px 16px; gap: 12px; }
+  .site-notice { padding: 10px 16px; }
+  .who-name { display: none; }
+  .grid { grid-template-columns: minmax(0, 1fr); padding: 16px; }
+  .page { padding: 16px; }
+  .hero-text { padding: 30px 16px 0; max-width: 100%; }
+  .hero h1 { font-size: 30px; }
+  .shards { opacity: 0.45; }
+  .foot { padding: 16px; }
+  .hero-text > * { max-width: 100%; }
+  /* The menu takes a row of its own under the name. Its five words (an admin's) fit a phone 360 px wide whole: a
+     word cut at the screen's edge read as another word. On a narrower screen it slides sideways. */
+  .menu { order: 3; flex-basis: 100%; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 4px; gap: 0; }
+  .menu::-webkit-scrollbar { display: none; }
+  .menu a { padding: 8px 4px; font-size: 11px; white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+  .menu a::after { left: 4px; right: 4px; bottom: -2px; }
+  /* The admin tables become one block per row: the actions go under the names instead of past the screen's
+     edge. Tables of numbers stay tables, without their less needed columns. */
+  .table:not(.board):not(.songs) thead { display: none; }
+  .table:not(.board):not(.songs), .table:not(.board):not(.songs) tbody, .table:not(.board):not(.songs) tr,
+  .table:not(.board):not(.songs) td { display: block; width: 100%; }
+  .table:not(.board):not(.songs) tr { padding: 10px 0; border-bottom: 1px solid var(--seam); }
+  .table:not(.board):not(.songs) td { border: 0; padding: 2px 0; }
+  /* The headers are gone, so each cell under its row's name says what it is (its column's name, from the page): a
+     number or a date alone said nothing. Every cell shows: a block has room for the ones a wide table leaves out. */
+  .table:not(.board):not(.songs) td[data-label]::before { content: attr(data-label); display: inline-block; min-width: 7.5em;
+                                                           margin-right: 8px; color: var(--ash); font-size: 12px; }
+  /* A number's cell is a line of the block like the others: from the left, and wrapping when its words are long (the
+     DJ cards' three counts in one cell). */
+  .table:not(.board):not(.songs) td.num { text-align: left; white-space: normal; }
+  .table .actions { text-align: left; margin-top: 8px; }
+  .table .actions > * { margin: 3px 6px 3px 0; }
+  /* The tables that stay tables (the boards, the songs) go without their less needed columns. */
+  .table .wide-only { display: none; }
+  .board td, .board th, .songs td, .songs th { padding: 8px 6px; }
+  .podium { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tabs a { padding: 9px 14px; }
+  .charts { grid-template-columns: 1fr; }
+  .hero h1.title { font-size: 26px; }
+  .ask .panel { padding: 54px 22px 24px; }
+  .ask .answers .btn { min-width: 0; flex: 1; }
+}
+
+/* Admin, Status: the notice's line takes the row's room; its Clear sits under it. */
+.form.row .grow { grid-column: span 2; }
+.notice-clear { margin-top: 12px; }
+@media (max-width: 760px) { .form.row .grow { grid-column: auto; } }
+
+/* Admin: the message to send a player, text to copy in a well like the form fields. */
+textarea.message { display: block; width: 100%; padding: 10px 12px; resize: vertical; background: var(--well); color: var(--chalk);
+                   border: 1px solid var(--seam); font: 14px/1.6 var(--text-face); }
+textarea.message:focus { outline: none; border-color: var(--cyan); }
+
+/* Admin: a cabinet's name edited in its row; a game message without a handler shows its first bytes. */
+.inline-name { display: flex; gap: 6px; align-items: center; }
+.inline-name input { min-width: 0; width: 160px; }
+/* In a table row the name's box is as tall as the row's small buttons, so a row with both keeps one height. */
+.table .inline-name input { height: 34px; font-size: 14px; }
+.table .hex { font-size: 12px; color: var(--ash); word-break: break-all; }
+.tag.ok { background: var(--lime); color: var(--ink); }
+
+/* A song's disc picture (from the owner's own game files): small beside its title in the list, larger on its page. */
+.songcell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.songcell .jacket { flex: none; width: 40px; height: 40px; }
+/* A song without a picture keeps the column, as a faint ring. */
+.songcell .jacket.none { display: block; box-sizing: border-box; border: 1px solid var(--seam); border-radius: 50%; }
+.hero-text.with-disc { display: flex; align-items: center; gap: 22px; }
+.hero-text .disc { flex: none; width: 112px; height: 112px; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5)); }
+@media (max-width: 760px) { .hero-text .disc { width: 72px; height: 72px; } .hero-text.with-disc { gap: 14px; } }
+
+/* Past months under this month's ranking: each month's first three in a block, the blocks side by side as room
+   allows; the first place in the section's colour. */
+.past-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 14px 22px; }
+.past-month h4 { margin: 0 0 4px; font: 600 14px/1.4 var(--text-face); color: var(--chalk); }
+.past-top { list-style: none; margin: 0; padding: 0; }
+.past-top li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: baseline; gap: 8px; padding: 6px 0;
+               border-bottom: 1px solid var(--seam); }
+.past-top li:last-child { border-bottom: 0; }
+.past-top a { color: var(--chalk); font-weight: 600; overflow-wrap: anywhere; }
+.past-top a:hover { color: var(--accent); }
+.past-top li.me a { color: var(--accent); }
+.past-top .score { font: 400 13px/1 var(--wide); color: var(--ash); }
+.past-place { font: 400 15px/1 var(--wide); color: var(--ash); }
+.past-place.place-1 { color: var(--accent); }
+
+/* The ranking's second strip (total or best 30): lighter than the mode tabs above it. */
+.tabs.quiet { margin-top: -8px; }
+.tabs.quiet a { padding: 6px 14px; }
+
+/* Admin, Song list and Backups: the file to upload (templates/_upload.html), as OpenDMTQ's upload box. A box in a well
+   like the other fields, its edge dashed until a file is in it, that names what goes in it and shows the site's own
+   button where to click; the browser's file input lies over the whole box, its edge included, unseen, so a click
+   anywhere on it or a file dropped on it lands on the browser's own control. The box lights in the section's colour
+   under the pointer and while a file is dragged over it, takes the keys' cyan ring when the field has the keyboard,
+   and once a file is chosen says its name and size, in pink when it is past the limit (site.js). */
+/* Its layout over the form fields' own label (a grid of small grey words): a row in the text's own size and ink. */
+.form label.drop { display: flex; align-items: center; gap: 14px; font-size: 15px; color: var(--chalk); }
+/* Its well and edge, on the box alone, so that the states below (each one class more) win over them. */
+.drop { position: relative; min-width: 0; padding: 12px 14px; background: var(--well); border: 1px dashed var(--rail-up);
+        cursor: pointer; transition: border-color var(--quick), background-color var(--quick); }
+.drop:hover, .drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--well)); }
+.drop:has(input:focus-visible) { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.drop.has-file { border-style: solid; border-color: var(--accent); }
+.drop.too-big { border-style: solid; border-color: var(--pink); }
+.drop input[type="file"] { position: absolute; top: -1px; left: -1px; width: calc(100% + 2px); height: calc(100% + 2px);
+                           margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; }
+.drop-text { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.drop-title { font-weight: 600; overflow-wrap: anywhere; }
+.drop-hint { color: var(--ash); font-size: 13px; overflow-wrap: anywhere; }
+.drop.has-file .drop-hint { color: var(--chalk); }
+.drop.too-big .drop-hint { color: var(--pink); }
+/* The button only shows where to click (the clicks land on the file input over the whole box); it lights with it. */
+.drop-pick { flex: none; pointer-events: none; }
+.drop:hover .drop-pick, .drop.over .drop-pick { background: linear-gradient(180deg, #4a5461, var(--rail-up)); color: #fff; }
+/* Dropping a file needs a mouse: phones and tablets do not mention it. */
+@media (hover: none) { .drop-only { display: none; } }
+/* A button with nothing to send yet (the upload's, until a file within the limit is chosen): the rail's quiet metal. */
+.btn:disabled, .btn.primary:disabled, .btn:disabled:hover, .btn.primary:disabled:hover {
+  color: var(--faint); background: var(--rail); filter: none; transform: none; cursor: default; }
+
+/* My account, API tokens: a token just made, in a well like the message to send, broken anywhere (it has no spaces);
+   a token's name breaks too, so a long one never runs past the screen. */
+textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: break-all; }
+.made-token { display: grid; gap: 6px; margin-bottom: 14px; font-size: 13px; color: var(--ash); }
+.table .token-name { overflow-wrap: anywhere; }
+
+/* Maintenance, on every page beside the notice: in pink, the site's colour for what is refused (card logins). */
+.site-notice.maintenance { box-shadow: inset 3px 0 0 var(--pink); }
+.site-notice.maintenance .label { color: var(--pink); }
+/* Admin, Status: maintenance's state and its one button, on one row like the notice's. */
+.form.maintenance p { margin: 0; }
+
+/* Admin, Song list: OpenDMTQ's setup page in this site's look. The lead under the title; the thing the server takes
+   in a panel of its own; its state part by part with a lamp (lime for ready, amber for not yet). */
+.song-list .lead { color: var(--ash); max-width: 760px; margin: 0 0 16px; }
+.takes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; margin-bottom: 16px; }
+.take { padding: 14px 16px; background: var(--well); border: 1px solid var(--seam); }
+.take h4 { margin: 0 0 6px; font: 600 15px/1.4 var(--text-face); color: var(--chalk); }
+.take p { margin: 0 0 6px; }
+.take p:last-child { margin-bottom: 0; }
+.states { display: flex; flex-wrap: wrap; gap: 10px 26px; margin-bottom: 12px; }
+.state-item { display: grid; gap: 4px; }
+.state-item .label { font-size: 12px; color: var(--ash); }
+.state-item .state { display: inline-flex; align-items: center; gap: 7px; margin: 0; font-weight: 600; }
+.state-item .state.wait { color: var(--amber); }
+.state-item .state .dot { background: var(--amber); box-shadow: 0 0 8px rgba(255, 179, 61, 0.55); }
+.state-item .state .dot.on { background: var(--lime); box-shadow: 0 0 8px rgba(180, 240, 42, 0.7); }
+/* Found on the server PC: each path in the well's mono letters, its one line under it (lime with a check when it is
+   ready, pink with a cross when it does not work here), Import beside the ones that are ready. */
+.found { display: grid; gap: 0; background: var(--well); border: 1px solid var(--seam); margin-bottom: 10px; }
+.found-row { display: flex; align-items: center; gap: 16px; padding: 12px 14px; border-bottom: 1px solid var(--seam); }
+.found-row:last-child { border-bottom: 0; }
+.found-what { flex: 1; min-width: 0; }
+.found-what .path { display: block; background: none; padding: 0; color: var(--chalk); overflow-wrap: anywhere; }
+.found-row form { margin: 0; flex: none; }
+.verdict { margin: 6px 0 0; font-size: 14px; overflow-wrap: anywhere; }
+.verdict.ok { color: var(--lime); }
+.verdict.bad { color: #ff9cc8; }
+/* Another folder on the server PC: the path's box and Open on one row, the quick folders as chips, and the folder
+   browser in a well, its path as steps to click back to. */
+.form.path-row { grid-template-columns: minmax(0, 1fr) auto; align-items: end; margin-bottom: 12px; }
+.form.path-row input { font-family: ui-monospace, Consolas, monospace; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.chip { padding: 7px 12px; background: var(--rail); color: var(--chalk); font: 13px/1.2 ui-monospace, Consolas, monospace;
+        overflow-wrap: anywhere; }
+.chip:hover { background: var(--rail-up); text-decoration: none; }
+.browser { padding: 14px 16px; background: var(--well); border: 1px solid var(--seam); }
+.crumbs { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.crumbs .steps { min-width: 0; font: 14px/1.5 ui-monospace, Consolas, monospace; color: var(--ash); overflow-wrap: anywhere; }
+.crumbs .steps a { color: var(--chalk); }
+.folders { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 2px; }
+.folders a { display: flex; align-items: center; gap: 10px; padding: 7px 8px; color: var(--chalk); overflow-wrap: anywhere; }
+.folders a:hover { background: var(--rail); text-decoration: none; }
+.folders .folder { flex: none; width: 16px; height: 12px; background: var(--faint); clip-path: polygon(0 0, 40% 0, 50% 18%, 100% 18%, 100% 100%, 0 100%); }
+.browser form { margin: 0; }
+@media (max-width: 760px) {
+  .found-row { flex-direction: column; align-items: stretch; }
+  .found-row form .btn { width: 100%; }
+  .form.path-row { grid-template-columns: 1fr; }
+}

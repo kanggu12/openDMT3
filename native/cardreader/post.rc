@@ -1,0 +1,6 @@
+// The post-process chain's shader sources (post.c reads them by number and compiles them when the game starts), and
+// the product's mark as the launcher draws it (mark.py writes it beside this script's output when build.sh runs).
+101 RCDATA "shaders/post.hlsl"
+102 RCDATA "third_party/smaa/SMAA.hlsl"
+103 RCDATA "shaders/smaa.hlsl"
+104 RCDATA "mark.bin"

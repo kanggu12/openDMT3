@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ dj.dj_name }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">{{ w("dj.kicker") }}</p><h1 class="word">{{ dj.dj_name }}</h1></div>
+</section>
+<section class="grid">
+  <div class="card wide">
+    {% set card = dj.dj_card %}{% set name = dj.dj_name %}{% include "_djcard.html" %}
+    <div class="stats">
+      <div class="stat"><span class="value">{{ dj.summary.plays }}</span><span class="label">{{ w("dj.plays") }}</span></div>
+      <div class="stat"><span class="value">{{ dj.summary.songs }}</span><span class="label">{{ w("dj.songs") }}</span></div>
+      <div class="stat"><span class="value">{{ dj.summary.charts }}</span><span class="label">{{ w("dj.charts") }}</span></div>
+      <div class="stat"><span class="value small-value">{{ dj.summary.last|when if dj.summary.last else "-" }}</span><span class="label">{{ w("dj.last") }}</span></div>
+    </div>
+    {# The DJ's place in each mode's ranking by total ("3 / 12"), each a way to that ranking. #}
+    {% if places %}
+    <div class="stats places">
+      {% for p in places %}<a class="stat" href="/rankings?mode={{ p.mode }}"><span class="value">{{ w("dj.place", n=p.place, of=p.of) }}</span><span class="label">{{ w("dj.place.label", mode=p.mode_name) }}</span></a>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="card wide">
+    <h3>{{ w("dj.activity") }}</h3>
+    {% set weeks = dj.activity.weeks %}{% set top = weeks|map(attribute="plays")|max %}
+    <p class="weeks-max">{{ w("dj.activity.max", n=top) }}</p>
+    {# One bar per week, this week last; the numbers are in each bar's tip (hover or keyboard) and in the table. #}
+    <div class="weeks" aria-hidden="true">
+      {% for wk in weeks %}
+      <div class="wk" tabindex="0"><span class="col" style="height: {{ ((wk.plays * 100 / top)|round(1)) if top else 0 }}%"></span><span class="tip">{{ w("dj.activity.tip", start=wk.from|day, end=wk.to|day, n=wk.plays) }}</span></div>
+      {% endfor %}
+    </div>
+    <div class="weeks-axis"><span>{{ weeks[0].from|day }}</span><span>{{ weeks[-1].to|day }}</span></div>
+    <details class="as-table"><summary>{{ w("dj.activity.table") }}</summary>
+      <table class="table"><thead><tr><th>{{ w("dj.activity.week") }}</th><th class="num">{{ w("dj.plays") }}</th></tr></thead>
+        <tbody>{% for wk in weeks %}<tr><td>{{ wk.from|day }}~{{ wk.to|day }}</td><td class="num" data-label="{{ w('dj.plays') }}">{{ wk.plays }}</td></tr>{% endfor %}</tbody></table>
+    </details>
+    {% set s = dj.activity.seconds %}
+    <div class="stats activity">
+      <div class="stat"><span class="value">{{ dj.activity.sessions }}</span><span class="label">{{ w("dj.sessions") }}</span></div>
+      <div class="stat"><span class="value small-value">{{ w("common.hours", h=s // 3600, m=(s % 3600) // 60) if s >= 3600 else w("common.minutes", m=s // 60) }}</span><span class="label">{{ w("dj.time") }}</span></div>
+      {% for m in dj.activity.modes %}<div class="stat"><span class="value">{{ m.plays }}</span><span class="label">{{ m.mode_name }}</span></div>{% endfor %}
+    </div>
+  </div>
+  {# Two columns that grow apart: the short lists stacked on the left, the long best scores on the right. #}
+  <div class="column">
+    {% if dj.activity.songs %}
+    <div class="card">
+      <h3>{{ w("dj.top") }}</h3>
+      <ul class="plays">
+      {% for t in dj.activity.songs %}
+        <li><a class="song" href="/songs/{{ t.song }}">{{ t.title }}</a><span class="score">{{ t.plays }}</span></li>
+      {% endfor %}
+      </ul>
+      {% if dj.summary.songs > dj.activity.songs|length %}<p class="muted small cut">{{ w("list.top", n=dj.activity.songs|length, of="{:,}".format(dj.summary.songs)) }}</p>{% endif %}
+    </div>
+    {% endif %}
+    <div class="card">
+      <h3>{{ w("dj.recent") }}</h3>
+      {% if not dj.recent %}<p class="muted">{{ w("dj.none") }}</p>{% endif %}
+      <ul class="plays">
+      {% for p in dj.recent %}
+        <li><a class="song" href="/songs/{{ p.song }}">{{ p.title }}</a>
+          <span class="muted">{{ w("song.chart.level" if p.level else "song.chart", mode=p.mode_name, n=p.pattern, level=p.level) }} · {{ p.at|when }}</span>
+          <span class="score">{{ "{:,}".format(p.score) }}</span></li>
+      {% endfor %}
+      </ul>
+      {% if dj.summary.plays > dj.recent|length %}<p class="muted small cut">{{ w("list.latest", n=dj.recent|length, of="{:,}".format(dj.summary.plays)) }}</p>{% endif %}
+    </div>
+  </div>
+  <div class="column">
+    <div class="card">
+      <h3>{{ w("dj.bests") }}</h3>
+      {% if not dj.bests %}<p class="muted">{{ w("dj.none") }}</p>{% endif %}
+      <ul class="plays">
+      {% for b in dj.bests[:bests_shown] %}
+        <li><a class="song" href="/songs/{{ b.song }}">{{ b.title }}</a>
+          <span class="muted">{{ w("song.chart.level" if b.level else "song.chart", mode=b.mode_name, n=b.pattern, level=b.level) }} · {{ b.at|when }}</span>
+          <span class="score">{{ "{:,}".format(b.score) }}</span></li>
+      {% endfor %}
+      </ul>
+      {% if dj.bests|length > bests_shown %}<p class="muted small cut">{{ w("list.top", n=bests_shown, of="{:,}".format(dj.bests|length)) }}</p>{% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

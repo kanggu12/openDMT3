@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ w("log.view.changes") }} · {{ w("admin.log") }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
+</section>
+<section class="page">
+  {% set tab = "log" %}{% include "_admin_tabs.html" %}
+  {% set view = "changes" %}{% include "_log_views.html" %}
+  <div class="card">
+    <h3>{{ w("log.changes") }}</h3>
+    {% if not log.changes %}<p class="muted">{{ w("log.changes.none") }}</p>{% else %}
+    <table class="table">
+      <thead><tr><th>{{ w("log.when") }}</th><th>{{ w("log.who") }}</th><th>{{ w("log.what") }}</th></tr></thead>
+      {# What changed, in the reader's language (admin.py words each line as it shows it). On a phone the row is a
+         block and the headers are gone: each cell says what it is. #}
+      <tbody>{% for c in log.changes %}<tr><td class="muted when">{{ c.at|when }}</td><td data-label="{{ w('log.who') }}">{{ c.who }}</td><td data-label="{{ w('log.what') }}">{{ c.said }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% if counts.changes > log.changes|length %}<p class="muted small cut">{{ w("list.latest", n=log.changes|length, of="{:,}".format(counts.changes)) }}</p>{% endif %}
+    {% endif %}
+  </div>
+  <div class="card">
+    <h3>{{ w("log.messages") }}</h3>
+    <p class="muted small">{{ w("log.messages.hint") }}</p>
+    {% if not log.messages %}<p class="muted">{{ w("log.messages.none") }}</p>{% else %}
+    <table class="table">
+      <thead><tr><th>{{ w("log.when") }}</th><th class="wide-only">{{ w("cabinets.name") }}</th><th>{{ w("log.message") }}</th><th class="num">{{ w("log.size") }}</th></tr></thead>
+      <tbody>{% for m in log.messages %}<tr class="{{ '' if m.handled else 'unknown' }}"><td class="muted when">{{ m.at|when }}</td><td class="wide-only" data-label="{{ w('cabinets.name') }}"><code>{{ m.cabinet }}</code></td><td data-label="{{ w('log.message') }}"><code>{{ m.name }}</code>{% if not m.handled %} <span class="tag">{{ w("log.unhandled") }}</span><br><code class="hex">{{ m.bytes }}</code>{% endif %}</td><td class="num" data-label="{{ w('log.size') }}">{{ m.size }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% if counts.messages > log.messages|length %}<p class="muted small cut">{{ w("list.latest", n=log.messages|length, of="{:,}".format(counts.messages)) }}</p>{% endif %}
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

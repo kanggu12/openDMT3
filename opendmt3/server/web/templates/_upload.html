@@ -1,0 +1,16 @@
+{# The site's own upload field, as OpenDMTQ's: a box in a well that names what goes in it, with the site's own button
+   showing where to click. The browser's file input lies over the whole box, unseen, so a click anywhere on it, a
+   file dropped on it and the keys (Tab to it, Space or Enter to choose) work as the browser's own do, and a screen
+   reader meets the browser's own control with the field's name and, as its description, what is chosen. site.js names
+   the chosen file and its size, says when it is past the form's limit, and keeps the form's button for a file within
+   it. id: the field's own prefix; title: what goes in it; accept: the file types offered first (none: any). #}
+{% macro drop(id, title, accept=None) %}
+<label class="drop grow" data-choose="{{ w('upload.choose') }}" data-change="{{ w('upload.change') }}" data-too-big="{{ w('upload.too_big') }}">
+  <input type="file" name="file"{% if accept %} accept="{{ accept }}"{% endif %} required aria-labelledby="{{ id }}-title" aria-describedby="{{ id }}-hint">
+  <span class="drop-text">
+    <span class="drop-title" id="{{ id }}-title">{{ title }}</span>
+    <span class="drop-hint" id="{{ id }}-hint">{{ w("upload.none") }}<span class="drop-only">{{ w("upload.drop") }}</span></span>
+  </span>
+  <span class="btn small drop-pick" aria-hidden="true">{{ w("upload.choose") }}</span>
+</label>
+{% endmacro %}

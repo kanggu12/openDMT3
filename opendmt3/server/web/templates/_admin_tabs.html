@@ -1,0 +1,2 @@
+{# The admin pages' tabs; `tab` names the page showing. #}
+<nav class="tabs">{% for key, href in [("players", "/admin/players"), ("cabinets", "/admin/cabinets"), ("status", "/admin/status"), ("song_list", "/admin/song_list"), ("log", "/admin/log"), ("backups", "/admin/backups")] %}<a href="{{ href }}" class="{{ 'on' if tab == key }}">{{ w("admin." + key) }}</a>{% endfor %}</nav>
