@@ -106,10 +106,11 @@ runs [in the launcher](docs/server.md#in-the-launcher) or [with Python](docs/ser
 - **In the game.** A bar at the top edge with a menu and an X that asks first, the game held still while they are
   open, a toast when there is something to say, an FPS chip if you want one, and a pointer of its own. They keep to
   the top band and the corners, never where the notes come, and no key of the keyboard brings them.
-- **A picture and a sound for your PC.** Frame pacing locked to the music, the game's own 5:3 shape kept on any
-  screen, the game drawn at its own 1280x768 or at the screen's size, upscale filters (AMD FSR 1, NVIDIA NIS,
-  Anime4K) and anti-aliasing (FXAA, SMAA) with a safety net that keeps 60 frames a second, and the sound device
-  chosen on **Sound**.
+- **A picture and a sound for your PC.** Frame pacing locked to the music, each frame started just in time so a
+  touch shows sooner, the game's own 5:3 shape kept on any screen, the game drawn at its own 1280x768 or at the
+  screen's size, upscale filters (AMD FSR 1, NVIDIA NIS, Anime4K) and anti-aliasing (FXAA, SMAA) with a safety net
+  that keeps 60 frames a second. On **Sound**, the device, Windows' sound engine in its shortest steps, OpenAL Soft
+  as the mixer if you choose it, and an offset for headphones or a TV that play late.
 - **Logs in by card, without a reader.** The PC client logs players in only by card. openDMT3 gives the game a card
   reader library of its own in place of the cabinet's, which reads a card number the launcher writes, so the game logs
   in the player you picked.
@@ -131,6 +132,10 @@ runs [in the launcher](docs/server.md#in-the-launcher) or [with Python](docs/ser
 
 The game runs its logic once a frame, so a frame late is a game slower than its music. openDMT3 holds the frames to
 60.0 a second with a clock of its own, and while a song plays it follows the song's music, so the notes stay on it.
+Each frame also starts just in time for its turn rather than right after the frame before, so the touch it carries
+is read as late as it can be and reaches the screen sooner: under Wine at 1280x768, 1.7 ms less from the game's read
+of a touch to its frame done, with the same pacing
+([measured](docs/testing.md#a-song-each-frame-started-just-in-time-before-and-after)).
 
 <p align="center">
   <picture>
@@ -141,9 +146,12 @@ The game runs its logic once a frame, so a frame late is a game slower than its 
 
 ### The picture's passes
 
-The game draws 1280x768. openDMT3 enlarges it to your screen with AMD FSR 1 by default, or NVIDIA NIS, or bilinear,
-with FXAA or SMAA before it if you want them. Nothing is written for one maker's graphics card: the passes are
-shaders that any card with shader model 3.0 runs, and when frames come late anyway they step down by themselves.
+The game draws 1280x768. openDMT3 enlarges it to your screen with AMD FSR 1 by default, or NVIDIA NIS, or Anime4K's
+small neural network made for drawn art, or bilinear, with FXAA or SMAA before it if you want them; or it has the
+game draw at the screen's size, with nothing left to enlarge. Seven of the game's own frames, made smaller and
+enlarged back, came closest to themselves with Anime4K, then with FSR 1 ([measured](docs/testing.md#anime4k)).
+Nothing is written for one maker's graphics card: the passes are shaders that any card with shader model 3.0 runs,
+and when frames come late anyway they step down by themselves.
 
 <p align="center">
   <picture>
@@ -151,6 +159,14 @@ shaders that any card with shader model 3.0 runs, and when frames come late anyw
     <img alt="The picture's passes on the graphics card, each choice's time a frame at 1920x1080 and at 3840x2160, of the 16.7 milliseconds a frame has at 60 a second: Off 0.12 and 0.31 milliseconds; Smooth 0.11 and 0.32; AMD FSR 1, the default, 0.49 and 1.21; NVIDIA NIS 0.49 and 1.36; FSR 1 and FXAA 0.56 and 1.20; FSR 1 and SMAA Low 0.62 and 1.37; FSR 1 and SMAA Ultra 0.79 and 1.47. An RTX 4090 held at its resting 225 MHz under WSL 2 through Wine; at its boost clock each takes about an eleventh of that" src="docs/images/chart-passes-light.svg" width="100%">
   </picture>
 </p>
+
+### Sound with less delay
+
+While the game runs, Windows mixes its sound device in the shortest steps the device's driver allows: 2.7 ms on many
+devices, where 10 ms is usual ([how](docs/architecture.md#the-sound-engines-period)). The game's sounds can also be
+mixed by OpenAL Soft through DSOAL, on a shorter way to the device: under Wine, from a sound's start to its sound
+out, 12 to 16 ms against DirectSound's 44 ([measured](docs/architecture.md#the-mixer)). For headphones or a TV that
+play late, an audio offset holds a song's notes and their judging behind its music.
 
 ### A server for many cabinets
 
@@ -171,6 +187,11 @@ Works: the launcher with its guide and pages, the installer and its updates, the
 logins with the DJ card, the stages a player clears (song, pattern, score) and the song select's records, the site
 with its rankings, song and DJ pages and its admin pages, and the server in Docker. It is checked with the game's own
 PC client under Wine, from the installer to a whole song, on one PC and across two machines.
+
+Experiments, off by default: motion clarity on a display at 120 Hz or more (each frame shown as a CRT's rolling beam
+or with black frames between, from the Blur Busters CRT beam simulator), and the flip model (Direct3D 9Ex's flip
+swap chain, the way to Windows' independent flip and a variable refresh rate). How they look and what they save is
+for real displays to say.
 
 Not yet: the rank and max combo of each stage, missions and crews, and two-finger touch.
 
@@ -242,9 +263,9 @@ changed.
 ## Credits and license
 
 The launcher and the site follow the look of TECHNIKA 3's own screens, drawn in code, in DMT3 Wide (a cut of Saira)
-and Pretendard. The picture's passes are AMD FidelityFX Super Resolution 1, NVIDIA Image Scaling, SMAA and FXAA;
-the Sound page's OpenAL Soft mixer is DSOAL and OpenAL Soft; the installer and its updates are Velopack's; archives are
-opened with 7-Zip.
+and Pretendard. The picture's passes are AMD FidelityFX Super Resolution 1, NVIDIA Image Scaling, Anime4K, SMAA and
+FXAA, and motion clarity's is the Blur Busters CRT beam simulator; the Sound page's OpenAL Soft mixer is DSOAL and
+OpenAL Soft; the installer and its updates are Velopack's; archives are opened with 7-Zip.
 
 openDMT3's own code and documentation are under the MIT License ([LICENSE](LICENSE)); the parts it brings with it are
 listed in [the notice](docs/notice.md#license). The license does not cover the game or its files, which are not in
