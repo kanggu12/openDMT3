@@ -34,6 +34,26 @@ Run again, the installer updates an older openDMT3, offers **Repair** or **Open 
 asks before going back from a newer one. It closes an open launcher first, and does not go on while a game the
 launcher started is running (close the game, then **Try again**).
 
+## On Linux, with Wine
+
+The launcher and the game are Windows programs. On Linux they run under Wine, as this project's own tests run them for
+every release: Wine 11 from WineHQ's stable packages on Debian 12, from the installer to whole songs, card logins, the
+in-game layer, updates and **Repair**, drawn on the processor and on a graphics card.
+
+1. Install Wine 11 or newer with its 32-bit part (WineHQ's `winehq-stable` package) and `winetricks`.
+2. Add the one library the game needs that Wine does not have: `winetricks mfc42`.
+3. Download the installer and run it; the launcher opens as on Windows:
+
+   ```sh
+   curl -LO https://github.com/kanggu12/openDMT3/releases/latest/download/openDMT3-win-Setup.exe
+   wine openDMT3-win-Setup.exe
+   ```
+
+The launcher looks for game folders in your Desktop, Downloads and Documents (Wine shows your own folders there), and
+**Choose a folder...** takes any other. Two parts are Windows' own and do nothing under Wine: the desktop shortcut
+(Windows makes it through PowerShell) and playing when Windows starts. Not tried yet: a Linux desktop's own graphics
+driver and sound devices (the tests draw on Mesa and play to a silent device), and the Steam Deck.
+
 ## The first start
 
 The guide takes five steps, and everything in it can be changed later:

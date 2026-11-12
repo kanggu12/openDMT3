@@ -62,7 +62,8 @@ curl.exe -LO https://github.com/kanggu12/openDMT3/releases/latest/download/openD
 
 If Windows says it protected your PC, choose **More info**, then **Run anyway**: the installer is not signed. Then
 choose **Install**: the launcher opens, and its first-start guide takes five steps to **PLAY**. It finds your game
-folders and archives on this PC, says what each one is, and only reads them.
+folders and archives on this PC, says what each one is, and only reads them. On Linux the same installer runs under
+Wine ([how](docs/install.md#on-linux-with-wine)).
 
 **A server with Docker** (Linux, macOS, or Windows in WSL 2):
 
@@ -245,7 +246,7 @@ change goes in; [Architecture](docs/architecture.md) and [Testing](docs/testing.
 
 | | Minimum | Recommended |
 | :--- | :--- | :--- |
-| **To play** | 64-bit Windows 10 or 11 on an x64 processor (Intel or AMD), a graphics card with Direct3D 9 (NVIDIA, AMD or Intel), a mouse, and your game folder (about 38 GB whole) | Shader model 3.0 on the graphics card for the picture's passes, and a touch screen to play as on the cabinet |
+| **To play** | 64-bit Windows 10 or 11, or Linux with Wine 11 ([how](docs/install.md#on-linux-with-wine)), on an x64 processor (Intel or AMD), a graphics card with Direct3D 9 (NVIDIA, AMD or Intel), a mouse, and your game folder (about 38 GB whole) | Shader model 3.0 on the graphics card for the picture's passes, and a touch screen to play as on the cabinet |
 | **The launcher** | About 43 MB to download; installed for your Windows user only, without administrator rights | |
 | **A server** | Docker on Linux, on macOS, or on Windows in WSL 2; or Python 3.10 or newer on Linux; ports 4725 (the game) and 4730 (the site) open to the players' PCs | About 100 MB of memory for 64 cabinets |
 | **On a server** | The song list alone, about 13 MB: no charts, music or videos | |
