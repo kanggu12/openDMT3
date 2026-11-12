@@ -35,6 +35,8 @@ void settings_default(Settings *s)
     s->upscale = UPSCALE_DEFAULT;
     s->sharpness = SHARPNESS_DEFAULT;
     s->antialiasing = AA_DEFAULT;
+    /* The sound engine's shortest period is asked for unless the launcher says not to (engine.c). */
+    s->low_latency = 1;
 }
 
 /* Text equal to `word`, whatever its case. */
@@ -49,7 +51,7 @@ static int same(const char *a, const char *word)
 const char *const SETTINGS_NAMES[] = {"OPENDMT3_LANGUAGE", "OPENDMT3_CURSOR", "OPENDMT3_PACING", "OPENDMT3_FPS",
                                       "OPENDMT3_FPS_POSITION", "OPENDMT3_SOUND_DEVICE", "OPENDMT3_UPSCALE",
                                       "OPENDMT3_SHARPNESS", "OPENDMT3_ANTIALIASING", "OPENDMT3_PICTURE_SHAPE",
-                                      "OPENDMT3_PASS_TIMES"};
+                                      "OPENDMT3_PASS_TIMES", "OPENDMT3_LOW_LATENCY"};
 const int SETTINGS_COUNT = sizeof SETTINGS_NAMES / sizeof SETTINGS_NAMES[0];
 
 void settings_read(Settings *s, const char *name, const char *value)
@@ -98,6 +100,9 @@ void settings_read(Settings *s, const char *name, const char *value)
     } else if (!strcmp(name, "OPENDMT3_SOUND_DEVICE")) {
         /* A GUID: that device; empty or not a GUID: Windows' default output. */
         s->has_device = parse_guid(value, s->device);
+    } else if (!strcmp(name, "OPENDMT3_LOW_LATENCY")) {
+        /* "off" leaves Windows' sound engine at its own period; anything else keeps the default, on. */
+        s->low_latency = !same(value, "off");
     }
 }
 
@@ -876,4 +881,48 @@ void slot_index_del(SlotIndex *x, const void *key)
         }
     }
     x->key[hole] = NULL;
+}
+
+/* Each result's word for the log and the launcher's note, in the order of ENGINE_* (opendmt3/client/actions.py reads
+ * them back). */
+const char *const ENGINE_NAMES[ENGINE_RESULTS] = {"off", "no-device", "no-client3", "no-answer", "none-shorter",
+                                                  "locked", "refused", "unchanged", "held"};
+
+unsigned engine_period_ask(unsigned def, unsigned step, unsigned min, unsigned max)
+{
+    /* Each number must be there, and in the order the API promises: minimum <= default <= maximum. */
+    if (!def || !step || !min || !max || min > max || def < min || def > max)
+        return 0;
+    /* The minimum as a whole number of steps (it is one already when the driver keeps the rules): rounded up, so it
+     * never asks for less than the driver offers. */
+    unsigned ask = (min + step - 1) / step * step;
+    /* Rounded past the maximum, or nothing shorter than the default: nothing to ask. */
+    if (ask > max || ask >= def)
+        return 0;
+    return ask;
+}
+
+int engine_period_held(unsigned def, unsigned got)
+{
+    /* Read, and shorter than the default: the engine runs in shorter steps while the stream runs. */
+    return got > 0 && got < def;
+}
+
+double engine_ms(unsigned frames, unsigned rate)
+{
+    /* No rate read: no time to give. */
+    return rate ? frames * 1000.0 / rate : 0.0;
+}
+
+void engine_note(const EngineReport *r, char *out, int size)
+{
+    /* A result out of range is never written as some other's word. */
+    const char *word = r->result >= 0 && r->result < ENGINE_RESULTS ? ENGINE_NAMES[r->result] : "unknown";
+    /* The device by its GUID, as the launcher keeps its choice (format_guid's upper case with braces). */
+    char device[39];
+    format_guid(r->device, device);
+    /* Words then numbers, one space apart, as key=value: the launcher takes the ones it knows. */
+    snprintf(out, (size_t)size, "engine %s output=%s device=%s rate=%u default=%u step=%u min=%u max=%u before=%u "
+             "asked=%u got=%u hr=0x%08lx", word, r->chosen ? "chosen" : "default", device, r->rate, r->def, r->step,
+             r->min, r->max, r->before, r->asked, r->got, r->hr);
 }

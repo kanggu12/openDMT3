@@ -173,6 +173,23 @@ TEXT = {
                           "게임 소리가 나갈 장치입니다. Windows 기본 출력은 Windows 소리 설정에서 정한 장치입니다."),
     "sound.device.gone": ("The chosen device is not connected: the game plays on Windows' default output.",
                           "고른 장치가 연결되어 있지 않아 Windows 기본 출력으로 소리를 냅니다."),
+    "sound.low_latency": ("Low latency", "저지연"),
+    "sound.low_latency.hint": ("While the game runs, Windows mixes this device's sound in the shortest steps its "
+                               "driver allows: 2.7 ms on many devices, where 10 ms is usual. Every program playing on "
+                               "it goes in those steps too.",
+                               "게임이 켜져 있는 동안 Windows가 이 장치의 소리를 드라이버가 허락하는 가장 짧은 단위로 "
+                               "섞습니다. 보통 10 ms인데 많은 장치에서 2.7 ms가 됩니다. 이 장치로 소리를 내는 다른 "
+                               "프로그램도 같은 단위로 섞입니다."),
+    "sound.low_latency.held": ("In the last game, this device's sound went in {ms} ms steps ({usual} ms without this).",
+                               "지난 게임에서는 이 장치의 소리를 {ms} ms 단위로 섞었습니다(끄면 {usual} ms)."),
+    "sound.low_latency.other": ("In the last game, this device's sound went in {ms} ms steps, as another program "
+                                "had asked.",
+                                "지난 게임에서는 다른 프로그램이 요청한 대로 이 장치의 소리를 {ms} ms 단위로 "
+                                "섞었습니다."),
+    "sound.low_latency.kept": ("In the last game, this device's sound went in {ms} ms steps: its driver or Windows "
+                               "allowed none shorter.",
+                               "지난 게임에서는 이 장치의 소리를 {ms} ms 단위로 섞었습니다. 드라이버나 Windows가 더 짧은 "
+                               "단위를 허락하지 않았습니다."),
 
     # ----------------------------------------------------------------------------------------- controls
     "controls.title": ("Controls", "조작"),

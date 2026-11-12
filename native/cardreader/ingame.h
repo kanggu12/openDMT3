@@ -90,6 +90,11 @@ void sound_frame(void);
 void sound_summary(void);
 /* The song's music as it plays (the music lock): how far it is in ms and the frame it started at; 0 when none plays. */
 int sound_music_position(double *ms, long *started_frame);
+/* Windows' shared sound engine at the shortest period the game's output offers, while the game runs (engine.c): after
+ * the game's DirectSound object opened its device (`chosen`: the launcher's device's 16 GUID bytes; NULL: Windows'
+ * default output), once a process, on a thread of its own; the log and openDMT3-sound.txt beside the DLL say what it
+ * found. Nothing is asked when the launcher's Low latency is off. */
+void engine_start(const uint8_t *chosen);
 /* Frames presented since the game started (the game's own timers count them). */
 long ingame_frame(void);
 

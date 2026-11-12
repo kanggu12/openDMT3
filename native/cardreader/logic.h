@@ -32,6 +32,8 @@ typedef struct {
                             * own 5:3 shape, bars on the other two sides */
     int pass_times;        /* OPENDMT3_PASS_TIMES=on: the picture's GPU time by pass measured (Screen page, Measure the
                             * picture's GPU time; off by default) */
+    int low_latency;       /* OPENDMT3_LOW_LATENCY=off: Windows' sound engine left at its own period; on by default,
+                            * the shortest one the game's output offers asked for while the game runs (engine.c) */
 } Settings;
 
 /* The game's own picture, and its frame rate: its logic runs once a frame, so it holds 60 a second (measured: its
@@ -315,5 +317,50 @@ int slot_index_get(const SlotIndex *x, const void *key);
 int slot_index_put(SlotIndex *x, const void *key, int slot);
 /* `key` out of it (nothing when it is not in it). */
 void slot_index_del(SlotIndex *x, const void *key);
+
+/* ---------------------------------------------------------------------------------- the sound engine's period */
+
+/* What became of asking Windows' shared sound engine for its shortest period on the game's output (engine.c), in the
+ * order a start meets them; ENGINE_NAMES holds each one's word for the log and the launcher's note. */
+enum {
+    ENGINE_OFF,            /* the launcher's Low latency is off: nothing asked */
+    ENGINE_NO_DEVICE,      /* the game's output not found among Windows' endpoints (or COM not there to look) */
+    ENGINE_NO_CLIENT3,     /* the endpoint has no IAudioClient3 (Windows before 10): no way to ask */
+    ENGINE_NO_ANSWER,      /* its periods not read, or an answer that breaks the API's own rules */
+    ENGINE_NONE_SHORTER,   /* the driver's shortest period is its default: nothing to ask for */
+    ENGINE_LOCKED,         /* another program's stream holds the engine at a period of its own */
+    ENGINE_REFUSED,        /* the stream was refused for another reason (its HRESULT is in the report) */
+    ENGINE_UNCHANGED,      /* the stream ran, but the engine kept its default period (as Wine does): let go */
+    ENGINE_HELD,           /* the engine runs at the shorter period, held until the game ends */
+    ENGINE_RESULTS
+};
+extern const char *const ENGINE_NAMES[ENGINE_RESULTS];
+
+/* One start's report, every period in frames at the device's mix rate: GetSharedModeEnginePeriod's four numbers, the
+ * engine's own period before the ask and after the stream started, the period asked (0: none), the last HRESULT. */
+typedef struct {
+    int result;            /* ENGINE_* */
+    int chosen;            /* the launcher's chosen device (0: Windows' default output) */
+    uint8_t device[16];    /* its DirectSound GUID as the game opened it (all 0: not known) */
+    unsigned rate;         /* the device's mix format, frames a second (0: not read) */
+    unsigned def, step, min, max;
+    unsigned before, asked, got;
+    unsigned long hr;
+} EngineReport;
+
+/* The period to ask for, from what IAudioClient3 says of the device's mix format: its minimum, made a whole number of
+ * its fundamental step and kept within its maximum; 0 when there is nothing to ask: no period shorter than the
+ * default, or an answer that breaks the API's own rules (a zero, the minimum past the maximum, the default outside
+ * them; Wine's PulseAudio driver answers a minimum of 0). */
+unsigned engine_period_ask(unsigned def, unsigned step, unsigned min, unsigned max);
+/* Whether the engine's period after the stream started (`got`, 0: not read) is shorter than its default: only then is
+ * the stream worth holding (a shorter period another program holds counts too: it stays while the game runs). */
+int engine_period_held(unsigned def, unsigned got);
+/* Frames at a rate, in milliseconds (0 when the rate is not known). */
+double engine_ms(unsigned frames, unsigned rate);
+/* The launcher's note (openDMT3-sound.txt beside the DLL), one line of words and numbers it reads back: "engine held
+ * output=chosen device={...} rate=48000 default=480 step=16 min=128 max=480 before=480 asked=128 got=128
+ * hr=0x00000000" (output=default for Windows' default output). */
+void engine_note(const EngineReport *r, char *out, int size);
 
 #endif

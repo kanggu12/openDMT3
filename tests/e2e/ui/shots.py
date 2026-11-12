@@ -2180,6 +2180,18 @@ def main():
     settle(app)
     shot(app, args.out, tag + "_play-crashed")
     measure(app, tag + "_play-crashed", problems)
+    # ---- the Sound page after a game: Low latency's line with the steps the last game's sound went in (a 48 kHz
+    #      device whose driver allowed 128 frames), its hint the longest it gets
+    app.state.last_session = {"seconds": 300, "exit_code": 0, "dumps": 0, "crashed": False, "plays": [],
+                              "sound_engine": {"result": "held", "output": "default", "rate": 48000, "default": 480,
+                                               "step": 16, "min": 128, "max": 480, "before": 480, "asked": 128,
+                                               "got": 128, "hr": "0x00000000"}}
+    app.go("sound")
+    settle(app)
+    shot(app, args.out, tag + "_sound-last-game")
+    measure(app, tag + "_sound-last-game", problems)
+    if args.smallest:
+        at_smallest(app, args.out, tag + "_sound-last-game", problems)
     app.state.last_session = None
     # ---- PLAY's progress look: what PLAY does until the game starts (here at the client's copy), on its track
     from opendmt3.client import getting_ready

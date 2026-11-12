@@ -70,6 +70,72 @@ static void test_settings(void)
     int on = t.pass_times;
     settings_read(&t, "OPENDMT3_PASS_TIMES", "yes");
     check(off_first && on && !t.pass_times, "settings: the GPU time by pass off by default, on only for \"on\"");
+    /* The sound engine's shortest period: asked for unless the launcher says "off" (any case). */
+    Settings u;
+    settings_default(&u);
+    int asked_first = u.low_latency;
+    settings_read(&u, "OPENDMT3_LOW_LATENCY", "OFF");
+    int off = !u.low_latency;
+    settings_read(&u, "OPENDMT3_LOW_LATENCY", "maybe");
+    check(asked_first && off && u.low_latency, "settings: low latency on by default, off only for \"off\"");
+}
+
+/* The sound engine's period (engine.c's decisions): what to ask for from IAudioClient3's answer, whether what the
+ * engine runs at after is worth holding, and the launcher's note. */
+static void test_engine(void)
+{
+    /* Windows' own HDAudio driver at 48 kHz: 128 to 480 frames (Microsoft, Low Latency Audio). */
+    check(engine_period_ask(480, 16, 128, 480) == 128, "engine: the driver's shortest period is asked for");
+    /* Many makers' own drivers offer only their default. */
+    check(engine_period_ask(480, 480, 480, 480) == 0, "engine: nothing shorter than the default, nothing asked");
+    /* Wine's ALSA driver (measured): a shortest of half its default. */
+    check(engine_period_ask(480, 1, 240, 480) == 240, "engine: Wine's ALSA answer asks for its 240 frames");
+    /* Wine's PulseAudio driver (measured): a shortest of 0 frames, which no stream can be made with. */
+    check(engine_period_ask(441, 1, 0, 441) == 0, "engine: a shortest of 0 frames is no answer");
+    check(engine_period_ask(480, 32, 100, 480) == 128, "engine: a shortest between steps rounded up to a whole step");
+    check(engine_period_ask(480, 512, 100, 480) == 0, "engine: a step rounded past the longest asks nothing");
+    check(engine_period_ask(480, 16, 512, 256) == 0 && engine_period_ask(600, 16, 128, 480) == 0 &&
+              engine_period_ask(100, 16, 128, 480) == 0 && engine_period_ask(480, 0, 128, 480) == 0 &&
+              engine_period_ask(0, 16, 128, 480) == 0,
+          "engine: numbers out of the API's own order ask nothing");
+    check(engine_period_held(480, 128) && !engine_period_held(480, 480) && !engine_period_held(480, 0) &&
+              !engine_period_held(480, 600),
+          "engine: held only when the engine runs shorter than its default");
+    check(fabs(engine_ms(128, 48000) - 2.6667) < 0.001 && fabs(engine_ms(480, 48000) - 10.0) < 1e-9 &&
+              engine_ms(480, 0) == 0.0,
+          "engine: frames in milliseconds at the mix rate");
+    EngineReport r;
+    memset(&r, 0, sizeof r);
+    r.result = ENGINE_HELD;
+    r.chosen = 1;
+    parse_guid("{0000000A-0000-0000-0000-00000000000B}", r.device);
+    r.rate = 48000;
+    r.def = 480;
+    r.step = 16;
+    r.min = 128;
+    r.max = 480;
+    r.before = 480;
+    r.asked = 128;
+    r.got = 128;
+    char line[256];
+    engine_note(&r, line, sizeof line);
+    check(!strcmp(line, "engine held output=chosen device={0000000A-0000-0000-0000-00000000000B} rate=48000 "
+                        "default=480 step=16 min=128 max=480 before=480 asked=128 got=128 hr=0x00000000"),
+          "engine: the launcher's note, words then numbers");
+    r.chosen = 0;
+    engine_note(&r, line, sizeof line);
+    check(strstr(line, " output=default ") != NULL, "engine: Windows' default output said as such");
+    r.result = ENGINE_RESULTS;
+    engine_note(&r, line, sizeof line);
+    check(!strncmp(line, "engine unknown ", 15), "engine: a result out of range is no other's word");
+    char small[12];
+    memset(small, 'x', sizeof small);
+    r.result = ENGINE_OFF;
+    engine_note(&r, small, 8);
+    check(!strcmp(small, "engine ") && small[8] == 'x', "engine: a short buffer holds a cut line and its end");
+    check(!strcmp(ENGINE_NAMES[ENGINE_OFF], "off") && !strcmp(ENGINE_NAMES[ENGINE_HELD], "held") &&
+              !strcmp(ENGINE_NAMES[ENGINE_UNCHANGED], "unchanged"),
+          "engine: the results' words");
 }
 
 /* The picture's GPU time by pass: medians by step name over a stretch (passtimes.c). */
@@ -883,6 +949,7 @@ static void test_slot_index(void)
 int main(void)
 {
     test_settings();
+    test_engine();
     test_pass_times();
     test_post();
     test_pacer();

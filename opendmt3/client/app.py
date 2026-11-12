@@ -347,8 +347,9 @@ class LauncherApp:
         self.set_status(self.words("status.crashed") if crashed else self.words("status.ended", time=span),
                         "bad" if crashed else "ok")
         self.refresh_checks()
-        if self.page == "play":
-            self.go("play")
+        # The pages that say what the last game did: PLAY (its stages), Sound (the steps its sound went in).
+        if self.page in ("play", "sound"):
+            self.go(self.page)
 
     def _collect_plays(self, since):
         """The stages cleared in the session that just ended, for the PLAY page (on a worker thread)."""

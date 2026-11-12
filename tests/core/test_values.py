@@ -73,7 +73,13 @@ class LayerChoicesTest(unittest.TestCase):
         self.assertEqual(env, {"OPENDMT3_LANGUAGE": "ko", "OPENDMT3_CURSOR": "off", "OPENDMT3_PACING": "even",
                                "OPENDMT3_FPS": "on", "OPENDMT3_FPS_POSITION": "bottom_right", "OPENDMT3_SOUND_DEVICE": "",
                                "OPENDMT3_UPSCALE": "fsr1", "OPENDMT3_SHARPNESS": "50", "OPENDMT3_ANTIALIASING": "off",
-                               "OPENDMT3_PICTURE_SHAPE": "keep", "OPENDMT3_PASS_TIMES": "off"})
+                               "OPENDMT3_PICTURE_SHAPE": "keep", "OPENDMT3_PASS_TIMES": "off",
+                               "OPENDMT3_LOW_LATENCY": "on"})
+        # The sound engine's shortest period is asked for unless the Sound page's Low latency is off.
+        self.assertIs(values.DEFAULTS["low_latency"], True)
+        self.assertEqual(values.layer_environment({"low_latency": "off"})["OPENDMT3_LOW_LATENCY"], "off")
+        with self.assertRaises(values.ChoiceError):
+            values.normalize({"low_latency": "lowest"})
         self.assertEqual(values.layer_environment({"picture_shape": "fill"})["OPENDMT3_PICTURE_SHAPE"], "fill")
         # The GPU time by pass by the layer's word for it ("on"; anything else leaves it off).
         self.assertEqual(values.layer_environment({"pass_times": True})["OPENDMT3_PASS_TIMES"], "on")
@@ -190,4 +196,14 @@ class TheLayerReadsEveryVariable(unittest.TestCase):
         names = set(re.findall(r'"(OPENDMT3_[A-Z_]+)"', listed))
         made = set(values.layer_environment({}))
         self.assertEqual(made - names, set())
+
+    def test_the_sound_engines_words_are_the_layers_own(self):
+        # The results the layer writes in its note of the sound engine's period (logic.c ENGINE_NAMES, in its order)
+        # are the ones the launcher reads back (client/actions.py ENGINE_RESULTS).
+        from opendmt3.client import actions
+        here = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(here, "..", "..", "native", "cardreader", "logic.c"), encoding="utf-8") as f:
+            logic = f.read()
+        listed = re.search(r"ENGINE_NAMES\[ENGINE_RESULTS\] = \{(.*?)\};", logic, re.S).group(1)
+        self.assertEqual(tuple(re.findall(r'"([a-z0-9-]+)"', listed)), actions.ENGINE_RESULTS)
 

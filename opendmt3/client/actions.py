@@ -6,6 +6,7 @@ command always run the same checks.
 
 import logging
 import os
+import re
 import time
 
 from opendmt3.core import game as g
@@ -190,6 +191,13 @@ PICTURE_NOTE = "openDMT3-picture.txt"
 # each ten seconds of play, each pass's median, beside the library; an hour's lines at most.
 PICTURE_TIMES_NOTE = "openDMT3-picture-times.txt"
 PICTURE_TIMES_LINES = 360
+# The in-game layer's note of the sound engine's period in the run (native/cardreader/engine.c): one line, written when
+# the game opens its sound, beside the library.
+SOUND_NOTE = "openDMT3-sound.txt"
+# Its results' words, as the layer writes them (ENGINE_NAMES in native/cardreader/logic.c), and its numbers' names.
+ENGINE_RESULTS = ("off", "no-device", "no-client3", "no-answer", "none-shorter", "locked", "refused", "unchanged",
+                  "held")
+ENGINE_NUMBERS = ("rate", "default", "step", "min", "max", "before", "asked", "got")
 
 
 class SignedOut(Exception):
@@ -408,6 +416,8 @@ def finish(state, session):
     record["picture_steps"] = picture_steps(own)
     # The picture's GPU time by pass, when it was measured: into the log (and so into a report), then the note goes.
     record["picture_times"] = picture_times(own)
+    # The sound engine's period the game ran at: into the log, and kept for the Sound page; then the note goes.
+    record["sound_engine"] = sound_engine(own)
     # The card is a login of its own: it stays only while the game runs.
     try:
         put_card(own, None)
@@ -467,6 +477,110 @@ def picture_times(own):
     except OSError:
         log.warning("could not remove the in-game picture's time note", exc_info=True)
     return lines
+
+
+def engine_from_line(line):
+    """The layer's line of the sound engine's period as a record: {"result": its word, "output": "chosen" or
+    "default", "device": its GUID, "hr": the last call's result, and each of ENGINE_NUMBERS in frames}; None for a line
+    the layer does not write. Only the words and numbers it knows are taken."""
+    words = line.split()
+    # "engine", then one of the results' words, then key=value pairs.
+    if len(words) < 2 or words[0] != "engine" or words[1] not in ENGINE_RESULTS:
+        return None
+    record = {"result": words[1]}
+    for word in words[2:]:
+        key, _, value = word.partition("=")
+        if key in ENGINE_NUMBERS and value.isdigit():
+            # Frames (or the rate's frames a second): whole numbers only.
+            record[key] = int(value)
+        elif key == "output" and value in ("chosen", "default"):
+            record[key] = value
+        elif key == "device" and re.fullmatch(r"\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}", value):
+            # As the launcher keeps a chosen device: upper case with braces.
+            record[key] = value
+        elif key == "hr" and re.fullmatch(r"0x[0-9a-f]{8}", value):
+            record[key] = value
+    return record
+
+
+def engine_ms(frames, rate):
+    """Frames at a rate as the pages say milliseconds: one decimal, none for a whole number (2.7, 10)."""
+    ms = round(frames * 1000.0 / rate, 1)
+    return ("%.1f" % ms).rstrip("0").rstrip(".")
+
+
+def engine_said(record):
+    """The log's line for the sound engine's period in a run (the layer's record)."""
+    rate = record.get("rate") or 0
+    # Each period with its milliseconds when the rate is known.
+    at = lambda name: "%d frames%s" % (record.get(name, 0), " (%s ms)" % engine_ms(record.get(name, 0), rate)
+                                       if rate else "")
+    where = "Windows' default output" if record.get("output") == "default" else "the chosen device"
+    device = "%s %s" % (where, record.get("device", "")) if record.get("device") else where
+    if record["result"] == "off":
+        return "the sound engine's period was left as Windows has it (low latency off)"
+    if record["result"] == "held":
+        return "the sound engine ran at %s a period on %s while the game ran, %s without openDMT3" % (
+            at("got"), device, at("default"))
+    return ("the sound engine's period was not made shorter on %s (%s): asked %s, the driver's shortest %s, its "
+            "default %s, the engine's period %s (%s)") % (device, record["result"], at("asked"), at("min"),
+                                                          at("default"), at("got") if record.get("got") else
+                                                          at("before"), record.get("hr", "-"))
+
+
+def sound_engine(own):
+    """The sound engine's period in the run that ended, from the in-game layer's note (engine_from_line's record),
+    logged; the note goes. None when there was none (the game never opened its sound) or it is not the layer's."""
+    path = own.path(SOUND_NOTE)
+    try:
+        with open(path, encoding="ascii", errors="replace") as f:
+            # One short line (the layer writes no more): its first line is the one read.
+            lines = f.read(1024).splitlines()
+    except OSError:
+        return None
+    record = engine_from_line(lines[0]) if lines else None
+    if record is None:
+        log.warning("the in-game sound engine note is not the layer's: %r", lines[:1])
+    else:
+        log.info(engine_said(record))
+    try:
+        os.remove(path)
+    except OSError:
+        log.warning("could not remove the in-game sound engine note", exc_info=True)
+    return record
+
+
+def sound_engine_line(record, chosen):
+    """What the Sound page says under Low latency about the last game (its words' key and their values), or None: only
+    when that game ran on the device chosen now (by its GUID, or Windows' default output both times) and the engine's
+    period it ran at is known. "sound.low_latency.held" when Low latency made it shorter than the device's default;
+    "sound.low_latency.other" when it was shorter already before the ask (another program's stream held it so, and
+    turning Low latency off would not change it); "sound.low_latency.kept" when it stayed at the default."""
+    # Off, or no record at all: nothing about the last game to say under the row.
+    if not record or record.get("result") == "off":
+        return None
+    if chosen == choices.DEFAULT_DEVICE:
+        # Windows' default output then and now (which device that was is Windows' to say).
+        if record.get("output") != "default":
+            return None
+    elif record.get("output") != "chosen" or record.get("device", "").upper() != str(chosen).upper():
+        # Another device than the one chosen now: its periods say nothing of this one.
+        return None
+    rate, usual = record.get("rate") or 0, record.get("default") or 0
+    # The engine's period with the stream running, or before it when none ran (another program's, or the default).
+    before = record.get("before") or 0
+    period = record.get("got") or before
+    if not rate or not usual or not period:
+        # The device's format or its periods were never read (no IAudioClient3, the device not found).
+        return None
+    if period >= usual:
+        # The default's steps: nothing shorter was allowed.
+        return "sound.low_latency.kept", {"ms": engine_ms(period, rate)}
+    if before and before < usual:
+        # Shorter already before the ask: another program's doing, which goes on whatever Low latency says.
+        return "sound.low_latency.other", {"ms": engine_ms(period, rate)}
+    # Shorter because of the ask: without Low latency the device's own default.
+    return "sound.low_latency.held", {"ms": engine_ms(period, rate), "usual": engine_ms(usual, rate)}
 
 
 def save_song_list(state, path):

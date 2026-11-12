@@ -79,17 +79,22 @@ void ingame_log(const char *fmt, ...)
     /* An empty value means the default name beside the DLL (openDMT3's folder; the game folder is only read). */
     if (!path[0] && !ingame_beside(L"openDMT3-ingame.log", path, MAX_PATH * 4))
         return;
+    /* One line at a time from any thread (the sound engine's period is said from a thread of its own, engine.c): each
+     * open moves to the file's end and writes there, so two at once could land at the same place, one lost. */
+    static SRWLOCK lock = SRWLOCK_INIT;
+    AcquireSRWLockExclusive(&lock);
     FILE *f = _wfopen(path, L"a");
-    if (!f)
-        return;
-    /* The time since Windows started, in milliseconds: enough to order the lines and measure between them. */
-    fprintf(f, "%lu ", (unsigned long)GetTickCount());
-    va_list ap;
-    va_start(ap, fmt);
-    vfprintf(f, fmt, ap);
-    va_end(ap);
-    fputc('\n', f);
-    fclose(f);
+    if (f) {
+        /* The time since Windows started, in milliseconds: enough to order the lines and measure between them. */
+        fprintf(f, "%lu ", (unsigned long)GetTickCount());
+        va_list ap;
+        va_start(ap, fmt);
+        vfprintf(f, fmt, ap);
+        va_end(ap);
+        fputc('\n', f);
+        fclose(f);
+    }
+    ReleaseSRWLockExclusive(&lock);
 }
 
 /* ---------------------------------------------------------------------------------------------- the import table */
@@ -167,6 +172,8 @@ static HRESULT WINAPI our_ds8(LPCGUID dev, LPDIRECTSOUND8 *out, LPUNKNOWN outer)
         if (SUCCEEDED(hr)) {
             ingame_log("sound: opened the chosen device %s at frame %ld", text, ingame_frame());
             sound_attach(out ? *out : NULL);
+            /* The sound engine's shortest period on that device, while the game runs (engine.c). */
+            engine_start(g_settings.device);
             return hr;
         }
         /* Gone (unplugged, turned off in Windows): the default output, as the launcher's Sound page says. */
@@ -175,8 +182,12 @@ static HRESULT WINAPI our_ds8(LPCGUID dev, LPDIRECTSOUND8 *out, LPUNKNOWN outer)
     }
     HRESULT hr = real_ds8(dev, out, outer);
     ingame_log("sound: opened Windows' default output (0x%08lx) at frame %ld", (unsigned long)hr, ingame_frame());
-    if (SUCCEEDED(hr))
+    if (SUCCEEDED(hr)) {
         sound_attach(out ? *out : NULL);
+        /* The game asked for the default output itself only when it named no other device: then that one's period. */
+        if (asks_default(dev))
+            engine_start(NULL);
+    }
     return hr;
 }
 
@@ -189,6 +200,8 @@ static HRESULT WINAPI our_ds(LPCGUID dev, LPDIRECTSOUND *out, LPUNKNOWN outer)
         HRESULT hr = real_ds(&g, out, outer);
         if (SUCCEEDED(hr)) {
             ingame_log("sound: opened the chosen device %s", text);
+            /* The sound engine's shortest period on that device, as for DirectSoundCreate8 (engine.c). */
+            engine_start(g_settings.device);
             return hr;
         }
         ingame_log("sound: the chosen device %s did not open (0x%08lx): Windows' default output", text,
@@ -196,6 +209,9 @@ static HRESULT WINAPI our_ds(LPCGUID dev, LPDIRECTSOUND *out, LPUNKNOWN outer)
     }
     HRESULT hr = real_ds(dev, out, outer);
     ingame_log("sound: opened Windows' default output (0x%08lx)", (unsigned long)hr);
+    /* Windows' default output's period, when that is what the game asked for. */
+    if (SUCCEEDED(hr) && asks_default(dev))
+        engine_start(NULL);
     return hr;
 }
 

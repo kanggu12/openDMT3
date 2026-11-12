@@ -145,7 +145,8 @@ on the CPU, where the frame times say little about a player's PC, so the numbers
 music.**
 
 - The frame rate chip in the bottom right corner above FREE PLAY, at most one frame queued, the chosen sound device
-  opened.
+  opened, and what came of asking for the sound engine's shortest period on it (Wine keeps its own: `unchanged`, the
+  stream let go), in the launcher's log too once the game closes.
 - What the layer adds to the frames, judged fairly (`ingame/pace.py`): each of its parts (the chip, the bar, the
   question, the menu, a toast) shown for 8 s in turn with 8 s of nothing between, in rounds until every part is
   judged or 25 minutes are over.

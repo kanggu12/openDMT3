@@ -74,6 +74,12 @@ minute. **Help** lists what to try:
 The game plays on the device chosen on **Sound**, **Device**: **Windows' default output** unless you chose another,
 and also when the chosen one is not connected (the page says so). Check the volumes on **Sound** too.
 
+## The sound crackles or drops out
+
+**Low latency** on **Sound** has Windows mix the device's sound in its driver's shortest steps while the game runs
+(the row says which, after a game). A driver or a busy PC that cannot keep up with them crackles: turn **Low latency**
+off, and the game plays in Windows' usual 10 ms steps from the next PLAY.
+
 ## The game does not log in
 
 - **NET** stays red in the game: the game does not reach the server. Playing on this PC, the launcher's server runs

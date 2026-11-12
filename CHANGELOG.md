@@ -6,6 +6,12 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+### Added
+
+- **Low latency** on the Sound page, on by default: while the game runs, Windows mixes the sound of the game's output
+  device in the shortest steps its driver allows (2.7 ms on many devices, where 10 ms is usual), and the page and
+  `--status` say the steps the last game's sound went in.
+
 ## [0.1.1] - 2026-11-13
 
 ### Added

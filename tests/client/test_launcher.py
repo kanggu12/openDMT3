@@ -510,9 +510,79 @@ class LauncherTest(FolderCase):
         self.assertEqual(record["picture_times"], [times, times])
         self.assertEqual(sum("picture's GPU time by pass at 1920x1080 keep" in line for line in said.output), 2)
         self.assertFalse(os.path.exists(own.path(actions.PICTURE_TIMES_NOTE)))
+        self.assertIsNone(record["sound_engine"])
+        # The sound engine's period the game ran at: the layer's note read into the log and kept with the run.
+        with open(own.path(actions.SOUND_NOTE), "w", encoding="ascii") as f:
+            f.write("engine held output=default device={0000000A-0000-0000-0000-00000000000B} rate=48000 default=480 "
+                    "step=16 min=128 max=480 before=480 asked=128 got=128 hr=0x00000000\n")
+        with self.assertLogs("opendmt3", level="INFO") as said:
+            record = actions.finish(self.state, session)
+        self.assertEqual((record["sound_engine"]["result"], record["sound_engine"]["got"],
+                          record["sound_engine"]["rate"]), ("held", 128, 48000))
+        self.assertTrue(any("sound engine ran at 128 frames (2.7 ms) a period on Windows' default output" in line
+                            for line in said.output), said.output)
+        self.assertFalse(os.path.exists(own.path(actions.SOUND_NOTE)))
         # An error code within the first half minute: the game never got going (a missing DLL under Wine did this).
         session.process.code = 53
         self.assertTrue(actions.finish(self.state, session)["crashed"])
+
+    def test_the_sound_engines_period_from_the_layers_note(self):
+        from opendmt3.client import i18n
+        own = self.state.own()
+        os.makedirs(own.folder, exist_ok=True)
+        chosen = "{0000000A-0000-0000-0000-00000000000B}"
+        line = ("engine held output=chosen device=%s rate=48000 default=480 step=16 min=128 max=480 before=480 "
+                "asked=128 got=128 hr=0x00000000" % chosen)
+        # Every word and number the layer writes, read back.
+        self.assertEqual(actions.engine_from_line(line),
+                         {"result": "held", "output": "chosen", "device": chosen, "rate": 48000, "default": 480,
+                          "step": 16, "min": 128, "max": 480, "before": 480, "asked": 128, "got": 128,
+                          "hr": "0x00000000"})
+        # A line that is not the layer's is no record; what it does not know is left out.
+        self.assertIsNone(actions.engine_from_line("engine faster rate=48000"))
+        self.assertIsNone(actions.engine_from_line("held rate=48000"))
+        self.assertEqual(actions.engine_from_line("engine off rate=x device=Speakers extra=1"), {"result": "off"})
+        # The note: read, logged, gone; one that is not the layer's is said and goes too; none is nothing.
+        with open(own.path(actions.SOUND_NOTE), "w", encoding="ascii") as f:
+            f.write("not a note\n")
+        with self.assertLogs("opendmt3", level="WARNING"):
+            self.assertIsNone(actions.sound_engine(own))
+        self.assertFalse(os.path.exists(own.path(actions.SOUND_NOTE)))
+        self.assertIsNone(actions.sound_engine(own))
+        # The Sound page's line: the period the last game ran at on the device chosen now, and only then.
+        held = actions.engine_from_line(line)
+        self.assertEqual(actions.sound_engine_line(held, chosen.lower()),
+                         ("sound.low_latency.held", {"ms": "2.7", "usual": "10"}))
+        self.assertIsNone(actions.sound_engine_line(held, "{0000000C-0000-0000-0000-00000000000D}"))
+        self.assertIsNone(actions.sound_engine_line(held, values.DEFAULT_DEVICE))
+        default = dict(held, output="default")
+        self.assertIsNotNone(actions.sound_engine_line(default, values.DEFAULT_DEVICE))
+        self.assertIsNone(actions.sound_engine_line(default, chosen))
+        # The engine kept its default (Wine; a driver with nothing shorter): said as the period it stayed at.
+        kept = dict(default, result="unchanged", asked=240, got=480)
+        self.assertEqual(actions.sound_engine_line(kept, values.DEFAULT_DEVICE),
+                         ("sound.low_latency.kept", {"ms": "10"}))
+        # Another program's shorter period held: what the game's sound went in, from the period before the ask.
+        locked = dict(default, result="locked", before=256, got=0)
+        self.assertEqual(actions.sound_engine_line(locked, values.DEFAULT_DEVICE),
+                         ("sound.low_latency.other", {"ms": "5.3"}))
+        # Held at a period another program had asked for already: not credited to Low latency either.
+        self.assertEqual(actions.sound_engine_line(dict(default, before=128), values.DEFAULT_DEVICE)[0],
+                         "sound.low_latency.other")
+        # Off, or nothing known of the periods: no line.
+        for none in ({"result": "off", "output": "default"}, {"result": "no-device", "output": "default"},
+                     None, {}):
+            with self.subTest(record=none):
+                self.assertIsNone(actions.sound_engine_line(none, values.DEFAULT_DEVICE))
+        # The page's words take their values in both languages.
+        for language in ("en", "ko"):
+            words = i18n.Words(language)
+            self.assertIn("2.7", words("sound.low_latency.held", ms="2.7", usual="10"))
+            self.assertIn("10", words("sound.low_latency.kept", ms="10"))
+            self.assertIn("5.3", words("sound.low_latency.other", ms="5.3"))
+        # The log's line for one that changed nothing names what it found.
+        self.assertIn("not made shorter on Windows' default output", actions.engine_said(kept))
+        self.assertIn("left as Windows has it", actions.engine_said({"result": "off"}))
 
     def test_two_launchers_never_get_the_game_ready_at_once(self):
         from opendmt3.client import playing
@@ -1421,6 +1491,21 @@ class LauncherTest(FolderCase):
         # A value the pages do not offer is said, and nothing changes.
         self.assertEqual(main.main(["--set", "frame_pacing=120"]), 2)
         self.assertEqual(st.LauncherState.load().values["frame_pacing"], "even")
+        # The Sound page's Low latency, by --set, and what --status says of it with the last game's period, as the
+        # page shows it.
+        self.assertEqual(main.main(["--set", "low_latency=off"]), 0)
+        self.assertIs(st.LauncherState.load().values["low_latency"], False)
+        saved = st.LauncherState.load()
+        saved.values["low_latency"] = True
+        saved.last_session = {"sound_engine": actions.engine_from_line(
+            "engine held output=chosen device={0000000A-0000-0000-0000-00000000000B} rate=48000 default=480 step=16 "
+            "min=128 max=480 before=480 asked=128 got=128 hr=0x00000000")}
+        saved.save()
+        out = io.StringIO()
+        with mock.patch("sys.stdout", out):
+            main.main(["--status"])
+        self.assertIn("sound: {0000000A-0000-0000-0000-00000000000B}, low latency on. In the last game, this device's "
+                      "sound went in 2.7 ms steps (10 ms without this).", out.getvalue())
         # Refused while the window is open, as every write is.
         with mock.patch("opendmt3.client.cli.window_open", return_value=True):
             self.assertEqual(main.main(["--set", "sound_device=default"]), 2)

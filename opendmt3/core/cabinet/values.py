@@ -85,6 +85,8 @@ DEFAULTS = {
     "fps_position": FPS_POSITION_DEFAULT,  # its corner while it is on (the layer's; kept while it is off)
     "picture_shape": PICTURE_SHAPE_DEFAULT,  # the game's own shape kept with bars, or filling the window (the layer's)
     "sound_device": DEFAULT_DEVICE, # Windows' default output (not a setting.ini line: the layer's)
+    "low_latency": True,            # Windows' sound engine at the shortest period the game's output offers while the
+                                    # game runs, 10 ms otherwise (the layer's: native/cardreader/engine.c)
     "upscale": UPSCALE_DEFAULT,     # how the picture is enlarged to the window (the layer's)
     "sharpness": SHARPNESS_DEFAULT, # how much fsr1 and nis sharpen (the layer's)
     "antialiasing": ANTIALIASING_DEFAULT,  # edge smoothing before the enlarging (the layer's)
@@ -94,7 +96,7 @@ DEFAULTS = {
 
 # The choices openDMT3's in-game layer reads when the game starts, not lines of setting.ini.
 LAYER_CHOICES = ("frame_pacing", "show_fps", "fps_position", "sound_device", "upscale", "sharpness", "antialiasing",
-                 "picture_shape", "pass_times")
+                 "picture_shape", "pass_times", "low_latency")
 
 
 class ChoiceError(ValueError):
@@ -218,8 +220,9 @@ def ini_changes(values):
 def layer_environment(values, language="en"):
     """What openDMT3's in-game layer (CRT_R1.dll, native/cardreader) reads from its environment when the game starts:
     the words' language, whether it draws its own pointer, the frame pacing, the frame rate chip and its corner, the
-    sound device, the upscale filter with its sharpness, the anti-aliasing, the picture's shape, whether the picture's
-    GPU time is measured by pass. PLAY starts the game with these on top of the launcher's own environment."""
+    sound device and whether its sound engine's shortest period is asked for, the upscale filter with its sharpness,
+    the anti-aliasing, the picture's shape, whether the picture's GPU time is measured by pass. PLAY starts the game
+    with these on top of the launcher's own environment."""
     v = normalize(values)
     return {
         # The menu's and the question's words follow the launcher's language.
@@ -233,6 +236,8 @@ def layer_environment(values, language="en"):
         "OPENDMT3_FPS_POSITION": v["fps_position"],
         # Empty: Windows' default output, as the game opens it by itself.
         "OPENDMT3_SOUND_DEVICE": "" if v["sound_device"] == DEFAULT_DEVICE else v["sound_device"],
+        # The sound engine's shortest period on that device while the game runs, or Windows' own.
+        "OPENDMT3_LOW_LATENCY": "on" if v["low_latency"] else "off",
         # How the picture is enlarged to the window, by the layer's names for it.
         "OPENDMT3_UPSCALE": v["upscale"],
         # FSR 1's and NIS's sharpening as decimal text; always passed, so the layer never falls back to its own.

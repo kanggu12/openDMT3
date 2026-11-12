@@ -25,11 +25,12 @@ docker run --rm --network none -u "$AS" -e PYTHONDONTWRITEBYTECODE=1 -v "$REPO:/
 docker run --rm --network none -u "$AS" -v "$HERE:/src:ro" -v "$OUT:/out" -w /src opendmt3-mingw:local \
   i686-w64-mingw32-windres -I /out post.rc -O coff -o /out/post.res
 # --kill-at drops the @N of the __stdcall names; static libgcc so the DLL needs nothing beside Windows. The layer's
-# pictures need the maths library; its words GDI, its window USER (both part of every Windows).
+# pictures need the maths library; its words GDI, its window USER (both part of every Windows). The sound engine's
+# period (engine.c) loads COM's library itself when the game opens its sound, so the imports stay these.
 docker run --rm --network none -u "$AS" -v "$HERE:/src:ro" -v "$OUT:/out" opendmt3-mingw:local \
   i686-w64-mingw32-gcc -O2 -s -shared -static-libgcc -Wall -o /out/CRT_R1.dll \
-    /src/crt_r1.c /src/hooks.c /src/trace.c /src/post.c /src/postmath.c /src/sound.c /src/layer.c /src/text.c /src/look.c \
-    /src/logic.c /src/paint.c /src/files.c /src/redirect.c /src/passtimes.c \
+    /src/crt_r1.c /src/hooks.c /src/trace.c /src/post.c /src/postmath.c /src/sound.c /src/engine.c /src/layer.c \
+    /src/text.c /src/look.c /src/logic.c /src/paint.c /src/files.c /src/redirect.c /src/passtimes.c \
     /src/crt_r1.def /out/post.res \
     -Wl,--kill-at -luser32 -lgdi32 -lm
 # Not executable: a Windows program is never started from here (WSL would hand it to Windows).

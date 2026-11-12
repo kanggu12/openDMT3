@@ -154,7 +154,7 @@ on the site, under **My account**: playing on this PC, **Play**, **My records** 
 | :--- | :--- |
 | **Play** | Who plays, the ready check (what PLAY makes), how to play, the last session's stages |
 | **Screen** | Full screen or a window and its size, vertical sync, frame pacing, the picture's shape, the FPS chip and its corner, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time |
-| **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), and the output device |
+| **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), the output device, and its low latency |
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen), and how each plays |
 | **Game** | The client data in use, with its client, songs and jackets; the song list (**Save the song list...** and, signed in as a server's admin, **Send the song list to this server**); FREE PLAY; the hidden patterns |
 | **Online** | The way to play, the players on this PC, opening this PC's server to the other PCs on your network |
@@ -199,6 +199,10 @@ most one frame waiting for the graphics card, so a touch is not held behind fram
   be chosen instead.
 - **Device** (**Sound**): **Windows' default output** (the default), or one of Windows' output devices by name. When
   the chosen device is not connected, the game plays on Windows' default output, and the page says so.
+- **Low latency** (**Sound**, on by default): while the game runs, Windows mixes that device's sound in the shortest
+  steps its driver allows: 2.7 ms on many devices, where 10 ms is usual. Every program playing on the device goes in
+  those steps too, until the game closes. After a game, the row says the steps its sound went in on the device chosen
+  now; a driver that allows nothing shorter keeps its 10 ms.
 
 When the upscale filter or the anti-aliasing chosen makes frames late on this PC's graphics card, the game steps it
 down one step at a time (SMAA to FXAA to off, then AMD FSR 1 or NVIDIA NIS to Smooth) for the rest of the run, says
@@ -342,7 +346,7 @@ not know is said, with the list of the ones it does.
 | Command | Does |
 | :--- | :--- |
 | `--version` | Prints the launcher's version |
-| `--status` | Prints the client data in use, how this PC plays, the language and the ready check (exit 0 when PLAY can go) |
+| `--status` | Prints the client data in use, how this PC plays, the language, the sound's device and low latency (with the steps the last game's sound went in), and the ready check (exit 0 when PLAY can go) |
 | `--find` | Lists the client data found in the usual places, in folders and in archives, each with what its card says (an archive from the list of what is in it, its songs not counted) |
 | `--inspect PATH` | Says what a path is (client data in a folder or in an archive, part of it, or nothing of the game's), as its card does; exit 0 when it can be used |
 | `--unpack ARCHIVE [--to FOLDER] [--yes]` | Unpacks the client data from an archive, beside it unless `--to`, with its progress; the password comes from standard input when it has one |
@@ -392,6 +396,7 @@ The settings `--set` takes, each as its page keeps it:
 | `pass_times` | `on`, `off` | **Screen**, **Measure the picture's GPU time** |
 | `music_volume`, `key_volume` | 0 to 100 | **Sound**: the music's and the notes' volumes |
 | `sound_device` | `default`, or a GUID from `--sound-devices` | **Sound**, **Device** |
+| `low_latency` | `on`, `off` | **Sound**, **Low latency** |
 | `cursor` | `on`, `off` | **Controls**: a mouse (`on`) or a touch screen (`off`) |
 | `unlock` | `on`, `off` | **Game**, **Show hidden patterns** |
 

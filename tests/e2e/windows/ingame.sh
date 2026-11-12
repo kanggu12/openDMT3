@@ -482,6 +482,12 @@ grep -q "post: on" "$OUT/ingame.log" || fail "the post-process chain did not sta
 wait_log "sound: opened" 60 || fail "the game did not open DirectSound"
 grep "sound:" "$OUT/ingame.log" | tee "$OUT/sound.txt"
 grep -q "sound: opened the chosen device $GUID" "$OUT/sound.txt" || fail "the chosen device $GUID did not reach DirectSound"
+# Low latency (on by default): the sound engine's shortest period asked for on that same device, and what came of it
+# said (Wine has no shared engine: it answers a shortest period, keeps its own, and the stream is let go).
+wait_log "sound: the engine's period on " 10 || fail "the layer did not say what came of the sound engine's period"
+grep "sound: the engine's period on " "$OUT/ingame.log" | sed 's/^/  /'
+grep -qE "sound: the engine's period on [^(]*\($GUID\): (held|unchanged|none-shorter|locked|refused|no-answer)" \
+  "$OUT/ingame.log" || fail "the sound engine's period was not asked for on the chosen device $GUID"
 wait_s 20
 # What openDMT3 adds to the frames, judged fairly (ingame/pace.py): each part of the layer shown for 8 s in turn, with
 # 8 s of nothing shown between (the chip, the bar, the question, the menu, a toast), on the title screen (it waits for
@@ -699,6 +705,14 @@ end=$((SECONDS + 40)); until grep -q "^exit " "$OUT/play-offline.txt" 2>/dev/nul
 cat "$OUT/play-offline.txt"
 grep -q "^exit 0" "$OUT/play-offline.txt" || fail "openDMT3-cmd --play did not return after the game ended"
 game_alive && fail "the game is still running offline"
+# The layer's note of the sound engine's period read into the launcher's log when the game ended (the Sound page and
+# --status show it from there), and the note gone.
+docker exec "$C" sh -c "grep -E 'the sound engine' $LOG | tail -1" | sed 's/^/  /'
+docker exec "$C" grep -qE \
+  "the sound engine('s period was not made shorter on| ran at [0-9]+ frames).* the chosen device $GUID" "$LOG" \
+  || fail "the launcher's log has no line of the sound engine's period on the chosen device"
+docker exec "$C" sh -c "ls /w/drive_c/users/root/AppData/Roaming/openDMT3/game/openDMT3-sound.txt" >/dev/null 2>&1 \
+  && fail "the layer's note of the sound engine's period was left after the game ended"
 
 textures "the offline game"
 echo "== offline again with sharpness 80 and SMAA High: the chain's own frame, FSR 1 against bilinear, the screen"

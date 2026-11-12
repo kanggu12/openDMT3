@@ -178,7 +178,8 @@ The game loads `CRT_R1.dll` by name before its own code runs, so openDMT3's libr
 built with MinGW) lives inside the game's process. Its `DllMain` reads the launcher's choices from the environment
 PLAY starts the game with (`OPENDMT3_LANGUAGE`, `OPENDMT3_CURSOR`, `OPENDMT3_PACING`, `OPENDMT3_FPS`,
 `OPENDMT3_FPS_POSITION`, `OPENDMT3_SOUND_DEVICE`, `OPENDMT3_UPSCALE`, `OPENDMT3_SHARPNESS`, `OPENDMT3_ANTIALIASING`,
-`OPENDMT3_PICTURE_SHAPE`, `OPENDMT3_PASS_TIMES`, from `core/cabinet/values.py` `layer_environment`) and turns four of
+`OPENDMT3_PICTURE_SHAPE`, `OPENDMT3_PASS_TIMES`, `OPENDMT3_LOW_LATENCY`, from `core/cabinet/values.py`
+`layer_environment`) and turns four of
 the game's imports to its own: the slots of the game's import table that hold the real functions get ours, which call
 the real ones.
 
@@ -201,6 +202,7 @@ the real ones.
 | `passtimes.c` | The picture's GPU time by pass (`OPENDMT3_PASS_TIMES=on`): each step's time a frame, kept over a stretch of frames and said as its median, with no Windows calls |
 | `shaders/post.hlsl`, `shaders/smaa.hlsl` | The passes, shader model 3.0: nearest, bilinear, EASU's lengths (once a game texel) and EASU, RCAS, NIS's edge map and its scaler's two passes (the column sums, then across), FXAA, and SMAA's three passes around `third_party/smaa/SMAA.hlsl` |
 | `third_party/` | SMAA's shader and its precomputed area and search textures (MIT), and the license texts of AMD FSR 1 and NVIDIA NIS (MIT) and the FXAA 3.11 notice, whose algorithms the shaders follow |
+| `engine.c` | Windows' shared sound engine at the shortest period the game's output offers while the game runs ([the sound engine's period](#the-sound-engines-period)) |
 | `sound.c` | Which of the game's DirectSound buffers plays and how far, its copies of them too (for the music lock and the hold: the song's music is one buffer of minutes, played once; its key sounds are copies of short buffers), and the hold's fade, stop and start again. With `OPENDMT3_SOUND_WATCH` set (the Wine tests only), also the streams watched: when each plays against the frame count, and underruns, seen as a 20 ms block about to play that holds what it held a lap earlier (the game writes its music through one Lock a buffer, so its writes cannot be counted) |
 | `look.c`, `paint.c`, `logic.c` | The pictures (anti-aliased polygons after the game's own panels: its dialogs' title tab and metal frame, its notice's glass, its glossy buttons; the bar's chips in the launcher's leaning button shape) and the decisions (the settings, the frame clock, the keys the game may see, the panels' answers and keys, the layout, when a rest may bring the bar), with no Windows calls |
 | `mark.py` | The product's mark for the bar, drawn by the launcher's own code (`opendmt3/client/art.py` logo) when the DLL is built and carried in it as a resource: the bar shows the launcher's picture of the mark, never letters set in its face |
@@ -210,7 +212,8 @@ the real ones.
 ### The four hooks
 
 - **`DirectSoundCreate8`** (and `DirectSoundCreate`): the chosen output device by its GUID, Windows' default when
-  none is chosen or it does not open.
+  none is chosen or it does not open; once it is open, the sound engine's shortest period is asked for on that device
+  ([below](#the-sound-engines-period)).
 - **`Direct3DCreate9`**: its `CreateDevice` gives the game's window to the layer, and the device's `Present` does
   the rest.
   - It counts frames: their length, its spread, the slowest 1 %, and openDMT3's own time in them.
@@ -516,6 +519,41 @@ Measured on the real client under Wine (1920x1080, locked to the music, the outp
   the layer's 2 to 2.5 ms of GPU a frame took it to 46 to 53 frames a second while a part showed.
 
 The layer's log (`OPENDMT3_INGAME_LOG`) is for the Wine tests.
+
+## The sound engine's period
+
+Windows 10's audio engine mixes each output device in steps of its period: 10 ms unless a program asks for less with
+`IAudioClient3`. While one does, every program in shared mode on that device goes in those steps, DirectSound among
+them, and the 10 ms come back when it stops (Microsoft's "Low Latency Audio"). Windows' own HDAudio driver offers 128
+to 480 frames at 48 kHz (2.67 to 10 ms); many makers' own drivers offer only their default.
+
+With **Low latency** on (the default, `OPENDMT3_LOW_LATENCY`), `engine.c` takes over once the game's DirectSound
+object has opened its device:
+
+- **The device.** Found among Windows' endpoints by the DirectSound GUID each endpoint carries
+  (`PKEY_AudioEndpoint_GUID`); for Windows' default output, by the GUID DirectSound's own `GetDeviceID` gives it.
+- **The period.** Its periods for the engine's own format (`GetSharedModeEnginePeriod`), and the shortest one asked
+  for with a silent stream of openDMT3's own (`InitializeSharedAudioStream`), started and never written to.
+- **Held or let go.** When the engine then runs at a period shorter than its default, the stream is held until the
+  game's process ends; otherwise it is let go at once.
+- **Its own thread.** All of it runs on a thread of its own in COM's multithreaded apartment, with COM's library loaded
+  there: the game's own thread joins no apartment, its start never waits for Windows' audio service, and the DLL's
+  imports stay as they were.
+
+What came of it is one line of the in-game log (the period asked, the engine's period before and after, the driver's
+default, shortest and longest, in frames and milliseconds) and one line of `openDMT3-sound.txt` beside the DLL, which
+the launcher reads into its log when the game ends and keeps with the run: the **Sound** page and `--status` say the
+period the last game's sound went in, on the device chosen now. The results: `held`; `none-shorter` (the driver's
+shortest is its default); `locked` (another program's stream holds the engine at a period of its own); `refused`;
+`unchanged` (the stream ran and the engine kept its period); `no-answer` (numbers outside the API's own rules);
+`no-client3` (Windows before 10); `no-device`; `off`.
+
+Under Wine, which has no shared engine, the ALSA driver answers a shortest period of 240 frames at 48 kHz and keeps 480
+when a stream asks for 240: `unchanged`, and the stream is let go. Its PulseAudio driver answers a shortest of 0 frames:
+`no-answer`. In whole songs on the real client under Wine (the game on the GPU at 60 frames a second, its ALSA driver
+through PulseAudio, recorded), Low latency on and off played alike: the stream asked for and let go at the game's
+start, no underrun, the songs ending within 1.3 and 8.2 ms of their frames, no silent gap of 5 ms or more in either
+(a third run with it on: one of 9.5 ms, where the game's frames stalled).
 
 ## The launcher
 

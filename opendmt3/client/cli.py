@@ -12,7 +12,9 @@
   openDMT3.exe --uninstall [--delete-data] [--yes]
                                        uninstall openDMT3 from this PC; the game files an older openDMT3 changed
                                        go back first (--delete-data: its settings, players and records too)
-  openDMT3.exe --status                print the folder, how this PC plays, the language and the ready check
+  openDMT3.exe --status                print the folder, how this PC plays, the language, the sound (its device,
+                                       low latency and the steps the last game's sound went in) and the ready
+                                       check
   openDMT3.exe --find                  list the client data found in the usual places, in folders and in
                                        archives, each with what it is, as the first-start guide's cards say it
   openDMT3.exe --inspect <path>        what a path is (client data in a folder or in an archive, part of it, or
@@ -29,7 +31,9 @@
                                        frame_pacing=music|even|game, show_fps=on|off,
                                        fps_position=top_left|top_right|bottom_left|bottom_right,
                                        picture_shape=keep|fill, pass_times=on|off (the picture's GPU
-                                       time by pass, into the log when the game closes)
+                                       time by pass, into the log when the game closes); the Sound
+                                       page's low_latency=on|off (Windows' sound engine at the shortest
+                                       period the device offers while the game runs)
   openDMT3.exe --mode this_pc|server|offline   where logins and records are kept
   openDMT3.exe --server URL            connect to another server and play on it from now on
   openDMT3.exe --sign-in ID            sign in to that server (the password from standard input, or asked for)
@@ -419,6 +423,14 @@ def _status(state):
     else:
         say("plays: offline (no logins, no records)")
     say("language: %s%s" % (state.language, "" if state.picked_language else " (the one Windows is shown in)"))
+    # The Sound page's output: the device, Low latency, and the period the last game's sound went in on it.
+    from opendmt3.client import i18n
+    device = state.values["sound_device"]
+    last = actions.sound_engine_line((state.last_session or {}).get("sound_engine"), device)
+    # The page's own sentence after it, while Low latency is on (as the page shows it).
+    said = " " + i18n.Words("en")(last[0], **last[1]) if last and state.values["low_latency"] else ""
+    say("sound: %s, low latency %s.%s" % ("Windows' default output" if device == choices.DEFAULT_DEVICE else device,
+                                          "on" if state.values["low_latency"] else "off", said))
     checks = actions.readiness(state)
     _say_checks(checks)
     return actions.can_play(checks)
@@ -568,7 +580,8 @@ def parse(argv):
     p.add_argument("--yes", action="store_true",
                    help="do not ask before --put-back, --unpack, --update, --uninstall or --delete-player")
     p.add_argument("--status", action="store_true",
-                   help="print the folder, how this PC plays, the language and the ready check (exit 0: PLAY can go)")
+                   help="print the folder, how this PC plays, the language, the sound and the ready check (exit 0: "
+                        "PLAY can go)")
     p.add_argument("--find", action="store_true",
                    help="list the client data found in the usual places (Desktop, Downloads, Documents, each drive's "
                         "top), in folders and in archives, each with what it is")

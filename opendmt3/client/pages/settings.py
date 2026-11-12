@@ -143,6 +143,22 @@ def build_sound(app, parent):
                                                  lambda value: (app.changed("sound_device", value), app.go("sound")),
                                                  width=30),
                         w("sound.device.gone") if gone else w("sound.device.hint")).pack(fill="x", pady=(0, ui.px(16)))
+    # Windows' sound engine at the shortest period that device offers while the game runs (native/cardreader/engine.c);
+    # after a game on the device chosen now, the period it ran at (the in-game layer's note, actions.sound_engine).
+    hint = w("sound.low_latency.hint")
+    last = (actions.sound_engine_line((app.state.last_session or {}).get("sound_engine"), chosen)
+            if v["low_latency"] else None)
+    if last:
+        hint += " " + w(last[0], **last[1])
+
+    def set_low_latency(on):
+        app.changed("low_latency", on)
+        # The last game's line shows only while it is on: draw the page again.
+        app.go("sound")
+
+    widgets.setting_row(parent, ui, w("sound.low_latency"),
+                        lambda p: widgets.Toggle(p, ui, v["low_latency"], set_low_latency),
+                        hint).pack(fill="x", pady=(0, ui.px(16)))
 
 
 # ------------------------------------------------------------------------------------------ Controls
