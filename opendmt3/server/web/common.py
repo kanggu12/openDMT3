@@ -88,6 +88,7 @@ LICENCE_PARTS = (
     ("AMD FidelityFX Super Resolution 1, NVIDIA Image Scaling, SMAA, FXAA 3.11", "licenses.use.passes",
      "licenses.lic.passes"),
     ("mingw-w64, GCC", "licenses.use.runtime", "licenses.lic.runtime"),
+    ("DSOAL, OpenAL Soft 1.25.2", "licenses.use.mixer", "licenses.lic.mixer"),
     ("Debian 12", "licenses.use.system", "licenses.lic.system"),
     ("DMT3 Wide, DMT3 Text, Pretendard", "licenses.use.fonts", "licenses.lic.fonts"),
 )

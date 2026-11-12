@@ -50,21 +50,27 @@ static int g_chosen;
 /* Started once a process (the game opens DirectSound once; a second open changes nothing here). */
 static LONG g_started;
 
-/* The launcher's note: this start's one line, written over the last run's (the launcher reads it when the game ends
- * and then removes it). */
-static void note(const EngineReport *r)
+void sound_note(const char *line, int first)
 {
     WCHAR path[MAX_PATH * 4];
     /* Beside the DLL, in openDMT3's folder (the client data is only read). */
     if (!ingame_beside(L"openDMT3-sound.txt", path, MAX_PATH * 4))
         return;
-    FILE *f = _wfopen(path, L"w");
+    /* The run's first line starts the note again (the last run's is gone); the rest follow it. */
+    FILE *f = _wfopen(path, first ? L"w" : L"a");
     if (!f)
         return;
-    char line[256];
-    engine_note(r, line, sizeof line);
     fprintf(f, "%s\n", line);
     fclose(f);
+}
+
+/* The launcher's note: the engine's line after the mixer's (hooks.c writes that one first, when the game opens its
+ * sound). */
+static void note(const EngineReport *r)
+{
+    char line[256];
+    engine_note(r, line, sizeof line);
+    sound_note(line, 0);
 }
 
 /* The report into the log (its numbers in milliseconds too) and the launcher's note, in one place for every result. */

@@ -78,7 +78,18 @@ and also when the chosen one is not connected (the page says so). Check the volu
 
 **Low latency** on **Sound** has Windows mix the device's sound in its driver's shortest steps while the game runs
 (the row says which, after a game). A driver or a busy PC that cannot keep up with them crackles: turn **Low latency**
-off, and the game plays in Windows' usual 10 ms steps from the next PLAY.
+off, and the game plays in Windows' usual 10 ms steps from the next PLAY. With the **Mixer** on **OpenAL Soft** or
+**Exclusive**, choose **DirectSound** to hear whether the mixer is the cause.
+
+## Other programs are silent while the game runs
+
+The **Mixer** on **Exclusive** has the device to itself while the game runs. Choose **OpenAL Soft** or **DirectSound**
+on **Sound** to share it.
+
+When another program has the device to itself, the game cannot play on it with any mixer until that program lets it
+go. When Windows does not let programs have the device to themselves (the device's **Properties**, **Advanced**, the
+exclusive mode boxes), **Exclusive** cannot open it: the game plays through DirectSound, and the **Sound** page says so
+after the game.
 
 ## The game does not log in
 

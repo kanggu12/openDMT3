@@ -511,6 +511,8 @@ TEXT = {
                             "런처의 카드 리더 라이브러리: 게임 화면의 확대 필터와 안티에일리어싱"),
     "licenses.use.runtime": ("Built into the card reader library by its compiler",
                              "컴파일러가 카드 리더 라이브러리에 넣는 런타임"),
+    "licenses.use.mixer": ("The launcher's OpenAL Soft mixer for the game's sound, beside the card reader library",
+                           "런처의 OpenAL Soft 믹서(게임 소리), 카드 리더 라이브러리 옆"),
     "licenses.use.system": ("The system the server's image runs on", "서버 이미지가 실행되는 시스템"),
     "licenses.use.fonts": ("The fonts of this site and of the launcher", "이 사이트와 런처의 글꼴"),
     "licenses.lic.site": ("BSD 3-Clause; python-multipart: Apache License 2.0",
@@ -535,6 +537,10 @@ TEXT = {
     "licenses.lic.runtime": ("ZPL 2.1 and other permissive licenses (mingw-w64), GPL 3 with the GCC Runtime Library "
                              "Exception (GCC)", "ZPL 2.1과 그 밖의 허용 라이선스(mingw-w64), GPL 3와 GCC Runtime "
                              "Library Exception(GCC)"),
+    "licenses.lic.mixer": ("GNU LGPL 2.1 or later (DSOAL), GNU LGPL 2 or later (OpenAL Soft), with BSD 3-Clause, "
+                           "PFFFT's and MIT licenses for some code; each release carries their source",
+                           "GNU LGPL 2.1 이상(DSOAL), GNU LGPL 2 이상(OpenAL Soft), 일부 코드는 BSD 3-Clause, PFFFT, "
+                           "MIT 라이선스. 릴리스마다 원천을 함께 둠"),
     "licenses.lic.system": ("Each its own: GPL, LGPL, BSD, MIT and others", "패키지마다 다름: GPL, LGPL, BSD, MIT 등"),
     "licenses.lic.fonts": ("SIL Open Font License 1.1", "SIL Open Font License 1.1"),
     "licenses.texts": ("The launcher carries every full text in its program's licenses folder, with NOTICES.txt "

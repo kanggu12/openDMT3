@@ -33,7 +33,8 @@
                                        picture_shape=keep|fill, pass_times=on|off (the picture's GPU
                                        time by pass, into the log when the game closes); the Sound
                                        page's low_latency=on|off (Windows' sound engine at the shortest
-                                       period the device offers while the game runs)
+                                       period the device offers while the game runs) and
+                                       sound_path=directsound|openal|openal-exclusive (its Mixer)
   openDMT3.exe --mode this_pc|server|offline   where logins and records are kept
   openDMT3.exe --server URL            connect to another server and play on it from now on
   openDMT3.exe --sign-in ID            sign in to that server (the password from standard input, or asked for)
@@ -423,14 +424,17 @@ def _status(state):
     else:
         say("plays: offline (no logins, no records)")
     say("language: %s%s" % (state.language, "" if state.picked_language else " (the one Windows is shown in)"))
-    # The Sound page's output: the device, Low latency, and the period the last game's sound went in on it.
+    # The Sound page's output: the device, the Mixer, Low latency, and what the page says of the last game with them.
     from opendmt3.client import i18n
-    device = state.values["sound_device"]
-    last = actions.sound_engine_line((state.last_session or {}).get("sound_engine"), device)
-    # The page's own sentence after it, while Low latency is on (as the page shows it).
-    said = " " + i18n.Words("en")(last[0], **last[1]) if last and state.values["low_latency"] else ""
-    say("sound: %s, low latency %s.%s" % ("Windows' default output" if device == choices.DEFAULT_DEVICE else device,
-                                          "on" if state.values["low_latency"] else "off", said))
+    words, session = i18n.Words("en"), state.last_session or {}
+    device, mixer = state.values["sound_device"], state.values["sound_path"]
+    fell_back = actions.sound_mixer_line(session.get("sound_mixer"), mixer, device)
+    say("sound: %s, mixer %s.%s" % ("Windows' default output" if device == choices.DEFAULT_DEVICE else device, mixer,
+                                    " " + words(fell_back) if fell_back else ""))
+    # Low latency, as the page shows it, with its line about the last game while it is on.
+    last = actions.sound_engine_line(session.get("sound_engine"), device)
+    said = " " + words(last[0], **last[1]) if last and state.values["low_latency"] else ""
+    say("sound: low latency %s.%s" % ("on" if state.values["low_latency"] else "off", said))
     checks = actions.readiness(state)
     _say_checks(checks)
     return actions.can_play(checks)
@@ -602,7 +606,9 @@ def parse(argv):
                         # The frame rate chip's corners, as the Screen page offers them.
                         + ", fps_position " + "|".join(choices.FPS_POSITIONS)
                         # The picture's shape: the game's own kept (the default) or the window filled.
-                        + ", picture_shape " + "|".join(choices.PICTURE_SHAPES))
+                        + ", picture_shape " + "|".join(choices.PICTURE_SHAPES)
+                        # The Sound page's Mixer, by the layer's names.
+                        + ", sound_path " + "|".join(choices.SOUND_PATHS))
     p.add_argument("--mode", choices=st.MODES, help="where logins and records are kept: this_pc, server or offline")
     p.add_argument("--server", metavar="URL", help="connect to another server and play on it from now on")
     p.add_argument("--sign-in", metavar="ID", help="sign in to that server (the password from standard input)")

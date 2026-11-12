@@ -39,6 +39,7 @@ One package, `opendmt3`, in three parts ([docs/architecture.md](docs/architectur
 | `opendmt3/server/` | The game server, its services, its database (`db/`) and its site, admin pages and API (`web/`); `python -m opendmt3.server` | `__main__.py`, then `server.py` for the game and `web/app.py` for the site | `tests/server/` |
 | `opendmt3/client/` | The Windows launcher (its window, its pages, its jobs on the command line) and the installer's dialogs | `main.py`, then `app.py` and `actions.py` | `tests/client/` |
 | `native/cardreader/` | The card reader library with the in-game layer, 32-bit C built with MinGW | `crt_r1.c`, then `layer.c` | `test_native.c`, run by `test.sh` |
+| `native/openal/` | DSOAL and OpenAL Soft for the Sound page's mixer, built for 32-bit Windows from their pinned source archives, with their notices | `build.sh` | `tests/test_launcher_licences.py`, `tests/core/test_card_reader_notices.py` |
 | `dmt3`, `packaging/docker/` | `./dmt3`: the server with Docker Compose, the build and the tests; the server's image and the setup wizard | `dmt3` (`main`), `wizard.py` | `tests/test_front_door.py`, `tests/test_setup_wizard.py` |
 | `packaging/windows/`, `packaging/release.sh` | The launcher's and the installer's build on Linux, and a release | `build.sh` | `tests/test_windows_build.py`, `tests/test_launcher_licences.py` |
 | `tests/e2e/` | The suites beyond unit tests: the launcher's screens, the site's, the real client under Wine, the load test, an upgrade | [docs/testing.md](docs/testing.md) | |
@@ -248,6 +249,7 @@ What a release publishes:
 | The installer | `openDMT3-win-Setup.exe` |
 | The update packages, each with the project's signature | `openDMT3-X.Y.Z-full.nupkg` and its `.sig`; with `OPENDMT3_PREVIOUS_RELEASE` naming the last release's build (its `OUT_DIR/build/releases`), a delta package from that release too, so a launcher of that version downloads only what changed (`packaging/windows/previous.py`) |
 | The feed installed launchers read | `releases.win.json`, `RELEASES` |
+| The source of the two LGPL libraries the launcher brings for the Sound page's OpenAL Soft mixer | `openal-soft-1.25.2.tar.gz` and `dsoal-<commit>.tar.gz`, the archives `native/openal/build.sh` builds them from (its `SHA256SUMS` names them) |
 
 The launcher shows its version beside its logo and on its **Launcher** page, and a server at the foot of every page
 of its site.

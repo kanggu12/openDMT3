@@ -154,7 +154,7 @@ on the site, under **My account**: playing on this PC, **Play**, **My records** 
 | :--- | :--- |
 | **Play** | Who plays, the ready check (what PLAY makes), how to play, the last session's stages |
 | **Screen** | Full screen or a window and its size, vertical sync, frame pacing, the picture's shape, the FPS chip and its corner, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time |
-| **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), the output device, and its low latency |
+| **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), the output device, who mixes the game's sounds, and low latency |
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen), and how each plays |
 | **Game** | The client data in use, with its client, songs and jackets; the song list (**Save the song list...** and, signed in as a server's admin, **Send the song list to this server**); FREE PLAY; the hidden patterns |
 | **Online** | The way to play, the players on this PC, opening this PC's server to the other PCs on your network |
@@ -199,10 +199,16 @@ most one frame waiting for the graphics card, so a touch is not held behind fram
   be chosen instead.
 - **Device** (**Sound**): **Windows' default output** (the default), or one of Windows' output devices by name. When
   the chosen device is not connected, the game plays on Windows' default output, and the page says so.
-- **Low latency** (**Sound**, on by default): while the game runs, Windows mixes that device's sound in the shortest
-  steps its driver allows: 2.7 ms on many devices, where 10 ms is usual. Every program playing on the device goes in
-  those steps too, until the game closes. After a game, the row says the steps its sound went in on the device chosen
-  now; a driver that allows nothing shorter keeps its 10 ms.
+- **Mixer** (**Sound**): who mixes the game's sounds. **DirectSound** (the default) is Windows' own, as the game was
+  made for. **OpenAL Soft** mixes them itself and hands its mix to the device on a shorter way (DSOAL and OpenAL Soft,
+  which openDMT3 brings); **Exclusive** is OpenAL Soft with the device to itself, so no other program plays on it while
+  the game runs. When OpenAL Soft cannot open the device, the game plays through DirectSound, and after the game the
+  page says so.
+- **Low latency** (**Sound**, on by default; while **Exclusive** has the device, the game's sound does not go through
+  Windows' mixing and this does not apply): while the game runs, Windows mixes that device's sound in the shortest steps its driver allows: 2.7 ms on many
+  devices, where 10 ms is usual. Every program playing on the device goes in those steps too, until the game closes.
+  After a game, the row says the steps its sound went in on the device chosen now; a driver that allows nothing shorter
+  keeps its 10 ms.
 
 When the upscale filter or the anti-aliasing chosen makes frames late on this PC's graphics card, the game steps it
 down one step at a time (SMAA to FXAA to off, then AMD FSR 1 or NVIDIA NIS to Smooth) for the rest of the run, says
@@ -286,7 +292,7 @@ mounted read only, or on a disc.
 | The operator data (rankings, bookkeeping and the cabinet's settings) | FREE PLAY on: a PC has no coin slot. Taken once from the game: a copy of a cabinet's drives brings the cabinet's own; the rankings the game writes stay here |
 | The lists of the songs each stage offers | Shows the patterns the cabinet hid from guests (only with **Show hidden patterns** on) |
 | The server address | Points the game at the server you play on (not offline) |
-| The card reader library, with the fonts its words use (Pretendard Bold and Regular, DMT3 Wide) and their licenses | Gives the game these files, lets the launcher put your card in, and adds the bar with the menu and the X, the question, the toast, the pointer, frame pacing, the upscale filter and anti-aliasing, the FPS chip and the sound device; offline it holds no card, so the game plays with **NO ID CARD** |
+| The card reader library, with the fonts its words use (Pretendard Bold and Regular, DMT3 Wide), DSOAL and OpenAL Soft for the **Mixer**, and their licenses | Gives the game these files, lets the launcher put your card in, and adds the bar with the menu and the X, the question, the toast, the pointer, frame pacing, the upscale filter and anti-aliasing, the FPS chip, the sound device and its mixer; offline it holds no card, so the game plays with **NO ID CARD** |
 | `openDMT3-card.txt` | The card number the launcher puts in while the game runs (not offline) |
 
 When the path of the folder holding the client data has letters this Windows' language cannot give the game, or is
@@ -346,7 +352,7 @@ not know is said, with the list of the ones it does.
 | Command | Does |
 | :--- | :--- |
 | `--version` | Prints the launcher's version |
-| `--status` | Prints the client data in use, how this PC plays, the language, the sound's device and low latency (with the steps the last game's sound went in), and the ready check (exit 0 when PLAY can go) |
+| `--status` | Prints the client data in use, how this PC plays, the language, the sound's device, mixer and low latency (with what the last game's sound did), and the ready check (exit 0 when PLAY can go) |
 | `--find` | Lists the client data found in the usual places, in folders and in archives, each with what its card says (an archive from the list of what is in it, its songs not counted) |
 | `--inspect PATH` | Says what a path is (client data in a folder or in an archive, part of it, or nothing of the game's), as its card does; exit 0 when it can be used |
 | `--unpack ARCHIVE [--to FOLDER] [--yes]` | Unpacks the client data from an archive, beside it unless `--to`, with its progress; the password comes from standard input when it has one |
@@ -397,6 +403,7 @@ The settings `--set` takes, each as its page keeps it:
 | `music_volume`, `key_volume` | 0 to 100 | **Sound**: the music's and the notes' volumes |
 | `sound_device` | `default`, or a GUID from `--sound-devices` | **Sound**, **Device** |
 | `low_latency` | `on`, `off` | **Sound**, **Low latency** |
+| `sound_path` | `directsound`, `openal`, `openal-exclusive` | **Sound**, **Mixer**: **DirectSound**, **OpenAL Soft**, **Exclusive** |
 | `cursor` | `on`, `off` | **Controls**: a mouse (`on`) or a touch screen (`off`) |
 | `unlock` | `on`, `off` | **Game**, **Show hidden patterns** |
 

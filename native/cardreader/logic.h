@@ -34,7 +34,14 @@ typedef struct {
                             * picture's GPU time; off by default) */
     int low_latency;       /* OPENDMT3_LOW_LATENCY=off: Windows' sound engine left at its own period; on by default,
                             * the shortest one the game's output offers asked for while the game runs (engine.c) */
+    int sound_path;        /* OPENDMT3_SOUND_PATH: SOUND_PATH_* below (Windows' DirectSound unless chosen) */
 } Settings;
+
+/* The way the game's DirectSound calls reach the device (openal.c), in the launcher's order: Windows' own DirectSound
+ * (the default), or DSOAL's DirectSound over OpenAL Soft on WASAPI in shared mode or in exclusive mode. */
+enum { SOUND_PATH_DIRECTSOUND = 0, SOUND_PATH_OPENAL = 1, SOUND_PATH_OPENAL_EXCLUSIVE = 2, SOUND_PATHS = 3 };
+/* Their names (the launcher's, values.py SOUND_PATHS). */
+extern const char *const SOUND_PATH_NAMES[SOUND_PATHS];
 
 /* The game's own picture, and its frame rate: its logic runs once a frame, so it holds 60 a second (measured: its
  * timers count frames). */

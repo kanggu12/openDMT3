@@ -242,7 +242,8 @@ changed.
 
 The launcher and the site follow the look of TECHNIKA 3's own screens, drawn in code, in DMT3 Wide (a cut of Saira)
 and Pretendard. The picture's passes are AMD FidelityFX Super Resolution 1, NVIDIA Image Scaling, SMAA and FXAA;
-the installer and its updates are Velopack's; archives are opened with 7-Zip.
+the Sound page's OpenAL Soft mixer is DSOAL and OpenAL Soft; the installer and its updates are Velopack's; archives are
+opened with 7-Zip.
 
 openDMT3's own code and documentation are under the MIT License ([LICENSE](LICENSE)); the parts it brings with it are
 listed in [the notice](docs/notice.md#license). The license does not cover the game or its files, which are not in

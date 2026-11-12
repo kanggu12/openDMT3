@@ -546,9 +546,16 @@ class LauncherTest(FolderCase):
         with open(own.path(actions.SOUND_NOTE), "w", encoding="ascii") as f:
             f.write("not a note\n")
         with self.assertLogs("opendmt3", level="WARNING"):
-            self.assertIsNone(actions.sound_engine(own))
+            self.assertEqual(actions.sound_notes(own), (None, None))
         self.assertFalse(os.path.exists(own.path(actions.SOUND_NOTE)))
-        self.assertIsNone(actions.sound_engine(own))
+        self.assertEqual(actions.sound_notes(own), (None, None))
+        # Both of the layer's lines: who mixed the run, then the engine's period.
+        with open(own.path(actions.SOUND_NOTE), "w", encoding="ascii") as f:
+            f.write("mixer chosen=openal played=openal failed=- hr=0x00000000\n" + line + "\n")
+        with self.assertLogs("opendmt3", level="INFO") as said:
+            mixer, engine = actions.sound_notes(own)
+        self.assertEqual((mixer["played"], engine["result"]), ("openal", "held"))
+        self.assertTrue(any("mixed by OpenAL Soft (shared)" in out for out in said.output), said.output)
         # The Sound page's line: the period the last game ran at on the device chosen now, and only then.
         held = actions.engine_from_line(line)
         self.assertEqual(actions.sound_engine_line(held, chosen.lower()),
@@ -583,6 +590,46 @@ class LauncherTest(FolderCase):
         # The log's line for one that changed nothing names what it found.
         self.assertIn("not made shorter on Windows' default output", actions.engine_said(kept))
         self.assertIn("left as Windows has it", actions.engine_said({"result": "off"}))
+
+    def test_the_mixer_from_the_layers_note(self):
+        # Every word the layer writes, read back; OpenAL Soft's failure with its step and error, and the device.
+        chosen = "{0000000A-0000-0000-0000-00000000000B}"
+        line = ("mixer chosen=openal-exclusive played=directsound output=chosen device=%s failed=device "
+                "hr=0x88780078" % chosen)
+        self.assertEqual(actions.mixer_from_line(line), {"chosen": "openal-exclusive", "played": "directsound",
+                                                          "output": "chosen", "device": chosen, "failed": "device",
+                                                          "hr": "0x88780078"})
+        self.assertEqual(actions.mixer_from_line("mixer chosen=directsound played=directsound failed=- hr=x"),
+                         {"chosen": "directsound", "played": "directsound", "output": None, "device": None,
+                          "failed": None, "hr": None})
+        # Names the launcher does not offer are not the layer's line.
+        for bad in ("mixer chosen=xaudio played=directsound", "mixer played=directsound", "engine held", ""):
+            with self.subTest(line=bad):
+                self.assertIsNone(actions.mixer_from_line(bad))
+        record = actions.mixer_from_line(line)
+        self.assertIn("OpenAL Soft (exclusive) was chosen and did not open (at its device, 0x88780078): Windows' "
+                      "DirectSound mixed the game's sound", actions.mixer_said(record))
+        # The Sound page says DirectSound played only for the Mixer and the device chosen now, and only when OpenAL
+        # Soft did not open.
+        self.assertEqual(actions.sound_mixer_line(record, "openal-exclusive", chosen.lower()), "sound.mixer.fell_back")
+        self.assertIsNone(actions.sound_mixer_line(record, "openal", chosen))
+        self.assertIsNone(actions.sound_mixer_line(record, "openal-exclusive", values.DEFAULT_DEVICE))
+        other = "{0000000C-0000-0000-0000-00000000000D}"
+        self.assertIsNone(actions.sound_mixer_line(record, "openal-exclusive", other))
+        self.assertIsNone(actions.sound_mixer_line(dict(record, played="openal-exclusive"), "openal-exclusive", chosen))
+        self.assertIsNone(actions.sound_mixer_line(None, "directsound", chosen))
+        # Windows' default output then and now; the libraries not loading said apart from the device not opening.
+        default = dict(record, output="default", device="{00000000-0000-0000-0000-000000000000}")
+        self.assertEqual(actions.sound_mixer_line(default, "openal-exclusive", values.DEFAULT_DEVICE),
+                         "sound.mixer.fell_back")
+        for step in ("path", "settings", "openal", "dsoal"):
+            with self.subTest(step=step):
+                self.assertEqual(actions.sound_mixer_line(dict(default, failed=step), "openal-exclusive",
+                                                          values.DEFAULT_DEVICE), "sound.mixer.not_loaded")
+        from opendmt3.client import i18n
+        for language in ("en", "ko"):
+            for key in ("sound.mixer.fell_back", "sound.mixer.not_loaded"):
+                self.assertIn("OpenAL Soft", i18n.Words(language)(key))
 
     def test_two_launchers_never_get_the_game_ready_at_once(self):
         from opendmt3.client import playing
@@ -1504,8 +1551,26 @@ class LauncherTest(FolderCase):
         out = io.StringIO()
         with mock.patch("sys.stdout", out):
             main.main(["--status"])
-        self.assertIn("sound: {0000000A-0000-0000-0000-00000000000B}, low latency on. In the last game, this device's "
-                      "sound went in 2.7 ms steps (10 ms without this).", out.getvalue())
+        self.assertIn("sound: low latency on. In the last game, this device's sound went in 2.7 ms steps (10 ms "
+                      "without this).", out.getvalue())
+        self.assertIn("sound: {0000000A-0000-0000-0000-00000000000B}, mixer directsound.", out.getvalue())
+        # The Mixer by --set, as the page keeps it; a name it does not offer refused; with exclusive mode --status
+        # leaves Low latency out (the shared engine is not on its way) and says when DirectSound played instead.
+        self.assertEqual(main.main(["--set", "sound_path=OpenAL-Exclusive"]), 0)
+        self.assertEqual(st.LauncherState.load().values["sound_path"], "openal-exclusive")
+        self.assertEqual(main.main(["--set", "sound_path=xaudio2"]), 2)
+        saved = st.LauncherState.load()
+        saved.last_session = {"sound_mixer": actions.mixer_from_line(
+            "mixer chosen=openal-exclusive played=directsound output=chosen "
+            "device={0000000A-0000-0000-0000-00000000000B} failed=device hr=0x88780078")}
+        saved.save()
+        out = io.StringIO()
+        with mock.patch("sys.stdout", out):
+            main.main(["--status"])
+        self.assertIn("mixer openal-exclusive. In the last game, OpenAL Soft could not open the device, so DirectSound "
+                      "played.", out.getvalue())
+        # Low latency's line too, as the page keeps its row with every Mixer.
+        self.assertIn("sound: low latency on.", out.getvalue())
         # Refused while the window is open, as every write is.
         with mock.patch("opendmt3.client.cli.window_open", return_value=True):
             self.assertEqual(main.main(["--set", "sound_device=default"]), 2)

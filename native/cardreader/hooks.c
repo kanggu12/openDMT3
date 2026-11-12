@@ -162,15 +162,58 @@ static int asks_default(LPCGUID dev)
     return !dev || IsEqualGUID(dev, &DSDEVID_DefaultPlayback);
 }
 
+/* The launcher's note of the run's sound, its first line (engine.c adds the engine's period after it): the Mixer
+ * chosen, the one that plays, the device the launcher chose (its GUID, all 0 for Windows' default output: the launcher
+ * shows the line beside that choice only), and when OpenAL Soft was chosen and did not open, which step failed with its
+ * error. Written once the game's DirectSound object is open; once a process: the game opens its sound once. */
+static void mixer_note(int played, const char *failed, unsigned long hr)
+{
+    static LONG written;
+    if (InterlockedExchange(&written, 1))
+        return;
+    char line[200], device[39];
+    format_guid(g_settings.device, device);
+    snprintf(line, sizeof line, "mixer chosen=%s played=%s output=%s device=%s failed=%s hr=0x%08lx",
+             SOUND_PATH_NAMES[g_settings.sound_path], SOUND_PATH_NAMES[played],
+             g_settings.has_device ? "chosen" : "default", device, failed ? failed : "-", hr);
+    sound_note(line, 1);
+}
+
 static HRESULT WINAPI our_ds8(LPCGUID dev, LPDIRECTSOUND8 *out, LPUNKNOWN outer)
 {
     char text[39];
     format_guid(g_settings.device, text);
+    /* The launcher's Mixer through OpenAL Soft (openal.c): DSOAL's DirectSound on the same device, its objects
+     * followed as Windows' own are; Windows' own below when it fails in any way. */
+    const char *failed = NULL;
+    unsigned long why = 0;
+    if (g_settings.sound_path != SOUND_PATH_DIRECTSOUND && out && !outer && asks_default(dev)) {
+        GUID g = chosen_device();
+        void *object = openal_create(g_settings.has_device ? &g : NULL,
+                                     g_settings.sound_path == SOUND_PATH_OPENAL_EXCLUSIVE, &failed, &why);
+        if (object) {
+            *out = (LPDIRECTSOUND8)object;
+            ingame_log("sound: opened %s through OpenAL Soft at frame %ld",
+                       g_settings.has_device ? text : "Windows' default output", ingame_frame());
+            mixer_note(g_settings.sound_path, NULL, 0);
+            sound_attach(object);
+            /* In shared mode its stream goes through Windows' engine, whose shortest period helps it too; in
+             * exclusive mode the engine is not on the way. */
+            if (g_settings.sound_path == SOUND_PATH_OPENAL)
+                engine_start(g_settings.has_device ? g_settings.device : NULL);
+            return DS_OK;
+        }
+    } else if (g_settings.sound_path != SOUND_PATH_DIRECTSOUND) {
+        /* Chosen, but the game asked for a device of its own (or an aggregate): Windows' own is what it asked for. */
+        failed = "not-default";
+    }
     if (g_settings.has_device && asks_default(dev)) {
         GUID g = chosen_device();
         HRESULT hr = real_ds8(&g, out, outer);
         if (SUCCEEDED(hr)) {
             ingame_log("sound: opened the chosen device %s at frame %ld", text, ingame_frame());
+            /* Windows' own DirectSound plays (chosen, or OpenAL Soft's failure said with it). */
+            mixer_note(SOUND_PATH_DIRECTSOUND, failed, why);
             sound_attach(out ? *out : NULL);
             /* The sound engine's shortest period on that device, while the game runs (engine.c). */
             engine_start(g_settings.device);
@@ -183,6 +226,8 @@ static HRESULT WINAPI our_ds8(LPCGUID dev, LPDIRECTSOUND8 *out, LPUNKNOWN outer)
     HRESULT hr = real_ds8(dev, out, outer);
     ingame_log("sound: opened Windows' default output (0x%08lx) at frame %ld", (unsigned long)hr, ingame_frame());
     if (SUCCEEDED(hr)) {
+        /* Windows' own DirectSound plays here too. */
+        mixer_note(SOUND_PATH_DIRECTSOUND, failed, why);
         sound_attach(out ? *out : NULL);
         /* The game asked for the default output itself only when it named no other device: then that one's period. */
         if (asks_default(dev))
@@ -195,11 +240,14 @@ static HRESULT WINAPI our_ds(LPCGUID dev, LPDIRECTSOUND *out, LPUNKNOWN outer)
 {
     char text[39];
     format_guid(g_settings.device, text);
+    /* The older call takes no Mixer: Windows' own DirectSound plays (the game imports DirectSoundCreate8). */
+    const char *failed = g_settings.sound_path != SOUND_PATH_DIRECTSOUND ? "old-call" : NULL;
     if (g_settings.has_device && asks_default(dev)) {
         GUID g = chosen_device();
         HRESULT hr = real_ds(&g, out, outer);
         if (SUCCEEDED(hr)) {
             ingame_log("sound: opened the chosen device %s", text);
+            mixer_note(SOUND_PATH_DIRECTSOUND, failed, 0);
             /* The sound engine's shortest period on that device, as for DirectSoundCreate8 (engine.c). */
             engine_start(g_settings.device);
             return hr;
@@ -209,6 +257,8 @@ static HRESULT WINAPI our_ds(LPCGUID dev, LPDIRECTSOUND *out, LPUNKNOWN outer)
     }
     HRESULT hr = real_ds(dev, out, outer);
     ingame_log("sound: opened Windows' default output (0x%08lx)", (unsigned long)hr);
+    if (SUCCEEDED(hr))
+        mixer_note(SOUND_PATH_DIRECTSOUND, failed, 0);
     /* Windows' default output's period, when that is what the game asked for. */
     if (SUCCEEDED(hr) && asks_default(dev))
         engine_start(NULL);

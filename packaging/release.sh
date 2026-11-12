@@ -8,7 +8,8 @@
 #   3. the launcher and its installer built as packaging/windows/build.sh builds them, looking for updates in this
 #      repository's releases, every update package signed with the key and its signature checked;
 #   4. with --publish: the GitHub release, titled with the tag itself (v1.2.3), the changelog's section as its notes
-#      (GitHub's compare link under them), with the installer and the files launchers update from.
+#      (GitHub's compare link under them), with the installer, the files launchers update from, and the source
+#      archives of the two LGPL libraries the launcher brings (DSOAL and OpenAL Soft).
 # Without --publish it stops after step 3 and shows the release it would make: a rehearsal. With no key named the
 # rehearsal's packages are unsigned, and it says so; publishing needs them signed.
 #
@@ -102,6 +103,13 @@ for package in "${packages[@]}"; do
   files+=("$package")
   if [ -f "$package.sig" ]; then files+=("$package.sig"); else unsigned=$((unsigned + 1)); fi
 done
+# The source of the two LGPL libraries the launcher brings for the Sound page's OpenAL Soft mixer (DSOAL and OpenAL
+# Soft, native/openal/build.sh): the archives they were built from, in the same release as the installer, as the LGPL
+# asks of whoever hands them on.
+# The two archives native/openal/build.sh kept, as its SHA256SUMS names them, each checked against it.
+(cd "$BUILD/openal/sources" && sha256sum -c --quiet SHA256SUMS) \
+  || { echo "the build's OpenAL source archives are missing or not the ones it built from" >&2; exit 1; }
+while read -r _ name; do files+=("$BUILD/openal/sources/$name"); done < "$BUILD/openal/sources/SHA256SUMS"
 for file in "${files[@]}"; do
   [ -f "$file" ] || { echo "missing: $file" >&2; exit 1; }
 done

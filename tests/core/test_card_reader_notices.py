@@ -55,6 +55,27 @@ class CardReaderNoticesTest(unittest.TestCase):
             self.assertEqual(f.read(), "the library's notices")
         self.assertEqual(sorted(os.listdir(own.folder)), sorted(steps.CardReader.FILES))
 
+    def test_the_openal_mixer_goes_with_the_library_when_the_build_has_it(self):
+        # DSOAL and OpenAL Soft with their notices in a build's folder: all three go beside the library at PLAY.
+        folder = os.path.join(self.tmp, "openal")
+        os.makedirs(folder)
+        for name in native.OPENAL_FILES:
+            with open(os.path.join(folder, name), "w", encoding="utf-8") as f:
+                f.write(name)
+        own = steps.Own(os.path.join(self.tmp, "own"))
+        os.makedirs(own.folder)
+        with mock.patch.dict(os.environ, {"OPENDMT3_CARD_READER": self.dll, "OPENDMT3_OPENAL_DIR": folder}):
+            self.assertEqual(sorted(native.openal()), sorted(native.OPENAL_FILES))
+            steps.CardReader().apply(None, own, None)
+            self.assertTrue(steps.CardReader().status(None, own, steps.Options()).done)
+        for name in native.OPENAL_FILES:
+            with open(own.path(name), encoding="utf-8") as f:
+                self.assertEqual(f.read(), name)
+        # Without its notices the libraries do not go at all (never one without its licences).
+        os.remove(os.path.join(folder, "openal-NOTICES.txt"))
+        with mock.patch.dict(os.environ, {"OPENDMT3_OPENAL_DIR": folder}):
+            self.assertEqual(native.openal(), {})
+
     def test_a_library_without_notices_goes_alone(self):
         # A library a test made has none: the step still works, without them.
         with mock.patch.dict(os.environ, {"OPENDMT3_CARD_READER": self.dll}):
@@ -72,7 +93,10 @@ class CardReaderNoticesTest(unittest.TestCase):
             self.assertIn(text, script)
         # ... and the launcher's build keeps them beside it in bin/, where native.notices() finds them.
         with open(os.path.join(ROOT, "packaging", "windows", "openDMT3.spec"), encoding="utf-8") as f:
-            self.assertIn('for name in ("CRT_R1.dll", "card-reader-NOTICES.txt")', f.read())
+            spec = f.read()
+        self.assertIn('for name in ("CRT_R1.dll", "card-reader-NOTICES.txt")', spec)
+        # The OpenAL Soft mixer's three files too, the names native.openal() looks for.
+        self.assertIn("for name in (%s)]," % ", ".join('"%s"' % name for name in native.OPENAL_FILES), spec)
         self.assertEqual(native.NOTICES, "card-reader-NOTICES.txt")
 
 

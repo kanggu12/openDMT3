@@ -47,7 +47,7 @@ other way.
 | `server/db/` | One SQLite file, its tables made and upgraded in numbered steps |
 | `client/` | The launcher's window and pages (`client/pages/`), and the same jobs without a window (`actions.py`) for the command line |
 | `client/installer.py` | The installer's dialogs around Velopack's setup |
-| `native/` (repository) | The game's `CRT_R1.dll`, built from C: the card reader and the in-game layer |
+| `native/` (repository) | The game's `CRT_R1.dll`, built from C: the card reader and the in-game layer; and DSOAL and OpenAL Soft for the Sound page's mixer, built from their pinned sources (`native/openal`) |
 
 The site serves the wide face from the launcher's fonts (`client/assets/fonts/`), which it reads as files; no module of
 the server imports the client.
@@ -178,8 +178,8 @@ The game loads `CRT_R1.dll` by name before its own code runs, so openDMT3's libr
 built with MinGW) lives inside the game's process. Its `DllMain` reads the launcher's choices from the environment
 PLAY starts the game with (`OPENDMT3_LANGUAGE`, `OPENDMT3_CURSOR`, `OPENDMT3_PACING`, `OPENDMT3_FPS`,
 `OPENDMT3_FPS_POSITION`, `OPENDMT3_SOUND_DEVICE`, `OPENDMT3_UPSCALE`, `OPENDMT3_SHARPNESS`, `OPENDMT3_ANTIALIASING`,
-`OPENDMT3_PICTURE_SHAPE`, `OPENDMT3_PASS_TIMES`, `OPENDMT3_LOW_LATENCY`, from `core/cabinet/values.py`
-`layer_environment`) and turns four of
+`OPENDMT3_PICTURE_SHAPE`, `OPENDMT3_PASS_TIMES`, `OPENDMT3_LOW_LATENCY`, `OPENDMT3_SOUND_PATH`, from
+`core/cabinet/values.py` `layer_environment`) and turns four of
 the game's imports to its own: the slots of the game's import table that hold the real functions get ours, which call
 the real ones.
 
@@ -203,6 +203,7 @@ the real ones.
 | `shaders/post.hlsl`, `shaders/smaa.hlsl` | The passes, shader model 3.0: nearest, bilinear, EASU's lengths (once a game texel) and EASU, RCAS, NIS's edge map and its scaler's two passes (the column sums, then across), FXAA, and SMAA's three passes around `third_party/smaa/SMAA.hlsl` |
 | `third_party/` | SMAA's shader and its precomputed area and search textures (MIT), and the license texts of AMD FSR 1 and NVIDIA NIS (MIT) and the FXAA 3.11 notice, whose algorithms the shaders follow |
 | `engine.c` | Windows' shared sound engine at the shortest period the game's output offers while the game runs ([the sound engine's period](#the-sound-engines-period)) |
+| `openal.c` | The Sound page's **Mixer** on OpenAL Soft: DSOAL's DirectSound over OpenAL Soft in place of Windows' own, Windows' own when it does not open ([the mixer](#the-mixer)) |
 | `sound.c` | Which of the game's DirectSound buffers plays and how far, its copies of them too (for the music lock and the hold: the song's music is one buffer of minutes, played once; its key sounds are copies of short buffers), and the hold's fade, stop and start again. With `OPENDMT3_SOUND_WATCH` set (the Wine tests only), also the streams watched: when each plays against the frame count, and underruns, seen as a 20 ms block about to play that holds what it held a lap earlier (the game writes its music through one Lock a buffer, so its writes cannot be counted) |
 | `look.c`, `paint.c`, `logic.c` | The pictures (anti-aliased polygons after the game's own panels: its dialogs' title tab and metal frame, its notice's glass, its glossy buttons; the bar's chips in the launcher's leaning button shape) and the decisions (the settings, the frame clock, the keys the game may see, the panels' answers and keys, the layout, when a rest may bring the bar), with no Windows calls |
 | `mark.py` | The product's mark for the bar, drawn by the launcher's own code (`opendmt3/client/art.py` logo) when the DLL is built and carried in it as a resource: the bar shows the launcher's picture of the mark, never letters set in its face |
@@ -212,7 +213,8 @@ the real ones.
 ### The four hooks
 
 - **`DirectSoundCreate8`** (and `DirectSoundCreate`): the chosen output device by its GUID, Windows' default when
-  none is chosen or it does not open; once it is open, the sound engine's shortest period is asked for on that device
+  none is chosen or it does not open, through Windows' own DirectSound or, with the **Mixer** on OpenAL Soft, DSOAL's
+  ([the mixer](#the-mixer)); once it is open, the sound engine's shortest period is asked for on that device
   ([below](#the-sound-engines-period)).
 - **`Direct3DCreate9`**: its `CreateDevice` gives the game's window to the layer, and the device's `Present` does
   the rest.
@@ -554,6 +556,62 @@ when a stream asks for 240: `unchanged`, and the stream is let go. Its PulseAudi
 through PulseAudio, recorded), Low latency on and off played alike: the stream asked for and let go at the game's
 start, no underrun, the songs ending within 1.3 and 8.2 ms of their frames, no silent gap of 5 ms or more in either
 (a third run with it on: one of 9.5 ms, where the game's frames stalled).
+
+## The mixer
+
+The **Mixer** on the **Sound** page (`OPENDMT3_SOUND_PATH`) chooses who mixes the game's sounds: Windows' own
+DirectSound (`directsound`, the default), or [DSOAL](https://github.com/kcat/dsoal), a DirectSound of its own that plays
+each DirectSound buffer as a source of [OpenAL Soft](https://github.com/kcat/openal-soft), which mixes them and writes
+the mix to the device through WASAPI: in shared mode (`openal`) or in exclusive mode, the device to itself while the
+game runs (`openal-exclusive`).
+
+- **The libraries.** DSOAL as `openDMT3-dsoal.dll` (its `dsound.dll` under another name: Windows' own stays the game's
+  import) and OpenAL Soft as `dsoal-aldrv.dll` (the name DSOAL loads it by), beside the DLL, where PLAY puts them
+  (`core/cabinet/steps.py`). `openal.c` loads OpenAL Soft by its whole path first, so DSOAL's own load of it by name
+  finds it loaded, then calls DSOAL's `DirectSoundCreate8` with the chosen device's GUID (DSOAL opens OpenAL Soft's
+  WASAPI device by the same GUID).
+- **OpenAL Soft's settings.** `openDMT3-alsoft.ini`, written beside the DLL and named in `ALSOFT_CONF` (read after any
+  `alsoft.ini` of the player's own): WASAPI only; updates of 256 frames, two of them (OpenAL Soft's own default is 512
+  and three, 32 ms mixed ahead); plain stereo panning with no HRTF or crossfeed (the game's buffers are plain stereo
+  and mono); its band-limited `bsinc12` resampler for the game's 44.1 kHz buffers; exclusive mode for
+  `openal-exclusive`, where the period is the device's own shortest.
+- **The game's buffers.** DSOAL hands OpenAL Soft each buffer's own memory (`AL_EXT_STATIC_BUFFER`), so the music the
+  game keeps writing into its song buffer after its one Lock is what plays, as with Windows' DirectSound. Its Stop
+  pauses where the buffer is, which the hold's stop, set back and play again rely on. `sound.c` follows DSOAL's
+  buffers as it follows Windows' own: the music lock, the hold and its fades are the same code.
+- **The way back.** Any step that fails (a library missing or refusing, DSOAL not opening the device: exclusive mode
+  not allowed for it, under Wine on both its drivers too) leaves the game on Windows' own DirectSound, opened as it
+  would have been, with the sound engine's period asked for as there. A device another program has to itself plays for
+  neither. In shared mode the sound engine's period is asked for as above; in exclusive mode the engine is not on the
+  way.
+
+The first line of `openDMT3-sound.txt` says which mixer was chosen, which one played, and when OpenAL Soft did not open,
+the step that failed with its error; the launcher logs it when the game ends, and the **Sound** page and `--status`
+say when DirectSound played in OpenAL Soft's place.
+
+Both libraries are built for 32-bit Windows by `native/openal/build.sh` from pinned source archives (OpenAL Soft's
+release 1.25.2, DSOAL's commit e111282 of 2026-10-06: DSOAL makes no releases) with MinGW-w64's GCC 14, their runtimes
+linked in, in a container with no network; `openal-NOTICES.txt` beside them holds their licence texts, read from the
+archives. They are under the GNU LGPL, so each release carries both archives beside its installer
+(`packaging/release.sh`). They are built without libstdc++'s assertions, which both projects turn on by default: with
+them, six of six runs of a test program on DSOAL ended in an assertion at their exit (a condition variable whose
+waiting thread was already gone), exit code 3, which on Windows is a runtime error box as the game closes; without
+them, six of six ended with 0.
+
+Measured under Wine 11.0, the sound on a PulseAudio null sink in the container and recorded from it:
+
+- **From Play to sound.** A buffer made as the game makes them, a 5 ms burst at its start, played every 600 ms by the
+  two mixers in turn in one recording: Wine's DirectSound 43.6 to 45.5 ms at the median, DSOAL and OpenAL Soft in
+  shared mode 11.6 to 15.5 ms (four recordings of 10 to 15 plays each). These are Wine's numbers: its DirectSound is
+  not Windows'.
+- **Whole songs**, the game drawn on the GPU at 60 frames a second, the tutorial's song and a song each held once
+  under the question, the two mixers side by side at the same time: with OpenAL Soft every one of the game's sounds
+  played (1,585 buffers, 1,128 of them copies, 1,768 plays), no underrun, no click at the plays, stops and holds, the
+  holds silent and faded back in, and the song ended 13.9 ms from its frames (DirectSound beside it 5.9 ms); silent
+  gaps of 5 ms or more in the song, none (DirectSound one of 9.5 ms). On a busier stretch both dropped out where the
+  game's frames stalled: OpenAL Soft three times for 15 to 30 ms, DirectSound once for 7 ms.
+- **Exclusive mode** is refused by both of Wine's drivers (0x8889000e on PulseAudio, 0x8889000a on ALSA): the game
+  plays through DirectSound, and the note says so.
 
 ## The launcher
 

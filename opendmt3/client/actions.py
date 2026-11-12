@@ -191,9 +191,11 @@ PICTURE_NOTE = "openDMT3-picture.txt"
 # each ten seconds of play, each pass's median, beside the library; an hour's lines at most.
 PICTURE_TIMES_NOTE = "openDMT3-picture-times.txt"
 PICTURE_TIMES_LINES = 360
-# The in-game layer's note of the sound engine's period in the run (native/cardreader/engine.c): one line, written when
-# the game opens its sound, beside the library.
+# The in-game layer's note of the run's sound, beside the library: the Mixer's line (native/cardreader/hooks.c), then
+# the sound engine's period's (native/cardreader/engine.c), written when the game opens its sound.
 SOUND_NOTE = "openDMT3-sound.txt"
+# The steps of OpenAL Soft's opening the layer names when one failed (native/cardreader/openal.c, hooks.c).
+MIXER_FAILURES = ("path", "settings", "openal", "dsoal", "device", "old-call")
 # Its results' words, as the layer writes them (ENGINE_NAMES in native/cardreader/logic.c), and its numbers' names.
 ENGINE_RESULTS = ("off", "no-device", "no-client3", "no-answer", "none-shorter", "locked", "refused", "unchanged",
                   "held")
@@ -416,8 +418,9 @@ def finish(state, session):
     record["picture_steps"] = picture_steps(own)
     # The picture's GPU time by pass, when it was measured: into the log (and so into a report), then the note goes.
     record["picture_times"] = picture_times(own)
-    # The sound engine's period the game ran at: into the log, and kept for the Sound page; then the note goes.
-    record["sound_engine"] = sound_engine(own)
+    # Who mixed the game's sound and the sound engine's period it ran at: into the log, and kept for the Sound page;
+    # then the note goes.
+    record["sound_mixer"], record["sound_engine"] = sound_notes(own)
     # The card is a login of its own: it stays only while the game runs.
     try:
         put_card(own, None)
@@ -528,26 +531,86 @@ def engine_said(record):
                                                           at("before"), record.get("hr", "-"))
 
 
-def sound_engine(own):
-    """The sound engine's period in the run that ended, from the in-game layer's note (engine_from_line's record),
-    logged; the note goes. None when there was none (the game never opened its sound) or it is not the layer's."""
+def mixer_from_line(line):
+    """The layer's line of the run's Mixer as a record: {"chosen": the Mixer chosen, "played": the one that played,
+    "output": "chosen" or "default", "device": the launcher's device by its GUID, "failed": the step of OpenAL Soft's
+    opening that failed (None when none did), "hr": its error}; None for a line the layer does not write."""
+    words = line.split()
+    # "mixer", then key=value pairs.
+    if len(words) < 3 or words[0] != "mixer":
+        return None
+    fields = dict(word.partition("=")[::2] for word in words[1:])
+    # The two names must be the launcher's own; anything else is not the layer's line.
+    if fields.get("chosen") not in choices.SOUND_PATHS or fields.get("played") not in choices.SOUND_PATHS:
+        return None
+    failed, hr, device = fields.get("failed"), fields.get("hr", ""), fields.get("device", "")
+    return {"chosen": fields["chosen"], "played": fields["played"],
+            # Which of the launcher's choices of device the run had: its own words only.
+            "output": fields.get("output") if fields.get("output") in ("chosen", "default") else None,
+            "device": device if re.fullmatch(r"\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}", device) else None,
+            # The step words the layer writes (openal.c, hooks.c); "-" and anything else is no failure said.
+            "failed": failed if failed in MIXER_FAILURES else None,
+            "hr": hr if re.fullmatch(r"0x[0-9a-f]{8}", hr) else None}
+
+
+def mixer_said(record):
+    """The log's line for who mixed the game's sound in a run (the layer's record)."""
+    names = {"directsound": "Windows' DirectSound", "openal": "OpenAL Soft (shared)",
+             "openal-exclusive": "OpenAL Soft (exclusive)"}
+    if record["chosen"] == record["played"]:
+        # As chosen.
+        return "the game's sound was mixed by %s" % names[record["played"]]
+    # Chosen and not opened: the step that failed and its error, for a report.
+    return "%s was chosen and did not open (at its %s, %s): %s mixed the game's sound" % (
+        names[record["chosen"]], record["failed"] or "?", record["hr"] or "-", names[record["played"]])
+
+
+def sound_notes(own):
+    """Who mixed the run that ended and the sound engine's period it ran at, from the in-game layer's note: the records
+    of mixer_from_line and engine_from_line (None for either the note does not hold), each logged; the note goes."""
     path = own.path(SOUND_NOTE)
     try:
         with open(path, encoding="ascii", errors="replace") as f:
-            # One short line (the layer writes no more): its first line is the one read.
-            lines = f.read(1024).splitlines()
+            # Two short lines (the layer writes no more): the first four lines are the most that are read.
+            lines = f.read(1024).splitlines()[:4]
     except OSError:
-        return None
-    record = engine_from_line(lines[0]) if lines else None
-    if record is None:
-        log.warning("the in-game sound engine note is not the layer's: %r", lines[:1])
-    else:
-        log.info(engine_said(record))
+        return None, None
+    mixer = engine = None
+    for line in lines:
+        mixer = mixer or mixer_from_line(line)
+        engine = engine or engine_from_line(line)
+    if mixer is None and engine is None:
+        log.warning("the in-game sound note is not the layer's: %r", lines[:2])
+    if mixer is not None:
+        log.info(mixer_said(mixer))
+    if engine is not None:
+        log.info(engine_said(engine))
     try:
         os.remove(path)
     except OSError:
-        log.warning("could not remove the in-game sound engine note", exc_info=True)
-    return record
+        log.warning("could not remove the in-game sound note", exc_info=True)
+    return mixer, engine
+
+
+def sound_mixer_line(record, chosen, device):
+    """What the Sound page says under Mixer about the last game (its words' key), or None: only when that game's Mixer
+    and device are the ones chosen now and OpenAL Soft did not open, so Windows' DirectSound played.
+    "sound.mixer.not_loaded" when its libraries did not load (Help's Repair puts them back), else
+    "sound.mixer.fell_back" (the device did not open through it)."""
+    # No record, another Mixer than the one chosen now, or the chosen one played: nothing to say.
+    if not record or record.get("chosen") != chosen or record.get("played") == chosen:
+        return None
+    if device == choices.DEFAULT_DEVICE:
+        # Windows' default output then and now.
+        if record.get("output") != "default":
+            return None
+    elif record.get("output") != "chosen" or (record.get("device") or "").upper() != str(device).upper():
+        # Another device: what happened on it says nothing of this one.
+        return None
+    # The libraries themselves (their files, their path, the settings beside them), or the device's opening.
+    if record.get("failed") in ("path", "settings", "openal", "dsoal"):
+        return "sound.mixer.not_loaded"
+    return "sound.mixer.fell_back"
 
 
 def sound_engine_line(record, chosen):

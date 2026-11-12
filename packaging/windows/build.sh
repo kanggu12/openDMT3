@@ -1,7 +1,8 @@
 #!/bin/bash
 # Build the Windows launcher and its installer on Linux, in containers:
 #   0. openDMT3's card reader and in-game layer (32-bit C, MinGW) -> CRT_R1.dll with its notices; the official 7-Zip
-#      for Windows (sevenzip.sh)
+#      for Windows (sevenzip.sh); DSOAL and OpenAL Soft for the Sound page's mixer, with their notices and sources
+#      (native/openal/build.sh)
 #   1. pictures, version file and update address (Linux Python with Pillow, the UI test image)
 #   2. PyInstaller under Wine with a Windows Python -> one folder with openDMT3.exe and openDMT3-cmd.exe, and the
 #      licence texts of what it carries in its licenses folder, with NOTICES.txt (notices.py, with that Python)
@@ -51,6 +52,10 @@ fi
 # ---- 0b. the official 7-Zip for Windows: 7z.exe, 7z.dll, its licence and readme, checked against the pinned hashes
 "$HERE/sevenzip.sh" "$OUT"
 
+# ---- 0c. the Sound page's OpenAL Soft mixer: DSOAL and OpenAL Soft from their pinned source archives (kept in
+#      OUT_DIR/openal/sources: the release carries them beside the installer, as their LGPL asks), with their notices
+"$REPO/native/openal/build.sh" "$OUT/openal"
+
 # ---- 1. pictures and the version file (the UI test image: Linux Python with Pillow, made again when its recipe moves)
 RECIPE_UI=$(sha256sum "$REPO/tests/e2e/ui/Dockerfile" | cut -c1-16)
 if [ "$(docker image inspect -f '{{index .Config.Labels "opendmt3.recipe"}}' opendmt3-ui:local 2>/dev/null)" != "$RECIPE_UI" ]; then
@@ -72,7 +77,7 @@ printf '%s' "$TEST_KEY" > "$OUT/assets/update-test-keys.txt"
 # ---- 2. PyInstaller under Wine (no network: everything it needs is in the image)
 rm -rf "$OUT/dist" "$OUT/work"
 docker run --rm --network none -e PYTHONDONTWRITEBYTECODE=1 -e OPENDMT3_BUILD_DIR='Z:\out\assets' \
-  -e OPENDMT3_NATIVE_DIR='Z:\out\native' -e OPENDMT3_7ZIP_DIR='Z:\out\7zip' \
+  -e OPENDMT3_NATIVE_DIR='Z:\out\native' -e OPENDMT3_7ZIP_DIR='Z:\out\7zip' -e OPENDMT3_OPENAL_DIR='Z:\out\openal' \
   -v "$REPO:/src:ro" -v "$OUT:/out" -w /src opendmt3-winbuild:local bash -c "
     wine 'C:\\python\\python.exe' -m PyInstaller --noconfirm --log-level WARN \
       --distpath 'Z:\\out\\dist' --workpath 'Z:\\out\\work' 'Z:\\src\\packaging\\windows\\openDMT3.spec' \

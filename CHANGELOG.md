@@ -11,6 +11,9 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - **Low latency** on the Sound page, on by default: while the game runs, Windows mixes the sound of the game's output
   device in the shortest steps its driver allows (2.7 ms on many devices, where 10 ms is usual), and the page and
   `--status` say the steps the last game's sound went in.
+- **Mixer** on the Sound page: the game's sounds mixed by Windows' DirectSound (the default), or by OpenAL Soft through
+  DSOAL, sharing the device or with it to itself (**Exclusive**); when OpenAL Soft cannot open the device, the game plays
+  through DirectSound and the page says so. Each release carries the two libraries' source archives.
 
 ## [0.1.1] - 2026-11-13
 

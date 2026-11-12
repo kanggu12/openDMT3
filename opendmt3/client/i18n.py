@@ -159,7 +159,8 @@ TEXT = {
 
     # -------------------------------------------------------------------------------------------- sound
     "sound.title": ("Sound", "소리"),
-    "sound.sub": ("How loud the game plays, from 0 to 100, and on which device.", "게임 소리의 음량(0~100)과 장치입니다."),
+    "sound.sub": ("How loud the game plays, from 0 to 100, on which device, and who mixes it.",
+                  "게임 소리의 음량(0~100), 장치, 믹서입니다."),
     "sound.volumes": ("Volume", "음량"),
     "sound.music": ("Music", "음악"),
     "sound.music.hint": ("The song's backing track.", "곡의 배경 음악입니다."),
@@ -173,6 +174,24 @@ TEXT = {
                           "게임 소리가 나갈 장치입니다. Windows 기본 출력은 Windows 소리 설정에서 정한 장치입니다."),
     "sound.device.gone": ("The chosen device is not connected: the game plays on Windows' default output.",
                           "고른 장치가 연결되어 있지 않아 Windows 기본 출력으로 소리를 냅니다."),
+    "sound.mixer": ("Mixer", "믹서"),
+    "sound.mixer.directsound": ("DirectSound", "DirectSound"),
+    "sound.mixer.openal": ("OpenAL Soft", "OpenAL Soft"),
+    "sound.mixer.openal-exclusive": ("Exclusive", "단독"),
+    "sound.mixer.hint": ("Who mixes the game's sounds. DirectSound is Windows' own, as the game was made for. OpenAL "
+                         "Soft mixes them itself, on a shorter way to the device; Exclusive is OpenAL Soft with the "
+                         "device to itself, so no other program plays on it while the game runs, and Low latency "
+                         "does not apply. When OpenAL Soft cannot open the device, DirectSound plays.",
+                         "게임 소리를 누가 섞을지 고릅니다. DirectSound는 게임이 만들어진 대로 Windows가 섞습니다. "
+                         "OpenAL Soft는 직접 섞어 더 짧은 길로 장치에 보냅니다. 단독은 OpenAL Soft가 장치를 혼자 써서, "
+                         "게임이 켜져 있는 동안 다른 프로그램은 그 장치로 소리를 내지 못하고 저지연은 쓰이지 않습니다. "
+                         "OpenAL Soft가 장치를 열지 못하면 DirectSound로 소리를 냅니다."),
+    "sound.mixer.fell_back": ("In the last game, OpenAL Soft could not open the device, so DirectSound played.",
+                              "지난 게임에서는 OpenAL Soft가 장치를 열지 못해 DirectSound로 소리를 냈습니다."),
+    "sound.mixer.not_loaded": ("In the last game, OpenAL Soft's libraries did not load, so DirectSound played. "
+                               "Repair them on the Help page.",
+                               "지난 게임에서는 OpenAL Soft 라이브러리를 불러오지 못해 DirectSound로 소리를 냈습니다. "
+                               "도움말 페이지의 복구로 고치세요."),
     "sound.low_latency": ("Low latency", "저지연"),
     "sound.low_latency.hint": ("While the game runs, Windows mixes this device's sound in the shortest steps its "
                                "driver allows: 2.7 ms on many devices, where 10 ms is usual. Every program playing on "

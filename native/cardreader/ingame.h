@@ -95,6 +95,13 @@ int sound_music_position(double *ms, long *started_frame);
  * default output), once a process, on a thread of its own; the log and openDMT3-sound.txt beside the DLL say what it
  * found. Nothing is asked when the launcher's Low latency is off. */
 void engine_start(const uint8_t *chosen);
+/* One line of the launcher's note of the run's sound (openDMT3-sound.txt beside the DLL: the mixer's, then the engine's
+ * period's): `first` starts the note again, the others are added to it. */
+void sound_note(const char *line, int first);
+/* The launcher's Mixer through OpenAL Soft (openal.c): DSOAL's DirectSound object on `device` (NULL: Windows' default
+ * output), in WASAPI's exclusive mode or its shared one; NULL when any step fails (the log says which, *failed names it
+ * for the launcher's note and *hr holds its error), and the caller then opens Windows' own DirectSound. */
+void *openal_create(const GUID *device, int exclusive, const char **failed, unsigned long *hr);
 /* Frames presented since the game started (the game's own timers count them). */
 long ingame_frame(void);
 

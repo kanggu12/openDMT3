@@ -147,6 +147,22 @@ class LauncherLicencesTest(unittest.TestCase):
         problems = self.gather().problems
         self.assertTrue(any("card-reader-NOTICES.txt" in p for p in problems), problems)
 
+    def test_the_openal_mixer_with_its_notices_has_its_row_and_without_them_stops_the_build(self):
+        # DSOAL and OpenAL Soft beside the card reader library in bin/, with the notices native/openal/build.sh made.
+        bin_ = os.path.join(self.dist, "_internal", "opendmt3", "core", "cabinet", "bin")
+        for name in ("dsoal-aldrv.dll", "openDMT3-dsoal.dll"):
+            write(os.path.join(bin_, name), "")
+        write(os.path.join(bin_, "openal-NOTICES.txt"), "DSOAL's and OpenAL Soft's notices\n")
+        notes = self.gather()
+        self.assertEqual(notes.problems, [])
+        text = self.notices_text()
+        self.assertIn("DSOAL (openDMT3-dsoal.dll) and OpenAL Soft (dsoal-aldrv.dll)", text)
+        self.assertIn("Text:    openal-NOTICES.txt", text)
+        # The libraries without their notices: the build stops.
+        os.remove(os.path.join(bin_, "openal-NOTICES.txt"))
+        problems = self.gather().problems
+        self.assertTrue(any("openal-NOTICES.txt" in p for p in problems), problems)
+
     def test_the_notices_name_every_file_and_every_name_is_a_file(self):
         folder = os.path.join(self.tmp, "licenses")
         os.makedirs(folder)

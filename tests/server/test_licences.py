@@ -143,6 +143,9 @@ class PartsListTest(unittest.TestCase):
         ci = read(".github/workflows/ci.yml")
         self.assertIn(linux.group(1), ci)
         self.assertIn(linux.group(2), ci)
+        # OpenAL Soft's release, as native/openal/build.sh builds it for the Sound page's mixer.
+        openal = re.search(r"^OPENAL_VERSION=(\S+)$", read("native/openal/build.sh"), re.M).group(1)
+        self.assertIsNotNone(row_of("OpenAL Soft " + openal))
         # Python's: the server image's base and the launcher's Windows Python.
         self.assertIsNotNone(row_of("Python 3.12"))
         self.assertIn("FROM python:3.12-", read("packaging/docker/Dockerfile"))

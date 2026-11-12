@@ -368,6 +368,9 @@ class CardReader:
         found = native.notices()
         if found:
             sources[self.NOTICES] = found
+        # The Sound page's OpenAL Soft mixer, beside the library, which loads it from there when it is chosen: DSOAL
+        # and OpenAL Soft with their notices, in every build that has them (native.openal: all three or none).
+        sources.update(native.openal())
         return sources
 
     def status(self, game, own, options):

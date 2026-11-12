@@ -37,7 +37,9 @@
 #      the bar's and the question's said; Quit ends it. The frame rate is not judged here: under Wine the passes run
 #      on the CPU's software renderer, where SMAA High's cost alone can take a frame's 16.67 ms on a busy machine, and
 #      the measuring stalls each frame; the pacing is judged in 2, on the defaults. The safety net is off for this
-#      play (OPENDMT3_SAFETY=off), so the options checked are the ones chosen.
+#      play (OPENDMT3_SAFETY=off), so the options checked are the ones chosen. The Sound page's Mixer is on OpenAL
+#      Soft here: the game's sound goes through DSOAL and OpenAL Soft (PLAY put them beside the library), the
+#      launcher's log says so when the game closes, and the game ends with exit code 0.
 #   4. Offline with NVIDIA NIS and SMAA Ultra, the heaviest choice, which makes frames late on Wine's software
 #      renderer: the safety net steps it down to bilinear with no anti-aliasing, its toast shows, the counter is back
 #      at 60 a second evenly after the last step, and the launcher's log has the steps.
@@ -715,16 +717,19 @@ docker exec "$C" sh -c "ls /w/drive_c/users/root/AppData/Roaming/openDMT3/game/o
   && fail "the layer's note of the sound engine's period was left after the game ended"
 
 textures "the offline game"
-echo "== offline again with sharpness 80 and SMAA High: the chain's own frame, FSR 1 against bilinear, the screen"
+echo "== offline again with sharpness 80 and SMAA High, the Mixer on OpenAL Soft: the chain's own frame, FSR 1 against bilinear, the screen"
 rm -f "$OUT/ingame.log"
 # The chain's measuring dump (OPENDMT3_POSTFX_DUMP, never set by the launcher) writes into OUT_DIR when asked; every
 # frame's chain and layer work timed whole (OPENDMT3_LAYER_TIMING=frame, the tests only: it stalls each frame), the
 # chip on.
 docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' \
   -e 'OPENDMT3_POSTFX_DUMP=Z:\out' -e OPENDMT3_SAFETY=off -e OPENDMT3_LAYER_TIMING=frame "$C" sh -c \
-  "wine '$APP' --mode offline --set upscale=fsr1 --set sharpness=80 --set antialiasing=smaa-high --set show_fps=on --play > /out/play-picture.txt 2>&1; echo \"exit \$?\" >> /out/play-picture.txt"
+  "wine '$APP' --mode offline --set upscale=fsr1 --set sharpness=80 --set antialiasing=smaa-high --set show_fps=on --set sound_path=openal --play > /out/play-picture.txt 2>&1; echo \"exit \$?\" >> /out/play-picture.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline the second time"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline the second time"
+# The Mixer on OpenAL Soft: PLAY put DSOAL and OpenAL Soft beside the library, and the game's DirectSound is DSOAL's.
+wait_log "sound: the game's sound goes through DSOAL and OpenAL Soft" 30 \
+  || fail "the game's sound did not go through OpenAL Soft ($(grep 'sound:' "$OUT/ingame.log" | head -5))"
 grep -q "upscale fsr1, sharpness 80, anti-aliasing smaa-high" "$OUT/ingame.log" \
   || fail "the picture options did not reach the layer ($(grep 'start:' "$OUT/ingame.log"))"
 grep -q "post: on" "$OUT/ingame.log" || fail "the post-process chain did not start ($(grep 'post:' "$OUT/ingame.log" | tail -3))"
@@ -783,6 +788,16 @@ end=$((SECONDS + 40)); until grep -q "^exit " "$OUT/play-picture.txt" 2>/dev/nul
 cat "$OUT/play-picture.txt"
 grep -q "^exit 0" "$OUT/play-picture.txt" || fail "openDMT3-cmd --play did not return after the second game ended"
 game_alive && fail "the game is still running after the second offline play"
+# Who mixed the run, in the launcher's log once the game closed; the game's own end was its normal one (its exit code
+# 0: OpenAL Soft's libraries end with it quietly).
+docker exec "$C" sh -c "grep -E \"the game's sound was mixed|was chosen and did not open|the game closed after\" $LOG | tail -2" \
+  | sed 's/^/  /'
+docker exec "$C" grep -q "the game's sound was mixed by OpenAL Soft (shared)" "$LOG" \
+  || fail "the launcher's log does not say OpenAL Soft mixed the game's sound"
+docker exec "$C" sh -c "grep 'the game closed after' $LOG | tail -1" | grep -q "(exit code 0," \
+  || fail "the game with OpenAL Soft did not end with exit code 0"
+# The Mixer back to DirectSound for the plays below.
+docker exec -e WINEPREFIX=/w -e WINEDEBUG=-all "$C" sh -c "wine '$APP' --set sound_path=directsound" >/dev/null 2>&1
 
 if wine_on_gpu; then
 echo "== offline with NVIDIA NIS and SMAA Ultra on the GPU: the heaviest choice holds 60 and the safety net leaves it"

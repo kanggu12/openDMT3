@@ -51,7 +51,10 @@ static int same(const char *a, const char *word)
 const char *const SETTINGS_NAMES[] = {"OPENDMT3_LANGUAGE", "OPENDMT3_CURSOR", "OPENDMT3_PACING", "OPENDMT3_FPS",
                                       "OPENDMT3_FPS_POSITION", "OPENDMT3_SOUND_DEVICE", "OPENDMT3_UPSCALE",
                                       "OPENDMT3_SHARPNESS", "OPENDMT3_ANTIALIASING", "OPENDMT3_PICTURE_SHAPE",
-                                      "OPENDMT3_PASS_TIMES", "OPENDMT3_LOW_LATENCY"};
+                                      "OPENDMT3_PASS_TIMES", "OPENDMT3_LOW_LATENCY", "OPENDMT3_SOUND_PATH"};
+
+/* The sound paths' names, in the order of SOUND_PATH_* (the launcher's words for them, values.py SOUND_PATHS). */
+const char *const SOUND_PATH_NAMES[SOUND_PATHS] = {"directsound", "openal", "openal-exclusive"};
 const int SETTINGS_COUNT = sizeof SETTINGS_NAMES / sizeof SETTINGS_NAMES[0];
 
 void settings_read(Settings *s, const char *name, const char *value)
@@ -103,6 +106,11 @@ void settings_read(Settings *s, const char *name, const char *value)
     } else if (!strcmp(name, "OPENDMT3_LOW_LATENCY")) {
         /* "off" leaves Windows' sound engine at its own period; anything else keeps the default, on. */
         s->low_latency = !same(value, "off");
+    } else if (!strcmp(name, "OPENDMT3_SOUND_PATH")) {
+        /* A known path's name; anything else leaves Windows' own DirectSound (the default). */
+        for (int i = 0; i < SOUND_PATHS; i++)
+            if (same(value, SOUND_PATH_NAMES[i]))
+                s->sound_path = i;
     }
 }
 

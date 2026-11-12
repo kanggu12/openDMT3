@@ -74,7 +74,12 @@ class LayerChoicesTest(unittest.TestCase):
                                "OPENDMT3_FPS": "on", "OPENDMT3_FPS_POSITION": "bottom_right", "OPENDMT3_SOUND_DEVICE": "",
                                "OPENDMT3_UPSCALE": "fsr1", "OPENDMT3_SHARPNESS": "50", "OPENDMT3_ANTIALIASING": "off",
                                "OPENDMT3_PICTURE_SHAPE": "keep", "OPENDMT3_PASS_TIMES": "off",
-                               "OPENDMT3_LOW_LATENCY": "on"})
+                               "OPENDMT3_LOW_LATENCY": "on", "OPENDMT3_SOUND_PATH": "directsound"})
+        # Who mixes the game's sounds: Windows' DirectSound unless OpenAL Soft is chosen, by the layer's names.
+        self.assertEqual(values.DEFAULTS["sound_path"], "directsound")
+        self.assertEqual(values.layer_environment({"sound_path": "OpenAL"})["OPENDMT3_SOUND_PATH"], "openal")
+        with self.assertRaises(values.ChoiceError):
+            values.normalize({"sound_path": "xaudio2"})
         # The sound engine's shortest period is asked for unless the Sound page's Low latency is off.
         self.assertIs(values.DEFAULTS["low_latency"], True)
         self.assertEqual(values.layer_environment({"low_latency": "off"})["OPENDMT3_LOW_LATENCY"], "off")
@@ -206,4 +211,7 @@ class TheLayerReadsEveryVariable(unittest.TestCase):
             logic = f.read()
         listed = re.search(r"ENGINE_NAMES\[ENGINE_RESULTS\] = \{(.*?)\};", logic, re.S).group(1)
         self.assertEqual(tuple(re.findall(r'"([a-z0-9-]+)"', listed)), actions.ENGINE_RESULTS)
+        # The Mixer's names are the layer's, in its order (SOUND_PATH_* in logic.h).
+        listed = re.search(r"SOUND_PATH_NAMES\[SOUND_PATHS\] = \{(.*?)\};", logic, re.S).group(1)
+        self.assertEqual(tuple(re.findall(r'"([a-z0-9-]+)"', listed)), values.SOUND_PATHS)
 

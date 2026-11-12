@@ -78,6 +78,16 @@ static void test_settings(void)
     int off = !u.low_latency;
     settings_read(&u, "OPENDMT3_LOW_LATENCY", "maybe");
     check(asked_first && off && u.low_latency, "settings: low latency on by default, off only for \"off\"");
+    /* The Mixer: Windows' DirectSound unless a known OpenAL Soft path is named (any case). */
+    int direct_first = u.sound_path == SOUND_PATH_DIRECTSOUND;
+    settings_read(&u, "OPENDMT3_SOUND_PATH", "OpenAL-Exclusive");
+    int exclusive = u.sound_path == SOUND_PATH_OPENAL_EXCLUSIVE;
+    settings_read(&u, "OPENDMT3_SOUND_PATH", "openal");
+    int shared = u.sound_path == SOUND_PATH_OPENAL;
+    settings_read(&u, "OPENDMT3_SOUND_PATH", "xaudio2");
+    check(direct_first && exclusive && shared && u.sound_path == SOUND_PATH_OPENAL &&
+              !strcmp(SOUND_PATH_NAMES[SOUND_PATH_DIRECTSOUND], "directsound"),
+          "settings: the mixer DirectSound by default, OpenAL Soft's two by name, another name leaves it");
 }
 
 /* The sound engine's period (engine.c's decisions): what to ask for from IAudioClient3's answer, whether what the

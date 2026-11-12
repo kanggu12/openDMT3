@@ -2181,17 +2181,26 @@ def main():
     shot(app, args.out, tag + "_play-crashed")
     measure(app, tag + "_play-crashed", problems)
     # ---- the Sound page after a game: Low latency's line with the steps the last game's sound went in (a 48 kHz
-    #      device whose driver allowed 128 frames), its hint the longest it gets
+    #      device whose driver allowed 128 frames), its hint the longest it gets; and with the Mixer on OpenAL Soft
+    #      when it did not open (DirectSound played), the Mixer's line too
     app.state.last_session = {"seconds": 300, "exit_code": 0, "dumps": 0, "crashed": False, "plays": [],
                               "sound_engine": {"result": "held", "output": "default", "rate": 48000, "default": 480,
                                                "step": 16, "min": 128, "max": 480, "before": 480, "asked": 128,
-                                               "got": 128, "hr": "0x00000000"}}
-    app.go("sound")
-    settle(app)
-    shot(app, args.out, tag + "_sound-last-game")
-    measure(app, tag + "_sound-last-game", problems)
-    if args.smallest:
-        at_smallest(app, args.out, tag + "_sound-last-game", problems)
+                                               "got": 128, "hr": "0x00000000"},
+                              "sound_mixer": {"chosen": "openal", "played": "directsound", "output": "default",
+                                              "device": "{00000000-0000-0000-0000-000000000000}", "failed": "device",
+                                              "hr": "0x88780078"}}
+    for mixer, name in (("directsound", "_sound-last-game"), ("openal", "_sound-mixer-fell-back"),
+                        ("openal-exclusive", "_sound-exclusive")):
+        # Exclusive has no Low latency row: the shared engine is not on its way.
+        app.state.set_value("sound_path", mixer)
+        app.go("sound")
+        settle(app)
+        shot(app, args.out, tag + name)
+        measure(app, tag + name, problems)
+        if args.smallest:
+            at_smallest(app, args.out, tag + name, problems)
+    app.state.set_value("sound_path", "directsound")
     app.state.last_session = None
     # ---- PLAY's progress look: what PLAY does until the game starts (here at the client's copy), on its track
     from opendmt3.client import getting_ready

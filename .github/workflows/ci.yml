@@ -66,8 +66,9 @@ jobs:
 
   # openDMT3's card reader library (native/cardreader), built for the game's 32 bits with MinGW-w64, with its notices,
   # and its native tests under Wine, both in containers with no network (build.sh, test.sh); then the official 7-Zip
-  # for Windows taken out of its release as the launcher's build takes it (packaging/windows/sevenzip.sh). The library,
-  # its notices and 7-Zip go to the windows job, which builds the launcher with them.
+  # for Windows taken out of its release as the launcher's build takes it (packaging/windows/sevenzip.sh), and DSOAL
+  # and OpenAL Soft built from their pinned sources (native/openal/build.sh). The library, its notices, 7-Zip and the
+  # two OpenAL libraries go to the windows job, which builds the launcher with them.
   native:
     runs-on: ubuntu-24.04
     # The Wine image takes most of it (WineHQ's packages): several times that is a stalled job.
@@ -84,6 +85,9 @@ jobs:
       - name: The official 7-Zip for Windows
         run: packaging/windows/sevenzip.sh "$PWD/_work/windows-parts"
 
+      - name: The Sound page's OpenAL Soft mixer (DSOAL and OpenAL Soft) and its notices
+        run: native/openal/build.sh "$PWD/_work/windows-parts/openal"
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-parts
@@ -91,6 +95,9 @@ jobs:
             _work/windows-parts/CRT_R1.dll
             _work/windows-parts/card-reader-NOTICES.txt
             _work/windows-parts/7zip/
+            _work/windows-parts/openal/dsoal-aldrv.dll
+            _work/windows-parts/openal/openDMT3-dsoal.dll
+            _work/windows-parts/openal/openal-NOTICES.txt
           retention-days: 14
 
   # The launcher's screens on a virtual screen in a container with no network: the first-start guide, every page, the

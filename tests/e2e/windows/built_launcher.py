@@ -4,9 +4,10 @@ Windows itself, and the same script under Wine with the build machine's Windows 
     python tests/e2e/windows/built_launcher.py PARTS_DIR OUT_DIR      (from the repository's top, a Windows Python)
 
 PARTS_DIR holds what the release build makes on Linux first and this Python cannot: openDMT3's card reader library
-with its notices (native/cardreader/build.sh) and the official 7-Zip for Windows in 7zip/ (packaging/windows/
-sevenzip.sh). In OUT_DIR, as packaging/windows/build.sh does it: the pictures and the version file (assets.py), the
-program folder (openDMT3.spec), its licences (notices.py); then the console program answers --version with the
+with its notices (native/cardreader/build.sh), the official 7-Zip for Windows in 7zip/ (packaging/windows/
+sevenzip.sh), and DSOAL and OpenAL Soft with their notices in openal/ (native/openal/build.sh). In OUT_DIR, as
+packaging/windows/build.sh does it: the pictures and the version file (assets.py), the program folder
+(openDMT3.spec), its licences (notices.py); then the console program answers --version with the
 version this tree carries, and --inspect on a made-up folder in the shape of a game folder (a program of a made-up
 name and the files every pack folder has, all made-up bytes) with the reader's own words for a client it cannot open,
 exit 1. Each step says PASS or FAIL; the exit code is the number of steps that failed. Nothing here opens a window:
@@ -85,7 +86,7 @@ def main(argv):
 
     # The program folder, from the same recipe as a release: PyInstaller with the build's folders.
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", OPENDMT3_BUILD_DIR=assets, OPENDMT3_NATIVE_DIR=parts,
-               OPENDMT3_7ZIP_DIR=os.path.join(parts, "7zip"))
+               OPENDMT3_7ZIP_DIR=os.path.join(parts, "7zip"), OPENDMT3_OPENAL_DIR=os.path.join(parts, "openal"))
     dist = os.path.join(out, "dist")
     code, said = run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--log-level", "WARN", "--distpath", dist,
                       "--workpath", os.path.join(out, "work"), os.path.join("packaging", "windows", "openDMT3.spec")],

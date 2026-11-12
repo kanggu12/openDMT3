@@ -367,6 +367,14 @@ def gather(dist, repo, modules, installed=None, owners=None, python_root=None, k
                   "MIT (openDMT3, FSR 1, NIS, SMAA); NVIDIA's notice (FXAA 3.11); the mingw-w64 runtime's licences; "
                   "GPL 3 with the GCC Runtime Library Exception (libgcc)",
                   [notes.copy("card-reader-NOTICES.txt", os.path.join(cabinet, "card-reader-NOTICES.txt"))])
+    if any(os.path.isfile(os.path.join(cabinet, name)) for name in ("openDMT3-dsoal.dll", "dsoal-aldrv.dll")):
+        # The Sound page's OpenAL Soft mixer beside the library (native/openal/build.sh made the notices with them,
+        # each licence text in full, read from the source archives the release carries).
+        notes.row("DSOAL (openDMT3-dsoal.dll) and OpenAL Soft (dsoal-aldrv.dll): the Sound page's OpenAL Soft mixer, "
+                  "beside the card reader library",
+                  "GNU LGPL 2.1 or later (DSOAL) and GNU LGPL 2 or later (OpenAL Soft), with the BSD 3-Clause, PFFFT, "
+                  "{fmt} and GSL (MIT) licences of parts of them",
+                  [notes.copy("openal-NOTICES.txt", os.path.join(cabinet, "openal-NOTICES.txt"))])
     fonts = os.path.join(inside, "opendmt3", "client", "assets", "fonts")
     if os.path.isdir(fonts):
         notes.row("The fonts: DMT3 Wide (cut from Saira), Pretendard, and DMT3 Text (cut from Pretendard) for the site",

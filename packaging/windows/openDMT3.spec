@@ -25,6 +25,10 @@ analysis = Analysis(
            # the code built into it: wherever the launcher puts the library, they go with it (core/cabinet/native.py).
            *[(os.path.join(os.environ["OPENDMT3_NATIVE_DIR"], name), os.path.join("opendmt3", "core", "cabinet", "bin"))
              for name in ("CRT_R1.dll", "card-reader-NOTICES.txt")],
+           # The Sound page's OpenAL Soft mixer (native/openal/build.sh): DSOAL and OpenAL Soft with their notices,
+           # beside the library in bin/, from where PLAY puts them beside its copy (core/cabinet/native.py openal).
+           *[(os.path.join(os.environ["OPENDMT3_OPENAL_DIR"], name), os.path.join("opendmt3", "core", "cabinet", "bin"))
+             for name in ("dsoal-aldrv.dll", "openDMT3-dsoal.dll", "openal-NOTICES.txt")],
            # The official 7-Zip for Windows with its licence (build.sh takes them out of the release's installer):
            # the launcher lists, tests and unpacks the game's archives with it (client/main.py points the reading at it).
            *[(os.path.join(os.environ["OPENDMT3_7ZIP_DIR"], name), os.path.join("opendmt3", "client", "bin", "7-Zip"))

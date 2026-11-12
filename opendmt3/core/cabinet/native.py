@@ -29,6 +29,22 @@ def notices():
     return path if os.path.isfile(path) else None
 
 
+# The Sound page's OpenAL Soft mixer (native/openal/build.sh): DSOAL and OpenAL Soft with their notices, which a build
+# keeps in bin/ beside the card reader library; PLAY puts them beside its copy, where the in-game layer loads them
+# from when the mixer is chosen (native/cardreader/openal.c).
+OPENAL_FILES = ("dsoal-aldrv.dll", "openDMT3-dsoal.dll", "openal-NOTICES.txt")
+
+
+def openal():
+    """{file name: path} of DSOAL and OpenAL Soft with their notices in this build (bin/, or the folder
+    OPENDMT3_OPENAL_DIR names), or an empty dict when the build lacks any of them (a copy of the repository: the mixer
+    then always finds them missing and Windows' DirectSound plays)."""
+    folder = os.environ.get("OPENDMT3_OPENAL_DIR") or BIN
+    found = {name: os.path.join(folder, name) for name in OPENAL_FILES}
+    # All three or none: the libraries never go without their notices.
+    return found if all(os.path.isfile(path) for path in found.values()) else {}
+
+
 # The launcher's own fonts, as files (a build copies the one the in-game layer uses beside the DLL in bin/; a copy of
 # the repository has them in the launcher's assets).
 _ASSET_FONTS = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),

@@ -143,11 +143,28 @@ def build_sound(app, parent):
                                                  lambda value: (app.changed("sound_device", value), app.go("sound")),
                                                  width=30),
                         w("sound.device.gone") if gone else w("sound.device.hint")).pack(fill="x", pady=(0, ui.px(16)))
+    # Who mixes the game's sounds (native/cardreader/openal.c): Windows' DirectSound, or OpenAL Soft sharing the device
+    # or having it to itself; after a game where OpenAL Soft did not open, the page says DirectSound played instead.
+    session = app.state.last_session or {}
+    mixer = v["sound_path"]
+    mixer_hint = w("sound.mixer.hint")
+    fell_back = actions.sound_mixer_line(session.get("sound_mixer"), mixer, chosen)
+    if fell_back:
+        mixer_hint += " " + w(fell_back)
+
+    def set_mixer(value):
+        app.changed("sound_path", value)
+        # The last game's line under it is for the Mixer chosen: draw the page again.
+        app.go("sound")
+
+    widgets.setting_row(parent, ui, w("sound.mixer"),
+                        lambda p: widgets.Segmented(p, ui, [(value, w("sound.mixer." + value))
+                                                            for value in choices.SOUND_PATHS], mixer, set_mixer),
+                        mixer_hint).pack(fill="x", pady=(0, ui.px(16)))
     # Windows' sound engine at the shortest period that device offers while the game runs (native/cardreader/engine.c);
-    # after a game on the device chosen now, the period it ran at (the in-game layer's note, actions.sound_engine).
+    # after a game on the device chosen now, the period it ran at (the in-game layer's note, actions.sound_notes).
     hint = w("sound.low_latency.hint")
-    last = (actions.sound_engine_line((app.state.last_session or {}).get("sound_engine"), chosen)
-            if v["low_latency"] else None)
+    last = (actions.sound_engine_line(session.get("sound_engine"), chosen) if v["low_latency"] else None)
     if last:
         hint += " " + w(last[0], **last[1])
 

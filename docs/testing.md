@@ -169,7 +169,7 @@ music.**
   it.
 - Minimised, the song is held, and goes on when restored.
 
-**Offline again, with FSR 1 at 80 and SMAA High.**
+**Offline again, with FSR 1 at 80 and SMAA High, the Mixer on OpenAL Soft.**
 
 - On the title screen, what each part adds to a frame as it is drawn (`OPENDMT3_LAYER_TIMING=frame`, every frame's
   chain and layer work timed whole; eight turns of 4 s with the chip and without, five with the bar, five with the
@@ -177,6 +177,8 @@ music.**
 - Those options reach the layer and are run by its post-process chain: the frame presented is the chain's, FSR 1
   differs from bilinear on the same frame, and the screen shows the chain's output where the game holds still
   (`ingame/picture.py`).
+- The game's sound goes through DSOAL and OpenAL Soft, which PLAY put beside the library; when the game closes the
+  launcher's log says OpenAL Soft mixed it, and the game's exit code is 0.
 
 **Offline, with NVIDIA NIS and SMAA Ultra.** The only play with the safety net on: on Wine's software renderer a busy
 machine makes it step FSR 1 down, and its toast would be one more part on the screen than the steps above check.
@@ -196,7 +198,7 @@ later never runs here (`tests/test_release_notes.py` checks each).
 | Job | Runs | The same on a Linux PC |
 |---|---|---|
 | `test` | The unit tests on Python 3.10 and 3.12 with the site's libraries at the image's versions, the boundary test, pyflakes | Each block in the official `python:3.10-bookworm` and `python:3.12-bookworm` images (Tk inside and no screen, as on the runner) |
-| `native` | The card reader library and its notices (`native/cardreader/build.sh`), its native tests under Wine (`test.sh`), the official 7-Zip for Windows (`packaging/windows/sevenzip.sh`), handed to `windows` | The same commands: they run in containers already |
+| `native` | The card reader library and its notices (`native/cardreader/build.sh`), its native tests under Wine (`test.sh`), the official 7-Zip for Windows (`packaging/windows/sevenzip.sh`), DSOAL and OpenAL Soft with their notices (`native/openal/build.sh`), handed to `windows` | The same commands: they run in containers already |
 | `ui` | The launcher's screens, both languages at three sizes, every size with 0 problems (`tests/e2e/ui/run.sh`) | The same command |
 | `web` | The site's pages, the upload fields and the forms (`tests/e2e/web/run.sh`) | The same command |
 | `server` | The server's image built, every part's license text in it (`packaging/docker/check_licences.py`), started, `/health` and the site answering with this version, running as its own user | The same commands |
