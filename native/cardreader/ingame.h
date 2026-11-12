@@ -83,6 +83,26 @@ void post_picture(int *x, int *y, int *w, int *h);
  * and *aa (*aa_changed: the anti-aliasing was the step); 0 when nothing lighter is left. */
 int post_lighten(int *upscale, int *aa, int *aa_changed);
 
+/* The game drawn at the picture's size in the window (render.c, OPENDMT3_RENDER=display). Direct3D's types are named
+ * as structures here too. */
+struct IDirect3DSurface9;
+struct _D3DSURFACE_DESC;
+/* The device's methods turned so the game's targets of its own size can be made at the render size and answer its own
+ * size when asked (once a device; nothing changes until render_set). 0 when its tables could not be changed. */
+int render_attach(struct IDirect3DDevice9 *dev);
+/* The render size from now on (the game's own, or 0 x 0: every call passes as it is): the targets the game makes after
+ * this at 1280x768 are made at w x h. */
+void render_set(int w, int h);
+/* Whether the game's targets are made at a render size larger than its own now. */
+int render_on(void);
+/* A surface's real size and kind, for the chain's own code (the game is answered its own size). */
+long render_real_desc(struct IDirect3DSurface9 *s, struct _D3DSURFACE_DESC *d);
+/* What the game asked of the replacements since the last call, one line into the log (nothing when none). */
+void render_summary(void);
+/* The study trace (trace.c) wraps some of the same methods: it hands over the game's own return address before it calls
+ * on into them, and NULL after, so they judge the game's call and not the trace's. */
+void render_from(const void *ret);
+
 /* The game's sound, watched when OPENDMT3_SOUND_WATCH is set (sound.c): its DirectSound object as made, each frame's
  * cursor reading, and the counts into the log every two seconds. */
 void sound_attach(void *direct_sound);

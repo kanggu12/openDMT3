@@ -110,6 +110,7 @@ and `repair.sh` need no client data.
 | `remote_play.sh` | A second machine downloaded the launcher from a server's site, installed it, signed in, and its game logged in on that server by card |
 | `repair.sh` | `--repair` put back a lost launcher file and a changed updater; with `openDMT3.exe` lost, the console program named the installer's Repair; the installer over the same version offered Repair, which put the file back, kept the settings and started the launcher |
 | `ingame.sh` | Every step of [the in-game layer's test](#what-ingamesh-checks), over four plays of the real client: the layer's parts on this PC, then offline with the picture defaults, with FSR 1 at 80 and SMAA High, and with NVIDIA NIS and SMAA Ultra |
+| `render.sh` | [The game drawn at the screen's size](architecture.md#the-game-drawn-at-the-screens-size), without the game (a minute): a 32-bit Direct3D 9 program (`ingame/render_probe.c`) loads the built `CRT_R1.dll` as the game does and asks for a 1280x768 back buffer in a window over a 1920x1080 screen with `OPENDMT3_RENDER=display`. It is answered 1280x768 everywhere the game reads a size (its back buffer, a render-target texture's level and surface, the viewport, a viewport of its own set and read back, a screenshot of its own read into a 1280x768 surface), and the frame it drew, dumped by the chain at 1800x1080, has each of its parts where the game's would land (`ingame/render_probe.py`: through its projection, through a copy into its texture and back, and in screen-space vertices as the game's videos are drawn), all of it again after a device reset. It reads only `D3DX9_40.dll` from the client data, for the chain's shaders |
 | `remove.sh` | openDMT3 removed three ways (**Help**'s **Uninstall** answered **Delete all**, `--uninstall`, the app list with the game open and then closed) left no install, app list line, shortcut or Run value, and the client data as its list in `backup\` says (`folder_check.py`) |
 
 Each saves a screenshot per stage and fails at the first stage that does not happen.
@@ -483,6 +484,30 @@ written into a copy in system memory and handed over with `UpdateTexture`, an up
 against 8 us, because the copy waits for the frame still being drawn that reads the texture; a picture that changed
 goes up whole through a lock that never waits (the chip's is 30 KB at 1080 lines), and a part's glass, which changes
 only with the window's size, apart from its words.
+
+#### The game drawn at the screen's size
+
+On 2026-11-13, the same card, the game as a guest from its title through the mode select and the song select to its
+first song, once drawn at 1280x768 with FSR 1 at 50 and once at the screen's size (**Drawn at**), at each screen size,
+with `OPENDMT3_PASS_TIMES=on` and the card's clocks read beside it (`gpu/clocks.py`). Other programs were using the
+card, and its shader clock moved between 225 and 2535 MHz within a run, so each line of medians (over its 2 s) is
+taken at its own clock, as thousands of the card's cycles (microseconds times MHz over 1000), and the table gives the
+medians of the 16 or 17 lines of each run. The game's step runs from the frame's start to the chain's first
+timestamp, so it holds the gaps where the card waited for the CPU too: it bounds the game's drawing from above.
+
+| Screen | At 1280x768 with FSR 1: the game, the chain and layer, both | At the screen's size: the game, the chain and layer, both |
+|---|---|---|
+| 1920x1080 (drawn at 1800x1080) | 108, 145, 247 | 81, 36, 117 |
+| 2560x1440 (drawn at 2400x1440) | 71, 191, 262 | 124, 50, 175 |
+| 3840x2160 (drawn at 3600x2160) | 81, 382, 481 | 328, 96, 423 |
+
+The chain drawn at the screen's size is the bars, a one-to-one copy and the layer. The game's drawing grew most at
+3600x2160, nearly eight times the pixels of 1280x768, by about what FSR 1's passes cost there; at the card's boost
+clock the whole frame there is about 0.17 ms. Each screen's frame, dumped by the chain, was held against the same
+screen drawn at 1280x768 (the title, the mode select, the tutorial, the song select with its preview, a song with its
+video and notes, the result, the end) at 1920x1080, the title, the mode select, the song select and a song at
+2560x1440 and the title, the mode select and two moments of a song at 3840x2160: every part in its place and at its
+size, and the click on TOUCH to START reached the game's button.
 
 ## Before a release
 

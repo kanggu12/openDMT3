@@ -78,6 +78,18 @@ def build_screen(app, parent):
                                                             for value in choices.PICTURE_SHAPES],
                                                     v["picture_shape"], lambda value: app.changed("picture_shape", value)),
                         w("screen.shape.hint")).pack(fill="x", pady=(0, ui.px(16)))
+    render = v["render_size"]
+
+    def set_render(value):
+        app.changed("render_size", value)
+        # The upscale filter's rows are there only while the game draws at its own size: draw the page again.
+        app.go("screen")
+
+    # The game drawn at its own 1280x768 and enlarged, or at the screen's size (the in-game layer's render.c).
+    widgets.setting_row(parent, ui, w("screen.render"),
+                        lambda p: widgets.Segmented(p, ui, [(value, w("screen.render." + value))
+                                                            for value in choices.RENDER_SIZES], render, set_render),
+                        w("screen.render.hint." + render)).pack(fill="x", pady=(0, ui.px(16)))
     upscale = v["upscale"]
 
     def set_upscale(value):
@@ -85,23 +97,27 @@ def build_screen(app, parent):
         # The sharpness row shows only for the filters that sharpen: draw the page again.
         app.go("screen")
 
-    # The in-game layer's enlarging of the 1280x768 picture to the window; four choices fit one segmented row.
-    widgets.setting_row(parent, ui, w("screen.upscale"),
-                        lambda p: widgets.Segmented(p, ui, [(value, w("screen.upscale." + value))
-                                                            for value in choices.UPSCALES], upscale, set_upscale),
-                        w("screen.upscale.hint")).pack(fill="x", pady=(0, ui.px(16)))
-    if upscale in choices.SHARPENING_UPSCALES:
+    # The in-game layer's enlarging of the 1280x768 picture to the window, only while the game draws at its own size;
+    # four choices fit one segmented row.
+    if render == "game":
+        widgets.setting_row(parent, ui, w("screen.upscale"),
+                            lambda p: widgets.Segmented(p, ui, [(value, w("screen.upscale." + value))
+                                                                for value in choices.UPSCALES], upscale, set_upscale),
+                            w("screen.upscale.hint")).pack(fill="x", pady=(0, ui.px(16)))
+    if render == "game" and upscale in choices.SHARPENING_UPSCALES:
         # Only FSR 1 and NIS read the sharpness; for the others the row would change nothing, so it is left out.
         widgets.setting_row(parent, ui, w("screen.sharpness"),
                             lambda p: widgets.Slider(p, ui, v["sharpness"], lambda val: app.changed("sharpness", val)),
                             w("screen.sharpness.hint")).pack(fill="x", pady=(0, ui.px(16)))
+    # Drawn at the screen's size, nothing is enlarged after the anti-aliasing: its hint says where it runs then.
+    aa_hint = "screen.antialiasing.hint" if render == "game" else "screen.antialiasing.hint.display"
     # Nine choices are too many for a segmented row: a drop-down, as the window sizes are.
     widgets.setting_row(parent, ui, w("screen.antialiasing"),
                         lambda p: widgets.Select(p, ui, [(value, w("screen.antialiasing." + value))
                                                          for value in choices.ANTIALIASINGS],
                                                  v["antialiasing"], lambda value: app.changed("antialiasing", value),
                                                  width=16),
-                        w("screen.antialiasing.hint")).pack(fill="x", pady=(0, ui.px(16)))
+                        w(aa_hint)).pack(fill="x", pady=(0, ui.px(16)))
     for name, key in (("glow", "screen.glow"), ("videos", "screen.videos")):
         widgets.setting_row(parent, ui, w(key),
                             lambda p, n=name: widgets.Toggle(p, ui, v[n], lambda on, n=n: app.changed(n, on)),

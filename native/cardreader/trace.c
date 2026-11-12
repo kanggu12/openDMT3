@@ -190,6 +190,15 @@ static void summary(void)
 
 /* Each traced method: count it, note what it carries, call the real one. */
 #define REAL(i, type) ((type)real[i])
+/* The longer methods' types, for the calls on to the real ones. */
+typedef HRESULT(STDMETHODCALLTYPE *TextureMakeFn)(IDirect3DDevice9 *, UINT, UINT, UINT, DWORD, D3DFORMAT, D3DPOOL,
+                                                  IDirect3DTexture9 **, HANDLE *);
+typedef HRESULT(STDMETHODCALLTYPE *SurfaceMakeFn)(IDirect3DDevice9 *, UINT, UINT, D3DFORMAT, D3DMULTISAMPLE_TYPE,
+                                                  DWORD, BOOL, IDirect3DSurface9 **, HANDLE *);
+typedef HRESULT(STDMETHODCALLTYPE *CopyFn)(IDirect3DDevice9 *, IDirect3DSurface9 *, const RECT *, IDirect3DSurface9 *,
+                                           const RECT *, D3DTEXTUREFILTERTYPE);
+typedef HRESULT(STDMETHODCALLTYPE *ClearFn)(IDirect3DDevice9 *, DWORD, const D3DRECT *, DWORD, D3DCOLOR, float,
+                                            DWORD);
 
 static HRESULT STDMETHODCALLTYPE t_set_fvf(IDirect3DDevice9 *d, DWORD fvf)
 {
@@ -263,7 +272,10 @@ static HRESULT STDMETHODCALLTYPE t_dp(IDirect3DDevice9 *d, D3DPRIMITIVETYPE t, U
     describe_draw(d, "DrawPrimitive");
     drawn_on(d);
     draw_state(d);
-    return REAL(81, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, D3DPRIMITIVETYPE, UINT, UINT))(d, t, a, b);
+    render_from(__builtin_return_address(0));
+    HRESULT hr = REAL(81, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, D3DPRIMITIVETYPE, UINT, UINT))(d, t, a, b);
+    render_from(NULL);
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE t_dip(IDirect3DDevice9 *d, D3DPRIMITIVETYPE t, INT a, UINT b, UINT c, UINT e, UINT f)
@@ -289,8 +301,11 @@ static HRESULT STDMETHODCALLTYPE t_dpup(IDirect3DDevice9 *d, D3DPRIMITIVETYPE t,
                    f[2], f[3]);
         shown++;
     }
-    return REAL(83, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, D3DPRIMITIVETYPE, UINT, const void *, UINT))(
+    render_from(__builtin_return_address(0));
+    HRESULT hr = REAL(83, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, D3DPRIMITIVETYPE, UINT, const void *, UINT))(
         d, t, n, v, stride);
+    render_from(NULL);
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE t_dipup(IDirect3DDevice9 *d, D3DPRIMITIVETYPE t, UINT a, UINT b, UINT c,
@@ -298,8 +313,12 @@ static HRESULT STDMETHODCALLTYPE t_dipup(IDirect3DDevice9 *d, D3DPRIMITIVETYPE t
 {
     T.calls[84]++;
     drawn_on(d);
-    return REAL(84, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, D3DPRIMITIVETYPE, UINT, UINT, UINT, const void *,
-                                                 D3DFORMAT, const void *, UINT))(d, t, a, b, c, i, f, v, s);
+    typedef HRESULT(STDMETHODCALLTYPE * DrawIndexedUpFn)(IDirect3DDevice9 *, D3DPRIMITIVETYPE, UINT, UINT, UINT,
+                                                          const void *, D3DFORMAT, const void *, UINT);
+    render_from(__builtin_return_address(0));
+    HRESULT hr = REAL(84, DrawIndexedUpFn)(d, t, a, b, c, i, f, v, s);
+    render_from(NULL);
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE t_set_transform(IDirect3DDevice9 *d, D3DTRANSFORMSTATETYPE s, const D3DMATRIX *m)
@@ -317,19 +336,26 @@ static HRESULT STDMETHODCALLTYPE t_set_transform(IDirect3DDevice9 *d, D3DTRANSFO
 static HRESULT STDMETHODCALLTYPE t_set_viewport(IDirect3DDevice9 *d, const D3DVIEWPORT9 *v)
 {
     T.calls[47]++;
+    /* render.c's replacement under this one judges the game's call: its caller handed over (and taken back below). */
+    render_from(__builtin_return_address(0));
     static int shown;
     if (v && shown < 8) {
         ingame_log("trace: viewport %lu %lu %lux%lu", (unsigned long)v->X, (unsigned long)v->Y,
                    (unsigned long)v->Width, (unsigned long)v->Height);
         shown++;
     }
-    return REAL(47, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, const D3DVIEWPORT9 *))(d, v);
+    HRESULT hr = REAL(47, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, const D3DVIEWPORT9 *))(d, v);
+    render_from(NULL);
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE t_scissor(IDirect3DDevice9 *d, const RECT *r)
 {
     T.calls[75]++;
-    return REAL(75, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, const RECT *))(d, r);
+    render_from(__builtin_return_address(0));
+    HRESULT hr = REAL(75, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, const RECT *))(d, r);
+    render_from(NULL);
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE t_set_rt(IDirect3DDevice9 *d, DWORD i, IDirect3DSurface9 *s)
@@ -361,8 +387,10 @@ static HRESULT STDMETHODCALLTYPE t_create_texture(IDirect3DDevice9 *d, UINT w, U
     /* Render targets and dynamic textures (a video's frames would come through one) are worth naming. */
     if (usage & (D3DUSAGE_RENDERTARGET | D3DUSAGE_DYNAMIC))
         ingame_log("trace: CreateTexture %ux%u usage 0x%lx format %d pool %d", w, h, (unsigned long)usage, f, p);
-    return REAL(23, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, UINT, UINT, UINT, DWORD, D3DFORMAT, D3DPOOL,
-                                                 IDirect3DTexture9 **, HANDLE *))(d, w, h, levels, usage, f, p, t, sh);
+    render_from(__builtin_return_address(0));
+    HRESULT hr = REAL(23, TextureMakeFn)(d, w, h, levels, usage, f, p, t, sh);
+    render_from(NULL);
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE t_create_rt(IDirect3DDevice9 *d, UINT w, UINT h, D3DFORMAT f, D3DMULTISAMPLE_TYPE m,
@@ -370,8 +398,10 @@ static HRESULT STDMETHODCALLTYPE t_create_rt(IDirect3DDevice9 *d, UINT w, UINT h
 {
     T.calls[28]++;
     ingame_log("trace: CreateRenderTarget %ux%u format %d", w, h, f);
-    return REAL(28, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, UINT, UINT, D3DFORMAT, D3DMULTISAMPLE_TYPE, DWORD,
-                                                 BOOL, IDirect3DSurface9 **, HANDLE *))(d, w, h, f, m, q, l, s, sh);
+    render_from(__builtin_return_address(0));
+    HRESULT hr = REAL(28, SurfaceMakeFn)(d, w, h, f, m, q, l, s, sh);
+    render_from(NULL);
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE t_create_ds(IDirect3DDevice9 *d, UINT w, UINT h, D3DFORMAT f, D3DMULTISAMPLE_TYPE m,
@@ -379,8 +409,10 @@ static HRESULT STDMETHODCALLTYPE t_create_ds(IDirect3DDevice9 *d, UINT w, UINT h
 {
     T.calls[29]++;
     ingame_log("trace: CreateDepthStencilSurface %ux%u format %d", w, h, f);
-    return REAL(29, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, UINT, UINT, D3DFORMAT, D3DMULTISAMPLE_TYPE, DWORD,
-                                                 BOOL, IDirect3DSurface9 **, HANDLE *))(d, w, h, f, m, q, l, s, sh);
+    render_from(__builtin_return_address(0));
+    HRESULT hr = REAL(29, SurfaceMakeFn)(d, w, h, f, m, q, l, s, sh);
+    render_from(NULL);
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE t_stretch(IDirect3DDevice9 *d, IDirect3DSurface9 *a, const RECT *ra,
@@ -407,9 +439,10 @@ static HRESULT STDMETHODCALLTYPE t_stretch(IDirect3DDevice9 *d, IDirect3DSurface
             ingame_log("trace:   target %ld %ld %ld %ld", rb->left, rb->top, rb->right, rb->bottom);
         shown++;
     }
-    return REAL(34, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, IDirect3DSurface9 *, const RECT *,
-                                                 IDirect3DSurface9 *, const RECT *, D3DTEXTUREFILTERTYPE))(d, a, ra, b,
-                                                                                                         rb, f);
+    render_from(__builtin_return_address(0));
+    HRESULT hr = REAL(34, CopyFn)(d, a, ra, b, rb, f);
+    render_from(NULL);
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE t_clear(IDirect3DDevice9 *d, DWORD n, const D3DRECT *r, DWORD fl, D3DCOLOR c, float z,
@@ -419,8 +452,10 @@ static HRESULT STDMETHODCALLTYPE t_clear(IDirect3DDevice9 *d, DWORD n, const D3D
     if (in_sequence())
         ingame_log("seq %ld: Clear flags 0x%lx colour 0x%08lx rects %lu", (long)g_frame_no, (unsigned long)fl,
                    (unsigned long)c, (unsigned long)n);
-    return REAL(43, HRESULT(STDMETHODCALLTYPE *)(IDirect3DDevice9 *, DWORD, const D3DRECT *, DWORD, D3DCOLOR, float,
-                                                 DWORD))(d, n, r, fl, c, z, s);
+    render_from(__builtin_return_address(0));
+    HRESULT hr = REAL(43, ClearFn)(d, n, r, fl, c, z, s);
+    render_from(NULL);
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE t_update_texture(IDirect3DDevice9 *d, IDirect3DBaseTexture9 *a,

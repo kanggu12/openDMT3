@@ -153,7 +153,7 @@ on the site, under **My account**: playing on this PC, **Play**, **My records** 
 | Page | What it does |
 | :--- | :--- |
 | **Play** | Who plays, the ready check (what PLAY makes), how to play, the last session's stages |
-| **Screen** | Full screen or a window and its size, vertical sync, frame pacing, the picture's shape, the FPS chip and its corner, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time |
+| **Screen** | Full screen or a window and its size, vertical sync, frame pacing, the picture's shape, the FPS chip and its corner, the size the game draws at, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time |
 | **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), the output device, who mixes the game's sounds, and low latency |
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen), and how each plays |
 | **Game** | The client data in use, with its client, songs and jackets; the song list (**Save the song list...** and, signed in as a server's admin, **Send the song list to this server**); FREE PLAY; the hidden patterns |
@@ -184,13 +184,18 @@ most one frame waiting for the graphics card, so a touch is not held behind fram
   largest that fits, centered, with bars of the launcher's darkest gray on the two other sides of a screen or window
   of another shape (16:9, 21:9, 16:10, 5:4); **Fill** stretches it to the whole screen. The pointer and a finger reach
   the game pixel under them either way, and the in-game bar, menu, question, toast and FPS chip lie in the picture.
+- **Drawn at** (**Screen**): **1280×768** (the default) has the game draw its own 1280x768 picture, which the upscale
+  filter enlarges; **Screen size** has it draw at its picture's size on the screen (1800x1080 on a 1920x1080 screen,
+  3600x2160 on 3840x2160), so the edges of its art and whatever it scales or turns are drawn at the screen's own
+  pixels. The upscale filter's rows then leave the page: there is nothing to enlarge.
 - **Upscale filter** (**Screen**): how the game's 1280x768 picture is enlarged to the window. **Off** is sharp
   bilinear (each game pixel a block, all of the same width), **Smooth** is bilinear, as the game drew it before,
   **AMD FSR 1** (the default) is AMD FidelityFX Super Resolution 1, **NVIDIA NIS** is NVIDIA Image Scaling.
 - **Sharpness** (**Screen**, shown for **AMD FSR 1** and **NVIDIA NIS**): how much those two sharpen, from 0 to 100
   (50 by default).
-- **Anti-aliasing** (**Screen**): smooths the game's jagged edges before the picture is enlarged: **Off** (the
-  default), **FXAA**, **SMAA Low**, **SMAA Medium**, **SMAA High** or **SMAA Ultra**.
+- **Anti-aliasing** (**Screen**): smooths the game's jagged edges before the picture is enlarged (with **Screen size**,
+  in the picture the game draws): **Off** (the default), **FXAA**, **SMAA Low**, **SMAA Medium**, **SMAA High** or
+  **SMAA Ultra**.
 - **Show FPS** (**Screen**, off by default): a small, faint chip over the game with the frames a second, large, and
   the frame's length under it, updated twice a second. **SHOW FPS** in the in-game menu turns it on or off for that
   run; the launcher's choice is how each run starts.
@@ -396,6 +401,7 @@ The settings `--set` takes, each as its page keeps it:
 | `picture_shape` | `keep`, `fill` | **Screen**, **Picture shape** |
 | `show_fps` | `on`, `off` | **Screen**, **Show FPS** |
 | `fps_position` | `top_left`, `top_right`, `bottom_left`, `bottom_right` | **Screen**, **Position** |
+| `render_size` | `game`, `display` | **Screen**, **Drawn at** |
 | `upscale` | `off`, `smooth`, `fsr1`, `nis` | **Screen**, **Upscale filter** |
 | `sharpness` | 0 to 100 | **Screen**, **Sharpness** |
 | `antialiasing` | `off`, `fxaa`, `smaa-low`, `smaa-medium`, `smaa-high`, `smaa-ultra` | **Screen**, **Anti-aliasing** |

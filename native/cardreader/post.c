@@ -66,6 +66,8 @@ typedef HRESULT(WINAPI *CompileFn)(LPCSTR, UINT, const D3DXMACRO *, LPD3DXINCLUD
 /* Whether the chain runs on this device (chosen, compiled and made), and the choice it runs. */
 static int g_active;
 static int g_upscale, g_aa, g_sharpness;
+/* The player's upscale filter (g_upscale is bilinear while the game is drawn at the picture's size). */
+static int g_upscale_chosen;
 /* Measuring: the dump folder (empty: none), and whether every pass is made so "all" can run them. */
 static char g_dump_dir[MAX_PATH];
 static int g_every_pass;
@@ -75,6 +77,9 @@ static HWND g_window;
 static D3DPRESENT_PARAMETERS g_game_pp;
 /* The real back buffer's size, as asked of Direct3D. */
 static int g_bb_w, g_bb_h;
+/* The game's frame as it is drawn, the chain's input: its own 1280x768, or the picture's size in the window when the
+ * game is drawn at it (OPENDMT3_RENDER=display, render.c), chosen when the device is made or reset. */
+static int g_src_w = GAME_W, g_src_h = GAME_H;
 
 /* The shaders: our one vertex shader, and a pixel shader for each pass (and each SMAA preset). */
 static DWORD *g_code_vs;
@@ -394,7 +399,7 @@ int post_prepare(D3DPRESENT_PARAMETERS *pp, HWND window, int creating)
 {
     if (creating) {
         /* The choice, read once: the launcher's settings do not change while the game runs. */
-        g_upscale = g_settings.upscale;
+        g_upscale = g_upscale_chosen = g_settings.upscale;
         g_aa = g_settings.antialiasing;
         g_sharpness = g_settings.sharpness;
         DWORD got = GetEnvironmentVariableA("OPENDMT3_POSTFX_DUMP", g_dump_dir, sizeof g_dump_dir);
@@ -602,8 +607,8 @@ static void release_default(void)
     drop_part_textures();
 }
 
-/* Make the default pool objects for the device as it now is; 1 on success. */
-static int make_default(IDirect3DDevice9 *dev)
+/* Make the default pool objects for the device as it now is, the game's frame at g_src_w x g_src_h; 1 on success. */
+static int make_default_at(IDirect3DDevice9 *dev)
 {
     D3DFORMAT fmt = g_game_pp.BackBufferFormat == D3DFMT_UNKNOWN ? D3DFMT_X8R8G8B8 : g_game_pp.BackBufferFormat;
     /* Samples only if the game itself asks for them (setting.ini's multipleSample), and the device has them for the
@@ -624,8 +629,8 @@ static int make_default(IDirect3DDevice9 *dev)
         }
     }
     DROP(d3d);
-    /* The frame's texture, which the chain reads: the game's size and format. */
-    if (!rt_texture(dev, GAME_W, GAME_H, fmt, &g_src, "the frame's texture"))
+    /* The frame's texture, which the chain reads: the size the game draws at, its format. */
+    if (!rt_texture(dev, g_src_w, g_src_h, fmt, &g_src, "the frame's texture"))
         return 0;
     /* The game's back buffer: with no samples, the frame's texture's own surface, so the game draws straight into
      * what the chain reads and no copy is made a frame; with samples, a multisampled render target of its size and
@@ -633,54 +638,57 @@ static int make_default(IDirect3DDevice9 *dev)
     g_proxy_is_src = ms == D3DMULTISAMPLE_NONE;
     if (g_proxy_is_src)
         g_proxy = level0(g_src);
-    else if (FAILED(IDirect3DDevice9_CreateRenderTarget(dev, GAME_W, GAME_H, fmt, ms, 0, FALSE, &g_proxy, NULL)))
+    else if (FAILED(IDirect3DDevice9_CreateRenderTarget(dev, (UINT)g_src_w, (UINT)g_src_h, fmt, ms, 0, FALSE, &g_proxy,
+                                                        NULL)))
         g_proxy = NULL;
     if (!g_proxy) {
         ingame_log("post: the game's back buffer was not made");
         return 0;
     }
-    /* Its depth surface, when it asked for one: the game's size and format, as many samples as the proxy. */
+    /* Its depth surface, when it asked for one: the proxy's size, the game's format, as many samples as the proxy. */
     if (g_game_pp.EnableAutoDepthStencil) {
         BOOL discard = (g_game_pp.Flags & D3DPRESENTFLAG_DISCARD_DEPTHSTENCIL) != 0;
-        if (FAILED(IDirect3DDevice9_CreateDepthStencilSurface(dev, GAME_W, GAME_H, g_game_pp.AutoDepthStencilFormat,
-                                                              ms, 0, discard, &g_depth, NULL)))
+        if (FAILED(IDirect3DDevice9_CreateDepthStencilSurface(dev, (UINT)g_src_w, (UINT)g_src_h,
+                                                              g_game_pp.AutoDepthStencilFormat, ms, 0, discard,
+                                                              &g_depth, NULL)))
             return 0;
         /* With samples, the game's own render-target texture needs a depth surface with none to draw with. */
         if (ms != D3DMULTISAMPLE_NONE &&
-            FAILED(IDirect3DDevice9_CreateDepthStencilSurface(dev, GAME_W, GAME_H, g_game_pp.AutoDepthStencilFormat,
-                                                              D3DMULTISAMPLE_NONE, 0, discard, &g_depth_plain, NULL)))
+            FAILED(IDirect3DDevice9_CreateDepthStencilSurface(dev, (UINT)g_src_w, (UINT)g_src_h,
+                                                              g_game_pp.AutoDepthStencilFormat, D3DMULTISAMPLE_NONE, 0,
+                                                              discard, &g_depth_plain, NULL)))
             return 0;
     }
     if (FAILED(real_get_back_buffer(dev, 0, 0, D3DBACKBUFFER_TYPE_MONO, &g_real_bb)))
         return 0;
     /* The anti-aliased frame; SMAA's and NIS's intermediates; EASU's result. */
-    int plan[8], count = post_plan(g_upscale, g_aa, GAME_W, GAME_H, 1 << 14, 1 << 14, plan);
+    int plan[8], count = post_plan(g_upscale, g_aa, g_src_w, g_src_h, 1 << 14, 1 << 14, plan);
     if ((g_every_pass || g_aa == AA_FXAA || aa_smaa_preset(g_aa) >= 0) &&
-        !rt_texture(dev, GAME_W, GAME_H, fmt, &g_aa_out, "the anti-aliased frame"))
+        !rt_texture(dev, g_src_w, g_src_h, fmt, &g_aa_out, "the anti-aliased frame"))
         return 0;
     if (needs(PASS_SMAA_EDGES, plan, count) &&
-        (!rt_texture(dev, GAME_W, GAME_H, D3DFMT_A8R8G8B8, &g_smaa_edges, "SMAA's edges") ||
-         !rt_texture(dev, GAME_W, GAME_H, D3DFMT_A8R8G8B8, &g_smaa_weights, "SMAA's weights")))
+        (!rt_texture(dev, g_src_w, g_src_h, D3DFMT_A8R8G8B8, &g_smaa_edges, "SMAA's edges") ||
+         !rt_texture(dev, g_src_w, g_src_h, D3DFMT_A8R8G8B8, &g_smaa_weights, "SMAA's weights")))
         return 0;
     /* Its stencil (the weights on every pixel, as before, when the device has none to give). */
     if (needs(PASS_SMAA_EDGES, plan, count) && !g_smaa_stencil &&
-        FAILED(IDirect3DDevice9_CreateDepthStencilSurface(dev, GAME_W, GAME_H, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, TRUE,
-                                                          &g_smaa_stencil, NULL))) {
+        FAILED(IDirect3DDevice9_CreateDepthStencilSurface(dev, (UINT)g_src_w, (UINT)g_src_h, D3DFMT_D24S8,
+                                                          D3DMULTISAMPLE_NONE, 0, TRUE, &g_smaa_stencil, NULL))) {
         g_smaa_stencil = NULL;
         ingame_log("post: no stencil for SMAA: its weights worked out on every pixel");
     }
     /* NIS's edge map: two signed half floats a pixel (ps_nis_edges), as the reference's half-precision build keeps it;
      * four halves or four 32-bit floats on a device that cannot draw into two (the same two numbers in their first two). */
     if (needs(PASS_NIS_EDGES, plan, count) &&
-        !rt_texture(dev, GAME_W, GAME_H, D3DFMT_G16R16F, &g_nis_edges, "NIS's edge map") &&
-        !rt_texture(dev, GAME_W, GAME_H, D3DFMT_A16B16G16R16F, &g_nis_edges, "NIS's edge map in four halves") &&
-        !rt_texture(dev, GAME_W, GAME_H, D3DFMT_A32B32G32R32F, &g_nis_edges, "NIS's edge map in four floats"))
+        !rt_texture(dev, g_src_w, g_src_h, D3DFMT_G16R16F, &g_nis_edges, "NIS's edge map") &&
+        !rt_texture(dev, g_src_w, g_src_h, D3DFMT_A16B16G16R16F, &g_nis_edges, "NIS's edge map in four halves") &&
+        !rt_texture(dev, g_src_w, g_src_h, D3DFMT_A32B32G32R32F, &g_nis_edges, "NIS's edge map in four floats"))
         return 0;
     /* NIS's column sums: one 32-bit float a pixel (kept exactly: the scaler's own sums go on from them), four on a
      * device that cannot draw into one (the sum in the first). */
     if (needs(PASS_NIS_ROWS, plan, count) &&
-        !rt_texture(dev, GAME_W, g_bb_h, D3DFMT_R32F, &g_nis_rows, "NIS's column sums") &&
-        !rt_texture(dev, GAME_W, g_bb_h, D3DFMT_A32B32G32R32F, &g_nis_rows, "NIS's column sums in four floats"))
+        !rt_texture(dev, g_src_w, g_bb_h, D3DFMT_R32F, &g_nis_rows, "NIS's column sums") &&
+        !rt_texture(dev, g_src_w, g_bb_h, D3DFMT_A32B32G32R32F, &g_nis_rows, "NIS's column sums in four floats"))
         return 0;
     if (needs(PASS_EASU, plan, count) && !rt_texture(dev, g_bb_w, g_bb_h, fmt, &g_easu, "EASU's result"))
         return 0;
@@ -689,7 +697,7 @@ static int make_default(IDirect3DDevice9 *dev)
      * passes they saved at 1080 lines. A device that cannot draw into those gets bilinear for FSR 1 (run_upscale), the
      * rest of the chain as chosen. */
     if (needs(PASS_EASU_LEN, plan, count) && !g_easu_len &&
-        !rt_texture(dev, GAME_W + 2, GAME_H + 2, D3DFMT_G32R32F, &g_easu_len, "EASU's lengths")) {
+        !rt_texture(dev, g_src_w + 2, g_src_h + 2, D3DFMT_G32R32F, &g_easu_len, "EASU's lengths")) {
         g_easu_len = NULL;
         ingame_log("post: FSR 1 needs 32-bit float targets this device does not draw into: bilinear in its place");
     }
@@ -733,6 +741,48 @@ static int make_default(IDirect3DDevice9 *dev)
     real_set_render_target(dev, 0, g_proxy);
     IDirect3DDevice9_SetDepthStencilSurface(dev, g_depth);
     return 1;
+}
+
+/* Whether render.c's replacements are in the device's tables (the game can be drawn at the picture's size). */
+static int g_render_hooked;
+
+/* The size the game is drawn at: its own, or (OPENDMT3_RENDER=display) the picture's size in the window's client now,
+ * the largest its targets may be on this device; never smaller than its own. */
+static void render_size(IDirect3DDevice9 *dev, int *w, int *h)
+{
+    *w = GAME_W;
+    *h = GAME_H;
+    if (!g_settings.render_display || !g_render_hooked)
+        return;
+    int cw, ch;
+    output_size(&cw, &ch);
+    /* The picture's size in the client, held to the device's largest texture (logic.c render_size_for). */
+    D3DCAPS9 caps;
+    memset(&caps, 0, sizeof caps);
+    IDirect3DDevice9_GetDeviceCaps(dev, &caps);
+    render_size_for(cw, ch, g_settings.fill, (int)caps.MaxTextureWidth, (int)caps.MaxTextureHeight, w, h);
+}
+
+/* Make the default pool objects for the device as it now is: the game drawn at the size chosen, and when anything at a
+ * larger size cannot be made, everything again at the game's own size (today's path). 1 on success. */
+static int make_default(IDirect3DDevice9 *dev)
+{
+    render_size(dev, &g_src_w, &g_src_h);
+    render_set(g_src_w, g_src_h);
+    /* Drawn at the picture's size, the chain only copies it there (bilinear when the window changes size after): the
+     * upscale filters' targets are not made. Otherwise the player's filter. */
+    g_upscale = render_on() ? UPSCALE_SMOOTH : g_upscale_chosen;
+    if (make_default_at(dev))
+        return 1;
+    if (!render_on())
+        return 0;
+    ingame_log("post: the game's targets could not be made at %dx%d: drawn at its own size", g_src_w, g_src_h);
+    release_default();
+    g_src_w = GAME_W;
+    g_src_h = GAME_H;
+    render_set(GAME_W, GAME_H);
+    g_upscale = g_upscale_chosen;
+    return make_default_at(dev);
 }
 
 /* The shader objects (they live through resets). */
@@ -805,6 +855,10 @@ int post_attach(IDirect3DDevice9 *dev)
     was = swap_method(dev, M_GET_RENDER_TARGET, (void *)our_get_render_target);
     if (was)
         real_get_render_target = (GetRenderTargetFn)was;
+    /* Drawing the game at the picture's size (OPENDMT3_RENDER=display): the methods that make its targets and read
+     * their sizes turned first, so its targets made from now on can be larger. */
+    if (g_settings.render_display && !g_render_hooked && !(g_render_hooked = render_attach(dev)))
+        ingame_log("post: the device's tables could not be changed: the game drawn at its own size");
     if (!make_shaders(dev) || !make_default(dev)) {
         ingame_log("post: the chain could not be set up: Direct3D's own stretch");
         release_default();
@@ -812,7 +866,9 @@ int post_attach(IDirect3DDevice9 *dev)
         return 0;
     }
     g_active = 1;
-    ingame_log("post: on, timing %s", g_gpu_timing ? "CPU and GPU (timestamps)" : "CPU (no GPU timestamps here)");
+    ingame_log("post: on, timing %s, the game drawn at %dx%d", g_gpu_timing ? "CPU and GPU (timestamps)"
+                                                                           : "CPU (no GPU timestamps here)", g_src_w,
+               g_src_h);
     return 1;
 }
 
@@ -826,6 +882,9 @@ void post_before_reset(IDirect3DDevice9 *dev)
         real_set_render_target(dev, 0, g_real_bb);
     IDirect3DDevice9_SetDepthStencilSurface(dev, NULL);
     release_default();
+    /* The game's own size until the chain is made again (post_after_reset: make_default picks the size anew): a reset
+     * the chain does not follow (post_prepare refused it) leaves the game's targets at their own size. */
+    render_set(0, 0);
     ingame_log("post: the game resets its device: the chain's objects released");
 }
 
@@ -937,14 +996,14 @@ static IDirect3DTexture9 *run_aa(IDirect3DDevice9 *dev, int aa, IDirect3DTexture
     if (aa == AA_FXAA && g_ps[PASS_FXAA] && g_aa_out) {
         IDirect3DSurface9 *out = level0(g_aa_out);
         bind(dev, 0, in, 1);
-        draw(dev, g_ps[PASS_FXAA], out, GAME_W, GAME_H, GAME_W, GAME_H);
+        draw(dev, g_ps[PASS_FXAA], out, g_src_w, g_src_h, (float)g_src_w, (float)g_src_h);
         step(dev, "fxaa");
         DROP(out);
         return g_aa_out;
     }
     if (preset >= 0 && g_smaa_ps[preset][0] && g_smaa_edges && g_aa_out) {
         /* SMAA's metrics (one texel, the size) in c0 for its three passes. */
-        float rt[4] = {1.0f / GAME_W, 1.0f / GAME_H, GAME_W, GAME_H};
+        float rt[4] = {1.0f / (float)g_src_w, 1.0f / (float)g_src_h, (float)g_src_w, (float)g_src_h};
         IDirect3DSurface9 *edges = level0(g_smaa_edges), *weights = level0(g_smaa_weights), *out = level0(g_aa_out);
         g_c0_override = rt;
         /* The edges: cleared first, since pixels with none are discarded; with the stencil, each pixel drawn (an edge)
@@ -968,7 +1027,7 @@ static IDirect3DTexture9 *run_aa(IDirect3DDevice9 *dev, int aa, IDirect3DTexture
          * its neighbours), so the filter changes none of them, and the pass measured 8 to 17 % shorter than with the
          * linear one the blend pass needs. */
         bind(dev, 0, in, 0);
-        draw(dev, g_smaa_ps[preset][0], edges, GAME_W, GAME_H, GAME_W, GAME_H);
+        draw(dev, g_smaa_ps[preset][0], edges, g_src_w, g_src_h, (float)g_src_w, (float)g_src_h);
         step(dev, "smaa edges");
         /* The weights, cleared the same way; with the stencil, worked out only where it says an edge is (the pass gives
          * the others 0, the cleared value, so the result is the same). */
@@ -981,7 +1040,7 @@ static IDirect3DTexture9 *run_aa(IDirect3DDevice9 *dev, int aa, IDirect3DTexture
         bind(dev, 1, g_smaa_edges, 1);
         bind(dev, 2, g_area, 1);
         bind(dev, 3, g_search, 0);
-        draw(dev, g_smaa_ps[preset][1], weights, GAME_W, GAME_H, GAME_W, GAME_H);
+        draw(dev, g_smaa_ps[preset][1], weights, g_src_w, g_src_h, (float)g_src_w, (float)g_src_h);
         /* The stencil done with: no depth surface again, as for every other pass (pass_state). */
         if (g_smaa_stencil) {
             IDirect3DDevice9_SetRenderState(dev, D3DRS_STENCILENABLE, FALSE);
@@ -990,7 +1049,7 @@ static IDirect3DTexture9 *run_aa(IDirect3DDevice9 *dev, int aa, IDirect3DTexture
         step(dev, "smaa weights");
         bind(dev, 0, in, 1);
         bind(dev, 1, g_smaa_weights, 1);
-        draw(dev, g_smaa_ps[preset][2], out, GAME_W, GAME_H, GAME_W, GAME_H);
+        draw(dev, g_smaa_ps[preset][2], out, g_src_w, g_src_h, (float)g_src_w, (float)g_src_h);
         step(dev, "smaa blend");
         g_c0_override = NULL;
         DROP(edges);
@@ -1001,28 +1060,31 @@ static IDirect3DTexture9 *run_aa(IDirect3DDevice9 *dev, int aa, IDirect3DTexture
     return in;
 }
 
-/* Enlarge `in` (the game's size) with filter `up` into the back buffer's top-left w x h. */
+/* Enlarge `in` (the game's frame as drawn, g_src_w x g_src_h) with filter `up` into the back buffer's top-left
+ * w x h. */
 static void run_upscale(IDirect3DDevice9 *dev, int up, IDirect3DTexture9 *in, int w, int h)
 {
-    int plan[8], n = post_plan(up, AA_OFF, GAME_W, GAME_H, w, h, plan);
+    /* The input's size, as floats for the passes' constants. */
+    const float sw = (float)g_src_w, sh = (float)g_src_h;
+    int plan[8], n = post_plan(up, AA_OFF, g_src_w, g_src_h, w, h, plan);
     int last = plan[n - 1];
     if (last == PASS_RCAS && g_ps[PASS_EASU_LEN] && g_ps[PASS_EASU] && g_ps[PASS_RCAS] && g_easu && g_easu_len) {
         /* EASU's lengths of every texel of the picture, once. */
         IDirect3DSurface9 *lens = level0(g_easu_len);
         bind(dev, 0, in, 0);
-        draw(dev, g_ps[PASS_EASU_LEN], lens, GAME_W + 2, GAME_H + 2, GAME_W, GAME_H);
+        draw(dev, g_ps[PASS_EASU_LEN], lens, g_src_w + 2, g_src_h + 2, sw, sh);
         step(dev, "easu len");
         DROP(lens);
         /* EASU into its texture at the output's size: con0 in c2, the lengths' texel size in c3.zw. */
         float con[16];
-        easu_constants(GAME_W, GAME_H, (float)w, (float)h, con);
-        float grid[4] = {GAME_W + 2, GAME_H + 2, 1.0f / (GAME_W + 2), 1.0f / (GAME_H + 2)};
+        easu_constants(sw, sh, (float)w, (float)h, con);
+        float grid[4] = {sw + 2, sh + 2, 1.0f / (sw + 2), 1.0f / (sh + 2)};
         IDirect3DSurface9 *mid = level0(g_easu);
         bind(dev, 0, in, 0);
         bind(dev, 1, g_easu_len, 0);
         IDirect3DDevice9_SetPixelShaderConstantF(dev, 2, con, 1);
         IDirect3DDevice9_SetPixelShaderConstantF(dev, 3, grid, 1);
-        draw(dev, g_ps[PASS_EASU], mid, w, h, GAME_W, GAME_H);
+        draw(dev, g_ps[PASS_EASU], mid, w, h, sw, sh);
         step(dev, "easu");
         /* The lengths unbound: their pass draws into them next frame. */
         IDirect3DDevice9_SetTexture(dev, 1, NULL);
@@ -1034,14 +1096,14 @@ static void run_upscale(IDirect3DDevice9 *dev, int up, IDirect3DTexture9 *in, in
                       (float)g_bb_w, (float)g_bb_h, 1.0f / (float)g_bb_w, 1.0f / (float)g_bb_h};
         bind(dev, 0, g_easu, 0);
         IDirect3DDevice9_SetPixelShaderConstantF(dev, 2, k, 2);
-        draw(dev, g_ps[PASS_RCAS], g_real_bb, w, h, GAME_W, GAME_H);
+        draw(dev, g_ps[PASS_RCAS], g_real_bb, w, h, sw, sh);
         step(dev, "rcas");
         return;
     }
     if (last == PASS_NIS_SCALE && g_ps[PASS_NIS_EDGES] && g_ps[PASS_NIS_ROWS] && g_ps[PASS_NIS_SCALE] && g_nis_edges &&
         g_nis_rows && g_nis_coef) {
         NisConfig c;
-        nis_config((float)g_sharpness / 100.0f, GAME_W, GAME_H, w, h, &c);
+        nis_config((float)g_sharpness / 100.0f, g_src_w, g_src_h, w, h, &c);
         float k[16] = {c.scale_x,        c.scale_y,           c.src_norm_x,         c.src_norm_y,
                        c.detect_ratio,   c.detect_thres,      c.min_contrast_ratio, c.ratio_norm,
                        c.contrast_boost, c.eps,               c.sharp_start_y,      c.sharp_scale_y,
@@ -1050,25 +1112,25 @@ static void run_upscale(IDirect3DDevice9 *dev, int up, IDirect3DTexture9 *in, in
         IDirect3DSurface9 *edges = level0(g_nis_edges);
         bind(dev, 0, in, 0);
         IDirect3DDevice9_SetPixelShaderConstantF(dev, 2, k, 4);
-        draw(dev, g_ps[PASS_NIS_EDGES], edges, GAME_W, GAME_H, GAME_W, GAME_H);
+        draw(dev, g_ps[PASS_NIS_EDGES], edges, g_src_w, g_src_h, sw, sh);
         step(dev, "nis edges");
         DROP(edges);
         /* The scaler down each of the game's columns, for each of the window's rows. */
         IDirect3DSurface9 *rows = level0(g_nis_rows);
         bind(dev, 0, in, 0);
         bind(dev, 2, g_nis_coef, 0);
-        draw(dev, g_ps[PASS_NIS_ROWS], rows, GAME_W, h, GAME_W, GAME_H);
+        draw(dev, g_ps[PASS_NIS_ROWS], rows, g_src_w, h, sw, sh);
         step(dev, "nis rows");
         DROP(rows);
         /* The scaler across them into the back buffer, with the directions' filters: c6.zw the sums' texel size. */
-        float grid[4] = {(float)GAME_W, (float)g_bb_h, 1.0f / (float)GAME_W, 1.0f / (float)g_bb_h};
+        float grid[4] = {sw, (float)g_bb_h, 1.0f / sw, 1.0f / (float)g_bb_h};
         bind(dev, 0, in, 0);
         bind(dev, 1, g_nis_edges, 0);
         bind(dev, 2, g_nis_coef, 0);
         bind(dev, 3, in, 1);
         bind(dev, 4, g_nis_rows, 0);
         IDirect3DDevice9_SetPixelShaderConstantF(dev, 6, grid, 1);
-        draw(dev, g_ps[PASS_NIS_SCALE], g_real_bb, w, h, GAME_W, GAME_H);
+        draw(dev, g_ps[PASS_NIS_SCALE], g_real_bb, w, h, sw, sh);
         step(dev, "nis scale");
         /* The sums unbound: their pass draws into them next frame. */
         IDirect3DDevice9_SetTexture(dev, 4, NULL);
@@ -1077,7 +1139,7 @@ static void run_upscale(IDirect3DDevice9 *dev, int up, IDirect3DTexture9 *in, in
     /* Off (sharp bilinear, its own pass) or bilinear (the copy pass), both reading with a linear filter. */
     int nearest = last == PASS_NEAREST && g_ps[PASS_NEAREST];
     bind(dev, 0, in, 1);
-    draw(dev, g_ps[nearest ? PASS_NEAREST : PASS_BILINEAR], g_real_bb, w, h, GAME_W, GAME_H);
+    draw(dev, g_ps[nearest ? PASS_NEAREST : PASS_BILINEAR], g_real_bb, w, h, sw, sh);
     step(dev, nearest ? "sharp bilinear" : "bilinear");
 }
 
@@ -1758,7 +1820,7 @@ void post_layer_without_chain(IDirect3DDevice9 *dev)
     IDirect3DSurface9 *bb = NULL;
     D3DSURFACE_DESC d;
     if (FAILED(IDirect3DDevice9_GetBackBuffer(dev, 0, 0, D3DBACKBUFFER_TYPE_MONO, &bb)) ||
-        FAILED(IDirect3DSurface9_GetDesc(bb, &d))) {
+        FAILED(render_real_desc(bb, &d))) {
         DROP(bb);
         return;
     }
@@ -1805,7 +1867,8 @@ void post_layer_before_reset(void)
 static int write_bmp(IDirect3DDevice9 *dev, IDirect3DSurface9 *rt, int w, int h, const char *name)
 {
     D3DSURFACE_DESC d;
-    if (FAILED(IDirect3DSurface9_GetDesc(rt, &d)))
+    /* Its real size (the game is answered its own for a target drawn larger: render.c). */
+    if (FAILED(render_real_desc(rt, &d)))
         return 0;
     /* The target's pixels come to the CPU through a system-memory copy of the same size and format. */
     IDirect3DSurface9 *sys = NULL;
@@ -1874,7 +1937,8 @@ static int dump_source(IDirect3DDevice9 *dev, const char *label)
     /* Only the game's own size, as the dumps write it. */
     IDirect3DSurface9 *dst = level0(g_src), *sys = NULL;
     D3DSURFACE_DESC d;
-    int ok = f && w == GAME_W && h == GAME_H && bits == 24 && dst && SUCCEEDED(IDirect3DSurface9_GetDesc(dst, &d)) &&
+    int ok = f && w == GAME_W && h == GAME_H && bits == 24 && dst && SUCCEEDED(render_real_desc(dst, &d)) &&
+             (int)d.Width == GAME_W && (int)d.Height == GAME_H &&
              (d.Format == D3DFMT_X8R8G8B8 || d.Format == D3DFMT_A8R8G8B8) &&
              SUCCEEDED(IDirect3DDevice9_CreateOffscreenPlainSurface(dev, GAME_W, GAME_H, d.Format, D3DPOOL_SYSTEMMEM,
                                                                     &sys, NULL));
@@ -1956,7 +2020,10 @@ static void dump(IDirect3DDevice9 *dev, int w, int h)
             DeleteFileA(choice_path);
             int u = upscale_from_name(up), a = aa_from_name(aa);
             if (read_n >= 3 && u >= 0 && a >= 0 && sharp >= 0 && sharp <= 100) {
-                g_upscale = u;
+                /* The filter chosen from now on, kept through a reset; bilinear while the game is drawn at the
+                 * picture's size (make_default). */
+                g_upscale_chosen = u;
+                g_upscale = render_on() ? UPSCALE_SMOOTH : u;
                 g_aa = a;
                 g_sharpness = sharp;
                 if (read_n >= 4)
@@ -1972,11 +2039,14 @@ static void dump(IDirect3DDevice9 *dev, int w, int h)
         fclose(f);
     }
     char name[160];
+    /* "frame": no picture, only the frame's number in dump.done (a script's clock: the game's timers count frames). */
+    if (!strcmp(mode, "frame"))
+        goto done;
     /* Measuring against another build's run: its game picture of this label first, when one is named. */
     dump_source(dev, label);
     snprintf(name, sizeof name, "%s-src.bmp", label);
     IDirect3DSurface9 *src = level0(g_src);
-    write_bmp(dev, src, GAME_W, GAME_H, name);
+    write_bmp(dev, src, g_src_w, g_src_h, name);
     DROP(src);
     if (!strcmp(mode, "all")) {
         /* Each upscale filter with no anti-aliasing, then each anti-aliasing pass at the game's size and enlarged with
@@ -1989,8 +2059,9 @@ static void dump(IDirect3DDevice9 *dev, int w, int h)
         /* NIS once more with its edge map in 32-bit floats (the reference's full-precision build; the same two numbers
          * in the first two of four), so the half floats' own effect on its output is read off the two files. */
         IDirect3DTexture9 *halves = g_nis_edges, *floats = NULL;
-        if (halves && SUCCEEDED(IDirect3DDevice9_CreateTexture(dev, GAME_W, GAME_H, 1, D3DUSAGE_RENDERTARGET,
-                                                               D3DFMT_A32B32G32R32F, D3DPOOL_DEFAULT, &floats, NULL))) {
+        if (halves && SUCCEEDED(IDirect3DDevice9_CreateTexture(dev, (UINT)g_src_w, (UINT)g_src_h, 1,
+                                                               D3DUSAGE_RENDERTARGET, D3DFMT_A32B32G32R32F,
+                                                               D3DPOOL_DEFAULT, &floats, NULL))) {
             g_nis_edges = floats;
             run_chain(dev, UPSCALE_NIS, AA_OFF, w, h);
             snprintf(name, sizeof name, "%s-up-nis-floats.bmp", label);
@@ -2002,7 +2073,7 @@ static void dump(IDirect3DDevice9 *dev, int w, int h)
             IDirect3DTexture9 *t = run_aa(dev, a, g_src);
             IDirect3DSurface9 *s = level0(t);
             snprintf(name, sizeof name, "%s-aa-%s-game.bmp", label, AA_NAMES[a]);
-            write_bmp(dev, s, GAME_W, GAME_H, name);
+            write_bmp(dev, s, g_src_w, g_src_h, name);
             DROP(s);
             run_upscale(dev, g_upscale, t, w, h);
             snprintf(name, sizeof name, "%s-aa-%s.bmp", label, AA_NAMES[a]);
@@ -2017,6 +2088,7 @@ static void dump(IDirect3DDevice9 *dev, int w, int h)
         /* The same frame with the layer over it follows (post_present): the two differ only where the layer drew. */
         snprintf(g_dumped, sizeof g_dumped, "%s", label);
     }
+done:
     if (!timed)
         DeleteFileA(path);
     snprintf(path, sizeof path, "%s\\dump.done", g_dump_dir);
@@ -2331,6 +2403,9 @@ const RECT *post_present(IDirect3DDevice9 *dev)
     IDirect3DDevice9_EndScene(dev);
     /* Until the game's first screen is seen: a look at this frame now and then. */
     first_screen_look(dev);
+    /* Drawn at the picture's size: what the game asked of render.c's replacements, a line every 600 frames. */
+    if (render_on() && ingame_frame() % 600 == 0)
+        render_summary();
     /* Measuring by the frame: the chain's and the layer's work done, its whole time counted. */
     if (whole) {
         g_costs.frame_us += ticks_us(whole, idle_now(dev));
@@ -2449,6 +2524,10 @@ int post_lighten(int *upscale, int *aa, int *aa_changed)
     /* From the next frame on (the anti-aliased frame's target exists: the chain had anti-aliasing before). */
     *aa_changed = a != g_aa;
     g_upscale = up;
+    /* The step is the player's filter's too, so a reset (make_default) brings back the lighter one, never the one
+     * stepped down from (drawn at the picture's size, the filter is bilinear already: only the anti-aliasing steps). */
+    if (!render_on())
+        g_upscale_chosen = up;
     g_aa = a;
     *upscale = up;
     *aa = a;

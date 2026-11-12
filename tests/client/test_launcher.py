@@ -1610,8 +1610,12 @@ class LauncherTest(FolderCase):
         with mock.patch("sys.stdout", out), self.assertRaises(SystemExit):
             main.main(["--help"])
         text = " ".join(out.getvalue().split())
-        for value in values.UPSCALES + ("sharpness", "smaa-") + values.ANTIALIASINGS[-3:]:
+        for value in values.UPSCALES + ("sharpness", "smaa-") + values.ANTIALIASINGS[-3:] + values.RENDER_SIZES:
             self.assertIn(value, text)
+        # The size the game draws at, by --set as well.
+        self.assertEqual(main.main(["--set", "render_size=display"]), 0)
+        self.assertEqual(st.LauncherState.load().values["render_size"], "display")
+        self.assertEqual(main.main(["--set", "render_size=4k"]), 2)
 
     def test_the_picture_rows_have_words_in_both_languages(self):
         from opendmt3.client import i18n
@@ -1623,6 +1627,9 @@ class LauncherTest(FolderCase):
         keys += ["screen.fps.position." + value for value in values.FPS_POSITIONS]
         keys += ["screen.shape." + value for value in values.PICTURE_SHAPES]
         keys += ["screen.upscale." + value for value in values.UPSCALES]
+        keys += ["screen.render", "screen.render.hint.game", "screen.render.hint.display",
+                 "screen.antialiasing.hint.display"]
+        keys += ["screen.render." + value for value in values.RENDER_SIZES]
         keys += ["screen.antialiasing." + value for value in values.ANTIALIASINGS]
         for key in keys:
             with self.subTest(key=key):

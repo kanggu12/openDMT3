@@ -14,6 +14,10 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - **Mixer** on the Sound page: the game's sounds mixed by Windows' DirectSound (the default), or by OpenAL Soft through
   DSOAL, sharing the device or with it to itself (**Exclusive**); when OpenAL Soft cannot open the device, the game plays
   through DirectSound and the page says so. Each release carries the two libraries' source archives.
+- **Drawn at** on the Screen page: **Screen size** has the game draw its picture at its size on the screen (1800x1080
+  on a 1920x1080 screen, 3600x2160 at 3840x2160) rather than at its own 1280x768 enlarged after, so what moves,
+  scales or turns lands on the screen's own pixels. The game is answered its own sizes wherever it asks, and its
+  videos are drawn to the larger picture with the rest. **1280×768** stays the default; `--set render_size=display`.
 
 ## [0.1.1] - 2026-11-13
 

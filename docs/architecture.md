@@ -178,10 +178,9 @@ The game loads `CRT_R1.dll` by name before its own code runs, so openDMT3's libr
 built with MinGW) lives inside the game's process. Its `DllMain` reads the launcher's choices from the environment
 PLAY starts the game with (`OPENDMT3_LANGUAGE`, `OPENDMT3_CURSOR`, `OPENDMT3_PACING`, `OPENDMT3_FPS`,
 `OPENDMT3_FPS_POSITION`, `OPENDMT3_SOUND_DEVICE`, `OPENDMT3_UPSCALE`, `OPENDMT3_SHARPNESS`, `OPENDMT3_ANTIALIASING`,
-`OPENDMT3_PICTURE_SHAPE`, `OPENDMT3_PASS_TIMES`, `OPENDMT3_LOW_LATENCY`, `OPENDMT3_SOUND_PATH`, from
-`core/cabinet/values.py` `layer_environment`) and turns four of
-the game's imports to its own: the slots of the game's import table that hold the real functions get ours, which call
-the real ones.
+`OPENDMT3_PICTURE_SHAPE`, `OPENDMT3_PASS_TIMES`, `OPENDMT3_LOW_LATENCY`, `OPENDMT3_SOUND_PATH`, `OPENDMT3_RENDER`,
+from `core/cabinet/values.py` `layer_environment`) and turns four of the game's imports to its own: the slots of the
+game's import table that hold the real functions get ours, which call the real ones.
 
 <p align="center">
   <picture>
@@ -198,6 +197,7 @@ the real ones.
 | `layer.c` | The layer's state and its input: the bar and its chips, the menu and the question, the toast, the mark and the frame rate chip ([the layer's parts and their input](#the-layers-parts-and-their-input)) |
 | `text.c` | The layer's words: GDI text in Pretendard Bold and Regular and DMT3 Wide, which the setup puts beside the DLL and the layer loads for the game's process only, kept once drawn so a panel drawn again costs no GDI work |
 | `post.c` | The post-process chain over the game's picture, and the layer drawn in it ([the picture's chain](#the-pictures-chain), [the layer in the chain](#the-layer-in-the-chain)) |
+| `render.c` | The game drawn at the screen's size: its targets made larger, its own sizes answered when it asks, its screen-space draws and rectangles turned ([the game drawn at the screen's size](#the-game-drawn-at-the-screens-size)) |
 | `postmath.c` | The chain's plan and numbers with no Windows calls: which passes a choice runs, FSR 1's EASU and RCAS constants (as `FsrEasuCon` and `FsrRcasCon` work them out), NIS's (as `NVScalerUpdateConfig`), NIS's filter banks, the back buffer's size |
 | `passtimes.c` | The picture's GPU time by pass (`OPENDMT3_PASS_TIMES=on`): each step's time a frame, kept over a stretch of frames and said as its median, with no Windows calls |
 | `shaders/post.hlsl`, `shaders/smaa.hlsl` | The passes, shader model 3.0: nearest, bilinear, EASU's lengths (once a game texel) and EASU, RCAS, NIS's edge map and its scaler's two passes (the column sums, then across), FXAA, and SMAA's three passes around `third_party/smaa/SMAA.hlsl` |
@@ -261,14 +261,16 @@ the real ones.
 
 ### The picture's chain
 
-The game draws 1280x768. Drawing it at the display's size is not done: the game's glow pass sizes its full-screen quad
-from the surface's real size in one place and from 1280x768 in another, so at a larger back buffer its background
-lands in one corner.
+The game draws 1280x768, or at the picture's size in the window with **Drawn at** set to **Screen size**
+([below](#the-game-drawn-at-the-screens-size)).
 
-The game's frame, measured call by call: it clears the back buffer, draws its sprites into it (every draw a textured
-quad, depth never tested), copies it with `StretchRect` into a 1280x768 render-target texture for its glow, draws the
-glow composite back over it and its interface on top. Every choice runs the chain (**Smooth** with no anti-aliasing is
-its bilinear pass, the picture as Direct3D's own stretch drew it), since the in-game layer is drawn in it:
+The game's frame, measured call by call: it clears the back buffer, draws a screen's video when it has one (Bink's
+frames: the title's background, the song select's preview, a song's background), then its sprites (every draw a
+textured quad in its own pixels under its orthographic projection, depth never tested), copies the frame with
+`StretchRect` into a 1280x768 render-target texture for its glow, clears a second one, draws the glow composite back
+over the whole frame (one quad through its effect, reading the copy) and its interface on top. Every choice runs the
+chain (**Smooth** with no anti-aliasing is its bilinear pass, the picture as Direct3D's own stretch drew it), since the
+in-game layer is drawn in it:
 
 - **The device** is made with a back buffer of the window's monitor's size (the window's, if larger), copied rather
   than discarded, with no depth surface of Direct3D's own. The game's back buffer is a 1280x768 render target of the
@@ -334,6 +336,53 @@ its bilinear pass, the picture as Direct3D's own stretch drew it), since the in-
   - Each step is logged, shown once for six seconds as the layer's toast at the top of the game, and written to
     `openDMT3-picture.txt` beside the DLL, which the launcher puts in its own log when the game ends and then
     removes.
+
+### The game drawn at the screen's size
+
+With **Drawn at**: **Screen size** (`OPENDMT3_RENDER=display`, `render.c`) the game draws its frame at the picture's
+size in the window when its device is made or reset (logic.c `render_size_for`: 1800x1080 at 1920x1080, 2400x1440 at
+2560x1440, 3600x2160 at 3840x2160, never under its own 1280x768), and the chain copies it into the back buffer one to
+one:
+
+- **Every target the game draws into is made at that size**: its back buffer (the chain's proxy), the depth surface
+  with it, and the two 1280x768 render-target textures of its glow (its `CreateTexture`, `CreateRenderTarget` and
+  `CreateDepthStencilSurface` for a target of its own size are turned to the larger one).
+- **Every size it reads back is its own**: a surface's `GetDesc`, a texture's `GetLevelDesc`, the viewport and the
+  scissor rectangle answer 1280x768 for a target made larger, so every sum the game makes from a size is the one it
+  makes today. Measured, it reads its back buffer's size and the viewport once each, when it starts. `GetDesc` is
+  replaced in the table of each kind of surface the game draws into (Windows' runtime makes a texture's level, a render
+  target and a depth surface of different classes; Wine shares one table), and the chain reads a surface's real size
+  through the method of its own table.
+- **Its draws fill the larger target by themselves**: its sprites and its glow composite are in its own pixels under
+  its projection, which the viewport maps onto the whole target. Its videos are not: they are drawn with screen-space
+  vertices (a declaration with `POSITIONT`) from 0,0 to 1280,768, which no projection turns. On the larger target each
+  covered its top left 1280x768 pixels, and the glow copied that over the whole picture: the background in one corner,
+  black around it (an earlier try read this as the glow composite's fault). Each such draw is drawn from a copy of its
+  vertices turned as the viewport turns every other draw (x by the width's ratio, y by the height's): one a frame on a
+  screen with a video. A screen-space draw from a vertex buffer would not be turned; the log counts any.
+- **Rectangles in its pixels are turned to the target's**: a viewport or scissor rectangle it sets, a clear's, a copy's
+  and a fill's. A screenshot of its own (`GetRenderTargetData` into a 1280x768 surface) is read through a copy at its
+  size.
+- **The chain's own calls** (their return address in the library) pass as they are; so do the in-game layer's.
+- **When a target cannot be made that large**: the chain's own (its proxy, the depth surface), every one is made again
+  at the game's own size; one of the game's, that one at its own size (its glow reads it through normalised
+  coordinates: blurrier, never misplaced). Either way with the reason in the log. At a device reset the game's targets
+  are its own size until the chain is made again (a reset the chain does not follow leaves them so). The pointer
+  reaches the game pixel under it as before (it is read against the picture's place, not the size the game draws at).
+- **The upscale filter does not run**: the frame is the window's picture already (when the window grows past the size
+  the game drew at, bilinear). Anti-aliasing runs at that size.
+- **Checked** on every screen of a guest's play (the title, the mode select, the tutorial, the song select with its
+  preview, a song with its video and notes, the result, the end), each against the same screen drawn at 1280x768:
+  every part in its place and at its size. `tests/e2e/windows/render.sh` checks the sizes the game is answered and
+  where its parts land without the game.
+- **What it costs**: on the GPU image the game's own step and the chain with the layer came to 81 and 36 thousand of
+  the card's cycles a frame at 1920x1080, against 108 and 145 with the game drawn at 1280x768 and FSR 1; 124 and 50
+  against 71 and 191 at 2560x1440; 328 and 96 against 81 and 382 at 3840x2160
+  ([measured](testing.md#the-game-drawn-at-the-screens-size)). The game's drawing grows with the pixels, by about
+  what the upscale filter's passes cost, which do not run.
+- **What it shows**: the game's art is made for 1280x768, so art that stands still is that art enlarged bilinearly as
+  it is drawn, as **Smooth** enlarges it (FSR 1 sharpens its edges a little more); what moves, scales or turns lands on
+  the screen's own pixels, and a video's frames are enlarged once, from their own size.
 
 ### The layer in the chain
 

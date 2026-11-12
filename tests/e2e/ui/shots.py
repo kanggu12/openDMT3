@@ -2244,6 +2244,13 @@ def main():
     measure(app, tag + "_screen-sharpness", problems)
     # Back to the default, so the screens after this one look as before.
     app.changed("upscale", choices.UPSCALE_DEFAULT)
+    # ---- the screen page with the game drawn at the screen's size: the upscale filter's rows leave, its hint says why
+    app.changed("render_size", "display")
+    app.go("screen")
+    settle(app)
+    shot(app, args.out, tag + "_screen-display")
+    measure(app, tag + "_screen-display", problems)
+    app.changed("render_size", choices.RENDER_SIZE_DEFAULT)
     # ---- the keyboard: a switch and a button take the focus (their rings); Space flips the switch, and back
     app.go("screen")
     settle(app)

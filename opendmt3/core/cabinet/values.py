@@ -28,6 +28,14 @@ FRAME_PACINGS = ("music", "even", "game")
 # Resolution 1, "nis" NVIDIA Image Scaling. The names are the layer's (UPSCALE_NAMES in native/cardreader/postmath.c).
 UPSCALES = ("off", "smooth", "fsr1", "nis")
 
+# Where the game draws its picture (openDMT3's in-game layer, native/cardreader/render.c): "game" its own 1280x768,
+# enlarged to the window by the upscale filter, or "display" at the picture's size on the screen (every target the game
+# draws into made that large, every size it reads back answered as its own, its screen-space video turned to it), so
+# its shapes, edges and moving art are drawn at the screen's own pixels and no upscale filter runs. The names are the
+# layer's (OPENDMT3_RENDER in native/cardreader/logic.c).
+RENDER_SIZES = ("game", "display")
+RENDER_SIZE_DEFAULT = "game"
+
 # The upscale filters that sharpen, and so the ones the sharpness reads (the others ignore it).
 SHARPENING_UPSCALES = ("fsr1", "nis")
 
@@ -92,6 +100,7 @@ DEFAULTS = {
     "show_fps": False,              # the frame rate chip over the game (the layer's)
     "fps_position": FPS_POSITION_DEFAULT,  # its corner while it is on (the layer's; kept while it is off)
     "picture_shape": PICTURE_SHAPE_DEFAULT,  # the game's own shape kept with bars, or filling the window (the layer's)
+    "render_size": RENDER_SIZE_DEFAULT,  # the game drawn at its own 1280x768, or at the screen's size (the layer's)
     "sound_device": DEFAULT_DEVICE, # Windows' default output (not a setting.ini line: the layer's)
     "low_latency": True,            # Windows' sound engine at the shortest period the game's output offers while the
                                     # game runs, 10 ms otherwise (the layer's: native/cardreader/engine.c)
@@ -105,7 +114,7 @@ DEFAULTS = {
 
 # The choices openDMT3's in-game layer reads when the game starts, not lines of setting.ini.
 LAYER_CHOICES = ("frame_pacing", "show_fps", "fps_position", "sound_device", "upscale", "sharpness", "antialiasing",
-                 "picture_shape", "pass_times", "low_latency", "sound_path")
+                 "picture_shape", "pass_times", "low_latency", "sound_path", "render_size")
 
 
 class ChoiceError(ValueError):
@@ -177,6 +186,8 @@ def normalize(values):
             out[name] = _named(name, value, PICTURE_SHAPES)
         elif name == "sound_path":
             out[name] = _named(name, value, SOUND_PATHS)
+        elif name == "render_size":
+            out[name] = _named(name, value, RENDER_SIZES)
         elif name == "sound_device":
             text = str(value).strip()
             if text.lower() == DEFAULT_DEVICE:
@@ -233,7 +244,7 @@ def layer_environment(values, language="en"):
     the words' language, whether it draws its own pointer, the frame pacing, the frame rate chip and its corner, the
     sound device, who mixes the game's sounds and whether the sound engine's shortest period is asked for, the upscale
     filter with its sharpness, the anti-aliasing, the picture's shape, whether the picture's GPU time is measured by
-    pass. PLAY starts the game with these on top of the launcher's own environment."""
+    pass, the size the game draws at. PLAY starts the game with these on top of the launcher's own environment."""
     v = normalize(values)
     return {
         # The menu's and the question's words follow the launcher's language.
@@ -261,4 +272,6 @@ def layer_environment(values, language="en"):
         "OPENDMT3_PICTURE_SHAPE": v["picture_shape"],
         # The picture's GPU time by pass: the layer's note beside it, read into the launcher's log at the game's end.
         "OPENDMT3_PASS_TIMES": "on" if v["pass_times"] else "off",
+        # The game drawn at its own 1280x768 or at the screen's size.
+        "OPENDMT3_RENDER": v["render_size"],
     }

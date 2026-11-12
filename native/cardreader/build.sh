@@ -31,6 +31,7 @@ docker run --rm --network none -u "$AS" -v "$HERE:/src:ro" -v "$OUT:/out" opendm
   i686-w64-mingw32-gcc -O2 -s -shared -static-libgcc -Wall -o /out/CRT_R1.dll \
     /src/crt_r1.c /src/hooks.c /src/trace.c /src/post.c /src/postmath.c /src/sound.c /src/engine.c /src/openal.c \
     /src/layer.c /src/text.c /src/look.c /src/logic.c /src/paint.c /src/files.c /src/redirect.c /src/passtimes.c \
+    /src/render.c \
     /src/crt_r1.def /out/post.res \
     -Wl,--kill-at -luser32 -lgdi32 -lm
 # Not executable: a Windows program is never started from here (WSL would hand it to Windows).

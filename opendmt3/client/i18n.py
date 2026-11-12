@@ -86,8 +86,10 @@ TEXT = {
 
     # ------------------------------------------------------------------------------------------- screen
     "screen.title": ("Screen", "화면"),
-    "screen.sub": ("The game always draws 1280×768. These choices decide how that picture is shown.",
-                   "게임은 늘 1280×768로 그립니다. 여기서는 게임 화면을 어떻게 표시할지 고릅니다."),
+    "screen.sub": ("The game draws 1280×768, or at the screen's size when chosen. These choices decide how its "
+                   "picture is shown.",
+                   "게임은 1280×768로 그리고, 고르면 화면 크기로 그립니다. 여기서는 게임 화면을 어떻게 표시할지 "
+                   "고릅니다."),
     "screen.display": ("Display", "표시"),
     "screen.mode": ("Mode", "표시 방식"),
     "screen.mode.fullscreen": ("Full screen", "전체 화면"),
@@ -124,6 +126,15 @@ TEXT = {
     "screen.shape.fill": ("Fill", "채우기"),
     "screen.shape.hint": ("Keep leaves bars beside the game's 5:3 picture; Fill stretches it.",
                           "비율 유지는 5:3 그대로 두어 남는 곳에 띠가 생깁니다. 채우기는 화면에 맞게 늘립니다."),
+    "screen.render": ("Drawn at", "그리는 크기"),
+    "screen.render.game": ("1280×768", "1280×768"),
+    "screen.render.display": ("Screen size", "화면 크기"),
+    "screen.render.hint.game": ("The game draws its own 1280×768 picture and the upscale filter enlarges it.",
+                                "게임이 제 1280×768 화면을 그리고 확대 필터가 키웁니다."),
+    "screen.render.hint.display": ("The game draws at the screen's size: the edges of its art, and all it moves or "
+                                   "scales, are drawn in the screen's own pixels. The upscale filter is not used.",
+                                   "게임이 화면 크기로 그립니다. 그림의 가장자리와 움직이거나 커지는 것이 화면의 화소 "
+                                   "단위로 그려집니다. 확대 필터는 쓰지 않습니다."),
     "screen.upscale": ("Upscale filter", "확대 필터"),
     "screen.upscale.off": ("Off", "끔"),
     "screen.upscale.smooth": ("Smooth", "부드럽게"),
@@ -144,6 +155,9 @@ TEXT = {
     "screen.antialiasing.smaa-ultra": ("SMAA Ultra", "SMAA 최고"),
     "screen.antialiasing.hint": ("Smooths the game's jagged edges before the picture is enlarged.",
                                  "게임 화면을 확대하기 전에 계단처럼 깨진 가장자리를 매끄럽게 합니다."),
+    "screen.antialiasing.hint.display": ("Smooths the game's jagged edges in the picture it draws at the screen's "
+                                         "size.",
+                                         "화면 크기로 그린 게임 화면의 계단처럼 깨진 가장자리를 매끄럽게 합니다."),
     "screen.glow": ("Glow", "글로우"),
     "screen.glow.hint": ("The light that blooms over the whole picture.", "화면 전체에 번지는 빛 효과입니다."),
     "screen.videos": ("Background videos", "배경 영상"),

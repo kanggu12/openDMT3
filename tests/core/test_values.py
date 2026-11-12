@@ -74,7 +74,8 @@ class LayerChoicesTest(unittest.TestCase):
                                "OPENDMT3_FPS": "on", "OPENDMT3_FPS_POSITION": "bottom_right", "OPENDMT3_SOUND_DEVICE": "",
                                "OPENDMT3_UPSCALE": "fsr1", "OPENDMT3_SHARPNESS": "50", "OPENDMT3_ANTIALIASING": "off",
                                "OPENDMT3_PICTURE_SHAPE": "keep", "OPENDMT3_PASS_TIMES": "off",
-                               "OPENDMT3_LOW_LATENCY": "on", "OPENDMT3_SOUND_PATH": "directsound"})
+                               "OPENDMT3_LOW_LATENCY": "on", "OPENDMT3_SOUND_PATH": "directsound",
+                               "OPENDMT3_RENDER": "game"})
         # Who mixes the game's sounds: Windows' DirectSound unless OpenAL Soft is chosen, by the layer's names.
         self.assertEqual(values.DEFAULTS["sound_path"], "directsound")
         self.assertEqual(values.layer_environment({"sound_path": "OpenAL"})["OPENDMT3_SOUND_PATH"], "openal")
@@ -86,6 +87,10 @@ class LayerChoicesTest(unittest.TestCase):
         with self.assertRaises(values.ChoiceError):
             values.normalize({"low_latency": "lowest"})
         self.assertEqual(values.layer_environment({"picture_shape": "fill"})["OPENDMT3_PICTURE_SHAPE"], "fill")
+        # The game drawn at the screen's size by the layer's word for it; any other value refused, never kept.
+        self.assertEqual(values.layer_environment({"render_size": "Display"})["OPENDMT3_RENDER"], "display")
+        with self.assertRaises(values.ChoiceError):
+            values.normalize({"render_size": "native"})
         # The GPU time by pass by the layer's word for it ("on"; anything else leaves it off).
         self.assertEqual(values.layer_environment({"pass_times": True})["OPENDMT3_PASS_TIMES"], "on")
         # The chosen corner by its name.

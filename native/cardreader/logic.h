@@ -35,6 +35,8 @@ typedef struct {
     int low_latency;       /* OPENDMT3_LOW_LATENCY=off: Windows' sound engine left at its own period; on by default,
                             * the shortest one the game's output offers asked for while the game runs (engine.c) */
     int sound_path;        /* OPENDMT3_SOUND_PATH: SOUND_PATH_* below (Windows' DirectSound unless chosen) */
+    int render_display;    /* OPENDMT3_RENDER=display: the game drawn at the picture's size in the window (render.c),
+                            * not at its own 1280x768 enlarged after (game, the default) */
 } Settings;
 
 /* The way the game's DirectSound calls reach the device (openal.c), in the launcher's order: Windows' own DirectSound
@@ -299,6 +301,14 @@ typedef struct {
     int x, y, w, h;
 } PicRect;
 PicRect picture_rect(int cw, int ch, int fill);
+/* The size the game is drawn at when it is drawn at the picture's size (OPENDMT3_RENDER=display, render.c): the
+ * picture's place in a client of cw x ch (picture_rect), held in the picture's own shape to the device's largest
+ * texture sides (max_w x max_h; 0 for no limit), and never smaller than the game's own 1280x768 (in a window that small
+ * the game is drawn at its own size and shrunk after). */
+void render_size_for(int cw, int ch, int fill, int max_w, int max_h, int *w, int *h);
+/* One of the game's coordinates (a rectangle's edge, in its pixels) on an axis of `from` pixels to one of `to`,
+ * rounded to the nearest whole pixel, halves away from zero; the same sum turns it back (from and to swapped). */
+long scale_edge(long v, int from, int to);
 /* The display fix's own sums for the game's pointer (opendmt3/core/cabinet/display.py, hook_gcp): a point in client
  * pixels to the game's pixel, scaled from the client's size to 1280x768 with integer division. */
 void game_from_client(int qx, int qy, int cw, int ch, int *gx, int *gy);

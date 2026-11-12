@@ -88,6 +88,14 @@ static void test_settings(void)
     check(direct_first && exclusive && shared && u.sound_path == SOUND_PATH_OPENAL &&
               !strcmp(SOUND_PATH_NAMES[SOUND_PATH_DIRECTSOUND], "directsound"),
           "settings: the mixer DirectSound by default, OpenAL Soft's two by name, another name leaves it");
+    /* The game drawn at the picture's size: off (its own 1280x768) unless the launcher says "display". */
+    settings_default(&t);
+    int own_first = !t.render_display;
+    settings_read(&t, "OPENDMT3_RENDER", "Display");
+    int display = t.render_display;
+    settings_read(&t, "OPENDMT3_RENDER", "native");
+    check(own_first && display && !t.render_display,
+          "settings: the game drawn at its own size by default, at the display's only for \"display\"");
 }
 
 /* The sound engine's period (engine.c's decisions): what to ask for from IAudioClient3's answer, whether what the
@@ -146,6 +154,33 @@ static void test_engine(void)
     check(!strcmp(ENGINE_NAMES[ENGINE_OFF], "off") && !strcmp(ENGINE_NAMES[ENGINE_HELD], "held") &&
               !strcmp(ENGINE_NAMES[ENGINE_UNCHANGED], "unchanged"),
           "engine: the results' words");
+}
+
+/* The game drawn at the picture's size: its size, and the rectangles turned to it and back (logic.c). */
+static void test_render_size(void)
+{
+    int w, h, ok = 1;
+    render_size_for(1920, 1080, 0, 16384, 16384, &w, &h);
+    ok &= w == 1800 && h == 1080;
+    render_size_for(2560, 1440, 0, 16384, 16384, &w, &h);
+    ok &= w == 2400 && h == 1440;
+    render_size_for(3840, 2160, 0, 16384, 16384, &w, &h);
+    ok &= w == 3600 && h == 2160;
+    check(ok, "render size: the picture's place at 1080, 1440 and 2160 lines");
+    render_size_for(1920, 1080, 1, 16384, 16384, &w, &h);
+    int filled = w == 1920 && h == 1080;
+    render_size_for(1024, 600, 0, 16384, 16384, &w, &h);
+    int small = w == 1280 && h == 768;
+    render_size_for(3840, 2160, 0, 2048, 2048, &w, &h);
+    check(filled && small && w == 2048 && h == 1228 && w * 3 <= h * 5 + 5,
+          "render size: filling, a window under the game's size, a device's largest texture in the picture's shape");
+    int round_trip = 1;
+    for (long v = -10; v <= 1290 && round_trip; v++)
+        round_trip = scale_edge(scale_edge(v, 1280, 1800), 1800, 1280) == v &&
+                     scale_edge(scale_edge(v, 1280, 3600), 3600, 1280) == v;
+    check(scale_edge(1280, 1280, 1800) == 1800 && scale_edge(640, 1280, 1800) == 900 &&
+              scale_edge(-1, 1280, 1800) == -1 && round_trip,
+          "render size: a rectangle's edges to the larger target and back, every one of the game's pixels");
 }
 
 /* The picture's GPU time by pass: medians by step name over a stretch (passtimes.c). */
@@ -960,6 +995,7 @@ int main(void)
 {
     test_settings();
     test_engine();
+    test_render_size();
     test_pass_times();
     test_post();
     test_pacer();

@@ -63,7 +63,8 @@ minute. **Help** lists what to try:
 - **Bars on two sides of the picture**: the game's own 5:3 shape is kept (**Screen**, **Picture shape**, **Keep**).
   **Fill** stretches it over the whole screen.
 - **The picture is small or blurred**: choose **Full screen** on **Screen**, a borderless window over the main monitor
-  at any Windows scaling; **Upscale filter** chooses how the picture is enlarged.
+  at any Windows scaling; **Upscale filter** chooses how the picture is enlarged, and **Drawn at** whether the game
+  draws at the screen's size instead.
 - **The mouse hits the wrong place**: start the game from the launcher (PLAY, or its desktop shortcut). PLAY starts
   a fixed copy of the client that reads the mouse at the right place; the original client started on its own does not.
 - **On a touch screen**: choose **Touch screen** on **Controls**: the pointer hides. The game takes one finger at a

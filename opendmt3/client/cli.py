@@ -30,10 +30,12 @@
                                        antialiasing=off|fxaa|smaa-low|smaa-medium|smaa-high|smaa-ultra,
                                        frame_pacing=music|even|game, show_fps=on|off,
                                        fps_position=top_left|top_right|bottom_left|bottom_right,
-                                       picture_shape=keep|fill, pass_times=on|off (the picture's GPU
-                                       time by pass, into the log when the game closes); the Sound
-                                       page's low_latency=on|off (Windows' sound engine at the shortest
-                                       period the device offers while the game runs) and
+                                       picture_shape=keep|fill, render_size=game|display (the game
+                                       drawn at its own 1280x768 or at the screen's size),
+                                       pass_times=on|off (the picture's GPU time by pass, into the log
+                                       when the game closes); the Sound page's low_latency=on|off
+                                       (Windows' sound engine at the shortest period the device offers
+                                       while the game runs) and
                                        sound_path=directsound|openal|openal-exclusive (its Mixer)
   openDMT3.exe --mode this_pc|server|offline   where logins and records are kept
   openDMT3.exe --server URL            connect to another server and play on it from now on

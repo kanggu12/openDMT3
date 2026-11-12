@@ -51,7 +51,8 @@ static int same(const char *a, const char *word)
 const char *const SETTINGS_NAMES[] = {"OPENDMT3_LANGUAGE", "OPENDMT3_CURSOR", "OPENDMT3_PACING", "OPENDMT3_FPS",
                                       "OPENDMT3_FPS_POSITION", "OPENDMT3_SOUND_DEVICE", "OPENDMT3_UPSCALE",
                                       "OPENDMT3_SHARPNESS", "OPENDMT3_ANTIALIASING", "OPENDMT3_PICTURE_SHAPE",
-                                      "OPENDMT3_PASS_TIMES", "OPENDMT3_LOW_LATENCY", "OPENDMT3_SOUND_PATH"};
+                                      "OPENDMT3_PASS_TIMES", "OPENDMT3_LOW_LATENCY", "OPENDMT3_SOUND_PATH",
+                                      "OPENDMT3_RENDER"};
 
 /* The sound paths' names, in the order of SOUND_PATH_* (the launcher's words for them, values.py SOUND_PATHS). */
 const char *const SOUND_PATH_NAMES[SOUND_PATHS] = {"directsound", "openal", "openal-exclusive"};
@@ -100,6 +101,9 @@ void settings_read(Settings *s, const char *name, const char *value)
     } else if (!strcmp(name, "OPENDMT3_PASS_TIMES")) {
         /* "on" measures the picture's GPU time by pass; anything else leaves it off (the default). */
         s->pass_times = same(value, "on");
+    } else if (!strcmp(name, "OPENDMT3_RENDER")) {
+        /* "display" draws the game at the picture's size in the window; anything else at its own (the default). */
+        s->render_display = same(value, "display");
     } else if (!strcmp(name, "OPENDMT3_SOUND_DEVICE")) {
         /* A GUID: that device; empty or not a GUID: Windows' default output. */
         s->has_device = parse_guid(value, s->device);
@@ -800,6 +804,33 @@ PicRect picture_rect(int cw, int ch, int fill)
         r.y = (ch - r.h) / 2;
     }
     return r;
+}
+
+void render_size_for(int cw, int ch, int fill, int max_w, int max_h, int *w, int *h)
+{
+    PicRect r = picture_rect(cw, ch, fill);
+    /* Past the device's largest texture: the largest of the picture's shape that fits. */
+    if (max_w > 0 && max_h > 0 && (r.w > max_w || r.h > max_h)) {
+        double k = (double)max_w / r.w, kh = (double)max_h / r.h;
+        if (kh < k)
+            k = kh;
+        r.w = (int)(r.w * k);
+        r.h = (int)(r.h * k);
+    }
+    /* Smaller than the game's own picture either way: its own size (its art is drawn for it). */
+    if (r.w < GAME_W || r.h < GAME_H) {
+        r.w = GAME_W;
+        r.h = GAME_H;
+    }
+    *w = r.w;
+    *h = r.h;
+}
+
+long scale_edge(long v, int from, int to)
+{
+    /* In 64 bits, the half added away from zero before the division. */
+    long long n = (long long)v * to;
+    return (long)(n >= 0 ? (n + from / 2) / from : -((-n + from / 2) / from));
 }
 
 void game_from_client(int qx, int qy, int cw, int ch, int *gx, int *gy)
