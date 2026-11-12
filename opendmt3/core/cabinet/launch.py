@@ -286,6 +286,28 @@ class WindowsSystem(System):
         finally:
             kernel32.LocalFree(descriptor)
 
+    def _as_written(self, access):
+        """An access list as Windows writes one back: a well-known account by its short name (LA for the built-in
+        Administrator, for one), the flags in its own order. A folder's list, as read, is written the same way."""
+        import ctypes
+        from ctypes import wintypes
+        kernel32, advapi32 = self._dlls()
+        descriptor = ctypes.c_void_p()
+        if not advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW(access, self.REVISION,
+                                                                            ctypes.byref(descriptor), None):
+            raise self._error()
+        try:
+            text = wintypes.LPWSTR()
+            if not advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW(descriptor, self.REVISION, self.DACL,
+                                                                                ctypes.byref(text), None):
+                raise self._error()
+            try:
+                return text.value
+            finally:
+                kernel32.LocalFree(text)
+        finally:
+            kernel32.LocalFree(descriptor)
+
     def own(self, path):
         if not os.path.isdir(path) or _is_link(path):
             # A folder of its own, never a link to one.
@@ -297,6 +319,8 @@ class WindowsSystem(System):
             owner, access = found
             me = self._sid(self.TOKEN_USER)
             mine = (me, self._sid(self.TOKEN_OWNER))
+            # The one entry as made, as Windows writes it back: compared with the folder's in the same writing.
+            entry = re.findall(r"\(([^)]*)\)", self._as_written(self._access()))
         except OSError:
             # Windows would not say: not known to be this user's alone.
             log.warning("could not tell whose %s is", path, exc_info=True)
@@ -305,7 +329,7 @@ class WindowsSystem(System):
         # (the flags before the entries hold P), one entry: full access for this user, as made.
         flags, _, entries = access[2:].partition("(")
         return (owner in mine and access.startswith("D:") and "P" in flags
-                and re.findall(r"\(([^)]*)\)", "(" + entries) == ["A;OICI;FA;;;%s" % me])
+                and re.findall(r"\(([^)]*)\)", "(" + entries) in (["A;OICI;FA;;;%s" % me], entry))
 
     def make_own(self, path):
         import ctypes

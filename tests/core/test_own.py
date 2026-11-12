@@ -491,8 +491,9 @@ class ShortPathTest(unittest.TestCase):
 
     def test_the_game_folders_own_short_name_comes_first(self):
         root = self.folder("L" * 200)
-        # The drive keeps 8.3 names: the folder's own (a link stands in for it here) fits, and no junction is made.
-        short = os.path.join(self.tmp, "LLLLLL~1")
+        # The drive keeps 8.3 names: the folder's own (a link stands in for it here, under a name no drive makes for
+        # it: a drive with 8.3 names already has LLLLLL~1) fits, and no junction is made.
+        short = os.path.join(self.tmp, "SHORTLNK")
         os.symlink(root, short)
         self.system.short = short
         self.assertEqual(launch.short_path(root, [os.path.join(self.tmp, "links")], self.make), short)
@@ -603,6 +604,8 @@ class FakeWindows:
         from ctypes import wintypes
         self.short, self.owner, self.access = short, self.ME, "D:PAI(A;OICI;FA;;;%s)" % self.ME
         self.calls, self.kept, self.error = [], [], 0
+        # Accounts Windows writes by a short name in an access list (none unless a test says).
+        self.made, self.alias = None, {}
         self.kernel32, self.advapi32 = types.SimpleNamespace(), types.SimpleNamespace()
         p = ctypes.c_void_p
         # Made-up pointers: the process's user and owner, the folder's owner, its access list and security.
@@ -641,6 +644,8 @@ class FakeWindows:
 
         def descriptor_from(text, revision, out, size):
             self.calls.append(("ConvertStringSecurityDescriptorToSecurityDescriptorW", text))
+            # The list made from text, kept to be written back (the folder's own is `access`).
+            self.made = text
             put(out, p, 0x5000)
             return 1
 
@@ -663,7 +668,12 @@ class FakeWindows:
             return 0
 
         def descriptor_text(descriptor, revision, info, out, size):
-            wide(out, self.access)
+            # A list made here is written back as made, the folder's as it is; a well-known account by its short
+            # name, as Windows writes it (`alias`).
+            text = self.made if descriptor == 0x5000 else self.access
+            for sid, short in self.alias.items():
+                text = text.replace(";;;%s)" % sid, ";;;%s)" % short)
+            wide(out, text)
             return 1
 
         def sid_text(sid, out):
@@ -743,6 +753,14 @@ class WindowsCallsTest(unittest.TestCase):
                               (None, "D:PAI(A;OICI;FA;;;%s)" % FakeWindows.OTHER)):
             fake.owner, fake.access = owner or fake.ME, access or "D:PAI(A;OICI;FA;;;%s)" % fake.ME
             self.assertFalse(system.own(folder), (owner, access))
+        # An account Windows writes by a short name (the built-in Administrator is LA): this user's folder still, and
+        # another account's entry still not.
+        fake.alias = {fake.ME: "LA"}
+        fake.owner, fake.access = fake.ME, "D:PAI(A;OICI;FA;;;%s)" % fake.ME
+        self.assertTrue(system.own(folder))
+        fake.access = "D:PAI(A;OICI;FA;;;%s)" % FakeWindows.OTHER
+        self.assertFalse(system.own(folder))
+        fake.alias = {}
         # A folder of this user's set so: its access list protected, from the made-up descriptor's.
         fake.owner, fake.access = fake.ME, "D:AI(A;OICI;FA;;;WD)"
         self.assertTrue(system.make_own(folder))
@@ -759,7 +777,11 @@ class WindowsCallsTest(unittest.TestCase):
         system = launch.WindowsSystem()
         made = os.path.join(self.tmp, "made")
         system.make_folder(made)
-        self.assertTrue(system.own(made))
+        # What Windows said, in the message when it fails: the owner and the list as read, this process's user and
+        # owner, and the entry as made, written back.
+        said = (system._owner_and_access(made), system._sid(system.TOKEN_USER), system._sid(system.TOKEN_OWNER),
+                system._as_written(system._access()))
+        self.assertTrue(system.own(made), said)
         there = os.path.join(self.tmp, "there")
         os.mkdir(there)
         self.assertTrue(system.make_own(there))
