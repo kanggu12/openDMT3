@@ -1,5 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-24 -24 1008 388" width="1008" height="388" font-family="Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 'Malgun Gothic', Helvetica, Arial, sans-serif" role="img" aria-label="64 cabinets and 20 visitors that never pause, for three minutes, on a history of 300,000 plays, before and after the server's work: A cabinet's keep-alive, median 7,802 milliseconds before, 6.8 after; A card login, median 6,363 milliseconds before, 136 after; A page of the site, median 7,714 milliseconds before, 235 after; A page of the site, 95th percentile 10,816 milliseconds before, 745 after. Pages answered in the three minutes: 500 before, 12,103 after. The server held 91 MB of memory.">
-<rect x="-24" y="-24" width="1008" height="388" fill="#f3f5f8"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-54 -54 1068 448" width="1068" height="448" font-family="Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 'Malgun Gothic', Helvetica, Arial, sans-serif" role="img" aria-label="64 cabinets and 20 visitors that never pause, for three minutes, on a history of 300,000 plays, before and after the server's work: A cabinet's keep-alive, median 7,802 milliseconds before, 6.8 after; A card login, median 6,363 milliseconds before, 136 after; A page of the site, median 7,714 milliseconds before, 235 after; A page of the site, 95th percentile 10,816 milliseconds before, 745 after. Pages answered in the three minutes: 500 before, 12,103 after. The server held 91 MB of memory.">
+<defs><clipPath id="card1"><path d="M-24,-38 H972 L984,-26 V364 H-24 Z"/></clipPath><pattern id="dots-light" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="0.9" fill="#0b0e12" fill-opacity="0.05"/></pattern></defs>
+<rect x="-54" y="-54" width="1068" height="448" fill="#f3f5f8"/>
+<rect x="-54" y="-54" width="1068" height="448" fill="url(#dots-light)"/>
+<path d="M-23.5,-37.5 H971.5 L983.5,-25.5 V363.5 H-23.5 Z" fill="#ffffff" stroke="#c3cad3" stroke-width="1"/>
+<path d="M972,-37.5 L983.5,-26" stroke="#8f99a4" stroke-opacity="1" stroke-width="1"/>
+<path fill="#2a5ff0" d="M2.08 -6V-10.68H0.19V-12.19H6.04V-10.68H4.13V-6Z M6.86 -6V-12.19H8.92V-9.9H10.86V-12.19H12.91V-6H10.86V-8.29H8.92V-6Z M14.19 -6V-12.19H19.4V-10.77H16.24V-9.82H18.88V-8.43H16.24V-7.42H19.4V-6Z M26.09 -5.93Q25.65 -5.93 25.14 -5.95Q24.63 -5.97 24.16 -6Q23.69 -6.04 23.32 -6.08V-7.46Q23.71 -7.43 24.09 -7.4Q24.48 -7.38 24.83 -7.36Q25.18 -7.35 25.43 -7.35Q25.88 -7.35 26.12 -7.37Q26.35 -7.39 26.45 -7.44Q26.52 -7.48 26.55 -7.53Q26.58 -7.58 26.58 -7.66Q26.59 -7.75 26.59 -7.84Q26.59 -7.97 26.56 -8.05Q26.53 -8.12 26.45 -8.16Q26.36 -8.21 26.19 -8.23Q26.01 -8.26 25.72 -8.29L24.4 -8.42Q24.01 -8.46 23.76 -8.6Q23.51 -8.74 23.36 -8.98Q23.22 -9.23 23.16 -9.58Q23.1 -9.93 23.1 -10.4Q23.1 -11.01 23.31 -11.38Q23.53 -11.75 23.89 -11.94Q24.26 -12.14 24.76 -12.2Q25.25 -12.26 25.82 -12.26Q26.23 -12.26 26.67 -12.25Q27.12 -12.23 27.54 -12.18Q27.97 -12.14 28.28 -12.07V-10.72Q27.98 -10.76 27.59 -10.79Q27.21 -10.81 26.82 -10.83Q26.43 -10.84 26.11 -10.84Q25.82 -10.84 25.64 -10.82Q25.45 -10.81 25.34 -10.76Q25.23 -10.72 25.2 -10.63Q25.16 -10.55 25.16 -10.43Q25.16 -10.27 25.2 -10.19Q25.23 -10.11 25.36 -10.07Q25.5 -10.02 25.79 -10L27.11 -9.87Q27.39 -9.84 27.63 -9.78Q27.87 -9.72 28.07 -9.59Q28.27 -9.46 28.41 -9.2Q28.48 -9.09 28.54 -8.91Q28.59 -8.74 28.62 -8.5Q28.64 -8.26 28.64 -7.95Q28.64 -7.39 28.51 -7.03Q28.39 -6.66 28.15 -6.43Q27.92 -6.21 27.6 -6.1Q27.28 -6 26.9 -5.96Q26.52 -5.93 26.09 -5.93Z M29.72 -6V-12.19H34.93V-10.77H31.76V-9.82H34.41V-8.43H31.76V-7.42H34.93V-6Z M36.1 -6V-12.19H39.81Q40.48 -12.19 40.9 -12.06Q41.32 -11.93 41.53 -11.67Q41.75 -11.42 41.83 -11.04Q41.9 -10.66 41.9 -10.17Q41.9 -9.74 41.84 -9.39Q41.78 -9.04 41.59 -8.78Q41.41 -8.51 41.03 -8.35L42.02 -6H39.91L38.98 -8.51L39.52 -8.24Q39.38 -8.16 39.25 -8.15Q39.12 -8.13 39.02 -8.13H38.17V-6ZM38.17 -9.46H38.9Q39.23 -9.46 39.42 -9.48Q39.61 -9.51 39.7 -9.58Q39.8 -9.65 39.83 -9.78Q39.85 -9.91 39.85 -10.14Q39.85 -10.36 39.83 -10.49Q39.8 -10.62 39.7 -10.68Q39.61 -10.75 39.42 -10.77Q39.24 -10.8 38.91 -10.8H38.17Z M44.53 -6 42.42 -12.19H44.54L45.82 -8.14H45.9L47.19 -12.19H49.27L47.16 -6Z M49.93 -6V-12.19H55.14V-10.77H51.98V-9.82H54.62V-8.43H51.98V-7.42H55.14V-6Z M56.31 -6V-12.19H60.02Q60.7 -12.19 61.11 -12.06Q61.53 -11.93 61.75 -11.67Q61.96 -11.42 62.04 -11.04Q62.12 -10.66 62.12 -10.17Q62.12 -9.74 62.05 -9.39Q61.99 -9.04 61.81 -8.78Q61.62 -8.51 61.24 -8.35L62.23 -6H60.12L59.19 -8.51L59.73 -8.24Q59.6 -8.16 59.47 -8.15Q59.34 -8.13 59.24 -8.13H58.38V-6ZM58.38 -9.46H59.11Q59.45 -9.46 59.63 -9.48Q59.82 -9.51 59.92 -9.58Q60.01 -9.65 60.04 -9.78Q60.07 -9.91 60.07 -10.14Q60.07 -10.36 60.04 -10.49Q60.01 -10.62 59.92 -10.68Q59.82 -10.75 59.64 -10.77Q59.45 -10.8 59.12 -10.8H58.38Z"/>
 <text x="0" y="18" font-size="19" font-weight="700" fill="#0b0e12" text-anchor="start" data-box="0,960">64 cabinets and 20 visitors at once</text>
 <text x="0" y="42" font-size="13" fill="#47515d" text-anchor="start" data-box="0,960">How long each waited, before and after the server's work. Closer to the left is better.</text>
 <path d="M300.0,70 V236" stroke="#dfe3e8" stroke-width="1"/>
@@ -15,35 +20,35 @@
 <text x="960" y="62" font-size="11.5" fill="#47515d" text-anchor="end" data-box="880,961">faster</text>
 <text x="0" y="100.5" font-size="13" fill="#0b0e12" text-anchor="start" data-box="0,288">A cabinet's keep-alive, median</text>
 <path d="M404.5,96.0 H788.7" stroke="#dfe3e8" stroke-width="2"/>
-<circle cx="788.7" cy="96.0" r="5.5" fill="#7a8592" stroke="#f3f5f8" stroke-width="2"/>
-<circle cx="404.5" cy="96.0" r="5.5" fill="#2a5ff0" stroke="#f3f5f8" stroke-width="2"/>
+<circle cx="788.7" cy="96.0" r="5.5" fill="#7a8592" stroke="#ffffff" stroke-width="2"/>
+<circle cx="404.5" cy="96.0" r="5.5" fill="#2a5ff0" stroke="#ffffff" stroke-width="2"/>
 <text x="393.523" y="100.5" font-size="12" font-weight="600" fill="#0b0e12" text-anchor="end" data-box="294,404.523">6.8 ms</text>
 <text x="799.672" y="100.5" font-size="12" fill="#47515d" text-anchor="start" data-box="788.672,912">7.8 s</text>
 <text x="960" y="100.5" font-size="13.5" font-weight="700" fill="#0b0e12" text-anchor="end" data-box="900,961">1,147x</text>
 <text x="0" y="140.5" font-size="13" fill="#0b0e12" text-anchor="start" data-box="0,288">A card login, median</text>
 <path d="M567.9,136.0 H777.6" stroke="#dfe3e8" stroke-width="2"/>
-<circle cx="777.6" cy="136.0" r="5.5" fill="#7a8592" stroke="#f3f5f8" stroke-width="2"/>
-<circle cx="567.9" cy="136.0" r="5.5" fill="#2a5ff0" stroke="#f3f5f8" stroke-width="2"/>
+<circle cx="777.6" cy="136.0" r="5.5" fill="#7a8592" stroke="#ffffff" stroke-width="2"/>
+<circle cx="567.9" cy="136.0" r="5.5" fill="#2a5ff0" stroke="#ffffff" stroke-width="2"/>
 <text x="556.869" y="140.5" font-size="12" font-weight="600" fill="#0b0e12" text-anchor="end" data-box="294,567.869">136 ms</text>
 <text x="788.555" y="140.5" font-size="12" fill="#47515d" text-anchor="start" data-box="777.555,912">6.4 s</text>
 <text x="960" y="140.5" font-size="13.5" font-weight="700" fill="#0b0e12" text-anchor="end" data-box="900,961">47x</text>
 <text x="0" y="180.5" font-size="13" fill="#0b0e12" text-anchor="start" data-box="0,288">A page of the site, median</text>
 <path d="M597.7,176.0 H788.1" stroke="#dfe3e8" stroke-width="2"/>
-<circle cx="788.1" cy="176.0" r="5.5" fill="#7a8592" stroke="#f3f5f8" stroke-width="2"/>
-<circle cx="597.7" cy="176.0" r="5.5" fill="#2a5ff0" stroke="#f3f5f8" stroke-width="2"/>
+<circle cx="788.1" cy="176.0" r="5.5" fill="#7a8592" stroke="#ffffff" stroke-width="2"/>
+<circle cx="597.7" cy="176.0" r="5.5" fill="#2a5ff0" stroke="#ffffff" stroke-width="2"/>
 <text x="586.691" y="180.5" font-size="12" font-weight="600" fill="#0b0e12" text-anchor="end" data-box="294,597.691">235 ms</text>
 <text x="799.053" y="180.5" font-size="12" fill="#47515d" text-anchor="start" data-box="788.053,912">7.7 s</text>
 <text x="960" y="180.5" font-size="13.5" font-weight="700" fill="#0b0e12" text-anchor="end" data-box="900,961">33x</text>
 <text x="0" y="220.5" font-size="13" fill="#0b0e12" text-anchor="start" data-box="0,288">A page of the site, 95th percentile</text>
 <path d="M660.6,216.0 H806.5" stroke="#dfe3e8" stroke-width="2"/>
-<circle cx="806.5" cy="216.0" r="5.5" fill="#7a8592" stroke="#f3f5f8" stroke-width="2"/>
-<circle cx="660.6" cy="216.0" r="5.5" fill="#2a5ff0" stroke="#f3f5f8" stroke-width="2"/>
+<circle cx="806.5" cy="216.0" r="5.5" fill="#7a8592" stroke="#ffffff" stroke-width="2"/>
+<circle cx="660.6" cy="216.0" r="5.5" fill="#2a5ff0" stroke="#ffffff" stroke-width="2"/>
 <text x="649.603" y="220.5" font-size="12" font-weight="600" fill="#0b0e12" text-anchor="end" data-box="294,660.603">745 ms</text>
 <text x="817.482" y="220.5" font-size="12" fill="#47515d" text-anchor="start" data-box="806.482,912">10.8 s</text>
 <text x="960" y="220.5" font-size="13.5" font-weight="700" fill="#0b0e12" text-anchor="end" data-box="900,961">15x</text>
-<circle cx="5.0" cy="276.0" r="5" fill="#7a8592" stroke="#f3f5f8" stroke-width="2"/>
+<circle cx="5.0" cy="276.0" r="5" fill="#7a8592" stroke="#ffffff" stroke-width="2"/>
 <text x="18" y="280" font-size="12" fill="#47515d" text-anchor="start" data-box="18,70">before</text>
-<circle cx="89.0" cy="276.0" r="5" fill="#2a5ff0" stroke="#f3f5f8" stroke-width="2"/>
+<circle cx="89.0" cy="276.0" r="5" fill="#2a5ff0" stroke="#ffffff" stroke-width="2"/>
 <text x="102" y="280" font-size="12" fill="#47515d" text-anchor="start" data-box="102,154">after</text>
 <text x="960" y="280" font-size="12" fill="#47515d" text-anchor="end" data-box="200,961">Pages answered in the three minutes: 500 before, 12,103 after. Memory: 91 MB.</text>
 <text x="0" y="306" font-size="11.5" fill="#47515d" text-anchor="start" data-box="0,960">A made-up history of 300,000 plays and 1,000 players; the median of three runs or more on a busy 32-core PC (tests/e2e/load).</text>
