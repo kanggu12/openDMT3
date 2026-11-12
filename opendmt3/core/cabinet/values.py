@@ -84,6 +84,12 @@ SOUND_PATH_DEFAULT = "directsound"
 # The game's volume scale (setting.ini comment: "0 ~ 127").
 VOLUME_MAX = 127
 
+# How many milliseconds the game's frames are kept behind a song's music, for a sound device that plays late (Bluetooth
+# and HDMI outputs, 100 to 300 ms): the in-game layer's music lock holds the frames, the notes and their judging that
+# much later against the music (OPENDMT3_AUDIO_OFFSET, AUDIO_OFFSET_MAX in native/cardreader/logic.h). Never below 0:
+# frames ahead of the game's own start would need more than one frame a refresh on a 60 Hz display.
+AUDIO_OFFSET_RANGE = (0, 500)
+
 # Every choice with its default. The defaults are the game's own values in its original setting.ini, except the
 # mouse pointer, which a PC needs (the cabinet hid it under the touch screen).
 DEFAULTS = {
@@ -107,6 +113,7 @@ DEFAULTS = {
     "low_latency": True,            # Windows' sound engine at the shortest period the game's output offers while the
                                     # game runs, 10 ms otherwise (the layer's: native/cardreader/engine.c)
     "sound_path": SOUND_PATH_DEFAULT,  # who mixes the game's sounds: Windows' DirectSound (the layer's)
+    "audio_offset": 0,              # ms the frames are kept behind a song's music (the layer's music lock; none)
     "upscale": UPSCALE_DEFAULT,     # how the picture is enlarged to the window (the layer's)
     "sharpness": SHARPNESS_DEFAULT, # how much fsr1 and nis sharpen (the layer's)
     "antialiasing": ANTIALIASING_DEFAULT,  # edge smoothing before the enlarging (the layer's)
@@ -116,7 +123,7 @@ DEFAULTS = {
 
 # The choices openDMT3's in-game layer reads when the game starts, not lines of setting.ini.
 LAYER_CHOICES = ("frame_pacing", "show_fps", "fps_position", "sound_device", "upscale", "sharpness", "antialiasing",
-                 "picture_shape", "pass_times", "low_latency", "sound_path", "render_size")
+                 "picture_shape", "pass_times", "low_latency", "sound_path", "render_size", "audio_offset")
 
 
 class ChoiceError(ValueError):
@@ -155,6 +162,19 @@ def _percent(name, value):
     # Out-of-range numbers are refused rather than clamped, so a typo never passes silently.
     if not 0 <= number <= 100:
         raise ChoiceError("%s takes a number from 0 to 100, not %r" % (name, value))
+    return number
+
+
+def _milliseconds(name, value, low, high):
+    """A whole number of milliseconds within the range given."""
+    words = "%s takes a number of milliseconds from %d to %d, not %r" % (name, low, high, value)
+    try:
+        number = int(str(value).strip())
+    except (TypeError, ValueError):
+        raise ChoiceError(words) from None
+    # Refused rather than clamped, as the percentages are: a typo never passes silently.
+    if not low <= number <= high:
+        raise ChoiceError(words)
     return number
 
 
@@ -202,6 +222,8 @@ def normalize(values):
                                   "xxxxxxxxxxxx}, as --sound-devices lists them), not %r" % value)
         elif name in ("music_volume", "key_volume", "sharpness"):
             out[name] = _percent(name, value)
+        elif name == "audio_offset":
+            out[name] = _milliseconds(name, value, *AUDIO_OFFSET_RANGE)
         else:
             # The rest are on/off choices.
             out[name] = _bool(name, value)
@@ -246,7 +268,8 @@ def layer_environment(values, language="en"):
     the words' language, whether it draws its own pointer, the frame pacing, the frame rate chip and its corner, the
     sound device, who mixes the game's sounds and whether the sound engine's shortest period is asked for, the upscale
     filter with its sharpness, the anti-aliasing, the picture's shape, whether the picture's GPU time is measured by
-    pass, the size the game draws at. PLAY starts the game with these on top of the launcher's own environment."""
+    pass, the size the game draws at, the audio offset. PLAY starts the game with these on top of the launcher's own
+    environment."""
     v = normalize(values)
     return {
         # The menu's and the question's words follow the launcher's language.
@@ -276,4 +299,6 @@ def layer_environment(values, language="en"):
         "OPENDMT3_PASS_TIMES": "on" if v["pass_times"] else "off",
         # The game drawn at its own 1280x768 or at the screen's size.
         "OPENDMT3_RENDER": v["render_size"],
+        # The frames kept this many milliseconds behind a song's music (whole milliseconds as decimal text; 0: none).
+        "OPENDMT3_AUDIO_OFFSET": str(v["audio_offset"]),
     }

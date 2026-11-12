@@ -154,7 +154,7 @@ on the site, under **My account**: playing on this PC, **Play**, **My records** 
 | :--- | :--- |
 | **Play** | Who plays, the ready check (what PLAY makes), how to play, the last session's stages |
 | **Screen** | Full screen or a window and its size, vertical sync, frame pacing, the picture's shape, the FPS chip and its corner, the size the game draws at, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time |
-| **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), the output device, who mixes the game's sounds, and low latency |
+| **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), the output device, who mixes the game's sounds, low latency, and the audio offset for a device that plays late |
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen), and how each plays |
 | **Game** | The client data in use, with its client, songs and jackets; the song list (**Save the song list...** and, signed in as a server's admin, **Send the song list to this server**); FREE PLAY; the hidden patterns |
 | **Online** | The way to play, the players on this PC, opening this PC's server to the other PCs on your network |
@@ -178,7 +178,9 @@ game faster), so a song's notes move with its frames and its music with the soun
 | **The game's own** | The client's own steps of 17, 17 and 16 ms |
 
 With VSync on, each frame waits for the same number of the display's refreshes (four at 240 Hz). openDMT3 keeps at
-most one frame waiting for the graphics card, so a touch is not held behind frames already queued.
+most one frame waiting for the graphics card, so a touch is not held behind frames already queued. With **Locked to
+the music** or **Even**, each frame also starts just in time for its turn instead of at once, so the touch it carries
+is read as late as the frame's own work allows.
 
 - **Picture shape** (**Screen**): **Keep** (the default) shows the game's 1280x768 picture in its own 5:3 shape, the
   largest that fits, centered, with bars of the launcher's darkest gray on the two other sides of a screen or window
@@ -212,10 +214,14 @@ most one frame waiting for the graphics card, so a touch is not held behind fram
   the game runs. When OpenAL Soft cannot open the device, the game plays through DirectSound, and after the game the
   page says so.
 - **Low latency** (**Sound**, on by default; while **Exclusive** has the device, the game's sound does not go through
-  Windows' mixing and this does not apply): while the game runs, Windows mixes that device's sound in the shortest steps its driver allows: 2.7 ms on many
-  devices, where 10 ms is usual. Every program playing on the device goes in those steps too, until the game closes.
-  After a game, the row says the steps its sound went in on the device chosen now; a driver that allows nothing shorter
-  keeps its 10 ms.
+  Windows' mixing and this does not apply): while the game runs, Windows mixes that device's sound in the shortest
+  steps its driver allows: 2.7 ms on many devices, where 10 ms is usual. Every program playing on the device goes in
+  those steps too, until the game closes. After a game, the row says the steps its sound went in on the device chosen
+  now; a driver that allows nothing shorter keeps its 10 ms.
+- **Audio offset** (**Sound**, 0 ms by default, up to 500): with **Locked to the music**, a song's notes and their
+  judging are held this many milliseconds behind its music, for a device that plays late, such as Bluetooth
+  headphones or a TV's speakers over HDMI. The frames reach a new offset over the first second or two of a song,
+  running a little slower until then.
 
 When the upscale filter or the anti-aliasing chosen makes frames late on this PC's graphics card, the game steps it
 down one step at a time (SMAA to FXAA to off, then AMD FSR 1, NVIDIA NIS or Anime4K to Smooth) for the rest of the
@@ -412,6 +418,7 @@ The settings `--set` takes, each as its page keeps it:
 | `sound_device` | `default`, or a GUID from `--sound-devices` | **Sound**, **Device** |
 | `low_latency` | `on`, `off` | **Sound**, **Low latency** |
 | `sound_path` | `directsound`, `openal`, `openal-exclusive` | **Sound**, **Mixer**: **DirectSound**, **OpenAL Soft**, **Exclusive** |
+| `audio_offset` | 0 to 500 | **Sound**, **Audio offset**, in milliseconds |
 | `cursor` | `on`, `off` | **Controls**: a mouse (`on`) or a touch screen (`off`) |
 | `unlock` | `on`, `off` | **Game**, **Show hidden patterns** |
 

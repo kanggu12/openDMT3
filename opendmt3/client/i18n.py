@@ -175,8 +175,9 @@ TEXT = {
 
     # -------------------------------------------------------------------------------------------- sound
     "sound.title": ("Sound", "소리"),
-    "sound.sub": ("How loud the game plays, from 0 to 100, on which device, and who mixes it.",
-                  "게임 소리의 음량(0~100), 장치, 믹서입니다."),
+    "sound.sub": ("How loud the game plays, from 0 to 100, on which device, who mixes it, and how late that device "
+                  "plays.",
+                  "게임 소리의 음량(0~100), 장치, 믹서, 소리 지연 보정입니다."),
     "sound.volumes": ("Volume", "음량"),
     "sound.music": ("Music", "음악"),
     "sound.music.hint": ("The song's backing track.", "곡의 배경 음악입니다."),
@@ -225,6 +226,11 @@ TEXT = {
                                "allowed none shorter.",
                                "지난 게임에서는 이 장치의 소리를 {ms} ms 단위로 섞었습니다. 드라이버나 Windows가 더 짧은 "
                                "단위를 허락하지 않았습니다."),
+    "sound.offset": ("Audio offset", "소리 지연 보정"),
+    "sound.offset.hint": ("With frame pacing Locked to the music, a song's notes and their judging are held this many "
+                          "milliseconds behind its music, for a device that plays late (Bluetooth, HDMI).",
+                          "프레임 간격이 음악에 맞춤일 때 곡의 노트와 판정을 음악보다 이만큼(밀리초) 늦춥니다. 블루투스, HDMI처럼 "
+                          "소리가 늦게 나는 장치에 맞춥니다."),
 
     # ----------------------------------------------------------------------------------------- controls
     "controls.title": ("Controls", "조작"),

@@ -492,17 +492,22 @@ class Segmented(tk.Label):
 
 
 class Slider(tk.Frame):
-    """A 0-100 slider with its number beside it; command(value) runs when the drag ends."""
+    """A slider from `low` to `high` (0 to 100 unless given) with its number beside it, `unit` after the number (" ms",
+    say); command(value) runs when the drag ends."""
 
-    def __init__(self, parent, ui, value, command, bg=theme.BG, width=320):
+    def __init__(self, parent, ui, value, command, bg=theme.BG, width=320, low=0, high=100, unit=""):
         super().__init__(parent, bg=bg)
         self.ui, self.command, self.value = ui, command, int(value)
+        # The range the track spans, and what the number says after itself.
+        self.low, self.high, self.unit = int(low), int(high), unit
         self.w, self.h = ui.px(width), ui.px(26)
         self.colour = ui.section["accent"]
         self.knob_img = ImageTk.PhotoImage(art.knob(ui.px(18), ring=self.colour), master=parent)
         self.canvas = tk.Canvas(self, width=self.w, height=self.h, bg=bg, highlightthickness=0, cursor="hand2")
         self.canvas.pack(side="left")
-        self.number = tk.Label(self, text="", font=ui.fonts.body_bold, fg=theme.TEXT, bg=bg, width=4, anchor="e")
+        # Room for the largest number and the unit, so the label never changes width as the knob moves.
+        room = max(4, len(str(self.high)) + 1) + len(unit)
+        self.number = tk.Label(self, text="", font=ui.fonts.body_bold, fg=theme.TEXT, bg=bg, width=room, anchor="e")
         self.number.pack(side="left", padx=(ui.px(10), 0))
         self.canvas.bind("<Button-1>", self._drag)
         self.canvas.bind("<B1-Motion>", self._drag)
@@ -512,12 +517,13 @@ class Slider(tk.Frame):
     def _x(self, value):
         """Where a value sits on the track (the knob's centre stays inside the canvas)."""
         pad = self.ui.px(10)
-        return pad + (self.w - 2 * pad) * value / 100.0
+        return pad + (self.w - 2 * pad) * (value - self.low) / float(max(1, self.high - self.low))
 
     def _drag(self, event):
         pad = self.ui.px(10)
         frac = (event.x - pad) / float(max(1, self.w - 2 * pad))
-        self.value = int(round(min(1.0, max(0.0, frac)) * 100))
+        # The nearest whole value on the track, never past either end.
+        self.value = int(round(self.low + min(1.0, max(0.0, frac)) * (self.high - self.low)))
         self._draw()
 
     def _draw(self):
@@ -525,10 +531,10 @@ class Slider(tk.Frame):
         c.delete("all")
         thick = max(2, self.ui.px(4))
         # The empty track, then the filled part up to the knob.
-        c.create_line(self._x(0), mid, self._x(100), mid, fill=theme.RAIL, width=thick, capstyle="round")
-        c.create_line(self._x(0), mid, self._x(self.value), mid, fill=self.colour, width=thick, capstyle="round")
+        c.create_line(self._x(self.low), mid, self._x(self.high), mid, fill=theme.RAIL, width=thick, capstyle="round")
+        c.create_line(self._x(self.low), mid, self._x(self.value), mid, fill=self.colour, width=thick, capstyle="round")
         c.create_image(self._x(self.value), mid, image=self.knob_img)
-        self.number.configure(text=str(self.value))
+        self.number.configure(text=str(self.value) + self.unit)
 
 
 class Select(ttk.Combobox):

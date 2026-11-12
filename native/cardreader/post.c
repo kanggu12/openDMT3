@@ -2323,6 +2323,28 @@ static void fill_bars(IDirect3DDevice9 *dev)
     IDirect3DDevice9_Clear(dev, (DWORD)k, r, D3DCLEAR_TARGET, BAR_COLOR, 1.0f, 0);
 }
 
+IDirect3DSurface9 *post_back_buffer(int *w, int *h)
+{
+    /* The client's size the last frame was presented at; the surface only while the chain runs. */
+    *w = g_client_w;
+    *h = g_client_h;
+    return g_active && g_proxy ? g_real_bb : NULL;
+}
+
+void post_target(IDirect3DDevice9 *dev, int ours)
+{
+    if (ours) {
+        /* The device's own SetRenderTarget: the game's, turned, would give the proxy for the real back buffer. No depth
+         * surface (the game's is its picture's size, smaller than the back buffer). */
+        real_set_render_target(dev, 0, g_real_bb);
+        IDirect3DDevice9_SetDepthStencilSurface(dev, NULL);
+    } else {
+        /* The game's back buffer as it knows it, and its depth surface, as the chain leaves them after its passes. */
+        real_set_render_target(dev, 0, g_proxy);
+        IDirect3DDevice9_SetDepthStencilSurface(dev, g_depth);
+    }
+}
+
 void post_picture(int *x, int *y, int *w, int *h)
 {
     /* The last frame's (the chain sets it at each present); before the first, nothing known: 0 x 0. */

@@ -63,6 +63,23 @@ class LayerChoicesTest(unittest.TestCase):
             with self.assertRaises(values.ChoiceError, msg=bad):
                 values.normalize(bad)
 
+    def test_the_audio_offset_is_whole_milliseconds_in_its_range(self):
+        # None by default: the game's own start of the music against its frames.
+        self.assertEqual(values.DEFAULTS["audio_offset"], 0)
+        self.assertEqual(values.AUDIO_OFFSET_RANGE, (0, 500))
+        # A command line's text or the slider's number, kept as a number, and handed to the layer as decimal text.
+        self.assertEqual(values.normalize({"audio_offset": " 180 "})["audio_offset"], 180)
+        self.assertEqual(values.normalize({"audio_offset": 500})["audio_offset"], 500)
+        self.assertEqual(values.layer_environment({"audio_offset": 180})["OPENDMT3_AUDIO_OFFSET"], "180")
+        # Below 0 (frames ahead of the music, which a 60 Hz display cannot show sooner), past the most, a fraction or
+        # words: refused, never clamped.
+        for bad in (-1, 501, "12.5", "40ms", "", None):
+            with self.subTest(bad=bad), self.assertRaises(values.ChoiceError):
+                values.normalize({"audio_offset": bad})
+        # Never a line of setting.ini: the layer's.
+        self.assertIn("audio_offset", values.LAYER_CHOICES)
+        self.assertEqual(values.ini_changes({"audio_offset": 200}), values.ini_changes({}))
+
     def test_they_are_no_lines_of_the_settings_file(self):
         lines = values.ini_changes({"frame_pacing": "even", "show_fps": True,
                                     "sound_device": "{0000000A-0000-0000-0000-00000000000B}"})
@@ -75,7 +92,7 @@ class LayerChoicesTest(unittest.TestCase):
                                "OPENDMT3_UPSCALE": "fsr1", "OPENDMT3_SHARPNESS": "50", "OPENDMT3_ANTIALIASING": "off",
                                "OPENDMT3_PICTURE_SHAPE": "keep", "OPENDMT3_PASS_TIMES": "off",
                                "OPENDMT3_LOW_LATENCY": "on", "OPENDMT3_SOUND_PATH": "directsound",
-                               "OPENDMT3_RENDER": "game"})
+                               "OPENDMT3_RENDER": "game", "OPENDMT3_AUDIO_OFFSET": "0"})
         # Who mixes the game's sounds: Windows' DirectSound unless OpenAL Soft is chosen, by the layer's names.
         self.assertEqual(values.DEFAULTS["sound_path"], "directsound")
         self.assertEqual(values.layer_environment({"sound_path": "OpenAL"})["OPENDMT3_SOUND_PATH"], "openal")

@@ -52,7 +52,7 @@ const char *const SETTINGS_NAMES[] = {"OPENDMT3_LANGUAGE", "OPENDMT3_CURSOR", "O
                                       "OPENDMT3_FPS_POSITION", "OPENDMT3_SOUND_DEVICE", "OPENDMT3_UPSCALE",
                                       "OPENDMT3_SHARPNESS", "OPENDMT3_ANTIALIASING", "OPENDMT3_PICTURE_SHAPE",
                                       "OPENDMT3_PASS_TIMES", "OPENDMT3_LOW_LATENCY", "OPENDMT3_SOUND_PATH",
-                                      "OPENDMT3_RENDER"};
+                                      "OPENDMT3_RENDER", "OPENDMT3_AUDIO_OFFSET"};
 
 /* The sound paths' names, in the order of SOUND_PATH_* (the launcher's words for them, values.py SOUND_PATHS). */
 const char *const SOUND_PATH_NAMES[SOUND_PATHS] = {"directsound", "openal", "openal-exclusive"};
@@ -98,6 +98,12 @@ void settings_read(Settings *s, const char *name, const char *value)
     } else if (!strcmp(name, "OPENDMT3_PICTURE_SHAPE")) {
         /* "fill" stretches; anything else keeps the game's shape (the default). */
         s->fill = same(value, "fill");
+    } else if (!strcmp(name, "OPENDMT3_AUDIO_OFFSET")) {
+        /* Whole milliseconds 0 to AUDIO_OFFSET_MAX only; anything else leaves the default (none). */
+        char *end = NULL;
+        long v = strtol(value, &end, 10);
+        if (end && end != value && !*end && v >= 0 && v <= AUDIO_OFFSET_MAX)
+            s->audio_offset = (int)v;
     } else if (!strcmp(name, "OPENDMT3_PASS_TIMES")) {
         /* "on" measures the picture's GPU time by pass; anything else leaves it off (the default). */
         s->pass_times = same(value, "on");
@@ -251,6 +257,14 @@ int64_t music_lock_step(MusicLock *m, double ahead_ms, int64_t period)
     return (int64_t)(ms * (double)period * 60.0 / 1000.0);
 }
 
+double music_lock_most(const MusicLock *m)
+{
+    /* The same bounds as music_lock_step's: a stall's distance (over 50 ms, or not read yet) 4 ms, a drift 1 ms. */
+    if (!m->primed || m->smooth > 50.0 || m->smooth < -50.0)
+        return 4.0;
+    return 1.0;
+}
+
 int64_t display_lock_step(double phase, int64_t refresh_ticks)
 {
     if (phase < 0 || refresh_ticks <= 0)
@@ -268,6 +282,91 @@ int64_t display_lock_step(double phase, int64_t refresh_ticks)
     if (move < -1.0 / 64.0)
         move = -1.0 / 64.0;
     return (int64_t)(-move * (double)refresh_ticks);
+}
+
+void jit_start(JitClock *j, int64_t frequency, int fps)
+{
+    memset(j, 0, sizeof *j);
+    /* No clock (the client's own steps): no tick to start a frame ahead of. */
+    j->period = fps > 0 && frequency > 0 ? frequency / fps : 0;
+    j->frequency = frequency;
+    /* The least spare from the start: a frame whose work is known gets its millisecond. */
+    j->spare = (int64_t)(JIT_SPARE_MS * (double)frequency / 1000.0);
+    /* The game's loading first: its frames start at once (their work is measured all the same). */
+    j->settle = JIT_SETTLE;
+}
+
+void jit_frame(JitClock *j, int64_t work, int in_time, int early)
+{
+    if (j->period <= 0)
+        return;
+    /* Kept in the window, the oldest out (a negative reading is the counter's own error: none). */
+    j->work[j->at] = work > 0 ? work : 0;
+    j->at = (j->at + 1) % JIT_WINDOW;
+    if (j->kept < JIT_WINDOW)
+        j->kept++;
+    if (j->settle > 0)
+        j->settle--;
+    /* A rest after a streak of misses counts down with every frame, started at once as they are. */
+    if (j->rest > 0)
+        j->rest--;
+    int64_t least = (int64_t)(JIT_SPARE_MS * (double)j->frequency / 1000.0), most = j->period / 4;
+    if (!in_time && early) {
+        /* Started late by this clock and not done by its tick. With the spare already at its most, one more of a
+         * streak: JIT_STREAK in a row mean the GPU takes longer than any spare covers, and the next JIT_REST frames
+         * start at once (held, they would only be late). */
+        if (j->spare >= most && ++j->streak >= JIT_STREAK) {
+            j->rest = JIT_REST;
+            j->streak = 0;
+        }
+        /* A millisecond more spare, at most a quarter of a frame, and the calm counted again (a frame started at once
+         * that misses says nothing of the spare: its lateness is the work's own, which the window holds). */
+        j->spare += j->frequency / 1000;
+        if (j->spare > most)
+            j->spare = most;
+        j->calm = 0;
+        return;
+    }
+    if (!early)
+        return;
+    /* Started late and in time: the streak of misses is over. */
+    j->streak = 0;
+    /* In time: after five seconds of it in a row, the spare goes back a tenth of a millisecond a frame. */
+    if (++j->calm >= JIT_CALM && j->spare > least) {
+        j->spare -= j->frequency / 10000;
+        if (j->spare < least)
+            j->spare = least;
+    }
+}
+
+int64_t jit_work(const JitClock *j)
+{
+    if (j->kept <= 0)
+        return 0;
+    /* The slowest 1 %: the rank'th largest, rank one more than a hundredth of the frames kept (the second of 120). */
+    int rank = j->kept / 100 + 1;
+    /* The `rank` largest so far, in order (rank is at most 2 here: JIT_WINDOW is under 200). */
+    int64_t top[2] = {-1, -1};
+    for (int i = 0; i < j->kept; i++) {
+        int64_t v = j->work[i];
+        if (v > top[0]) {
+            top[1] = top[0];
+            top[0] = v;
+        } else if (v > top[1]) {
+            top[1] = v;
+        }
+    }
+    return top[rank > 1 ? 1 : 0] > 0 ? top[rank > 1 ? 1 : 0] : 0;
+}
+
+int64_t jit_lead(const JitClock *j, int64_t slack)
+{
+    /* No clock, the loading, a rest after a streak of misses, or no frame measured yet: the next frame starts at
+     * once. */
+    if (j->period <= 0 || j->settle > 0 || j->rest > 0 || j->kept <= 0)
+        return 0;
+    /* Its work, the spare, and what may still move its tick earlier (never less than nothing). */
+    return jit_work(j) + j->spare + (slack > 0 ? slack : 0);
 }
 
 void guard_start(Guard *g)

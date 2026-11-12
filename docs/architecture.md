@@ -179,8 +179,8 @@ built with MinGW) lives inside the game's process. Its `DllMain` reads the launc
 PLAY starts the game with (`OPENDMT3_LANGUAGE`, `OPENDMT3_CURSOR`, `OPENDMT3_PACING`, `OPENDMT3_FPS`,
 `OPENDMT3_FPS_POSITION`, `OPENDMT3_SOUND_DEVICE`, `OPENDMT3_UPSCALE`, `OPENDMT3_SHARPNESS`, `OPENDMT3_ANTIALIASING`,
 `OPENDMT3_PICTURE_SHAPE`, `OPENDMT3_PASS_TIMES`, `OPENDMT3_LOW_LATENCY`, `OPENDMT3_SOUND_PATH`, `OPENDMT3_RENDER`,
-from `core/cabinet/values.py` `layer_environment`) and turns four of the game's imports to its own: the slots of the
-game's import table that hold the real functions get ours, which call the real ones.
+`OPENDMT3_AUDIO_OFFSET`, from `core/cabinet/values.py` `layer_environment`) and turns four of the game's imports to its
+own: the slots of the game's import table that hold the real functions get ours, which call the real ones.
 
 <p align="center">
   <picture>
@@ -500,6 +500,15 @@ frame late is a game slower than its music. Three pacings:
   drift, 4 ms a frame (a quarter of a frame) to win back a stall over 50 ms, so no frame is skipped or doubled and a
   correction is spread over many frames. The distance the game itself started the music at is kept, not corrected.
 
+**The audio offset** (**Sound**, 0 to 500 ms, 0 by default; `OPENDMT3_AUDIO_OFFSET`) moves the lock's target: a
+song's frames are held that many milliseconds further behind its music than the game's own start put them, so the
+notes, and the presses judged against them, meet the music where a sound device that plays late (Bluetooth, a TV over
+HDMI) lets it be heard. The lock takes the new distance as it wins back a stall, 4 ms a frame while more than 50 ms
+off and 1 ms a frame after that: no frame is skipped or doubled, the song's first frames only run a little slower.
+Measured under Wine on the GPU over a whole song at 1920x1080: with 200 ms, the frames went from 184 ms short of it at
+the song's 6th frame to it at the 54th (0.9 s) and kept within 4 ms of it from the 102nd on, but for a stall of the
+busy machine's (81 ms), won back within a second; at the music's stop it was 213 ms ahead of its frames.
+
 With VSync on, the display's own phase is read at each tick (`GetRasterStatus`) and the next tick moved by at most a
 64th of a refresh towards the middle of a refresh, so the present waits for the same refresh every frame: on a 240 Hz
 display every fourth. A display that reports no refresh rate, or whose raster position never moves, is left alone.
@@ -512,6 +521,42 @@ so a change to the primary buffer's format shows no difference here and is not m
 At most one frame waits for the GPU: after each present an event query is issued, and the next frame waits for it
 (at most 100 ms) before its own tick. Work of openDMT3's own that can take milliseconds (a panel's picture drawn again
 as it shows, GDI text) is done at a frame's start, inside its wait for its tick, never after the tick.
+
+**Each frame started just in time** (`hooks.c` `jit_rest`, `logic.c` `jit_lead`). The game reads its input
+(`GetKeyboardState`) as soon as a present hands it control back, so with the wait for its tick at a frame's end, the
+input a frame carried was most of a period old at its present. With even pacing or locked to the music the wait comes
+before the frame instead: after a present, the game's next frame is held until its tick less its work, a spare and what
+may still move the tick earlier, and only then gets control and reads its input.
+
+- **Its work** is the processor's part, from the game's control back to its frame ready to present (the chain's draws
+  handed over, the frame before done on the GPU): the slowest 1 % of the last 120 frames (the second slowest).
+- **The spare** is 1 ms. A frame started late whose picture is not done on the GPU by its tick adds a millisecond, a
+  quarter of a frame at most; after 300 frames started late in a row done in time, it goes back a tenth of a
+  millisecond a frame.
+- **What may move the tick earlier**: the music lock's step while a song plays (1 ms, 4 ms while it wins back a
+  stall) and the display lock's (a 64th of a refresh).
+- **Before its tick**, once the two locks have set it, each frame's commands are flushed to the GPU and its picture
+  waited for (an event query, until the tick at most), so the GPU draws it while it waits; one not done by its tick is
+  the miss above.
+- **The ticks do not move**: the frames leave on them at 60.0 a second, locked to the music and kept to the display's
+  refresh as before.
+- **At once**, as before: a frame whose work and spare leave no room before its tick (a present that came back late),
+  the first 600 frames after the game's device is made or reset (its loading, while the work is learned), the frames
+  while a glass panel shows (its pictures may be drawn again at a frame's start, which the wait before the tick takes
+  in), and the game's own pacing. Three frames started late in a row that miss their tick with the spare at its most
+  (a GPU slower than any spare covers) start the next 300 at once too, after which the clock tries again.
+
+Measured under Wine on the GPU over a whole song, the same build with `OPENDMT3_JIT=off` and without in turns
+([Testing](testing.md#a-song-each-frame-started-just-in-time-before-and-after)): at 1280x768, 65 and 86 % of the
+song's frames started just in time, 10.8 ms before their tick, and under 1 % of those were not done by it. From the
+game's read of a press to its frame done on the GPU took 13.9 ms at the median against 15.6 with every frame started at
+once (1.7 ms less, 1.2 to 2.1 at 95 % over 155 presses a side), at 60.0 frames a second with the same spread and the
+music within 13 ms of its frames at its stop. The whole time from the press, which adds the wait for the game's next
+read from wherever in a frame the press falls, was 21.3 ms against 22.8 at the median, within that wait's own spread at
+these counts. At 1920x1080 Wine's present takes about 9 ms (it reads each frame back from the card to its virtual
+screen, which a present on Windows does not), so a present comes back with less time to the next tick than a frame's
+work and spare: 0.3 % of the frames started just in time, the rest at once by the rule above, and from the read to done
+took 15.4 ms, as with it off. What it takes off on Windows, where a present leaves most of the period, is for a real PC.
 
 Measured on the real client under Wine at 1920x1080 over a whole song (123 s, the frame series and the sound card's
 own cursor):
@@ -538,9 +583,13 @@ own cursor):
   </picture>
 </p>
 
-For measuring under Wine only (never set by the launcher): `OPENDMT3_QUEUE=deep` leaves the queue as Direct3D has it,
-`OPENDMT3_LATENCY_WATCH` logs each press's time to its frame done on the GPU, `OPENDMT3_SAFETY=off` keeps the chosen
-chain, and `OPENDMT3_REFRESH` gives a refresh rate to a virtual screen that reports none.
+For measuring only (never set by the launcher): `OPENDMT3_QUEUE=deep` leaves the queue as Direct3D has it,
+`OPENDMT3_LATENCY_WATCH` logs each press's time to its frame done on the GPU (and its parts: to the game's read of it,
+from the read to the present, from the present to done), `OPENDMT3_JIT=off` starts every frame at once (to compare),
+`OPENDMT3_PRESS_MARK=on` draws a white square at the picture's bottom left in every frame whose read sees the mouse's
+button down (a photodiode's target: a click to light is the game's own way from its input to the screen),
+`OPENDMT3_SAFETY=off` keeps the chosen chain, and `OPENDMT3_REFRESH` gives a refresh rate to a virtual screen that
+reports none.
 
 While the menu or the question is open during a song (the song's music buffer playing), the game is held still:
 

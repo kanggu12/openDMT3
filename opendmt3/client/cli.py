@@ -36,8 +36,9 @@
                                        pass_times=on|off (the picture's GPU time by pass, into the log
                                        when the game closes); the Sound page's low_latency=on|off
                                        (Windows' sound engine at the shortest period the device offers
-                                       while the game runs) and
-                                       sound_path=directsound|openal|openal-exclusive (its Mixer)
+                                       while the game runs),
+                                       sound_path=directsound|openal|openal-exclusive (its Mixer) and
+                                       audio_offset=0..500 (ms a song's notes are held behind its music)
   openDMT3.exe --mode this_pc|server|offline   where logins and records are kept
   openDMT3.exe --server URL            connect to another server and play on it from now on
   openDMT3.exe --sign-in ID            sign in to that server (the password from standard input, or asked for)
@@ -611,7 +612,9 @@ def parse(argv):
                         # The picture's shape: the game's own kept (the default) or the window filled.
                         + ", picture_shape " + "|".join(choices.PICTURE_SHAPES)
                         # The Sound page's Mixer, by the layer's names.
-                        + ", sound_path " + "|".join(choices.SOUND_PATHS))
+                        + ", sound_path " + "|".join(choices.SOUND_PATHS)
+                        # The Sound page's audio offset, in its range.
+                        + ", audio_offset %d to %d ms" % choices.AUDIO_OFFSET_RANGE)
     p.add_argument("--mode", choices=st.MODES, help="where logins and records are kept: this_pc, server or offline")
     p.add_argument("--server", metavar="URL", help="connect to another server and play on it from now on")
     p.add_argument("--sign-in", metavar="ID", help="sign in to that server (the password from standard input)")

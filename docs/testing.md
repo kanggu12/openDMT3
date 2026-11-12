@@ -244,6 +244,7 @@ Three settings of the image keep the frame times and the layer's costs the game'
 | `tests/e2e/windows/gpu/check.sh OUT_DIR` | A 32-bit Direct3D 9 program (`d3d9probe.c`) on the GPU image, on the same image without the GPU and on the CPU image: passes when the GPU's OpenGL renderer names D3D12, the known picture is right at all 80 points, the GPU's frame equals llvmpipe's in every pixel and each screen shows what was drawn (2 minutes) |
 | `OPENDMT3_WINE_GPU=1 tests/e2e/windows/ingame.sh ...` | The test as in the table above, on the GPU (the same for `install_and_play.sh` and `play_a_song.sh`; the containers are named `odt3-gpu-*`, so they never take a CPU run's) |
 | `[OPENDMT3_WINE_GPU=1] [SCREEN=WxH] tests/e2e/windows/gpu/measure.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS] [RUN...]` | The same scenes on either renderer at one screen size, the real client started as a guest on its title screen: what draws it, what showing a frame costs by itself, the game alone (its own limiter, and as fast as it goes), openDMT3 at each picture choice, each part of the layer in turns, the picture's GPU time by pass at every choice, kept and filled, in one start of the game (`passes`; 35 minutes in all up to here), and the frame rate chip with the limiter out, where its number changes at every count (`chip`, a minute and a half: its uploads' times, and the layer's textures made at its first frame). `python3 tests/e2e/windows/gpu/measure.py compare OUT_DIR` puts the sessions side by side; `measure.py passes OUT_DIR [BEFORE_DIR]` tables the passes runs, or two builds' before and after |
+| `[OPENDMT3_WINE_GPU=1] [PRESSES=80] tests/e2e/windows/gpu/song.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS] [VAR=VALUE...]` | A whole song as a guest, the layer at a player's defaults (locked to the music, FSR 1 at 50) and the variables given, on an image whose sound goes to PulseAudio's null sink (`gpu/sound/Dockerfile`), which plays in real time, so the music lock holds the song at 60 a second (ALSA's null device, the other tests' sound, runs its play cursor ahead of real time): every frame's length, the music against the frames at its stop, and PRESSES presses (none after the song) timed from each press's message to its frame done on the GPU, with the parts the layer gives (to the game's read of it, from the read to the present, from the present to done); `song.py OUT_DIR` turns a run into its numbers (`results.json`), and `song.py compare A_DIR[,A_DIR...] B_DIR[,B_DIR...]` pools two sides' presses for their medians and the difference's 95 % interval; 7 minutes a run |
 | `OPENDMT3_WINE_GPU=1 tests/e2e/windows/gpu/measure.sh ... pictures:keep pictures:fill` with one build, again with the other and `PICTURE_SOURCE=` the first run's session, then `python3 tests/e2e/windows/gpu/pictures.py A_DIR B_DIR` | The chain's measuring dump of frames of the title screen (`PICTURE_FRAMES`, 1800 and 2400 by default) with every filter and anti-aliasing, kept and filled. The title's animation is not at the same picture at a frame number in two runs, so the second run takes the first's game picture of each frame in place of its own (`OPENDMT3_POSTFX_SOURCE`); `pictures.py` holds the two runs' dumps against each other: the game's own frame must be the same in both, then each picture's pixels that differ, the largest difference and the PSNR (exit 0 only when all are the same) |
 
 What a player's PC does not have, and so what the numbers below hold besides the game's and openDMT3's own work:
@@ -547,6 +548,38 @@ Its four layers run on the game's 1280x768 pixels whatever the window's size, so
 window, where EASU's and NIS's scaler grow with the window's pixels: about 1.7 times FSR 1's chain at 1920x1080, 0.6
 times at 3840x2160. At the card's resting 225 MHz its chain takes about 1.1 ms of a 16.7 ms frame at 1920x1080 and
 1.2 ms at 3840x2160.
+
+#### A song, each frame started just in time, before and after
+
+On 2026-11-13, the same card, a whole song as a guest on the GPU image (`gpu/song.sh`: PulseAudio's null sink, so the
+music lock holds the song at 60 a second), the layer at a player's defaults, 80 presses a run from the song's 20th
+second, each timed by the layer from its message to its frame done on the GPU (the 76 to 79 inside the song counted).
+One run at a time, in the order below: before (this release's build), after, and after with `OPENDMT3_JIT=off` (every
+frame started at once: the two differ in nothing else). "Read to done" is the part from the game's read of a press to
+its frame done, the press's own wait for that read falling anywhere in a frame either way; "just in time" is the share
+of the song's frames started so; the load is the 1-minute load average at the run's start, the PC being shared with
+other work.
+
+| Screen, build | Just in time | Frames a second | Spread, 99 % (ms) | Over 20 ms | Music at the stop (ms) | Press to done: median (10 %, 90 %) (ms) | Read to done (ms) | Load |
+|---|---|---|---|---|---|---|---|---|
+| 1280x768, before | - | 59.98 | 2.85, 29.6 | 2.9 % | +47 | 23.8 (15.7, 30.9) | - | 21 |
+| 1280x768, after | 65 % | 59.99 | 2.21, 26.6 | 2.1 % | +13 | 21.0 (14.5, 28.9) | 14.1 | 10 |
+| 1920x1080, after, off | off | 60.00 | 2.95, 32.3 | 4.0 % | -3 | 23.1 (16.0, 31.0) | 15.1 | 6 |
+| 1920x1080, before | - | 60.00 | 2.65, 30.2 | 2.4 % | -10 | 23.1 (16.9, 31.0) | - | 9 |
+| 1920x1080, after | 0.3 % | 59.99 | 4.12, 34.1 | 7.6 % | -3 | 24.2 (13.3, 33.1) | 15.4 | 11 |
+| 1280x768, after, off | off | 60.00 | 2.31, 28.9 | 2.0 % | -10 | 23.0 (17.4, 31.0) | 15.4 | 12 |
+| 1280x768, after | 86 % | 60.00 | 1.87, 22.2 | 1.1 % | -3 | 21.7 (15.4, 29.0) | 13.6 | 12 |
+| 1920x1080, after, off | off | 60.00 | 1.52, 21.5 | 1.2 % | -3 | 20.7 (16.9, 31.4) | 15.5 | 5 |
+| 1280x768, after, off | off | 60.00 | 1.39, 21.3 | 1.1 % | -13 | 22.6 (16.8, 30.5) | 15.8 | 3 |
+
+At 1280x768 Wine's present, with each frame read back from the card to the virtual screen, leaves room before the
+next tick on most frames: over the two pairs (`song.py compare`), the frames started just in time took 1.7 ms off from
+the read to done (13.86 against 15.60 ms at the median over 155 and 156 presses; 1.2 to 2.1 at 95 %, by resampling)
+with the same pacing.
+At 1920x1080 the present takes about 9 ms and leaves less than a frame's work and spare: the frames start at once, and
+from the read to done is the same. The frames' spread follows the machine's load more than the build. Two runs before
+these at 1920x1080, before and after, under a load of 12 and 18, fell to 57.2 and 56.1 frames a second (15 and 29 %
+over 20 ms) and are left out.
 
 ## Before a release
 

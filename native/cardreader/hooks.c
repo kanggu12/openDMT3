@@ -303,6 +303,20 @@ static IDirect3DQuery9 *g_frame_done;
 static int g_frame_done_issued, g_queue_deep, g_queue_checked;
 /* The safety net over the post-process chain. */
 static Guard g_guard;
+/* Each frame started just in time (logic.h JitClock, even pacing only): the clock; the event query that says this
+ * frame's picture is done on the GPU; when the game got control back for this frame (0: not known, as after a reset);
+ * whether that start was held back by the clock. OPENDMT3_JIT=off (measuring only, to compare) starts every frame at
+ * once, as before. */
+static JitClock g_jit;
+static IDirect3DQuery9 *g_ready;
+static LONGLONG g_frame_start;
+static int g_started_late, g_jit_off = -1;
+/* The counter's two seconds of it: frames held back, those whose picture was not done by their tick (and of those, the
+ * ones held back), and the lead's and the work's sums over the frames held back (ticks); over every frame measured, the
+ * work's sum and its share on the processor (up to the wait for the GPU: the GPU's own finishing is the rest), and how
+ * many were measured. */
+static LONG g_jit_held, g_jit_missed, g_jit_missed_held, g_jit_measured;
+static LONGLONG g_jit_lead_sum, g_jit_work_sum, g_jit_all_sum, g_jit_cpu_sum;
 
 /* The client's own frame limiter: the PC build's patch section holds every frame at 17, 17 and 16 ms (timeGetTime and
  * Sleep(1)), entered by a jump written over the first instruction of the game's per-frame function at 0x455430. Taken
@@ -337,6 +351,10 @@ static void take_parameters(const D3DPRESENT_PARAMETERS *pp)
     QueryPerformanceFrequency(&g_frequency);
     /* Even pacing: exactly 60 a second by openDMT3's clock, VSync on or off (the game's logic runs once a frame). */
     pacer_start(&g_pacer, g_frequency.QuadPart, g_own_clock ? GAME_FPS : 0);
+    /* Frames started just in time against that clock (none without it), its loading counted again after a reset. */
+    jit_start(&g_jit, g_frequency.QuadPart, g_own_clock ? GAME_FPS : 0);
+    g_frame_start = 0;
+    g_started_late = 0;
     /* A new song lock after a reset: the next frame's reading starts it again. */
     g_lock_song = -1;
     ingame_log("picture: vsync %s, pacing %s", g_vsync ? "on" : "off",
@@ -402,9 +420,25 @@ static void lock_to_music(LONGLONG now)
         g_lock_song = started;
         g_lock_base = ahead;
         music_lock_start(&g_lock);
-        ingame_log("pacing: locked to the music started at frame %ld (%.1f ms from its frames)", started, ahead);
+        ingame_log("pacing: locked to the music started at frame %ld (%.1f ms from its frames; the frames kept %d ms "
+                   "behind it for the sound device)", started, ahead, g_settings.audio_offset);
     }
-    g_pacer.next -= music_lock_step(&g_lock, ahead - g_lock_base, g_pacer.period);
+    /* The audio offset: the frames held that much further behind the music than the game's own start put them, so
+     * what is seen and judged meets the music as a sound device that plays late lets it be heard. The lock reaches it
+     * as it wins back any distance (1 ms a frame, 4 ms while over 50 ms away). */
+    double off = ahead - g_lock_base - g_settings.audio_offset;
+    g_pacer.next -= music_lock_step(&g_lock, off, g_pacer.period);
+    /* Measuring (OPENDMT3_SOUND_WATCH): the song's first 10 s, every sixth frame, how far the frames are from the
+     * lock's target (how a new offset settles). */
+    static int watch = -1;
+    if (watch < 0) {
+        char v[4];
+        watch = GetEnvironmentVariableA("OPENDMT3_SOUND_WATCH", v, sizeof v) > 0;
+    }
+    long frame = ingame_frame() + 1 - started;
+    if (watch > 0 && frame <= 600 && frame % 6 == 0)
+        ingame_log("pacing: song frame %ld, the music %.1f ms ahead of the frames, %.1f ms from the lock's target",
+                   frame, ahead - g_lock_base, off);
 }
 
 /* At most one frame queued: the previous frame's present done on the GPU before this one is handed over. */
@@ -453,10 +487,10 @@ static void mark_frame_done(IDirect3DDevice9 *dev)
         g_frame_done_issued = 1;
 }
 
-/* Input latency (OPENDMT3_LATENCY_WATCH, measuring only): a press's time, the frame the game first saw it in, and
- * that frame's present done on the GPU. */
+/* Input latency (OPENDMT3_LATENCY_WATCH, measuring only): a press's time, the frame the game first saw it in (and
+ * when its read saw it), and that frame's present done on the GPU. */
 static int g_latency_watch = -1;
-static LONGLONG g_press_at;
+static LONGLONG g_press_at, g_press_read;
 static long g_press_frame = -1;
 static double g_latency_sum, g_latency_max;
 static LONG g_latency_count;
@@ -478,15 +512,21 @@ void ingame_press(void)
     g_press_frame = -1;
 }
 
-/* The game read the mouse's button down: this frame carries the press (the first after it). */
+/* The game read the mouse's button down: this frame carries the press (the first after it), read now. */
 static void press_seen(const BYTE *keys)
 {
-    if (g_latency_watch > 0 && g_press_at && g_press_frame < 0 && (keys[VK_LBUTTON] & 0x80))
+    if (g_latency_watch > 0 && g_press_at && g_press_frame < 0 && (keys[VK_LBUTTON] & 0x80)) {
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
         g_press_frame = ingame_frame() + 1;
+        /* The read's own time: the press to it is the wait for the game's next read, it to the present the frame's. */
+        g_press_read = now.QuadPart;
+    }
 }
 
-/* After the present of the frame that carries the press: wait for it on the GPU, then the press's latency. */
-static void press_done(IDirect3DDevice9 *dev)
+/* After the present (made at `presented`) of the frame that carries the press: wait for it on the GPU, then the
+ * press's latency, and its parts: to the game's read of it, from there to the present, from there to done. */
+static void press_done(IDirect3DDevice9 *dev, LONGLONG presented)
 {
     if (g_latency_watch <= 0 || g_press_frame < 0 || g_press_frame != ingame_frame())
         return;
@@ -499,17 +539,66 @@ static void press_done(IDirect3DDevice9 *dev)
             QueryPerformanceCounter(&now);
         } while (IDirect3DQuery9_GetData(g_latency_done, NULL, 0, D3DGETDATA_FLUSH) == S_FALSE &&
                  now.QuadPart - start.QuadPart < g_frequency.QuadPart / 2);
-        double ms = (double)(now.QuadPart - g_press_at) * 1000.0 / (double)g_frequency.QuadPart;
+        double f = (double)g_frequency.QuadPart, ms = (double)(now.QuadPart - g_press_at) * 1000.0 / f;
         g_latency_sum += ms;
         g_latency_count++;
         if (ms > g_latency_max)
             g_latency_max = ms;
-        ingame_log("latency: press to its frame done %.2f ms (frame %ld; %s; mean %.2f over %ld, longest %.2f)", ms,
-                   g_press_frame, g_queue_deep ? "queue as Direct3D allows" : "one frame queued",
-                   g_latency_sum / g_latency_count, (long)g_latency_count, g_latency_max);
+        ingame_log("latency: press to its frame done %.2f ms (to the game's read %.2f, read to present %.2f, present "
+                   "to done %.2f; frame %ld; %s, %s; mean %.2f over %ld, longest %.2f)", ms,
+                   (double)(g_press_read - g_press_at) * 1000.0 / f, (double)(presented - g_press_read) * 1000.0 / f,
+                   (double)(now.QuadPart - presented) * 1000.0 / f, g_press_frame,
+                   g_queue_deep ? "queue as Direct3D allows" : "one frame queued",
+                   g_started_late ? "started just in time" : "started at once", g_latency_sum / g_latency_count,
+                   (long)g_latency_count, g_latency_max);
     }
     g_press_at = 0;
     g_press_frame = -1;
+}
+
+/* Measuring (OPENDMT3_PRESS_MARK=on, never set by the launcher): a white square at the picture's bottom left in every
+ * frame whose read of the keys sees the mouse's button down, a photodiode's target, so the time from a click to light
+ * there is the game's own way from its input to the screen (the frame that carries a press is the one the latency watch
+ * times). Whether it is on (-1: not read yet), and whether this frame's read saw the button down. */
+static int g_press_mark = -1, g_mark_down;
+
+/* The press mark into the chain's picture, before the frame's present (nothing with no chain, or the button up). */
+static void press_mark(IDirect3DDevice9 *dev)
+{
+    if (g_press_mark < 0) {
+        /* Read once; a value too long for the buffer (GetEnvironmentVariableA then writes nothing) is not "on". */
+        char v[4] = "";
+        DWORD got = GetEnvironmentVariableA("OPENDMT3_PRESS_MARK", v, sizeof v);
+        g_press_mark = got > 0 && got < sizeof v && !lstrcmpiA(v, "on");
+        if (g_press_mark)
+            ingame_log("latency: the press mark on (a white square at the picture's bottom left while the button is "
+                       "down)");
+    }
+    int w, h;
+    if (g_press_mark <= 0 || !g_mark_down || !post_back_buffer(&w, &h) || w <= 0 || h <= 0)
+        return;
+    /* A tenth of the picture's height a side (at least 32 pixels), in its bottom left corner. */
+    int x, y, pw, ph;
+    post_picture(&x, &y, &pw, &ph);
+    int side = ph / 10 > 32 ? ph / 10 : 32;
+    D3DRECT r = {x, y + ph - side, x + side, y + ph};
+    /* Into the real back buffer, the game's viewport, scissor rectangle and scissor test kept round it (setting a
+     * render target sets the viewport and the scissor rectangle to the whole target). */
+    D3DVIEWPORT9 vp;
+    RECT clip;
+    DWORD scissor = FALSE;
+    IDirect3DDevice9_GetViewport(dev, &vp);
+    HRESULT had_clip = IDirect3DDevice9_GetScissorRect(dev, &clip);
+    IDirect3DDevice9_GetRenderState(dev, D3DRS_SCISSORTESTENABLE, &scissor);
+    post_target(dev, 1);
+    IDirect3DDevice9_SetRenderState(dev, D3DRS_SCISSORTESTENABLE, FALSE);
+    IDirect3DDevice9_Clear(dev, 1, &r, D3DCLEAR_TARGET, 0xFFFFFFFF, 1.0f, 0);
+    IDirect3DDevice9_SetRenderState(dev, D3DRS_SCISSORTESTENABLE, scissor);
+    /* The game's target back, then its viewport and scissor rectangle over what that set. */
+    post_target(dev, 0);
+    IDirect3DDevice9_SetViewport(dev, &vp);
+    if (SUCCEEDED(had_clip))
+        IDirect3DDevice9_SetScissorRect(dev, &clip);
 }
 
 /* Wait `ticks` of the counter: sleep while more than 2 ms is left, then spin to the tick (Sleep alone is too
@@ -530,6 +619,130 @@ static void wait_ticks(LONGLONG ticks)
         else
             YieldProcessor();
     }
+}
+
+/* ------------------------------------------------------------------------------------- frames just in time */
+
+/* Whether frames are started just in time: even pacing's clock runs, OPENDMT3_JIT=off (measuring only) is not set, nor
+ * the deep queue (measuring Direct3D's own queue, which waiting for each frame's picture would take away). */
+static int jit_wanted(void)
+{
+    if (g_jit_off < 0) {
+        /* Read once; a value too long for the buffer (GetEnvironmentVariableA then writes nothing) is not "off". */
+        char v[8] = "";
+        DWORD got = GetEnvironmentVariableA("OPENDMT3_JIT", v, sizeof v);
+        /* The deep queue is known by now: the frame's present asks wait_previous_frame first. */
+        g_jit_off = (got > 0 && got < sizeof v && !lstrcmpiA(v, "off")) || g_queue_deep;
+        ingame_log("pacing: %s", g_jit_off ? "every frame started at once (measuring)"
+                                           : "each frame started just in time for its tick, by openDMT3's clock");
+    }
+    return !g_jit_off && g_own_clock && g_pacer.period > 0;
+}
+
+/* This frame's picture done on the GPU, waited for until its tick at most (an event query issued after its last draw,
+ * the commands flushed): when it was done on the counter, 0 when it was not by the tick, -1 when it cannot be known
+ * (no query, a lost device, no tick yet). */
+static LONGLONG wait_ready(IDirect3DDevice9 *dev)
+{
+    if (!g_pacer.next)
+        return -1;
+    if (!g_ready && FAILED(IDirect3DDevice9_CreateQuery(dev, D3DQUERYTYPE_EVENT, &g_ready)))
+        g_ready = NULL;
+    if (!g_ready || FAILED(IDirect3DQuery9_Issue(g_ready, D3DISSUE_END)))
+        return -1;
+    LARGE_INTEGER now;
+    for (;;) {
+        /* Asked with the commands flushed, as wait_previous_frame asks: a frame's draws not yet handed to the driver
+         * would never answer. */
+        HRESULT hr = IDirect3DQuery9_GetData(g_ready, NULL, 0, D3DGETDATA_FLUSH);
+        QueryPerformanceCounter(&now);
+        /* Done: its time. A lost device answers nothing until the game resets it: not known. */
+        if (hr == S_OK)
+            return now.QuadPart;
+        if (hr != S_FALSE)
+            return -1;
+        /* Its tick came first: the frame goes as it is (the GPU finishes it after its present, as before). */
+        if (now.QuadPart >= g_pacer.next)
+            return 0;
+        /* As wait_previous_frame asks again: a millisecond's sleep while the tick is more than 2 ms off, else only the
+         * rest of this thread's turn (the GPU's work is what is waited for: no spin over the driver's threads). */
+        if (g_pacer.next - now.QuadPart > g_frequency.QuadPart / 500)
+            Sleep(1);
+        else
+            SwitchToThread();
+    }
+}
+
+/* Before the frame's tick (as the locks have just set it): its work on the processor since the game got control back,
+ * to `drawn`, counted for the clock, then its picture waited for on the GPU until the tick at most; a frame whose
+ * picture was not done by its tick is a miss. The clock counts on the processor's part: the GPU's finishing comes after
+ * the frame's draws whatever starts them, and its time to an answer was found erratic where the measuring is done
+ * (WSL's D3D12, other GPU work: a third of the frames answered 10 to 15 ms late where their draws took 4 ms), so a miss
+ * grows the spare instead. */
+static void jit_measure(IDirect3DDevice9 *dev, LONGLONG drawn)
+{
+    if (!jit_wanted())
+        return;
+    /* The processor's part ended at `drawn` (the chain's draws handed over, the frame before done): what follows is
+     * the wait for the GPU to finish the picture. */
+    LARGE_INTEGER cpu_done;
+    cpu_done.QuadPart = drawn;
+    LONGLONG done = wait_ready(dev);
+    /* No start to measure from (the first frame after a reset): nothing counted. */
+    if (!g_frame_start)
+        return;
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    LONGLONG work = cpu_done.QuadPart - g_frame_start;
+    /* In time: its picture done by its tick (or, where that cannot be known, its draws handed over before it). */
+    int in_time = done > 0 || (done < 0 && cpu_done.QuadPart < g_pacer.next);
+    jit_frame(&g_jit, work, in_time, g_started_late);
+    if (!in_time) {
+        g_jit_missed++;
+        if (g_started_late)
+            g_jit_missed_held++;
+    }
+    if (g_started_late)
+        g_jit_work_sum += work;
+    /* Every frame's whole: from its start to its picture done on the GPU (or to its tick, when not done by then). */
+    g_jit_measured++;
+    g_jit_all_sum += (done > 0 ? done : now.QuadPart) - g_frame_start;
+    g_jit_cpu_sum += work;
+}
+
+/* After the present: the game's next frame held back until just before its tick (its work, the spare, and what the
+ * music lock and the display lock may still take off the tick), then the game gets control and reads its input. */
+static void jit_rest(void)
+{
+    g_started_late = 0;
+    if (!jit_wanted() || !g_pacer.next)
+        return;
+    /* A glass panel on the screen (the bar, a menu or the question, a toast): the next frame may draw its pictures
+     * again (milliseconds of GDI at a frame's start), which the wait before the tick absorbs. It starts at once. */
+    LONGLONG layer_cpu;
+    int parts, panels;
+    post_layer_cost(&layer_cpu, &parts, &panels);
+    if (panels > 0)
+        return;
+    /* What may move the tick earlier before the next frame leaves: the music lock's step while a song's music leads,
+     * and the display lock's (a 64th of a refresh). */
+    double slack_ms = g_settings.music_lock && g_lock_song >= 0 ? music_lock_most(&g_lock) : 0.0;
+    LONGLONG slack = (LONGLONG)(slack_ms * (double)g_frequency.QuadPart / 1000.0);
+    if (g_refresh_ticks)
+        slack += g_refresh_ticks / 64;
+    LONGLONG lead = jit_lead(&g_jit, slack);
+    if (lead <= 0)
+        return;
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    LONGLONG rest = g_pacer.next - lead - now.QuadPart;
+    /* No room (its work and the spare fill the period, or the present itself ran late): at once. */
+    if (rest <= 0)
+        return;
+    wait_ticks(rest);
+    g_started_late = 1;
+    g_jit_held++;
+    g_jit_lead_sum += lead;
 }
 
 /* The post-process chain's cost over the counter's two seconds (CPU ticks summed and longest, the GPU's microseconds
@@ -738,6 +951,21 @@ static void count_present(LONGLONG now, int game)
                "openDMT3 %.1f us a frame (longest %.1f)", (double)g_frames * f / (double)span, mean * 1000 / f,
                (var > 0 ? sqrt(var) : 0) * 1000 / f, p99, (double)g_gap_max * 1000 / f, 100.0 * over / gaps,
                (double)g_layer_sum * 1e6 / f / g_frames, (double)g_layer_max * 1e6 / f);
+    if (jit_wanted()) {
+        /* The frames started just in time in these two seconds (the game's own: held frames are not), how far ahead of
+         * their tick, their work then; the clock's view now; the frames whose picture was not done by their tick. */
+        double held = g_jit_held > 0 ? (double)g_jit_held : 1.0, measured = g_jit_measured > 0 ? g_jit_measured : 1.0;
+        ingame_log("jit: %ld of %ld frames started just in time, %.2f ms before their tick (their work %.2f ms; the "
+                   "clock counts on %.2f with %.2f spare); %ld not done by their tick (%ld of those started just in "
+                   "time); every frame's work %.2f ms to its picture done, %.2f of it on the processor",
+                   (long)g_jit_held,
+                   (long)(g_frames - g_held_frames), (double)g_jit_lead_sum * 1000.0 / f / held,
+                   (double)g_jit_work_sum * 1000.0 / f / held, (double)jit_work(&g_jit) * 1000.0 / f,
+                   (double)g_jit.spare * 1000.0 / f, (long)g_jit_missed, (long)g_jit_missed_held,
+                   (double)g_jit_all_sum * 1000.0 / f / measured, (double)g_jit_cpu_sum * 1000.0 / f / measured);
+        g_jit_held = g_jit_missed = g_jit_missed_held = g_jit_measured = 0;
+        g_jit_lead_sum = g_jit_work_sum = g_jit_all_sum = g_jit_cpu_sum = 0;
+    }
     if (post_running())
         ingame_log("post: %d passes a frame, CPU %.1f us a frame (longest %.1f), GPU %s", g_post_passes,
                    (double)g_post_sum * 1e6 / f / g_frames, (double)g_post_max * 1e6 / f,
@@ -856,9 +1084,12 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
         src = shown;
     else
         post_layer_without_chain(dev);
+    /* Measuring: the press mark over the picture while the game reads the button down. */
+    press_mark(dev);
     /* The previous frame done on the GPU before this one goes (at most one queued); within the frame's wait below,
      * so it delays nothing that is on time. */
     wait_previous_frame(dev);
+    /* The frame's work on the processor ends here; the locks set its tick from now. */
     QueryPerformanceCounter(&t0);
     /* Locked to the music while a song plays: the next tick moved towards the music's clock. */
     lock_to_music(t0.QuadPart);
@@ -877,17 +1108,26 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
             g_pacer.next += display_lock_step(at_tick, g_refresh_ticks);
         }
     }
-    /* Even pacing: each frame leaves on its tick of 60 a second. */
-    LONGLONG wait = pacer_wait(&g_pacer, t0.QuadPart);
+    /* Started just in time: this frame's own picture done on the GPU, until its tick as the locks have just set it at
+     * most (waiting to the tick before they moved it would send the frame late), its work up to t0 counted. */
+    LARGE_INTEGER locked, ready;
+    QueryPerformanceCounter(&locked);
+    jit_measure(dev, t0.QuadPart);
+    QueryPerformanceCounter(&ready);
+    /* Even pacing: each frame leaves on its tick of 60 a second, waited for from now (the picture's wait above may
+     * have taken part of it, or all). */
+    LONGLONG wait = pacer_wait(&g_pacer, ready.QuadPart);
     if (wait > 0)
         wait_ticks(wait);
     QueryPerformanceCounter(&now);
     count_present(now.QuadPart, 1);
     trace_frame();
-    /* The cost of this frame's own work (the wait for the frame's tick is not work), kept for the counter's line. */
+    /* The cost of this frame's own work (the waits for the picture and for the frame's tick are not work), kept for the
+     * counter's line: with no wait for the tick, the locks' time and the time from the picture's wait to now too. */
     LARGE_INTEGER t1;
     QueryPerformanceCounter(&t1);
-    g_layer_frame += (t1.QuadPart - now.QuadPart) + (wait > 0 ? 0 : now.QuadPart - t0.QuadPart);
+    g_layer_frame += (t1.QuadPart - now.QuadPart) +
+                     (wait > 0 ? 0 : (locked.QuadPart - t0.QuadPart) + (now.QuadPart - ready.QuadPart));
     g_layer_sum += g_layer_frame;
     if (g_layer_frame > g_layer_max)
         g_layer_max = g_layer_frame;
@@ -897,10 +1137,15 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
     mark_frame_done(dev);
     /* By pass (OPENDMT3_PASS_TIMES=on): the game's own next frame begins here. */
     post_after_present(dev);
-    press_done(dev);
+    press_done(dev, now.QuadPart);
     /* The menu or the question open during a song: the game held still here until it closes. */
     if (SUCCEEDED(hr) && layer_hold_wanted())
         hold_still(dev, window, dst, dirty);
+    /* The game's next frame held back until just before its tick, so the input it reads first is that much newer; its
+     * start is where its work is counted from. */
+    jit_rest();
+    QueryPerformanceCounter(&t1);
+    g_frame_start = t1.QuadPart;
     return hr;
 }
 
@@ -918,6 +1163,10 @@ static HRESULT STDMETHODCALLTYPE our_reset(IDirect3DDevice9 *dev, D3DPRESENT_PAR
     if (g_latency_done) {
         IDirect3DQuery9_Release(g_latency_done);
         g_latency_done = NULL;
+    }
+    if (g_ready) {
+        IDirect3DQuery9_Release(g_ready);
+        g_ready = NULL;
     }
     /* The layer's own state block (drawn without the chain) goes too. */
     post_layer_before_reset();
@@ -1020,6 +1269,9 @@ static BOOL WINAPI our_keys(PBYTE keys)
     /* The game's view of the keys while the layer holds them (logic.c hold_keys). */
     if (ok && keys)
         g_keys_waiting = hold_keys(keys, layer_holds_input(), g_keys_waiting);
+    /* The press mark follows the button as the game reads it this frame (measuring only). */
+    if (ok && keys)
+        g_mark_down = (keys[VK_LBUTTON] & 0x80) != 0;
     QueryPerformanceCounter(&t1);
     /* Its cost counts with the frame's (the game reads the keys once a frame). */
     ingame_cost(t1.QuadPart - t0.QuadPart);
@@ -1155,11 +1407,12 @@ void ingame_attach(HMODULE module)
     char device[39];
     format_guid(g_settings.device, device);
     ingame_log("start: language %s, cursor %s, pacing %s, frame rate chip %s, sound device %s, upscale %s, sharpness %d, "
-               "anti-aliasing %s", g_settings.korean ? "ko" : "en", g_settings.cursor ? "ours" : "the game's",
+               "anti-aliasing %s, audio offset %d ms", g_settings.korean ? "ko" : "en",
+               g_settings.cursor ? "ours" : "the game's",
                g_settings.music_lock ? "music" : g_settings.even_pacing ? "even" : "the client's own",
                g_settings.show_fps ? "on" : "off",
                g_settings.has_device ? device : "default", UPSCALE_NAMES[g_settings.upscale], g_settings.sharpness,
-               AA_NAMES[g_settings.antialiasing]);
+               AA_NAMES[g_settings.antialiasing], g_settings.audio_offset);
     QueryPerformanceFrequency(&g_frequency);
     /* Measuring only: every frame's length into a file. */
     char series[MAX_PATH];

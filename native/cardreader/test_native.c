@@ -746,6 +746,228 @@ static void test_music_lock(void)
     check(music_lock_step(&m, 0.5, 166666) == 0, "music lock: under 1 ms is left alone");
 }
 
+/* The audio offset: read from the launcher's variable (whole milliseconds, 0 to the most), then a song simulated as in
+ * test_music_lock with the lock's target that much later: the frames end up behind the music by the offset, no frame
+ * longer than a period and the lock's step on the way, none shorter than a period less a millisecond (the lock's own
+ * settling past the target, a drift's step). Returns the seconds the lock took to come within 2 ms of the offset (-1:
+ * never). */
+static double offset_song(int offset_ms, double *longest_ms, double *shortest_ms, double *end_off)
+{
+    const int64_t f = 10000000;
+    Pacer p;
+    MusicLock m;
+    pacer_start(&p, f, GAME_FPS);
+    music_lock_start(&m);
+    int64_t now = 0, last = 0;
+    double base = 0, reached = -1;
+    int primed = 0;
+    *longest_ms = 0;
+    *shortest_ms = 1e9;
+    for (long k = 1; k <= 60 * 30; k++) {
+        now += 50000;
+        if (p.next) {
+            /* The music as it plays (test_music_lock has the cursor's steps), against the frame's place at its tick. */
+            double music = (double)now / f * 1000.0;
+            double until = (double)(p.next - now) * 1000.0 / f;
+            double ahead = music + (until > 0 ? until : 0) - (double)k * 1000.0 / 60.0;
+            if (!primed) {
+                base = ahead;
+                primed = 1;
+            }
+            p.next -= music_lock_step(&m, ahead - base - offset_ms, p.period);
+        }
+        now += pacer_wait(&p, now);
+        /* How far behind the music this frame is now, past the game's own start distance. */
+        double behind = (double)now / f * 1000.0 - (double)k * 1000.0 / 60.0 - base;
+        double off = behind - offset_ms;
+        if (reached < 0 && k > 2 && off > -2.0 && off < 2.0)
+            reached = (double)now / f;
+        *end_off = off;
+        if (k > 2) {
+            double gap = (double)(now - last) * 1000.0 / f;
+            if (gap > *longest_ms)
+                *longest_ms = gap;
+            if (gap < *shortest_ms)
+                *shortest_ms = gap;
+        }
+        last = now;
+    }
+    return reached;
+}
+
+static void test_audio_offset(void)
+{
+    Settings s;
+    settings_default(&s);
+    check(s.audio_offset == 0, "audio offset: none by default");
+    settings_read(&s, "OPENDMT3_AUDIO_OFFSET", "180");
+    check(s.audio_offset == 180, "audio offset: the launcher's milliseconds read");
+    settings_read(&s, "OPENDMT3_AUDIO_OFFSET", "-20");
+    settings_read(&s, "OPENDMT3_AUDIO_OFFSET", "501");
+    settings_read(&s, "OPENDMT3_AUDIO_OFFSET", "12ms");
+    check(s.audio_offset == 180, "audio offset: below 0, past the most or not a number leaves it");
+    double longest, shortest, end;
+    double at = offset_song(0, &longest, &shortest, &end);
+    check(at >= 0 && at < 0.1 && end > -2.0 && end < 2.0, "audio offset: 0 keeps the game's own start");
+    at = offset_song(40, &longest, &shortest, &end);
+    check(at > 0 && at < 2.0 && end > -2.0 && end < 2.0, "audio offset: 40 ms reached within 2 s of the song's start");
+    check(longest <= 1000.0 / 60.0 + 1.01 && shortest >= 1000.0 / 60.0 - 1.01,
+          "audio offset: 40 ms reached a millisecond a frame at most");
+    at = offset_song(250, &longest, &shortest, &end);
+    check(at > 0 && at < 4.0 && end > -2.0 && end < 2.0, "audio offset: 250 ms reached within 4 s");
+    check(longest <= 1000.0 / 60.0 + 4.01 && shortest >= 1000.0 / 60.0 - 1.01,
+          "audio offset: 250 ms reached 4 ms a frame at most");
+}
+
+/* Frames started just in time: none while loading or without a clock, the lead from the slowest 1 % of the work and the
+ * spare, a miss growing the spare and a calm giving it back; then a song's frames simulated with the pacer, the music
+ * lock and the display lock: each frame's input is read just before its tick, and every frame leaves on its tick. */
+/* A song simulated with its frames started just in time, as hooks.c our_present and jit_rest run them: the game's
+ * work on the processor `cpu` to `cpu + spread` ticks a frame (its input read at its start), its picture done `gpu`
+ * after its draws, the present 0.3 ms; the music a little fast and read in 10 ms steps, `jump` ms further ahead from
+ * frame `jump_at` on (0: never); a 240 Hz display read at each tick; the lead's slack counted (`slack` 1) or not. The
+ * locks move the tick first, then the picture is waited for until that tick at most. Counted after the loading: the
+ * frames, those not done by their tick and those of them started late, the frames started late, the input's age at its
+ * frame's tick (mean, ms) and the ticks' spread. */
+typedef struct {
+    int frames, late, late_held, held;
+    double read_to_tick, worst_gap, shortest;
+} JitSong;
+
+static JitSong jit_song(int64_t cpu, int64_t spread, int64_t gpu, long jump_at, double jump, int slack_on)
+{
+    const int64_t f = 10000000, ms = f / 1000;
+    JitSong s = {0, 0, 0, 0, 0.0, 0.0, 1e9};
+    Pacer p;
+    MusicLock m;
+    JitClock j;
+    pacer_start(&p, f, GAME_FPS);
+    music_lock_start(&m);
+    jit_start(&j, f, GAME_FPS);
+    int64_t now = 0, refresh = f / 240, last_tick = 0;
+    double base = 0;
+    int primed = 0, early = 0, measured = 0;
+    for (long k = 1; k <= 60 * 60; k++) {
+        /* The frame: its input read at its start, its draws handed over `work` later, its picture done `gpu` after. */
+        int64_t read = now, work = cpu + (k * 7919 % (spread + 1));
+        now += work;
+        int64_t done = now + gpu;
+        if (p.next) {
+            /* The music lock and the display lock first, from the music and the display as they are now. */
+            double music = (double)now / f * 1000.0 * 1.0005 + (jump_at && k >= jump_at ? jump : 0.0);
+            music = (double)(int64_t)(music / 10.0) * 10.0;
+            double until = (double)(p.next - now) * 1000.0 / f;
+            double ahead = music + (until > 0 ? until : 0) - (double)k * 1000.0 / 60.0;
+            if (!primed) {
+                base = ahead;
+                primed = 1;
+            }
+            p.next -= music_lock_step(&m, ahead - base, p.period);
+            /* The display's phase at the tick (its refreshes start at 0). */
+            double phase = (double)(p.next % refresh) / (double)refresh;
+            p.next += display_lock_step(phase, refresh);
+            /* Then the picture against the tick as they set it: waited for until it at most; done by it, or a miss. */
+            int in_time = done <= p.next;
+            jit_frame(&j, work, in_time, early);
+            if (k > JIT_SETTLE + 1) {
+                s.frames++;
+                s.late += !in_time;
+                s.late_held += !in_time && early;
+                s.held += early;
+            }
+            now = in_time ? (done > now ? done : now) : p.next;
+        }
+        int64_t tick = now + pacer_wait(&p, now);
+        if (k > JIT_SETTLE + 60) {
+            double gap = (double)(tick - last_tick) * 1000.0 / f - 1000.0 / 60.0;
+            if (gap < 0)
+                gap = -gap;
+            if (gap > s.worst_gap)
+                s.worst_gap = gap;
+            if ((double)(tick - last_tick) * 1000.0 / f < s.shortest)
+                s.shortest = (double)(tick - last_tick) * 1000.0 / f;
+            s.read_to_tick += (double)(tick - read) * 1000.0 / f;
+            measured++;
+        }
+        last_tick = tick;
+        /* The present, then the next frame held back to just before its tick (jit_rest). */
+        now = tick + 3000;
+        int64_t slack = slack_on ? (int64_t)(music_lock_most(&m) * (double)ms) + refresh / 64 : 0;
+        int64_t lead = jit_lead(&j, slack);
+        early = lead > 0 && p.next - lead > now;
+        if (early)
+            now = p.next - lead;
+    }
+    s.read_to_tick /= measured > 0 ? measured : 1;
+    return s;
+}
+
+static void test_jit(void)
+{
+    const int64_t f = 10000000, ms = f / 1000;
+    JitClock j;
+    jit_start(&j, f, 0);
+    jit_frame(&j, 3 * ms, 1, 0);
+    check(jit_lead(&j, 0) == 0, "jit: no clock, every frame at once");
+    jit_start(&j, f, GAME_FPS);
+    for (int i = 0; i < JIT_SETTLE - 1; i++)
+        jit_frame(&j, 3 * ms, 1, 0);
+    check(jit_lead(&j, 0) == 0, "jit: the game's loading starts its frames at once");
+    jit_frame(&j, 3 * ms, 1, 0);
+    check(jit_lead(&j, 0) == 3 * ms + ms, "jit: then the work and a millisecond spare");
+    check(jit_lead(&j, ms / 2) == 3 * ms + ms + ms / 2, "jit: and what may still move the tick");
+    /* One slow frame in the window is the slowest 1 %'s outlier; a second is counted. */
+    jit_frame(&j, 9 * ms, 1, 1);
+    check(jit_work(&j) == 3 * ms, "jit: one slow frame of 120 is left out");
+    jit_frame(&j, 8 * ms, 1, 1);
+    check(jit_work(&j) == 8 * ms, "jit: two are the slowest 1 %");
+    for (int i = 0; i < JIT_WINDOW; i++)
+        jit_frame(&j, 3 * ms, 1, 1);
+    check(jit_work(&j) == 3 * ms, "jit: the window forgets after 120 frames");
+    /* A frame started late that misses its tick: a millisecond more; one started at once says nothing. */
+    int64_t was = j.spare;
+    jit_frame(&j, 3 * ms, 0, 0);
+    check(j.spare == was, "jit: a miss of a frame started at once leaves the spare");
+    jit_frame(&j, 3 * ms, 0, 1);
+    check(j.spare == was + ms, "jit: a miss of a frame started just in time adds a millisecond");
+    for (int i = 0; i < 20; i++)
+        jit_frame(&j, 3 * ms, 0, 1);
+    check(j.spare == j.period / 4, "jit: at most a quarter of a frame spare");
+    for (int i = 0; i < JIT_CALM - 1; i++)
+        jit_frame(&j, 3 * ms, 1, 1);
+    check(j.spare == j.period / 4, "jit: the spare kept through five seconds in time");
+    for (int i = 0; i < 400; i++)
+        jit_frame(&j, 3 * ms, 1, 1);
+    check(j.spare == ms, "jit: then given back down to a millisecond");
+    MusicLock m;
+    music_lock_start(&m);
+    check(music_lock_most(&m) == 4.0, "jit: the lock's first step may be a stall's");
+    music_lock_step(&m, 3.0, f / GAME_FPS);
+    check(music_lock_most(&m) == 1.0, "jit: a drift's step is at most 1 ms");
+    music_lock_start(&m);
+    music_lock_step(&m, 200.0, f / GAME_FPS);
+    check(music_lock_most(&m) == 4.0, "jit: winning back a stall, 4 ms");
+    /* A song with its frames started just in time (jit_song): the game's work 2.5 to 3.5 ms on the processor, its
+     * picture done 0.5 ms after its draws. */
+    JitSong s = jit_song(25000, 10000, 5000, 0, 0, 1);
+    check(s.late == 0, "jit: a song's frames all done by their ticks");
+    check(s.held > s.frames * 9 / 10, "jit: nine in ten of them started just in time");
+    check(s.read_to_tick < 7.0, "jit: input read under 7 ms before its frame leaves (a period before, without it)");
+    check(s.worst_gap < 1.5 && s.shortest > 1000.0 / 60.0 - 1.5,
+          "jit: the frames' ticks as even as the locks make them (within 1.5 ms of a period)");
+    /* The music 200 ms ahead from the song's 20th second (a stall's distance): the lock takes 4 ms off each tick while
+     * it wins it back, which the lead's slack must cover. Without the slack the frames started late miss. */
+    JitSong stall = jit_song(25000, 10000, 5000, 1200, 200.0, 1);
+    JitSong bare = jit_song(25000, 10000, 5000, 1200, 200.0, 0);
+    check(stall.late_held <= 2 && bare.late_held >= 10,
+          "jit: winning back a stall, the frames started late still done by their ticks (the slack counted)");
+    /* A GPU slower than any spare covers (12 ms after 3 ms of work): after three misses in a row at the most spare,
+     * five seconds of frames started at once each time, so few frames are held and fewer miss. */
+    JitSong slow = jit_song(30000, 5000, 120000, 0, 0, 1);
+    check(slow.late_held <= JIT_STREAK * (slow.frames / JIT_REST + 2) + 5 && slow.held < slow.frames / 10,
+          "jit: a GPU slower than the spare: the clock rests instead of holding frames that miss");
+}
+
 /* The display lock: a tick late in its refresh moves earlier, early moves later, the middle stays. */
 static void test_display_lock(void)
 {
@@ -1019,6 +1241,8 @@ int main(void)
     test_post();
     test_pacer();
     test_music_lock();
+    test_jit();
+    test_audio_offset();
     test_display_lock();
     test_guard();
     test_keys();

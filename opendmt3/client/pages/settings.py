@@ -192,6 +192,12 @@ def build_sound(app, parent):
     widgets.setting_row(parent, ui, w("sound.low_latency"),
                         lambda p: widgets.Toggle(p, ui, v["low_latency"], set_low_latency),
                         hint).pack(fill="x", pady=(0, ui.px(16)))
+    # How late the device plays: the in-game layer's music lock keeps a song's frames that much behind its music.
+    low, high = choices.AUDIO_OFFSET_RANGE
+    widgets.setting_row(parent, ui, w("sound.offset"),
+                        lambda p: widgets.Slider(p, ui, v["audio_offset"], lambda val: app.changed("audio_offset", val),
+                                                 low=low, high=high, unit=" ms"),
+                        w("sound.offset.hint")).pack(fill="x", pady=(0, ui.px(16)))
 
 
 # ------------------------------------------------------------------------------------------ Controls

@@ -37,7 +37,14 @@ typedef struct {
     int sound_path;        /* OPENDMT3_SOUND_PATH: SOUND_PATH_* below (Windows' DirectSound unless chosen) */
     int render_display;    /* OPENDMT3_RENDER=display: the game drawn at the picture's size in the window (render.c),
                             * not at its own 1280x768 enlarged after (game, the default) */
+    int audio_offset;      /* OPENDMT3_AUDIO_OFFSET: milliseconds the frames are kept behind a song's music, for a sound
+                            * device that plays late (Sound page, Audio offset; 0 to AUDIO_OFFSET_MAX, 0 by default);
+                            * with the music lock only */
 } Settings;
+/* The audio offset's most, ms: past the delays of Bluetooth and HDMI outputs (100 to 300 ms). The frames can always be
+ * held back to a later music; none is offered the other way: on a 60 Hz display with VSync, frames cannot come sooner
+ * than one a refresh, so frames ahead of the game's own start would never be reached. */
+#define AUDIO_OFFSET_MAX 500
 
 /* The way the game's DirectSound calls reach the device (openal.c), in the launcher's order: Windows' own DirectSound
  * (the default), or DSOAL's DirectSound over OpenAL Soft on WASAPI in shared mode or in exclusive mode. */
@@ -96,12 +103,58 @@ typedef struct {
 void music_lock_start(MusicLock *m);
 /* The ticks to take off the next frame's tick (negative: to add), for a frame of `period` ticks. */
 int64_t music_lock_step(MusicLock *m, double ahead_ms, int64_t period);
+/* The most the lock's next step may take off a tick, in ms: 4 while it wins back a stall (or before its first reading,
+ * which may be one), 1 otherwise (the frame started just in time keeps that much spare for it). */
+double music_lock_most(const MusicLock *m);
 
 /* Locked to the display (VSync on): the pacer's ticks kept in the middle of a refresh, so each frame's present
  * waits for the same refresh every time (on a 240 Hz display, every fourth) and a tick never wavers either side of
  * one. `phase` is where in its refresh the tick fell (0 the start of the refresh, 1 its end; negative: not known);
  * returns the ticks to move the next tick by (at most a 64th of a refresh a frame). */
 int64_t display_lock_step(double phase, int64_t refresh_ticks);
+
+/* Starting each frame just in time: the game reads its input at the start of its frame (GetKeyboardState, as soon as a
+ * present hands control back), so a frame that waits for its tick at its end shows input a whole period old. With this
+ * clock, the wait moves to before the frame instead: after a present, the game's next frame is held until its tick less
+ * the time its work takes on the processor (from the moment it gets control back to the frame ready to present, the
+ * slowest 1 % of the last JIT_WINDOW frames), less a spare that grows when a frame misses its tick (its picture not
+ * done on the GPU by then) and shrinks back slowly while frames are in time. Ticks themselves do not move: the frames
+ * still leave at 60.0 a second on their ticks, locked to the music and kept to the display as before. The first
+ * JIT_SETTLE frames (the game's loading) start at once, as without it, and so do JIT_REST frames after JIT_STREAK
+ * frames started late in a row missed their tick with the spare at its most (a GPU slower than the spare can cover:
+ * holding frames would only make them late). */
+#define JIT_WINDOW 120
+#define JIT_SETTLE 600
+typedef struct {
+    int64_t period;        /* ticks a frame (0: no clock, never early) */
+    int64_t frequency;     /* the counter's ticks a second */
+    int64_t work[JIT_WINDOW];  /* the last frames' work on the processor, ticks: from the game's control back to the
+                                * frame ready to present (its draws handed over, the frame before done on the GPU) */
+    int kept, at;          /* how many of them are kept, and where the next goes */
+    int64_t spare;         /* ticks kept spare before the tick, beyond the work */
+    int calm;              /* frames in a row in time since the spare last grew */
+    int settle;            /* frames still started at once (the game's loading) */
+    int streak;            /* frames started late in a row that missed their tick with the spare at its most */
+    int rest;              /* frames still started at once after such a streak */
+} JitClock;
+/* The spare's least and most: 1 ms, and a quarter of a frame. A miss adds 1 ms; after JIT_CALM frames in a row in time
+ * (5 s) it gives back a tenth of a millisecond a frame down to the least. */
+#define JIT_SPARE_MS 1.0
+#define JIT_CALM 300
+/* Three misses in a row at the most spare: five seconds of frames started at once, then the clock tries again. */
+#define JIT_STREAK 3
+#define JIT_REST 300
+void jit_start(JitClock *j, int64_t frequency, int fps);
+/* One frame's work on the processor in ticks, and whether its picture was done before its tick (`in_time` 0: it was
+ * not); `early` whether the frame was started late by this clock (a miss there grows the spare; a frame started at once
+ * tells the work alone). */
+void jit_frame(JitClock *j, int64_t work, int in_time, int early);
+/* How long before the next tick the next frame should start, in ticks: its work, the spare, and `slack` (what may still
+ * move the tick earlier before the frame leaves: the music lock's and the display lock's most); 0 when the next frame
+ * should start at once (no clock, still loading, resting after a streak of misses, or no room in a period). */
+int64_t jit_lead(const JitClock *j, int64_t slack);
+/* The work the lead counts on, ticks: the slowest 1 % of the kept frames (the second slowest of 120). */
+int64_t jit_work(const JitClock *j);
 
 /* The post-process chain's safety net: a frame counts against the chain when it took longer than the 60 a second
  * budget (with 1 ms to spare) and would not have without the chain's time; two windows of 60 frames in a row with 30

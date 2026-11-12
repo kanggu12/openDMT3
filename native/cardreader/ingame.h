@@ -76,6 +76,13 @@ int post_running(void);
  * of those were glass panels (not the chip): frames with a panel are left out of the safety net's judgement. The
  * chain's own cost (post_cost) leaves the layer's out. */
 void post_layer_cost(LONGLONG *cpu_ticks, int *parts, int *panels);
+/* For what openDMT3 draws over the chain's picture before a present (the press mark):
+ * the real back buffer the chain draws into (no reference added; NULL while no chain runs) and the client's size the
+ * last frame was presented at; and the device's target set to it (ours 1, through the device's own SetRenderTarget,
+ * no depth surface) or back to the game's (0: its proxy and its depth surface). */
+struct IDirect3DSurface9;
+struct IDirect3DSurface9 *post_back_buffer(int *w, int *h);
+void post_target(struct IDirect3DDevice9 *dev, int ours);
 /* Where the game's picture is in the window's client area (logic.c picture_rect), as the chain placed it at its last
  * present; w and h 0 while no chain runs (Direct3D's own stretch: the picture fills the client). */
 void post_picture(int *x, int *y, int *w, int *h);

@@ -20,6 +20,15 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   videos are drawn to the larger picture with the rest. **1280×768** stays the default; `--set render_size=display`.
 - **Anime4K** among the Screen page's upscale filters: the small model of Anime4K's CNN x2, a neural network made for
   drawn art, doubles the game's picture, which is then fitted to the window. `--set upscale=anime4k`.
+- An audio offset on the Sound page (0 to 500 ms, `--set audio_offset=`), for a sound device that plays late such as
+  Bluetooth headphones: with the frames locked to the music, a song's notes and their judging are held that much
+  behind its music.
+
+### Changed
+
+- With the frames locked to the music or even, each frame starts just in time for its turn instead of right after
+  the frame before, so the touch it carries is read later and shows sooner.
+
 
 ## [0.1.1] - 2026-11-13
 

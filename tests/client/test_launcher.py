@@ -1530,11 +1530,13 @@ class LauncherTest(FolderCase):
         # them.
         self.assertEqual(main.main(["--set", "frame_pacing=even", "--set", "show_fps=on", "--set",
                                     "fps_position=top_left", "--set", "picture_shape=fill", "--set",
-                                    "sound_device={0000000a-0000-0000-0000-00000000000b}", "--set", "pass_times=on"]), 0)
+                                    "sound_device={0000000a-0000-0000-0000-00000000000b}", "--set", "pass_times=on",
+                                    "--set", "audio_offset=180"]), 0)
         saved = st.LauncherState.load()
         self.assertEqual((saved.values["frame_pacing"], saved.values["show_fps"], saved.values["fps_position"],
-                          saved.values["picture_shape"], saved.values["sound_device"], saved.values["pass_times"]),
-                         ("even", True, "top_left", "fill", "{0000000A-0000-0000-0000-00000000000B}", True))
+                          saved.values["picture_shape"], saved.values["sound_device"], saved.values["pass_times"],
+                          saved.values["audio_offset"]),
+                         ("even", True, "top_left", "fill", "{0000000A-0000-0000-0000-00000000000B}", True, 180))
         # A value the pages do not offer is said, and nothing changes.
         self.assertEqual(main.main(["--set", "frame_pacing=120"]), 2)
         self.assertEqual(st.LauncherState.load().values["frame_pacing"], "even")
@@ -1571,6 +1573,10 @@ class LauncherTest(FolderCase):
                       "played.", out.getvalue())
         # Low latency's line too, as the page keeps its row with every Mixer.
         self.assertIn("sound: low latency on.", out.getvalue())
+        for bad in ("audio_offset=501", "audio_offset=-20", "audio_offset=fast"):
+            with self.subTest(bad=bad):
+                self.assertEqual(main.main(["--set", bad]), 2)
+        self.assertEqual(st.LauncherState.load().values["audio_offset"], 180)
         # Refused while the window is open, as every write is.
         with mock.patch("opendmt3.client.cli.window_open", return_value=True):
             self.assertEqual(main.main(["--set", "sound_device=default"]), 2)
@@ -1584,6 +1590,24 @@ class LauncherTest(FolderCase):
         self.assertIn("default  Windows' default output", text)
         self.assertIn("{11111111-0000-0000-0000-000000000000}  Speakers", text)
         self.assertIn("not connected", text)
+
+    def test_the_slider_maps_its_range_onto_its_track(self):
+        from types import SimpleNamespace
+        from opendmt3.client import widgets
+        # The slider's own state with no window behind it: a 320 px track at scale 1, its ends 10 px in.
+        ui = SimpleNamespace(px=lambda n: n)
+        s = SimpleNamespace(ui=ui, w=320, low=0, high=500, value=0, _draw=lambda: None)
+        # The audio offset's 0 to 500: 250 mid-track, the ends at the track's ends.
+        self.assertEqual(widgets.Slider._x(s, 250), 160.0)
+        self.assertEqual((widgets.Slider._x(s, 0), widgets.Slider._x(s, 500)), (10.0, 310.0))
+        # A drag takes the nearest whole value, never past either end.
+        for x, value in ((-50, 0), (10, 0), (160, 250), (161, 252), (310, 500), (900, 500)):
+            widgets.Slider._drag(s, SimpleNamespace(x=x))
+            self.assertEqual(s.value, value)
+        # The volumes' 0 to 100, as before.
+        s.high = 100
+        widgets.Slider._drag(s, SimpleNamespace(x=160))
+        self.assertEqual(s.value, 50)
 
     def test_the_picture_choices_have_command_line_twins(self):
         from opendmt3.client import main
@@ -1612,6 +1636,8 @@ class LauncherTest(FolderCase):
         text = " ".join(out.getvalue().split())
         for value in values.UPSCALES + ("sharpness", "smaa-") + values.ANTIALIASINGS[-3:] + values.RENDER_SIZES:
             self.assertIn(value, text)
+        # The Sound page's audio offset with its range.
+        self.assertIn("audio_offset %d to %d ms" % values.AUDIO_OFFSET_RANGE, text)
         # The size the game draws at, by --set as well.
         self.assertEqual(main.main(["--set", "render_size=display"]), 0)
         self.assertEqual(st.LauncherState.load().values["render_size"], "display")
@@ -1631,6 +1657,8 @@ class LauncherTest(FolderCase):
                  "screen.antialiasing.hint.display"]
         keys += ["screen.render." + value for value in values.RENDER_SIZES]
         keys += ["screen.antialiasing." + value for value in values.ANTIALIASINGS]
+        # The Sound page's audio offset and its hint.
+        keys += ["sound.offset", "sound.offset.hint"]
         for key in keys:
             with self.subTest(key=key):
                 en, ko = i18n.TEXT[key]
