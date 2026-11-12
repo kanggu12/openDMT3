@@ -21,10 +21,10 @@ class Worded(Exception):
 # entries are the launcher's own words for the server's error codes: the server's sentences are written for
 # programs (they name API paths), not for players.
 TEXT = {
-    # The game folder and the files the setup changes (game.GameError).
-    "error.game.no_folder": ("no game folder (a folder with the PC client and the game's files) at or below {path}",
-                             "{path} 아래에 게임 폴더(PC 클라이언트와 게임 파일이 있는 폴더)가 없습니다."),
-    # What a game folder's client is (game.Game.table): the cabinet's, or none that opens the game's files.
+    # The client data and the files the setup changes (game.GameError).
+    "error.game.no_folder": ("no client data (the game's PC client and its files) at or below {path}",
+                             "{path} 아래에 클라이언트 데이터(게임의 PC 클라이언트와 게임 파일)가 없습니다."),
+    # What the client data's client is (game.Game.table): the cabinet's, or none that opens the game's files.
     "error.game.cabinet_client": ("The cabinet's client: does not work here, the PC client is needed.",
                                   "기체용 클라이언트: 여기서는 못 씁니다. PC 클라이언트가 필요합니다."),
     "error.game.no_table": ("The game's files cannot be opened with this client.",
@@ -37,21 +37,21 @@ TEXT = {
                                   "이 빌드에는 openDMT3 카드 리더가 들어 있지 않습니다."),
     # The song list, the jackets and the DJ cards read from the game's files (server/services/catalog.py, cards.py).
     "error.game.no_song_list": ("the game's files have no song list", "게임 파일에 곡 목록이 없습니다."),
-    "error.game.damaged.songs": ("The file with the song list is damaged. Copy the game folder again, or unpack the "
+    "error.game.damaged.songs": ("The file with the song list is damaged. Copy the client data again, or unpack the "
                                  "archive again.",
-                                 "곡 목록이 든 파일이 손상됐습니다. 게임 폴더를 다시 복사하거나 압축 파일을 다시 푸세요."),
-    "error.game.damaged.jackets": ("The file with the jackets is damaged. Copy the game folder again, or unpack the "
+                                 "곡 목록이 든 파일이 손상됐습니다. 클라이언트 데이터를 다시 복사하거나 압축 파일을 다시 푸세요."),
+    "error.game.damaged.jackets": ("The file with the jackets is damaged. Copy the client data again, or unpack the "
                                    "archive again.",
-                                   "자켓이 든 파일이 손상됐습니다. 게임 폴더를 다시 복사하거나 압축 파일을 다시 푸세요."),
-    "error.game.damaged.cards": ("The file with the DJ cards is damaged. Copy the game folder again, or unpack the "
+                                   "자켓이 든 파일이 손상됐습니다. 클라이언트 데이터를 다시 복사하거나 압축 파일을 다시 푸세요."),
+    "error.game.damaged.cards": ("The file with the DJ cards is damaged. Copy the client data again, or unpack the "
                                  "archive again.",
-                                 "DJ 카드가 든 파일이 손상됐습니다. 게임 폴더를 다시 복사하거나 압축 파일을 다시 푸세요."),
+                                 "DJ 카드가 든 파일이 손상됐습니다. 클라이언트 데이터를 다시 복사하거나 압축 파일을 다시 푸세요."),
     "error.game.no_jackets": ("the game's files have no jackets", "게임 파일에 자켓이 없습니다."),
-    "error.game.no_file": ("the game folder has no file this part is in", "게임 폴더에 이 부분이 든 파일이 없습니다."),
+    "error.game.no_file": ("the client data has no file this part is in", "클라이언트 데이터에 이 부분이 든 파일이 없습니다."),
     "error.game.permission": ("the game's files cannot be read by this user", "이 사용자는 게임 파일을 읽을 수 없습니다."),
-    "error.game.damaged": ("One of the game's files is damaged. Copy the game folder again, or unpack the archive again.",
-                           "게임 파일 하나가 손상됐습니다. 게임 폴더를 다시 복사하거나 압축 파일을 다시 푸세요."),
-    "error.game.not_chosen": ("no game folder chosen yet", "아직 게임 폴더를 고르지 않았습니다."),
+    "error.game.damaged": ("One of the game's files is damaged. Copy the client data again, or unpack the archive again.",
+                           "게임 파일 하나가 손상됐습니다. 클라이언트 데이터를 다시 복사하거나 압축 파일을 다시 푸세요."),
+    "error.game.not_chosen": ("no client data chosen yet", "아직 클라이언트 데이터를 고르지 않았습니다."),
     "error.game.open_change": ("the game is open: close it before changing its files",
                                "게임이 열려 있습니다. 게임 파일을 바꾸기 전에 게임을 닫아 주세요."),
     "error.game.another_play": ("Another openDMT3 is getting the game ready or playing it. Wait until that game closes.",
@@ -83,9 +83,10 @@ TEXT = {
     "error.cli.password": ("no password: give it on standard input", "비밀번호가 없습니다. 표준 입력으로 주세요."),
     "error.cli.no_server": ("connect to a server first (--server URL)", "먼저 서버에 연결하세요(--server URL)."),
     # Removing openDMT3 (client/leaving.py).
-    "error.remove.still_changed": ("game files that did not go back: {n}; the note README-openDMT3.txt in the game "
-                                   "folder's backup names them",
-                                   "게임 파일 {n}개가 원래대로 돌아가지 않았습니다. 게임 폴더 backup의 README-openDMT3.txt에 적어 두었습니다."),
+    "error.remove.still_changed": ("game files that did not go back: {n}; the note README-openDMT3.txt in the client "
+                                   "data's backup folder names them",
+                                   "게임 파일 {n}개가 원래대로 돌아가지 않았습니다. 클라이언트 데이터의 backup 폴더에 있는 "
+                                   "README-openDMT3.txt에 적어 두었습니다."),
     # Accounts, on the launcher's Online page and the site's admin pages (services.accounts.AccountError).
     "error.account.id": ("an ID is 1 to {max} letters or digits (what the game's keypad can type)",
                          "ID는 영문자와 숫자로 1~{max}자입니다(게임 키패드로 입력할 수 있는 글자)."),
@@ -114,10 +115,10 @@ TEXT = {
     "error.token.read_only": ("a read-only token makes GET calls only, and none of an admin's",
                               "읽기만 하는 토큰은 GET 호출만 하며 관리자의 호출은 하지 못합니다."),
     # What a path on the server PC is, and the archives it opens (server/services/sources.py, SourceError).
-    "error.source.nothing": ("This is neither a game folder nor an archive holding one.",
-                             "게임 폴더도, 게임이 든 압축 파일도 아닙니다."),
-    "error.source.part": ("This is part of a game folder. Choose the whole game folder.",
-                          "게임 폴더의 일부입니다. 게임 폴더 전체를 고르세요."),
+    "error.source.nothing": ("This is not a folder or an archive holding client data.",
+                             "클라이언트 데이터가 든 폴더나 압축 파일이 아닙니다."),
+    "error.source.part": ("This is part of the client data. Choose the folder that holds all of it.",
+                          "클라이언트 데이터의 일부입니다. 클라이언트 데이터가 모두 든 폴더를 고르세요."),
     "error.source.later_part": ("This is part {n} of a split archive. Put every part in one folder and choose the "
                                 "first.",
                                 "분할 압축의 {n}번째 조각입니다. 모든 조각을 한 폴더에 두고 첫 조각을 고르세요."),

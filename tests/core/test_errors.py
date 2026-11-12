@@ -117,7 +117,7 @@ class WordsOfErrorsTest(unittest.TestCase):
         finally:
             os.rmdir(empty)
         said = i18n.Words("ko").error(caught.exception)
-        self.assertTrue(said.startswith(empty + " 아래에 게임 폴더"), said)
+        self.assertTrue(said.startswith(empty + " 아래에 클라이언트 데이터"), said)
         # The folder ends the English sentence: no full stop that would read as part of the path.
         self.assertEqual(i18n.Words("en").error(caught.exception), "N" + str(caught.exception)[1:])
 

@@ -27,15 +27,15 @@ wizard = load()
 # folder with every part there, one whose DJ cards are not, nothing of the game, an archive holding the game (one with a
 # password among them), and a song list the launcher saved.
 WHOLE = {"kind": "folder", "ready": True, "path": "/games/made-up", "key": "source.folder",
-         "line": "Game folder, original PC client, 3 songs: ready",
+         "line": "Client data in a folder, original PC client, 3 songs: ready",
          "parts": [(True, "song list: 3 songs"), (True, "jackets: 2 of 3 songs"),
                    (True, "DJ cards: 4 icons, 5 plates, 6 patterns")]}
 NO_CARDS = dict(WHOLE, path="/games/no-cards", parts=WHOLE["parts"][:2] + [
     (False, "DJ cards: not yet, every DJ card keeps the basic icon and plate. The game's files have no DJ cards.")])
 NOTHING = {"kind": "folder", "ready": False, "path": "/games/nothing", "key": "error.source.nothing",
-           "line": "This is neither a game folder nor an archive holding one.", "parts": []}
+           "line": "This is not a folder or an archive holding client data.", "parts": []}
 ARCHIVE = {"kind": "archive", "ready": True, "path": "/games/technika.7z", "key": "source.archive",
-           "line": "A game folder in an archive: ready (the server takes out only what it needs)", "parts": []}
+           "line": "Client data in an archive: ready (the server takes out only what it needs)", "parts": []}
 LOCKED = dict(ARCHIVE, path="/games/locked.7z", ready=False, key="error.source.password",
               line="This archive has a password. Enter it.")
 SONG_LIST = {"kind": "song list", "ready": True, "path": "/files/openDMT3-song-list.zip", "key": "source.song_list",
@@ -237,7 +237,7 @@ class PagesTest(unittest.TestCase):
         looked(p, a, env)
         self.assertEqual([item["path"] for item in a.found], ["/games/made-up", "/games/no-cards"])
         # What was found, each with its one line, as the site's Song list tab shows it.
-        self.assertIn(("      Game folder, original PC client, 3 songs: ready", "ok"), p.body(a, env))
+        self.assertIn(("      Client data in a folder, original PC client, 3 songs: ready", "ok"), p.body(a, env))
         # Down and Up put one found in the box.
         self.assertTrue(p.key(a, env, "down"))
         self.assertEqual(a.game, "/games/made-up")
@@ -246,7 +246,7 @@ class PagesTest(unittest.TestCase):
         self.assertEqual(p.leave(a, env), "It is still being looked at.")
         looked(p, a, env)
         preview = p.preview(a, env)
-        self.assertEqual(preview[0], ("Game folder, original PC client, 3 songs: ready", "ok"))
+        self.assertEqual(preview[0], ("Client data in a folder, original PC client, 3 songs: ready", "ok"))
         self.assertIn(("song list: 3 songs", "ok"), preview)
         # A missing optional part is a line of its own, and does not keep the page.
         self.assertIn(("DJ cards: not yet, every DJ card keeps the basic icon and plate. The game's files have no DJ "
@@ -257,7 +257,7 @@ class PagesTest(unittest.TestCase):
         # A folder with no game in it keeps the page with its one line.
         a.game = "/games/nothing"
         looked(p, a, env)
-        self.assertEqual(p.leave(a, env), "This is neither a game folder nor an archive holding one.")
+        self.assertEqual(p.leave(a, env), "This is not a folder or an archive holding client data.")
         self.assertEqual(p.preview(a, env), [(NOTHING["line"], "bad")])
 
     def test_an_archive_or_a_song_list_is_taken_too_and_a_password_asked_only_when_there_is_one(self):

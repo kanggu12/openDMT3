@@ -1167,7 +1167,7 @@ def stopped_check(out, tag, lang, problems):
             # into the launcher.
             ("play-blocked", (w("quick.failed.title"), w("quick.failed"),
                               "%s\n%s" % (w.error(g.GameError(
-                                  "no game folder (a folder with the PC client and the game's files) at or below "
+                                  "no client data (the game's PC client and its files) at or below "
                                   "D:\\Games\\TECHNIKA 3 (moved)", "error.game.no_folder",
                                   path="D:\\Games\\TECHNIKA 3 (moved)")), w("quick.failed.detail")),
                               [(w("common.close"), "close", "neutral"), (w("quick.failed.open"), "open", "info")])),
@@ -1721,7 +1721,7 @@ def play_states_check(app, out, tag, made, problems):
     try:
         # No folder chosen yet: the line's own reason, the way to the Game page by its name, the status line.
         said = show("no-folder", None)
-        held("no-folder", said, w.error(g.GameError("no game folder chosen yet", "error.game.not_chosen")),
+        held("no-folder", said, w.error(g.GameError("no client data chosen yet", "error.game.not_chosen")),
              w("play.go.game") + " \u203a", status=w("status.choose_folder"))
         # The cabinet's client: the card's own sentence under the line and on the status line; the link leads to the
         # Game page, where another folder is chosen (it once led to Help, which said the same list again).

@@ -238,7 +238,7 @@ class CatalogTest(FolderCase):
         nothing = catalog.survey(empty)
         self.assertIsNone(nothing["folder"])
         self.assertEqual(catalog.lines(nothing), [(False, nothing["problem"])])
-        self.assertEqual(nothing["problem"], "This is neither a game folder nor an archive holding one.")
+        self.assertEqual(nothing["problem"], "This is not a folder or an archive holding client data.")
 
     def test_a_song_list_that_is_not_the_games_text_is_said_never_raised_as_a_traceback(self):
         from opendmt3.core import game as g
@@ -248,7 +248,7 @@ class CatalogTest(FolderCase):
             self._pak(os.path.join(self.game.root, "pack", "DiscInfo.pak"), {discstock.PATH: raw})
             found = catalog.survey(self.tmp)
             self.assertIsNone(found["songs"])
-            self.assertEqual(found["problem"], "The file with the song list is damaged. Copy the game folder again, or "
+            self.assertEqual(found["problem"], "The file with the song list is damaged. Copy the client data again, or "
                                                "unpack the archive again.")
             # The reading says it as the list that cannot be read, which every caller already handles.
             with self.assertRaises(g.GameError) as raised:
@@ -280,8 +280,8 @@ class CatalogTest(FolderCase):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             self.assertEqual(server.read_catalog(empty, self.data), 2)
-        self.assertEqual(out.getvalue(), "song list: not read. This is neither a game folder nor an archive holding "
-                                         "one.\n")
+        self.assertEqual(out.getvalue(), "song list: not read. This is not a folder or an archive holding client "
+                                         "data.\n")
         self.assertNotIn("Traceback", out.getvalue() + err.getvalue())
 
     def test_the_status_page_state_counts_each_part_and_names_what_is_missing(self):

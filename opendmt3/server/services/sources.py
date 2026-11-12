@@ -113,10 +113,12 @@ WORDS = {
     "source.client.original": ("original PC client", "PC 클라이언트 원본"),
     "source.client.fixed": ("PC client", "PC 클라이언트"),
     "source.client.modified": ("modified PC client", "수정된 PC 클라이언트"),
-    "source.folder": ("Game folder, {client}, {n} songs: ready", "게임 폴더, {client}, 곡 {n}개: 쓸 수 있음"),
+    "source.folder": ("Client data in a folder, {client}, {n} songs: ready",
+                      "폴더 안의 클라이언트 데이터, {client}, 곡 {n}개: 쓸 수 있음"),
     # One of a thing has words of its own ("1 song", never "1 songs"), as the launcher's card has.
-    "source.folder.one": ("Game folder, {client}, 1 song: ready", "게임 폴더, {client}, 곡 1개: 쓸 수 있음"),
-    "source.archive": ("A game folder in an archive: ready", "압축 파일 안의 게임 폴더: 쓸 수 있음"),
+    "source.folder.one": ("Client data in a folder, {client}, 1 song: ready",
+                          "폴더 안의 클라이언트 데이터, {client}, 곡 1개: 쓸 수 있음"),
+    "source.archive": ("Client data in an archive: ready", "압축 파일 안의 클라이언트 데이터: 쓸 수 있음"),
     "source.inner": ("It holds another archive. Both are opened.", "안에 다른 압축 파일이 있습니다. 함께 엽니다."),
     "source.song_list": ("Song list saved by openDMT3, {n} songs: ready", "openDMT3가 저장한 곡 목록, 곡 {n}개: 쓸 수 있음"),
     "source.song_list.one": ("Song list saved by openDMT3, 1 song: ready", "openDMT3가 저장한 곡 목록, 곡 1개: 쓸 수 있음"),
@@ -133,8 +135,8 @@ class SourceError(Worded):
 
 
 def nothing():
-    """The refusal of a path that holds no game: neither a game folder nor an archive holding one."""
-    return SourceError("This is neither a game folder nor an archive holding one.", "error.source.nothing")
+    """The refusal of a path that holds no game: neither a folder nor an archive holding client data."""
+    return SourceError("This is not a folder or an archive holding client data.", "error.source.nothing")
 
 
 def damaged():
@@ -814,7 +816,8 @@ def look(path, password=None):
         if kind is None or kind == "file":
             game = around(path) if kind == "file" else None
             if game is None:
-                raise (SourceError("This is part of a game folder. Choose the whole game folder.", "error.source.part")
+                raise (SourceError("This is part of the client data. Choose the folder that holds all of it.",
+                                   "error.source.part")
                        if kind == "file" and path.lower().endswith((".pak", ".exe")) else nothing())
             # One file of a game folder: the folder around it.
             path, kind = game, "folder"
@@ -881,7 +884,8 @@ def said(item, language="en"):
 
 
 def folder_line(client, songs, language="en"):
-    """A game folder's line: "Game folder, original PC client, 177 songs: ready", in English or Korean."""
+    """The line of client data in a folder: "Client data in a folder, original PC client, 177 songs: ready", in
+    English or Korean."""
     at = 1 if language == "ko" else 0
     return counted("source.folder", songs)[at].format(client=WORDS["source.client." + client][at], n=songs)
 
@@ -898,7 +902,8 @@ def read(path, data_dir, now=None, traces=False, password=None):
     if kind in ("file", None):
         game = around(path) if kind == "file" else None
         if game is None:
-            raise (SourceError("This is part of a game folder. Choose the whole game folder.", "error.source.part")
+            raise (SourceError("This is part of the client data. Choose the folder that holds all of it.",
+                               "error.source.part")
                    if kind == "file" and path.lower().endswith((".pak", ".exe")) else nothing())
         path, kind = game, "folder"
     if kind == "part":

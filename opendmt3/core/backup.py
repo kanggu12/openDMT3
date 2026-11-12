@@ -99,7 +99,7 @@ class Backup:
         files = data.get("files")
         for key, entry in (files.items() if isinstance(files, dict) else ()):
             if not plain_path(key) or not isinstance(entry, dict) or not isinstance(entry.get("existed"), bool):
-                log.warning("backup list: left out an entry that is not a file of the game folder: %r", key)
+                log.warning("backup list: left out an entry that is not a file of the client data: %r", key)
                 continue
             # The folders made for a new file are paths too, read the same way (left as they are when absent).
             if "made_folders" in entry:
@@ -115,7 +115,7 @@ class Backup:
         parts = key.split("/")
         live, kept = self.game.path(*parts), os.path.join(self.dir, *parts)
         if not _inside(live, self.game.root) or not _inside(kept, self.dir):
-            log.warning("backup list: %s leads out of the game folder through a link; it is left alone", key)
+            log.warning("backup list: %s leads out of the client data's folder through a link; it is left alone", key)
             return None
         return live, kept
 

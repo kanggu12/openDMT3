@@ -141,7 +141,9 @@ class Card(tk.Frame):
         top.pack(fill="x")
         plate = chip(top, ui, self.found.state, bg)
         plate.pack(side="left")
-        kind = capitals(ui, ui.words("intake.label." + (self.found.kind or intake.FOLDER)))
+        # Client data in one of its two forms; a card of no form yet (nothing chosen, nothing of the game's, still
+        # being looked at) is named by what it is for, so it never says a form it does not have.
+        kind = capitals(ui, ui.words("intake.label." + (self.found.kind or "none")))
         # Quiet beside the chip: the state is what matters first.
         kind_label = tk.Label(top, text=kind, font=ui.fonts.section, fg=theme.FAINT, bg=bg)
         kind_label.pack(side="left", padx=(px(10), 0))

@@ -497,7 +497,7 @@ def short_path(root, places=None, make=_make_junction, system=None):
     short = system.short_name(root)
     if short and _fits(short) and _leads_to(short, root):
         # No link at all: the drive keeps 8.3 names, and the folder's own fits.
-        log.info("the game folder's path is %s (%d characters): played through its short name %s", why, len(root),
+        log.info("the client data's path is %s (%d characters): played through its short name %s", why, len(root),
                  short)
         return short
     for item in places if places is not None else link_places():
@@ -518,11 +518,11 @@ def short_path(root, places=None, make=_make_junction, system=None):
         # The link must lead to the game folder and nowhere else.
         if not _leads_to(link, root):
             take_short_path_away(holder)
-            raise LaunchError("the short path %s does not lead to the game folder" % link)
+            raise LaunchError("the short path %s does not lead to the client data" % link)
         # One line for the log (none on the screen): the game is played through openDMT3's short path.
-        log.info("the game folder's path is %s (%d characters): played through %s", why, len(root), link)
+        log.info("the client data's path is %s (%d characters): played through %s", why, len(root), link)
         return link
-    raise LaunchError("the game folder's path is %s and no short path could be made for it" % why)
+    raise LaunchError("the client data's path is %s and no short path could be made for it" % why)
 
 
 def check_again(path, root, system=None):
@@ -536,7 +536,7 @@ def check_again(path, root, system=None):
     if not _leads_to(path, root):
         if _is_link(path):
             take_short_path_away(os.path.dirname(path))
-        raise LaunchError("the short path %s does not lead to the game folder" % path)
+        raise LaunchError("the short path %s does not lead to the client data" % path)
 
 
 def start(game, own, popen=subprocess.Popen, env=None, places=None, make=_make_junction, system=None):

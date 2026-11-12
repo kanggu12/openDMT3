@@ -67,12 +67,12 @@ PICTURE_NAME = re.compile(r"^\d+\.png(\.new)?$")
 SERVER_EMPTY = ("downloads", "updates")
 
 WORDS = {
-    "en": ("openDMT3 was removed while these files in this game folder were still as openDMT3 left them.",
+    "en": ("openDMT3 was removed while these files of the client data were still as openDMT3 left them.",
            "To put the game back as it was, close the game, then:",
            "copy backup\\{path} back over {path}",
            "delete {path} (openDMT3 added it)",
            "Then this backup folder can go too."),
-    "ko": ("openDMT3를 지울 때 이 게임 폴더의 아래 파일이 openDMT3가 바꾼 그대로였습니다.",
+    "ko": ("openDMT3를 지울 때 클라이언트 데이터의 아래 파일이 openDMT3가 바꾼 그대로였습니다.",
            "게임을 원래대로 돌리려면 게임을 닫은 뒤:",
            "backup\\{path} 를 {path} 자리에 도로 복사",
            "{path} 지우기(openDMT3가 더한 파일)",
@@ -157,8 +157,8 @@ def before_uninstall(state, registry=None, desktops=None):
     outcome = put_game_back(state)
     if outcome.still:
         n = len(outcome.still)
-        raise g.GameError("game files that did not go back: %d; the note README-openDMT3.txt in the game folder's "
-                          "backup names them" % n, "error.remove.still_changed", n=n)
+        raise g.GameError("game files that did not go back: %d; the note README-openDMT3.txt in the client data's "
+                          "backup folder names them" % n, "error.remove.still_changed", n=n)
     take_shortcuts_away(registry, desktops)
     return outcome
 
@@ -180,7 +180,7 @@ def leave_note(state):
             return None
         return note(kept.game, kept, changed, state.language)
     except Exception:  # noqa: BLE001  (removing never fails over a note)
-        log.exception("could not leave the note for the game folder")
+        log.exception("could not leave the note in the client data's backup folder")
         return None
 
 

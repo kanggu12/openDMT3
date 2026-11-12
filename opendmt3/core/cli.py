@@ -1,13 +1,13 @@
-"""Command line: check what openDMT3 makes to play a game folder, make it, or put a folder an earlier openDMT3
-changed back as it was.
+"""Command line: check what openDMT3 makes to play the client data, make it, or put the files an earlier openDMT3
+changed in it back as they were.
 
-  python -m opendmt3 check   [GAME_FOLDER] [--to FOLDER] [--window] [--keep-hidden] [--server HOST:PORT]
-  python -m opendmt3 setup   [GAME_FOLDER] [--to FOLDER] [--window] [--keep-hidden] [--server HOST:PORT]
-  python -m opendmt3 restore [GAME_FOLDER]
+  python -m opendmt3 check   [CLIENT_DATA] [--to FOLDER] [--window] [--keep-hidden] [--server HOST:PORT]
+  python -m opendmt3 setup   [CLIENT_DATA] [--to FOLDER] [--window] [--keep-hidden] [--server HOST:PORT]
+  python -m opendmt3 restore [CLIENT_DATA]
 
-GAME_FOLDER is the folder with the client and pack\\, or any folder above it (default: the current one). The game
-folder is only read: what openDMT3 makes goes in FOLDER (default: openDMT3-game in the current folder), and its copy
-of the client starts from there with the game folder as the current folder.
+CLIENT_DATA is the folder with the client and pack\\, or any folder above it (default: the current one). The client
+data is only read: what openDMT3 makes goes in FOLDER (default: openDMT3-game in the current folder), and its copy
+of the client starts from there with the client data's folder as the current folder.
 """
 
 import argparse
@@ -27,7 +27,7 @@ def _options(args):
 
 
 def _header(game):
-    print("Game folder: %s" % game.root)
+    print("Client data: %s" % game.root)
     digest, name = game.client_build(g.CLIENT_EXE)
     print("Client:      %s" % (name or "no %s" % g.CLIENT_EXE))
 
@@ -74,14 +74,15 @@ def cmd_restore(args):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="opendmt3", description="Make what openDMT3 needs to play a game folder.")
+    parser = argparse.ArgumentParser(prog="opendmt3", description="Make what openDMT3 needs to play the client data.")
     parser.add_argument("--version", action="version", version="openDMT3 " + __version__)
     sub = parser.add_subparsers(dest="command", required=True)
     for name, func, text in (("check", cmd_check, "show what setup would make"),
-                             ("setup", cmd_setup, "make what playing the game folder needs (the folder is only read)"),
+                             ("setup", cmd_setup, "make what playing the client data needs (its folder is only read)"),
                              ("restore", cmd_restore, "put back every file an earlier openDMT3 changed")):
         p = sub.add_parser(name, help=text)
-        p.add_argument("folder", nargs="?", default=".", help="the game folder or a folder above it")
+        p.add_argument("folder", nargs="?", default=".", metavar="CLIENT_DATA",
+                       help="the client data's folder, or a folder above it")
         if name in ("check", "setup"):
             p.add_argument("--to", default="openDMT3-game", metavar="FOLDER",
                            help="where openDMT3's files for the game go (default: openDMT3-game here)")

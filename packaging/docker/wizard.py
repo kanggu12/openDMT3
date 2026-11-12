@@ -268,8 +268,8 @@ class Welcome(Page):
                 plain(),
                 plain("What you need:"),
                 plain("  - Docker, running on this PC"),
-                plain("  - your own game folder, an archive holding it, or a song list the launcher saved: the"),
-                plain("    server reads only the song list, which holds the jackets and the DJ cards too"),
+                plain("  - your own client data (a folder or an archive), or a song list the launcher saved:"),
+                plain("    the server reads only the song list, which holds the jackets and the DJ cards too"),
                 plain(),
                 # No key is named here: the drawn pages say theirs at the bottom, the plain prompts in each prompt.
                 dim("Every page can be changed later.")]
@@ -461,10 +461,10 @@ class Game(Page):
         return None
 
     def body(self, a, env):
-        out = [plain("Type or paste the path to your game folder (or a folder above it), an archive holding"),
-               plain("the game (.zip, .7z, .rar; a split one by its first part), or a song list the launcher"),
-               plain("saved. The server reads only the song list, which holds the jackets and the DJ cards"),
-               plain("too. Empty: none now; ./dmt3 catalog PATH imports it later.")]
+        out = [plain("Type or paste the path to your client data: its folder (or a folder above it), an"),
+               plain("archive holding it (.zip, .7z, .rar; a split one by its first part), or a song list"),
+               plain("the launcher saved. The server reads only the song list, which holds the jackets and"),
+               plain("the DJ cards too. Empty: none now; ./dmt3 catalog PATH imports it later.")]
         if a.found is None:
             out.append(dim("Looking in the usual places..."))
         elif a.found:
@@ -493,7 +493,7 @@ class Game(Page):
         if not found["ready"]:
             return out
         if found["kind"] == "folder":
-            out.append(good("the game folder: " + short(found["path"], 78)))
+            out.append(good("the client data: " + short(found["path"], 78)))
         elif found["kind"] == "archive":
             out.append(dim("only the files the server needs are taken out, into a folder of its own, then removed"))
         out += [(text, "ok" if ok else "bad") for ok, text in found["parts"]]

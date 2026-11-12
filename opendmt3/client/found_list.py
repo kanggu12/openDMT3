@@ -200,7 +200,7 @@ class FoundList:
                     # Found, not picked: an archive is said from its listing alone, nothing of it taken out.
                     self._look(path, cancel, picked=False)
             except Exception:  # noqa: BLE001  (the search ends with what it found, never a stopped guide)
-                log.exception("the search for game folders stopped")
+                log.exception("the search for client data stopped")
             self.app.post(lambda: self._ended(cancel))
 
         threading.Thread(target=work, daemon=True, name="find").start()

@@ -183,7 +183,7 @@ class Layers:
         paths = game.layer_paths(family)
         if not paths:
             # Not one file of the family: said as a missing file, as opening the base would have said it.
-            raise FileNotFoundError(errno.ENOENT, "no %s in the game folder" % family, game.pak_path(family))
+            raise FileNotFoundError(errno.ENOENT, "no %s in the client data" % family, game.pak_path(family))
         # The client's table first, once: without a client that opens the game's files nothing is opened (GameError,
         # as the first opening said it), and the openings below share it.
         game.table()
@@ -286,7 +286,7 @@ class Game:
             listed = cls._listing(dirpath)
             if listed:
                 return cls._found(dirpath, listed)
-        raise GameError("no game folder (a folder with the PC client and the game's files) at or below %s" % path,
+        raise GameError("no client data (the game's PC client and its files) at or below %s" % path,
                         "error.game.no_folder", path=path)
 
     @classmethod

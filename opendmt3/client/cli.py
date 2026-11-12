@@ -13,16 +13,16 @@
                                        uninstall openDMT3 from this PC; the game files an older openDMT3 changed
                                        go back first (--delete-data: its settings, players and records too)
   openDMT3.exe --status                print the folder, how this PC plays, the language and the ready check
-  openDMT3.exe --find                  list the game folders and the archives holding one in the usual places,
-                                       each with what it is, as the first-start guide's cards say it
-  openDMT3.exe --inspect <path>        what a path is (a game folder, an archive, part of one, or nothing of the
-                                       game's), as its card says it; exit 0 when it can be used
+  openDMT3.exe --find                  list the client data found in the usual places, in folders and in
+                                       archives, each with what it is, as the first-start guide's cards say it
+  openDMT3.exe --inspect <path>        what a path is (client data in a folder or in an archive, part of it, or
+                                       nothing of the game's), as its card says it; exit 0 when it can be used
   openDMT3.exe --unpack <archive> [--to FOLDER] [--yes]
-                                       unpack the game folder from an archive (beside it unless --to), with its
+                                       unpack the client data from an archive (beside it unless --to), with its
                                        progress; the password from standard input when it has one
   openDMT3.exe --sound-devices         list Windows' sound output devices, for --set sound_device=GUID
-  openDMT3.exe --folder <path>         use this game folder (or the one up to four levels below it); an archive
-                                       is unpacked first (beside it unless --to)
+  openDMT3.exe --folder <path>         use the client data in this folder (or up to four levels below it); an
+                                       archive is unpacked first (beside it unless --to)
   openDMT3.exe --set name=value ...    change a setting (the names are in core/cabinet/values.py; unlock=on|off too)
                                        the Screen page's picture: upscale=off|smooth|fsr1|nis, sharpness=0..100,
                                        antialiasing=off|fxaa|smaa-low|smaa-medium|smaa-high|smaa-ultra,
@@ -242,7 +242,7 @@ def _uninstall(yes, everything, state):
         return 2
     # As Help's Uninstall asks: the game's files are named only when an older openDMT3 changed some there.
     what = "Uninstall openDMT3 from this PC?%s%s" % (
-        " The files an older openDMT3 changed in the game folder go back to how they were."
+        " The files an older openDMT3 changed in the client data go back to how they were."
         if leaving.changed_before(state) else "",
         " Its settings, players and records are deleted." if everything else "")
     if not yes:
@@ -261,7 +261,7 @@ def _uninstall(yes, everything, state):
     if outcome.put_back:
         say("Game files put back: %d." % len(outcome.put_back))
     if outcome.stays:
-        say("Originals kept in the game folder's backup, which openDMT3 did not copy there itself: %d."
+        say("Originals kept in the client data's backup folder, which openDMT3 did not copy there itself: %d."
              % len(outcome.stays))
     say("Uninstalling openDMT3: the program is gone in a few seconds%s."
          % (", with its settings, players and records" if everything else ""))
@@ -341,7 +341,7 @@ def _unpack(archive, to, yes):
         return None
     target = unpack.target(parent, archive)
     if not yes:
-        answer = input("Unpack the game folder into %s? %s [y/N] " % (target, space)) if sys.stdin else "n"
+        answer = input("Unpack the client data into %s? %s [y/N] " % (target, space)) if sys.stdin else "n"
         if answer.strip().lower() not in ("y", "yes"):
             say("Nothing changed.")
             return None
@@ -401,7 +401,7 @@ def _status(state):
     from opendmt3 import __version__
     from opendmt3.client import updates
     say("openDMT3 %s" % (updates.current_version() or __version__))
-    say("game folder: %s" % (state.game_folder or "(none chosen)"))
+    say("client data: %s" % (state.game_folder or "(none chosen)"))
     if state.mode == "this_pc":
         names = []
         try:
@@ -443,7 +443,7 @@ def _settings(args, state):
             say("%s: %s" % (item.path, item.sentence(i18n.Words("en"))), error=True)
             raise Said()
         state.game_folder = item.root
-        say("The game folder: %s" % item.root)
+        say("The client data: %s" % item.root)
         changed = True
     for item in args.set:
         name, _, value = item.partition("=")
@@ -570,15 +570,15 @@ def parse(argv):
     p.add_argument("--status", action="store_true",
                    help="print the folder, how this PC plays, the language and the ready check (exit 0: PLAY can go)")
     p.add_argument("--find", action="store_true",
-                   help="list the game folders and the archives holding one in the usual places (Desktop, Downloads, "
-                        "Documents, each drive's top), each with what it is")
+                   help="list the client data found in the usual places (Desktop, Downloads, Documents, each drive's "
+                        "top), in folders and in archives, each with what it is")
     p.add_argument("--inspect", metavar="PATH", help="say what a path is, as its card says it (exit 0: it can be used)")
-    p.add_argument("--unpack", metavar="ARCHIVE", help="unpack the game folder from an archive (beside it unless --to)")
+    p.add_argument("--unpack", metavar="ARCHIVE", help="unpack the client data from an archive (beside it unless --to)")
     p.add_argument("--to", metavar="FOLDER", help="with --unpack or --folder: the folder to unpack into")
     p.add_argument("--sound-devices", action="store_true",
                    help="list Windows' sound output devices (their GUIDs for --set sound_device=)")
     p.add_argument("--folder", metavar="PATH",
-                   help="use this game folder (or a folder above it); an archive is unpacked first")
+                   help="use the client data in this folder (or a folder above it); an archive is unpacked first")
     p.add_argument("--set", metavar="NAME=VALUE", action="append", default=[],
                    help="change a setting: " + ", ".join(sorted(choices.DEFAULTS)) + ", unlock"
                         # The picture choices' values, from the same lists the Screen page offers, so --help never
@@ -659,7 +659,7 @@ def run_jobs(args, state, play_failed):
         for item in sorted(found, key=lambda f: {intake.READY: 0, intake.UNPACK: 1}.get(f.state, 2)):
             say("  %-9s %s  %s" % (STATE_WORDS[item.state], item.path, item.sentence(w)))
         if not found:
-            say("No game folder or archive of it in the usual places: give yours with --folder PATH.")
+            say("No client data in the usual places: give its folder or archive with --folder PATH.")
     if args.inspect:
         from opendmt3.client import i18n, intake
         item = intake.inspect(os.path.abspath(args.inspect))

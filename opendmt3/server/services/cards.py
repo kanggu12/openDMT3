@@ -92,7 +92,7 @@ def _levels(raw):
 def _damaged():
     """The DJ cards' files damaged or cut short (one of the family's files, or a table or picture in one), as one
     plain line with the thing to do."""
-    return g.GameError("The file with the DJ cards is damaged. Copy the game folder again, or unpack the archive again.",
+    return g.GameError("The file with the DJ cards is damaged. Copy the client data again, or unpack the archive again.",
                        "error.game.damaged.cards")
 
 

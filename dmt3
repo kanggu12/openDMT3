@@ -546,8 +546,8 @@ def missing(text):
 def show_look(found):
     """A path's look (look()) as lines: its one line, ok or not, then its parts."""
     if not found["ready"]:
-        problem(found["line"], "name your game folder (or one above it), an archive holding it, or a song list the "
-                               "launcher saved")
+        problem(found["line"], "name your client data's folder (or one above it), an archive holding it, or a song "
+                               "list the launcher saved")
         return
     ok(found["line"])
     for good, text in found["parts"]:
@@ -560,7 +560,7 @@ def cmd_catalog(args):
     goes away. The running server shows it at once. With --save, a song list is saved into a file instead."""
     path = args.game or read_env().get("GAME_DIR")
     if not path:
-        die("name your game folder, an archive holding it, or a song list: ./dmt3 catalog PATH")
+        die("name your client data (a folder or an archive) or a song list: ./dmt3 catalog PATH")
     say("Looking at %s" % path)
     found = look(path, os.environ.get(PASSWORD_ENV))
     if found.get("key") in ("error.source.password", "error.source.wrong_password") and sys.stdin.isatty():
@@ -610,7 +610,8 @@ def cmd_setup(args):
         if run(cmd)[0] != 0:
             die("could not set up %s (see above)" % what)
     if not args.game:
-        say("No song list yet: ./dmt3 catalog PATH reads it (a game folder, an archive holding it, or a song list).")
+        say("No song list yet: ./dmt3 catalog PATH reads it (your client data in a folder or an archive, or a song "
+            "list).")
     if not args.no_start:
         # The address players reach it at first (the one to open and to send), then this PC's own.
         say(site_lines() or "The site: http://127.0.0.1:%d/ (this PC only)." % WEB_PORT)
@@ -621,7 +622,7 @@ def keep_game(folder):
     """GAME_DIR and GAME_LINKS in .env, so the server starts with the game folder mounted read-only."""
     game_dir, links = kept_game(folder)
     write_env({"GAME_DIR": game_dir, "GAME_LINKS": links or None})
-    say("  the game folder stays mounted read-only: %s%s" % (game_dir, " (and %s)" % links if links else ""))
+    say("  the client data stays mounted read-only: %s%s" % (game_dir, " (and %s)" % links if links else ""))
 
 
 def docker_ready():
@@ -996,8 +997,8 @@ def cmd_test(args):
 COMMANDS = [
     ("setup", "first run, as a wizard (with options, without questions): the image, the data folder, the first "
               "account, the song list, the installer, then up"),
-    ("catalog", "import the song list (with its jackets and the DJ cards) from your game folder, an archive holding "
-                "it, or a song list the launcher saved; --save FILE saves one"),
+    ("catalog", "import the song list (with its jackets and the DJ cards) from your client data, in a folder or an "
+                "archive, or from a song list the launcher saved; --save FILE saves one"),
     ("up", "start the server (building the image first)"),
     ("down", "stop the server"),
     ("restart", "restart the server"),
@@ -1036,18 +1037,20 @@ def parser():
                             help="this PC's address as the players reach it (192.168.0.5, a name, or a whole "
                                  "https://... address behind a proxy): the message to send a player carries it")
     p["setup"].add_argument("--game", metavar="PATH",
-                            help="import the song list from your game folder, an archive holding it, or a song list "
-                                 "the launcher saved")
+                            help="import the song list from your client data (a folder or an archive) or from a song "
+                                 "list the launcher saved")
     p["setup"].add_argument("--admin", metavar="ID", default="BOSS", help="the first account's ID (BOSS when not given)")
     p["setup"].add_argument("--installer", metavar="FILE",
                             help="the installer to hand out (by default the one ./dmt3 build left, when there is one)")
     p["setup"].add_argument("--password", help="the first account's password (made and printed when not given)")
     p["setup"].add_argument("--keep-game", action="store_true",
-                            help="keep the game folder mounted read-only, so the Song list tab can import it again")
+                            help="keep the client data's folder mounted read-only, so the Song list tab can import "
+                                 "it again")
     p["setup"].add_argument("--no-start", action="store_true", help="set up without starting the server")
     p["catalog"].add_argument("game", nargs="?", metavar="PATH",
-                              help="your game folder (or one above it), an archive holding it, or a song list the "
-                                   "launcher saved (the game folder kept mounted, GAME_DIR in .env, when not given)")
+                              help="your client data's folder (or one above it), an archive holding it, or a song "
+                                   "list the launcher saved (the folder kept mounted, GAME_DIR in .env, when not "
+                                   "given)")
     p["catalog"].add_argument("--save", metavar="FILE",
                               help="save the song list into FILE (or a folder: openDMT3-song-list.zip in it) instead of "
                                    "importing it, for a server elsewhere")

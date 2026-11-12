@@ -72,20 +72,20 @@ def damaged(game):
         from opendmt3.server.services import catalog
         key = catalog.survey(game.root).get("problem_key")
     except Exception:  # noqa: BLE001  (the plain sentence stands in)
-        log.warning("the game folder could not be looked at for what is damaged", exc_info=True)
+        log.warning("the client data could not be looked at for what is damaged", exc_info=True)
     # Each sentence where it is raised, as every keyed error has it (tests/core/test_errors.py holds each to the
     # table's own English).
     if key == "error.game.damaged.songs":
-        return g.GameError("The file with the song list is damaged. Copy the game folder again, or unpack the "
+        return g.GameError("The file with the song list is damaged. Copy the client data again, or unpack the "
                            "archive again.", "error.game.damaged.songs")
     if key == "error.game.damaged.jackets":
-        return g.GameError("The file with the jackets is damaged. Copy the game folder again, or unpack the archive "
+        return g.GameError("The file with the jackets is damaged. Copy the client data again, or unpack the archive "
                            "again.", "error.game.damaged.jackets")
     if key == "error.game.damaged.cards":
-        return g.GameError("The file with the DJ cards is damaged. Copy the game folder again, or unpack the archive "
+        return g.GameError("The file with the DJ cards is damaged. Copy the client data again, or unpack the archive "
                            "again.", "error.game.damaged.cards")
     # Any other reading that failed, or a look that could not tell which file: the plain sentence.
-    return g.GameError("One of the game's files is damaged. Copy the game folder again, or unpack the archive again.",
+    return g.GameError("One of the game's files is damaged. Copy the client data again, or unpack the archive again.",
                        "error.game.damaged")
 
 
@@ -115,7 +115,7 @@ def readiness(state):
         if part in missing:
             # Measured: the game stops when the tutorial, or a song, starts; PLAY waits for a whole copy. The window
             # says it in the card's words (intake.line.no_tutorial, intake.line.no_charts).
-            return lines + [Check("files", False, words + " Copy the game folder again, or unpack the archive again.",
+            return lines + [Check("files", False, words + " Copy the client data again, or unpack the archive again.",
                                   page="game", line=("intake.line.no_" + part, {}))]
     from opendmt3.client import intake
     try:
@@ -130,7 +130,7 @@ def readiness(state):
         # The first song the game shows has no chart: it would stop at once (this check runs off the window's thread,
         # and the card's look has usually worked it out already).
         return lines + [Check("files", False, "The first song the game shows has no charts: the game stops when it "
-                                              "starts. Copy the game folder again, or unpack the archive again.",
+                                              "starts. Copy the client data again, or unpack the archive again.",
                               page="game", line=("intake.line.first_song_no_charts", {}))]
     if state.mode == "server":
         signed = bool(state.remote and state.remote.get("card"))
@@ -353,7 +353,7 @@ def _play(state, report, popen, host, card):
             took.append("%s %.1f s" % (name, time.perf_counter() - at))
 
     # The game folder found once for the whole PLAY (finding it lists the folder: 0.7 s under Wine each time).
-    game = timed("game folder", state.game)
+    game = timed("client data", state.game)
     if state.mode == "this_pc":
         if host is None:
             raise g.GameError("playing on this PC needs the built-in server", "error.game.needs_host")
@@ -369,7 +369,7 @@ def _play(state, report, popen, host, card):
             try:
                 host.import_catalog(game_root)
             except Exception:  # noqa: BLE001  (records still work with song numbers)
-                log.warning("the song list could not be read from the game folder", exc_info=True)
+                log.warning("the song list could not be read from the client data", exc_info=True)
 
         timed("song list", song_list)
     timed("openDMT3's folder", lambda: prepare(state, report, took, game))

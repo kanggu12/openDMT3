@@ -301,7 +301,7 @@ class SongListPagesTest(SiteBase):
         self.assertIn("The song list holds the jackets and the DJ cards too.", page)
         self.assertIn("not yet", page)
         # One line each, in the page's words; Import only beside the one that is ready, asked first.
-        self.assertIn("Game folder, original PC client, 1 song: ready", page)
+        self.assertIn("Client data in a folder, original PC client, 1 song: ready", page)
         self.assertIn("The cabinet&#39;s client: does not work here, the PC client is needed.", page)
         self.assertEqual(page.count('data-ask-title="Import the song list"'), 2)
         self.assertIn('value="/games/made-up"', page)
@@ -376,7 +376,7 @@ class SongListPagesTest(SiteBase):
         # A path that is no game: refused with its one line.
         r = self.api("POST", "/api/v1/server/song_list", json={"path": os.path.join(self.tmp, "nothing")})
         self.assertEqual((r.status_code, r.json()["error"]["code"], r.json()["error"]["message"]),
-                         (400, "refused", "This is neither a game folder nor an archive holding one."))
+                         (400, "refused", "This is not a folder or an archive holding client data."))
         # A song list as the body.
         with open(small_song_list(os.path.join(self.tmp, "list.zip"), songs=3), "rb") as f:
             r = self.api("POST", "/api/v1/server/song_list", content=f.read(),

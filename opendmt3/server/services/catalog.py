@@ -137,7 +137,7 @@ def import_cards(game_folder, data_dir):
 
 def _damaged_songs():
     """The song list's files damaged or cut short, as one plain line with the thing to do."""
-    return g.GameError("The file with the song list is damaged. Copy the game folder again, or unpack the archive "
+    return g.GameError("The file with the song list is damaged. Copy the client data again, or unpack the archive "
                        "again.", "error.game.damaged.songs")
 
 
@@ -194,7 +194,7 @@ def import_jackets(game, songs, data_dir):
             try:
                 data = layers.read(JACKET_PATH % song["name"])
             except P.PakError:
-                raise g.GameError("The file with the jackets is damaged. Copy the game folder again, or unpack the "
+                raise g.GameError("The file with the jackets is damaged. Copy the client data again, or unpack the "
                                   "archive again.", "error.game.damaged.jackets") from None
             if data is not None:
                 yield song, data
@@ -204,7 +204,7 @@ def import_jackets(game, songs, data_dir):
         return pictures.canonical(data, "jacket", shrink=True) if keep else data
     with layers:
         if layers.damaged:
-            raise g.GameError("The file with the jackets is damaged. Copy the game folder again, or unpack the archive "
+            raise g.GameError("The file with the jackets is damaged. Copy the client data again, or unpack the archive "
                               "again.", "error.game.damaged.jackets")
         # Converted side by side, each handed back in the songs' order: the same files, saved in the same order, as
         # one after another (closing: no picture thread outlives the reading, whatever stops it).
@@ -359,7 +359,7 @@ def survey(game_folder):
     try:
         with game.layers("DiscImg") as layers:
             if layers.damaged:
-                raise g.GameError("The file with the jackets is damaged. Copy the game folder again, or unpack the "
+                raise g.GameError("The file with the jackets is damaged. Copy the client data again, or unpack the "
                                   "archive again.", "error.game.damaged.jackets")
             names = layers.names()
         found["jackets"] = sum((JACKET_PATH % s["name"]).lower() in names for s in songs)
@@ -389,7 +389,7 @@ def why(error):
     """A plain reason for an error, without a traceback, as a sentence: what is missing or what stopped the reading.
     Errors with words of their own (errors.py) say them."""
     if isinstance(error, FileNotFoundError) or (isinstance(error, OSError) and error.errno == errno.ENOENT):
-        return errors.say(g.GameError("the game folder has no file this part is in", "error.game.no_file"))
+        return errors.say(g.GameError("the client data has no file this part is in", "error.game.no_file"))
     if isinstance(error, PermissionError):
         return errors.say(g.GameError("the game's files cannot be read by this user", "error.game.permission"))
     if isinstance(error, errors.Worded):
@@ -397,7 +397,7 @@ def why(error):
         return errors.say(error)
     if isinstance(error, P.PakError):
         # A file of the game's damaged or cut short, the part unknown here.
-        return errors.say(g.GameError("One of the game's files is damaged. Copy the game folder again, or unpack the "
+        return errors.say(g.GameError("One of the game's files is damaged. Copy the client data again, or unpack the "
                                       "archive again.", "error.game.damaged"))
     if isinstance(error, OSError) and error.strerror:
         # By its kind and the system's words alone: its paths are the server's own (the API says this to its caller).

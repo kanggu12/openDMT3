@@ -71,9 +71,9 @@ class FolderTest(Kinds):
         found = intake.inspect(self.tmp)
         self.assertEqual((found.state, found.kind, found.root), (intake.READY, intake.FOLDER, self.root))
         self.assertEqual(found.actions, [intake.CHOOSE])
-        self.assertEqual(found.sentence(EN), "Game folder, original PC client, %d songs, %d jackets: ready"
+        self.assertEqual(found.sentence(EN), "Client data in a folder, original PC client, %d songs, %d jackets: ready"
                          % (len(NEWEST_SONGS), len(NEWEST_SONGS)))
-        self.assertEqual(found.sentence(KO), "게임 폴더, PC 클라이언트 원본, 곡 %d개, 자켓 %d개: 쓸 수 있음"
+        self.assertEqual(found.sentence(KO), "폴더 안의 클라이언트 데이터, PC 클라이언트 원본, 곡 %d개, 자켓 %d개: 쓸 수 있음"
                          % (len(NEWEST_SONGS), len(NEWEST_SONGS)))
 
     def test_a_copy_without_its_videos_plays_and_says_so(self):
@@ -91,8 +91,8 @@ class FolderTest(Kinds):
         found = intake.inspect(self.root)
         self.assertEqual((found.state, found.tone, found.actions), (intake.NOT_HERE, intake.PROBLEM, []))
         self.assertEqual(found.sentence(EN), "The file with the tutorial is missing: the game stops at the tutorial. "
-                                             "Copy the game folder again, or unpack the archive again.")
-        self.assertEqual(found.sentence(KO), "튜토리얼이 든 파일이 없어 게임이 튜토리얼에서 멈춥니다. 게임 폴더를 다시 "
+                                             "Copy the client data again, or unpack the archive again.")
+        self.assertEqual(found.sentence(KO), "튜토리얼이 든 파일이 없어 게임이 튜토리얼에서 멈춥니다. 클라이언트 데이터를 다시 "
                                              "복사하거나 압축 파일을 다시 푸세요.")
 
     def test_a_copy_without_its_previews_plays_and_says_so(self):
@@ -109,8 +109,8 @@ class FolderTest(Kinds):
         found = intake.inspect(self.root)
         self.assertEqual((found.state, found.tone, found.actions), (intake.NOT_HERE, intake.PROBLEM, []))
         self.assertEqual(found.sentence(EN), "The file with the charts is missing: the game stops when a song starts. "
-                                             "Copy the game folder again, or unpack the archive again.")
-        self.assertEqual(found.sentence(KO), "차트가 든 파일이 없어 곡을 시작하면 게임이 멈춥니다. 게임 폴더를 다시 복사하거나 "
+                                             "Copy the client data again, or unpack the archive again.")
+        self.assertEqual(found.sentence(KO), "차트가 든 파일이 없어 곡을 시작하면 게임이 멈춥니다. 클라이언트 데이터를 다시 복사하거나 "
                                              "압축 파일을 다시 푸세요.")
 
     def charts(self, *songs):
@@ -211,7 +211,7 @@ class FolderTest(Kinds):
         self.newer_list()
         found = intake.inspect(self.root)
         self.assertEqual((found.state, found.line, found.songs, found.jackets), (intake.READY, None, 3, 3))
-        self.assertEqual(found.sentence(EN), "Game folder, original PC client, 3 songs, 3 jackets: ready")
+        self.assertEqual(found.sentence(EN), "Client data in a folder, original PC client, 3 songs, 3 jackets: ready")
         # The server's song list keeps every row (the records' titles and levels): four there.
         from opendmt3.server.services import catalog
         self.assertEqual(catalog.survey(self.root)["songs"], 4)
@@ -258,7 +258,7 @@ class FolderTest(Kinds):
         found = intake.inspect(self.root)
         self.assertEqual((found.state, found.actions), (intake.NOT_HERE, []))
         self.assertEqual(found.sentence(EN), "The first song the game shows has no charts: the game stops when it "
-                                             "starts. Copy the game folder again, or unpack the archive again.")
+                                             "starts. Copy the client data again, or unpack the archive again.")
 
     def test_a_folder_where_nothing_can_be_written_plays_as_any_other(self):
         # PLAY only reads the game folder: Program Files (where only an administrator writes) is no problem.
@@ -307,9 +307,9 @@ class FolderTest(Kinds):
         self.cut("DiscInfo01.pak", 40)
         found = intake.inspect(self.root)
         self.assertEqual(found.state, intake.NOT_HERE)
-        self.assertEqual(found.sentence(EN), "The file with the song list is damaged. Copy the game folder again, or "
+        self.assertEqual(found.sentence(EN), "The file with the song list is damaged. Copy the client data again, or "
                                              "unpack the archive again.")
-        self.assertEqual(found.sentence(KO), "곡 목록이 든 파일이 손상됐습니다. 게임 폴더를 다시 복사하거나 압축 파일을 다시 "
+        self.assertEqual(found.sentence(KO), "곡 목록이 든 파일이 손상됐습니다. 클라이언트 데이터를 다시 복사하거나 압축 파일을 다시 "
                                              "푸세요.")
 
     def test_files_an_older_openDMT3_changed_are_counted_and_put_back_is_offered(self):
@@ -335,8 +335,8 @@ class FolderTest(Kinds):
         alone = os.path.join(self.tmp, "Config.pak")
         shutil.copy(os.path.join(self.root, "pack", "Config.pak"), alone)
         found = intake.inspect(alone)
-        self.assertEqual(found.sentence(EN), "This is part of a game folder. Choose the whole game folder.")
-        self.assertEqual(found.sentence(KO), "게임 폴더의 일부입니다. 게임 폴더 전체를 고르세요.")
+        self.assertEqual(found.sentence(EN), "This is part of the client data. Choose the folder that holds all of it.")
+        self.assertEqual(found.sentence(KO), "클라이언트 데이터의 일부입니다. 클라이언트 데이터가 모두 든 폴더를 고르세요.")
 
     def test_what_holds_no_game_and_what_is_gone(self):
         notes = os.path.join(self.tmp, "notes")
@@ -345,8 +345,8 @@ class FolderTest(Kinds):
             f.write("made-up")
         for path in (notes, os.path.join(notes, "readme.txt")):
             found = intake.inspect(path)
-            self.assertEqual(found.sentence(EN), "This is neither a game folder nor an archive holding one.", path)
-            self.assertEqual(found.sentence(KO), "게임 폴더도, 게임이 든 압축 파일도 아닙니다.")
+            self.assertEqual(found.sentence(EN), "This is not a folder or an archive holding client data.", path)
+            self.assertEqual(found.sentence(KO), "클라이언트 데이터가 든 폴더나 압축 파일이 아닙니다.")
         found = intake.inspect(os.path.join(self.tmp, "gone"))
         self.assertEqual((found.state, found.sentence(EN)), (intake.NOT_HERE, "This is not there any more."))
 
@@ -369,8 +369,8 @@ class FolderTest(Kinds):
         with mock.patch.object(find.os, "stat", stat):
             found = intake.inspect(self.root)
         self.assertEqual(found.state, intake.READY)
-        self.assertEqual(found.line_words(EN), "This game folder is only in OneDrive's cloud. Set it to \"Always keep "
-                                               "on this device\".")
+        self.assertEqual(found.line_words(EN), "This client data is only in OneDrive's cloud. Set its folder to \"Always "
+                                               "keep on this device\".")
 
     def test_a_stop_ends_the_look_with_what_it_knew(self):
         stop = threading.Event()
@@ -683,7 +683,7 @@ class UnpackTest(ArchivesCase):
         archive = self.archive_of("technika3.zip", "-tzip")
         found = intake.inspect(archive)
         self.assertEqual(found.songs, len(NEWEST_SONGS))
-        self.assertTrue(found.sentence(EN).startswith("A game folder in an archive, %d songs: unpack to play ("
+        self.assertTrue(found.sentence(EN).startswith("Client data in an archive, %d songs: unpack to play ("
                                                       % len(NEWEST_SONGS)), found.sentence(EN))
         # Nothing of the look is left anywhere: the files read were taken out into a folder of its own, then removed.
         self.assertEqual(os.listdir(self.downloads), ["technika3.zip"])
@@ -804,7 +804,7 @@ class CommandLineTest(ArchivesCase):
     def test_inspect_says_what_a_path_is_and_exits_by_it(self):
         code, said = self.run_main("--inspect", self.tmp)
         self.assertEqual(code, 0)
-        self.assertIn("Game folder, original PC client, %d songs" % len(NEWEST_SONGS), said)
+        self.assertIn("Client data in a folder, original PC client, %d songs" % len(NEWEST_SONGS), said)
         code, said = self.run_main("--inspect", os.path.join(self.tmp, "nothing-here"))
         self.assertEqual(code, 1)
         self.assertIn("This is not there any more.", said)
@@ -823,7 +823,7 @@ class CommandLineTest(ArchivesCase):
             # --find, the found list's twin on the command line.
             code, said = self.run_main("--find")
             self.assertEqual(taken, [])
-            self.assertIn("A game folder in an archive: unpack to play (", said)
+            self.assertIn("Client data in an archive: unpack to play (", said)
             self.assertNotIn("songs", said)
             # The found list's own search, on a stand-in window that runs what the search's worker hands it.
             from opendmt3.client import found_list
@@ -844,7 +844,7 @@ class CommandLineTest(ArchivesCase):
             self.assertEqual(taken, [])
             # Picked by the player (--inspect, Choose an archive...): its songs counted from its song list's files.
             code, said = self.run_main("--inspect", archive)
-            self.assertIn("A game folder in an archive, %d songs: unpack to play (" % len(NEWEST_SONGS), said)
+            self.assertIn("Client data in an archive, %d songs: unpack to play (" % len(NEWEST_SONGS), said)
             self.assertEqual(len(taken), 1)
         self.assertEqual(os.listdir(self.downloads), ["technika3.zip"])
 

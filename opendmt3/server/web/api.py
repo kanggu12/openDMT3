@@ -753,7 +753,7 @@ def routes(site):
             else:
                 if not site.game_folder:
                     # No folder to read: the tab offers the other ways.
-                    return _error(404, "no_game_folder", "the server was not given a game folder to read (GAME_DIR, "
+                    return _error(404, "no_game_folder", "the server was not given client data to read (GAME_DIR, "
                                                          "--game); send a path or a song list, or run ./dmt3 catalog "
                                                          "PATH on the server PC")
                 report, failed = await _import_song_list(site, row["who"])

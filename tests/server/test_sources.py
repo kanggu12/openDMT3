@@ -195,8 +195,8 @@ class FormsTest(GameCase):
     def test_a_game_folder_below_the_path_says_what_it_holds(self):
         found = sources.look(self.tmp)
         self.assertEqual((found["kind"], found["ready"], found["path"]), ("folder", True, self.game.root))
-        self.assertEqual(found["line"], "Game folder, original PC client, 3 songs: ready")
-        self.assertEqual(sources.folder_line("modified", 3, "ko"), "게임 폴더, 수정된 PC 클라이언트, 곡 3개: 쓸 수 있음")
+        self.assertEqual(found["line"], "Client data in a folder, original PC client, 3 songs: ready")
+        self.assertEqual(sources.folder_line("modified", 3, "ko"), "폴더 안의 클라이언트 데이터, 수정된 PC 클라이언트, 곡 3개: 쓸 수 있음")
         report = sources.read(self.tmp, os.path.join(self.tmp, "data"))
         self.assertEqual((report["from"], report["path"]), ("folder", self.game.root))
 
@@ -208,7 +208,7 @@ class FormsTest(GameCase):
         shutil.copy(os.path.join(self.pack, "DiscInfo.pak"), alone)
         found = sources.look(alone)
         self.assertEqual((found["ready"], found["key"]), (False, "error.source.part"))
-        self.assertEqual(found["line"], "This is part of a game folder. Choose the whole game folder.")
+        self.assertEqual(found["line"], "This is part of the client data. Choose the folder that holds all of it.")
 
     def test_what_holds_no_game_is_said_so(self):
         empty = os.path.join(self.tmp, "empty")
@@ -220,7 +220,7 @@ class FormsTest(GameCase):
             with self.subTest(path=os.path.basename(path)):
                 found = sources.look(path)
                 self.assertEqual((found["ready"], found["key"]), (False, "error.source.nothing"))
-                self.assertEqual(found["line"], "This is neither a game folder nor an archive holding one.")
+                self.assertEqual(found["line"], "This is not a folder or an archive holding client data.")
                 with self.assertRaises(sources.SourceError):
                     sources.read(path, os.path.join(self.tmp, "data"))
 
@@ -228,7 +228,7 @@ class FormsTest(GameCase):
         self.cut("DiscInfo01.pak", -10)
         found = sources.look(self.tmp)
         self.assertEqual((found["ready"], found["key"]), (False, "error.game.damaged.songs"))
-        self.assertEqual(found["line"], "The file with the song list is damaged. Copy the game folder again, or unpack "
+        self.assertEqual(found["line"], "The file with the song list is damaged. Copy the client data again, or unpack "
                                         "the archive again.")
 
     # ------------------------------------------------------------------------------------------- clients
@@ -252,7 +252,7 @@ class FormsTest(GameCase):
     def test_a_modified_pc_client_is_used(self):
         self.clients("another build", holds=True)
         found = sources.look(self.tmp)
-        self.assertEqual(found["line"], "Game folder, modified PC client, 3 songs: ready")
+        self.assertEqual(found["line"], "Client data in a folder, modified PC client, 3 songs: ready")
 
     def test_the_cabinets_client_does_not_work_here(self):
         self.clients(g.CABINET_BUILD, holds=False)
@@ -271,7 +271,7 @@ class FormsTest(GameCase):
         path = self.zip_of_the_game(os.path.join(self.tmp, "technika-copy.zip"))
         found = sources.look(path)
         self.assertEqual((found["kind"], found["ready"], found["inside"]), ("archive", True, "TECHNIKA 3/drive d/DMT3/"))
-        self.assertEqual(found["line"], "A game folder in an archive: ready")
+        self.assertEqual(found["line"], "Client data in an archive: ready")
         taken = []
         real = sources.extract
 

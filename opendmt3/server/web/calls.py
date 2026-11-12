@@ -242,10 +242,11 @@ CALLS = [
          "places looked in, and whether the server shows its PC's other folders.",
          params=(LANG,), answer={"song_list": "object", "found": "array", "places": "array", "browse": "boolean"}),
     Call("POST", "/api/v1/server/song_list", "admin", ADMIN,
-         "Import the song list (with its jackets and the DJ cards): from the game folder the server was given (no "
-         "body), from a path on the server PC (a game folder, an archive holding one, or a song list), or a song list "
-         "as the body, up to 64 MB.",
-         params=(body("path", "string", "A game folder, an archive holding one, or a song list on the server PC."),),
+         "Import the song list (with its jackets and the DJ cards): from the client data the server was given (no "
+         "body), from a path on the server PC (the client data in a folder or an archive, or a song list), or a song "
+         "list as the body, up to 64 MB.",
+         params=(body("path", "string", "The client data in a folder or an archive, or a song list, on the server "
+                                        "PC."),),
          upload="application/zip", body_needed=False, answer={"song_list": "object", "lines": "array"},
          errors=((400, "bad_request"), (400, "refused"), (404, "no_game_folder"), (409, "busy"), (409, "not_read"),
                  (413, "too_large"))),

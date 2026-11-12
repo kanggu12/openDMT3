@@ -215,5 +215,5 @@ class LauncherState:
     def game(self):
         """The game folder, found at or below the chosen folder; GameError when it is missing or gone."""
         if not self.game_folder:
-            raise g.GameError("no game folder chosen yet", "error.game.not_chosen")
+            raise g.GameError("no client data chosen yet", "error.game.not_chosen")
         return g.Game.find(self.game_folder)

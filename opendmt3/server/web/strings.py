@@ -87,8 +87,8 @@ TEXT = {
                             "Connect.",
                             "LOG IN(또는 온라인)에서 '다른 서버'를 고르고 주소({address})를 입력한 뒤 '연결'을 누르세요."),
     "download.step3": ("Sign in with your ID ({login_id}) and press PLAY.", "내 ID({login_id})로 로그인하고 PLAY를 누르세요."),
-    "download.need": ("You need your own copy of the TECHNIKA 3 game; openDMT3 has no game files.",
-                      "TECHNIKA 3 게임 파일을 직접 가지고 있어야 합니다. openDMT3에는 게임 파일이 없습니다."),
+    "download.need": ("You need your own TECHNIKA 3 client data; openDMT3 has no game files.",
+                      "TECHNIKA 3 클라이언트 데이터를 직접 가지고 있어야 합니다. openDMT3에는 게임 파일이 없습니다."),
     "rankings.sub": ("Each mode's DJs, by the total of their best scores, by the average of their best 30, or by "
                      "this month's total.",
                      "모드별 DJ 랭킹입니다. 최고 점수의 총점, 최고 30차트 평균, 이번 달 총점으로 봅니다."),
@@ -252,7 +252,8 @@ TEXT = {
     "data.missing.cards": ("No DJ cards: every DJ card keeps the basic icon and plate.",
                            "DJ 카드가 없습니다. 모든 DJ 카드가 기본 아이콘과 플레이트로 나옵니다."),
     "data.missing.why": ("{why}", "{why}"),
-    "data.source.folder": ("Last read from the game folder {path}, {when}.", "{when}에 게임 폴더 {path}에서 읽었습니다."),
+    "data.source.folder": ("Last read from the client data in {path}, {when}.",
+                           "{when}에 {path}의 클라이언트 데이터에서 읽었습니다."),
     "data.source.archive": ("Last read from the archive {path}, {when}.", "{when}에 압축 파일 {path}에서 읽었습니다."),
     "data.source.file": ("Last taken from a song list ({path}, saved {made}), {when}.",
                          "{when}에 곡 목록({path}, {made}에 저장)에서 가져왔습니다."),
@@ -263,18 +264,19 @@ TEXT = {
     "songlist.lead": ("The song list holds the jackets and the DJ cards too. Please use only files you have the "
                       "right to use.",
                       "곡 목록에는 자켓과 DJ 카드도 들어 있습니다. 쓸 권리가 있는 파일만 써 주세요."),
-    "songlist.take.text": ("From the game folder on the server PC, an archive holding it (.zip, .7z, .rar; split, "
-                           "with every part in one folder), or a song list the launcher saved. No charts, music or "
-                           "videos are read.",
-                           "서버 PC의 게임 폴더, 그 폴더가 든 압축 파일(.zip, .7z, .rar, 분할 압축은 모든 조각을 한 폴더에), 런처가 저장한 곡 목록에서 "
-                           "가져옵니다. 차트, 음악, 영상은 읽지 않습니다."),
+    "songlist.take.text": ("From the client data on the server PC, in a folder or in an archive (.zip, .7z, .rar; "
+                           "split, with every part in one folder), or from a song list the launcher saved. No charts, "
+                           "music or videos are read.",
+                           "서버 PC에 있는 클라이언트 데이터나 런처가 저장한 곡 목록에서 가져옵니다. 클라이언트 데이터는 폴더도 되고 "
+                           "압축 파일(.zip, .7z, .rar, 분할 압축은 모든 조각을 한 폴더에)도 됩니다. 차트, 음악, 영상은 읽지 "
+                           "않습니다."),
     "songlist.take.need": ("Without it songs show as numbers and every DJ card keeps the basic icon and plate.",
                            "없으면 곡이 번호로 나오고 모든 DJ 카드가 기본 아이콘과 플레이트로 나옵니다."),
     "songlist.state.ready": ("ready", "쓸 수 있음"),
     "songlist.state.not_yet": ("not yet", "아직 없음"),
     "songlist.found": ("Found on the server PC", "서버 PC에서 찾은 파일"),
-    "songlist.found.none": ("No game folder, archive or song list in these folders.",
-                            "이 폴더들에서 게임 폴더, 압축 파일, 곡 목록을 찾지 못했습니다."),
+    "songlist.found.none": ("Neither client data nor a song list in these folders.",
+                            "이 폴더들에서 클라이언트 데이터도, 곡 목록도 찾지 못했습니다."),
     "songlist.found.where": ("Looked in:", "찾아본 곳:"),
     "songlist.found.nowhere": ("This server sees no folder of the server PC to look in.",
                                "이 서버가 찾아볼 수 있는 서버 PC의 폴더가 없습니다."),

@@ -161,7 +161,7 @@ class Originals:
                 self.kept = Backup(game)
             except (OSError, ValueError, AttributeError):
                 # A list that cannot be read keeps nothing openDMT3 can vouch for: the folder's own files then.
-                log.warning("the game folder's backup list cannot be read; its own files are used", exc_info=True)
+                log.warning("the client data's backup list cannot be read; its own files are used", exc_info=True)
 
     def changed(self):
         """The files an earlier openDMT3 changed that still differ from their originals ("/" separated), once."""

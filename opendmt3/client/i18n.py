@@ -21,7 +21,8 @@ TEXT = {
     "bottom.playing": ("PLAYING", "PLAYING"),
     "bottom.report": ("Save a report", "보고서 저장"),
     "status.ready": ("Ready to play.", "플레이할 준비가 됐습니다."),
-    "status.choose_folder": ("Choose the game folder first, on the Game page.", "게임 페이지에서 게임 폴더를 먼저 고르세요."),
+    "status.choose_folder": ("Choose the client data first, on the Game page.",
+                             "게임 페이지에서 클라이언트 데이터를 먼저 고르세요."),
     "status.sign_in_first": ("Sign in on the Online page first.", "먼저 온라인 페이지에서 로그인하세요."),
     "status.game_open": ("The game is open. Close it first.", "게임이 열려 있습니다. 먼저 닫으세요."),
     "status.preparing": ("Getting the game ready: {step}", "게임을 준비하는 중: {step}"),
@@ -57,7 +58,7 @@ TEXT = {
     "play.ok": ("OK", "정상"),
     "play.will_change": ("ready at PLAY", "PLAY 때 준비됩니다"),
     "play.rest": ("The rest is made ready at PLAY.", "나머지는 PLAY 때 준비됩니다."),
-    "play.go.game": ("Game folder", "게임 폴더"),
+    "play.go.game": ("Client data", "클라이언트 데이터"),
     "play.go.online": ("Online", "온라인"),
     "play.how": ("How to play", "플레이 방법"),
     "play.how.1": ("A click is a tap, a drag is a slide.", "클릭은 터치, 끌기는 슬라이드입니다."),
@@ -73,7 +74,7 @@ TEXT = {
     "play.last.crash": ("{time} of play, then the game closed by itself.", "{time} 플레이한 뒤 게임이 저절로 닫혔습니다."),
 
     # ----------------------------------------------------------------------------------- ready-check lines
-    "check.folder": ("Game folder", "게임 폴더"),
+    "check.folder": ("Client data", "클라이언트 데이터"),
     "check.client": ("PC client", "PC 클라이언트"),
     "check.files": ("The game's files", "게임 파일"),
     "check.running": ("The game is open: close it first", "게임이 열려 있습니다. 먼저 닫으세요"),
@@ -193,11 +194,12 @@ TEXT = {
 
     # --------------------------------------------------------------------------------------------- game
     "game.title": ("Game", "게임"),
-    "game.sub": ("The game folder, and how the cabinet is set up.", "게임 폴더와 기체 설정입니다."),
+    "game.sub": ("The client data, and how the cabinet is set up.", "클라이언트 데이터와 기체 설정입니다."),
     "game.files": ("Game files", "게임 파일"),
-    "game.folder": ("Game folder", "게임 폴더"),
-    "game.folder.none": ("No game folder chosen yet", "아직 고른 게임 폴더가 없습니다"),
-    "game.folder.choose": ("Choose your game folder, or an archive holding it.", "게임 폴더나 그 압축 파일을 고르세요."),
+    "game.folder": ("Client data", "클라이언트 데이터"),
+    "game.folder.none": ("No client data chosen yet", "아직 고른 클라이언트 데이터가 없습니다"),
+    "game.folder.choose": ("Choose the folder or the archive your client data is in.",
+                           "클라이언트 데이터가 든 폴더나 압축 파일을 고르세요."),
     "game.change": ("Change...", "바꾸기..."),
     "game.songlist.hint": ("Save the song list... makes the file a server's admin uploads. The song list holds the "
                            "jackets and the DJ cards too.",
@@ -206,9 +208,9 @@ TEXT = {
     "game.songlist.send": ("Send the song list to this server", "이 서버로 곡 목록 보내기"),
     "songlist.save.title": ("Save the song list", "곡 목록 저장"),
     "songlist.save.message": ("Where should the song list go?", "곡 목록을 어디에 저장할까요?"),
-    "songlist.save.detail": ("The song list, its jackets and the DJ cards from your game folder, about 14 MB, for a "
+    "songlist.save.detail": ("The song list, its jackets and the DJ cards from your client data, about 14 MB, for a "
                              "server's admin to upload on its Song list tab.",
-                             "게임 폴더의 곡 목록과 자켓, DJ 카드입니다(약 14 MB). 서버 관리자가 곡 목록 탭에서 올립니다."),
+                             "클라이언트 데이터의 곡 목록과 자켓, DJ 카드입니다(약 14 MB). 서버 관리자가 곡 목록 탭에서 올립니다."),
     "songlist.save.path": ("File", "파일"),
     "songlist.save.button": ("Save", "저장"),
     "songlist.save.replace.title": ("Replace the file", "파일 바꾸기"),
@@ -217,7 +219,7 @@ TEXT = {
                                      "있던 파일은 지우고 새 곡 목록으로 바꿉니다."),
     "songlist.save.replace.button": ("Replace", "바꾸기"),
     "songlist.saving.title": ("Saving", "저장 중"),
-    "songlist.saving": ("Reading the song list from the game folder...", "게임 폴더에서 곡 목록을 읽는 중..."),
+    "songlist.saving": ("Reading the song list from the client data...", "클라이언트 데이터에서 곡 목록을 읽는 중..."),
     "songlist.saved": ("The song list is saved: {songs} songs.", "곡 목록을 저장했습니다. 곡 {songs}개입니다."),
     "songlist.saved.detail": ("{path} ({size})", "{path} ({size})"),
     "songlist.failed": ("The song list was not saved.", "곡 목록을 저장하지 못했습니다."),
@@ -362,7 +364,8 @@ TEXT = {
     "records.chart.level": ("{mode} · Pattern {n} · Lv {level}", "{mode} · 패턴 {n} · Lv {level}"),
     "common.hours": ("{h} h {m} min", "{h}시간 {m}분"),
     "help.title": ("Help", "도움말"),
-    "help.sub": ("Checks of the game folder, and what to do when something goes wrong.", "게임 폴더 점검과 문제가 생겼을 때 할 일입니다."),
+    "help.sub": ("Checks of the client data, and what to do when something goes wrong.",
+                 "클라이언트 데이터 점검과 문제가 생겼을 때 할 일입니다."),
     "help.checks": ("Checks", "점검"),
     "help.recheck": ("Check again", "다시 점검"),
     "help.crash": ("If the game closes by itself", "게임이 저절로 닫히면"),
@@ -373,12 +376,12 @@ TEXT = {
     "help.crash.3": ("Save a report and attach it to an issue on GitHub.", "보고서를 저장해 GitHub 이슈에 붙여 주세요."),
     "help.tools": ("Tools", "도구"),
     "help.restore": ("Game files", "게임 파일"),
-    "help.restore.hint": ("Every file an older openDMT3 changed in the game folder goes back to how it was, and the "
+    "help.restore.hint": ("Every file an older openDMT3 changed in the client data goes back to how it was, and the "
                           "files it added go.",
-                          "예전 openDMT3가 게임 폴더에서 바꾼 파일을 모두 원래대로 되돌리고 더한 파일은 지웁니다."),
+                          "예전 openDMT3가 클라이언트 데이터에서 바꾼 파일을 모두 원래대로 되돌리고 더한 파일은 지웁니다."),
     "help.restore.title": ("Put files back", "파일 되돌리기"),
     "help.restore.ask": ("Put every changed file back?", "바꾼 파일을 모두 되돌릴까요?"),
-    "help.restore.detail": ("The game folder is as it was before openDMT3.", "게임 폴더는 openDMT3 전과 같아집니다."),
+    "help.restore.detail": ("The client data is as it was before openDMT3.", "클라이언트 데이터는 openDMT3 전과 같아집니다."),
     "help.restore.confirm": ("Put back", "되돌리기"),
     "help.restore.done": ("Files put back: {n}.", "파일 {n}개를 되돌렸습니다."),
     "help.restore.nothing": ("Nothing to put back.", "되돌릴 것이 없습니다."),
@@ -416,8 +419,8 @@ TEXT = {
                             "records stay.",
                             "이 PC에서 openDMT3를 제거합니다. 설정, 플레이어, 기록을 남길지는 그때 고릅니다."),
     "help.uninstall.ask": ("Uninstall openDMT3 from this PC?", "이 PC에서 openDMT3를 제거할까요?"),
-    "help.uninstall.game": ("The files an older openDMT3 changed in the game folder go back to how they were.",
-                            "예전 openDMT3가 게임 폴더에서 바꾼 파일을 원래대로 되돌립니다."),
+    "help.uninstall.game": ("The files an older openDMT3 changed in the client data go back to how they were.",
+                            "예전 openDMT3가 클라이언트 데이터에서 바꾼 파일을 원래대로 되돌립니다."),
     "help.uninstall.closes": ("The launcher closes and the program is gone a few seconds later.",
                               "런처가 닫히고 몇 초 뒤 프로그램이 지워집니다."),
     "help.uninstall.choices": ("Keep data: the settings, players and records stay for a later install.\nDelete all: "
@@ -577,22 +580,22 @@ TEXT = {
                        "openDMT3에는 게임 파일이 들어 있지 않습니다. 쓸 권리가 있는 게임 파일로만 써 주세요."),
     "guide.1.need": ("What you need", "준비물"),
     # The PC client is named in full once, here, where a player first reads of it.
-    "guide.1.need.1": ("Your own TECHNIKA 3 game folder, with its PC client (a client that runs on a PC): a folder, "
-                       "or an archive (.zip, .7z, .rar; split, with every part in one folder).",
-                       "직접 가진 TECHNIKA 3 게임 폴더와 그 PC 클라이언트(PC에서 실행되는 클라이언트)가 필요합니다. 폴더도 되고 압축 파일(.zip, .7z, .rar, "
-                       "분할 압축은 모든 조각을 한 폴더에)도 됩니다."),
+    "guide.1.need.1": ("Your own TECHNIKA 3 client data: the game's PC client (a client that runs on a PC) and its "
+                       "files, in a folder or in an archive (.zip, .7z, .rar; split, with every part in one folder).",
+                       "직접 가진 TECHNIKA 3 클라이언트 데이터가 필요합니다. 게임의 PC 클라이언트(PC에서 실행되는 클라이언트)와 게임 "
+                       "파일입니다. 폴더도 되고 압축 파일(.zip, .7z, .rar, 분할 압축은 모든 조각을 한 폴더에)도 됩니다."),
     "guide.1.need.2": ("Windows 10 or 11, and a mouse or a touch screen.", "Windows 10이나 11, 마우스나 터치스크린이 필요합니다."),
     "guide.2.name": ("DISC CHECK", "DISC CHECK"),
-    "guide.2.sub": ("Game folder", "게임 폴더"),
+    "guide.2.sub": ("Client data", "클라이언트 데이터"),
     "guide.2.title": ("Where is the game?", "게임은 어디 있나요?"),
     "guide.2.searching": ("Looking in Desktop, Downloads, Documents and the top of each drive...",
                           "바탕 화면, 다운로드, 문서, 드라이브 맨 위에서 찾는 중..."),
-    "guide.2.text": ("Your own TECHNIKA 3 game folder, or an archive holding it: found on this PC, or chosen below.",
-                     "직접 가진 TECHNIKA 3 게임 폴더나 그 압축 파일입니다. 이 PC에서 찾은 것을 쓰거나 아래에서 고르면 됩니다."),
+    "guide.2.text": ("Your own TECHNIKA 3 client data, in a folder or an archive: found on this PC, or chosen below.",
+                     "직접 가진 TECHNIKA 3 클라이언트 데이터(폴더나 압축 파일)입니다. 이 PC에서 찾은 것을 쓰거나 아래에서 고르면 됩니다."),
     "guide.2.found": ("Found on this PC", "이 PC에서 찾은 것"),
     "guide.2.stop": ("Stop looking", "그만 찾기"),
-    "guide.2.none": ("No game folder or archive of it in the usual places. Choose it below.",
-                     "흔히 두는 곳에 게임 폴더도, 그 압축 파일도 없습니다. 아래에서 고르세요."),
+    "guide.2.none": ("No client data in the usual places. Choose its folder or archive below.",
+                     "흔히 두는 곳에 클라이언트 데이터가 없습니다. 아래에서 그 폴더나 압축 파일을 고르세요."),
     "guide.2.choose": ("Choose a folder...", "폴더 고르기..."),
     # ------------------------------------------------------------------- what a path is (client/intake.py)
     # A card's state, on its chip: in the game's capitals in English (the card writes them so).
@@ -601,18 +604,20 @@ TEXT = {
     "intake.state.not_here": ("Does not work here", "여기서는 못 씁니다"),
     "intake.state.not_yet": ("Not yet", "아직 없음"),
     "intake.state.checking": ("Checking", "확인 중"),
-    # The same states at the end of a sentence (--inspect, --find): "Game folder, 177 songs: ready".
+    # The same states at the end of a sentence (--inspect, --find): "Client data in a folder, 177 songs: ready".
     "intake.said.ready": ("ready", "쓸 수 있음"),
     "intake.said.unpack": ("unpack to play", "풀면 쓸 수 있음"),
     "intake.said.not_here": ("does not work here", "여기서는 못 씁니다"),
     "intake.said.not_yet": ("not yet", "아직 없음"),
     "intake.said.checking": ("checking", "확인 중"),
     # What a path is, first in its sentence.
-    "intake.kind.folder": ("Game folder", "게임 폴더"),
-    "intake.kind.archive": ("A game folder in an archive", "압축 파일 안의 게임 폴더"),
-    # What a card is, small beside its chip.
-    "intake.label.folder": ("Game folder", "게임 폴더"),
-    "intake.label.archive": ("Archive", "압축 파일"),
+    "intake.kind.folder": ("Client data in a folder", "폴더 안의 클라이언트 데이터"),
+    "intake.kind.archive": ("Client data in an archive", "압축 파일 안의 클라이언트 데이터"),
+    # What a card is, small beside its chip: the client data, in one of its two forms.
+    "intake.label.folder": ("Client data in a folder", "폴더 안의 클라이언트 데이터"),
+    "intake.label.archive": ("Client data in an archive", "압축 파일 안의 클라이언트 데이터"),
+    # A card of no form yet: nothing chosen, nothing of the game's, or still being looked at.
+    "intake.label.none": ("Client data", "클라이언트 데이터"),
     # What it holds, short, side by side on the card.
     "intake.client.original": ("original PC client", "PC 클라이언트 원본"),
     "intake.client.fixed": ("PC client", "PC 클라이언트"),
@@ -640,19 +645,20 @@ TEXT = {
     "intake.line.songs_no_charts": ("{n} songs have no charts and cannot be chosen.", "곡 {n}개는 차트가 없어 고를 수 없습니다."),
     "intake.line.songs_no_charts.one": ("1 song has no charts and cannot be chosen.", "곡 1개는 차트가 없어 고를 수 없습니다."),
     "intake.line.first_song_no_charts": ("The first song the game shows has no charts: the game stops when it starts. "
-                                         "Copy the game folder again, or unpack the archive again.",
-                                         "게임이 처음 보여 주는 곡에 차트가 없어, 그 곡이 시작되면 게임이 멈춥니다. 게임 폴더를 "
+                                         "Copy the client data again, or unpack the archive again.",
+                                         "게임이 처음 보여 주는 곡에 차트가 없어, 그 곡이 시작되면 게임이 멈춥니다. 클라이언트 데이터를 "
                                          "다시 복사하거나 압축 파일을 다시 푸세요."),
-    "intake.line.no_charts": ("The file with the charts is missing: the game stops when a song starts. Copy the game "
-                              "folder again, or unpack the archive again.",
-                              "차트가 든 파일이 없어 곡을 시작하면 게임이 멈춥니다. 게임 폴더를 다시 복사하거나 압축 파일을 "
-                              "다시 푸세요."),
-    "intake.line.no_tutorial": ("The file with the tutorial is missing: the game stops at the tutorial. Copy the game "
-                                "folder again, or unpack the archive again.",
-                                "튜토리얼이 든 파일이 없어 게임이 튜토리얼에서 멈춥니다. 게임 폴더를 다시 복사하거나 압축 파일을 "
-                                "다시 푸세요."),
-    "intake.line.onedrive": ("This game folder is only in OneDrive's cloud. Set it to \"Always keep on this device\".",
-                             "이 게임 폴더는 OneDrive에만 있습니다. '이 장치에 항상 유지'로 바꾸세요."),
+    "intake.line.no_charts": ("The file with the charts is missing: the game stops when a song starts. Copy the client "
+                              "data again, or unpack the archive again.",
+                              "차트가 든 파일이 없어 곡을 시작하면 게임이 멈춥니다. 클라이언트 데이터를 다시 복사하거나 압축 "
+                              "파일을 다시 푸세요."),
+    "intake.line.no_tutorial": ("The file with the tutorial is missing: the game stops at the tutorial. Copy the client "
+                                "data again, or unpack the archive again.",
+                                "튜토리얼이 든 파일이 없어 게임이 튜토리얼에서 멈춥니다. 클라이언트 데이터를 다시 복사하거나 압축 "
+                                "파일을 다시 푸세요."),
+    "intake.line.onedrive": ("This client data is only in OneDrive's cloud. Set its folder to \"Always keep on this "
+                             "device\".",
+                             "이 클라이언트 데이터는 OneDrive에만 있습니다. 그 폴더를 '이 장치에 항상 유지'로 바꾸세요."),
     "intake.line.gone": ("This is not there any more.", "이 경로는 이제 없습니다."),
     "intake.line.unreadable": ("The launcher cannot read this. Copy it to a folder of your own, such as Downloads.",
                                "런처가 읽을 수 없는 곳입니다. 다운로드 같은 내 폴더로 복사하세요."),
@@ -666,14 +672,14 @@ TEXT = {
     "intake.choose_archive": ("Choose an archive...", "압축 파일 고르기..."),
     # ---------------------------------------------------------------------- unpacking (client/unpacking.py)
     "unpack.title": ("Unpack", "풀기"),
-    "unpack.ask": ("Unpack the game folder from this archive?", "이 압축 파일에서 게임 폴더를 풀까요?"),
-    "unpack.ask.nested": ("Unpack the game folder from the archive inside this one?",
-                          "이 압축 파일 안의 압축 파일에서 게임 폴더를 풀까요?"),
+    "unpack.ask": ("Unpack the client data from this archive?", "이 압축 파일에서 클라이언트 데이터를 풀까요?"),
+    "unpack.ask.nested": ("Unpack the client data from the archive inside this one?",
+                          "이 압축 파일 안의 압축 파일에서 클라이언트 데이터를 풀까요?"),
     "unpack.where": ("Into {path}", "풀 곳: {path}"),
     "unpack.space": ("{needed} needed, {free} free.", "필요한 공간 {needed}, 남은 공간 {free}."),
     "unpack.other": ("Another folder...", "다른 폴더..."),
     "unpack.go": ("Unpack", "풀기"),
-    "unpack.working": ("Unpacking the game folder...", "게임 폴더를 푸는 중..."),
+    "unpack.working": ("Unpacking the client data...", "클라이언트 데이터를 푸는 중..."),
     "unpack.starting": ("Reading the archive...", "압축 파일을 읽는 중..."),
     "unpack.progress": ("{done} of {total}, {left} left", "{total} 중 {done}, 남은 시간 {left}"),
     "unpack.progress.early": ("{done} of {total}", "{total} 중 {done}"),
@@ -682,8 +688,8 @@ TEXT = {
     "unpack.stop.detail": ("What was unpacked so far is removed.", "지금까지 푼 것은 지웁니다."),
     "unpack.stop.keep": ("Keep unpacking", "계속 풀기"),
     "unpack.stopped": ("Unpacking stopped. What was unpacked is removed.", "풀기를 멈췄습니다. 풀던 것은 지웠습니다."),
-    "unpack.done": ("The game folder is ready.", "게임 폴더가 준비됐습니다."),
-    "unpack.failed": ("The game folder was not unpacked.", "게임 폴더를 풀지 못했습니다."),
+    "unpack.done": ("The client data is ready.", "클라이언트 데이터가 준비됐습니다."),
+    "unpack.failed": ("The client data was not unpacked.", "클라이언트 데이터를 풀지 못했습니다."),
     "unpack.full": ("The disk filled up while unpacking. Choose a folder on a drive with more free space.",
                     "푸는 동안 디스크가 가득 찼습니다. 남은 공간이 더 많은 드라이브의 폴더를 고르세요."),
     "unpack.not_writable": ("A folder cannot be made there. Choose another folder.",
@@ -698,7 +704,8 @@ TEXT = {
     "guide.4.name": ("STAGE START", "STAGE START"),
     "guide.4.sub": ("Ready", "준비 끝"),
     "guide.4.title": ("Ready for stage 1", "1스테이지 준비 끝"),
-    "guide.4.text": ("Press PLAY. Your game folder is not changed.", "PLAY를 누르면 게임이 시작됩니다. 게임 폴더는 바꾸지 않습니다."),
+    "guide.4.text": ("Press PLAY. Your client data is not changed.",
+                     "PLAY를 누르면 게임이 시작됩니다. 클라이언트 데이터는 바꾸지 않습니다."),
     "guide.4.launcher": ("Open the launcher", "런처 열기"),
 }
 

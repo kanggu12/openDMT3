@@ -242,7 +242,7 @@ class SetupOptionsTest(unittest.TestCase):
                 contextlib.redirect_stdout(io.StringIO()) as out:
             self.assertEqual(dmt3.main(["catalog", empty]), 1)
         ran.assert_not_called()
-        self.assertIn("FAIL  This is neither a game folder nor an archive holding one.", out.getvalue())
+        self.assertIn("FAIL  This is not a folder or an archive holding client data.", out.getvalue())
         self.assertNotIn("Traceback", out.getvalue())
 
 

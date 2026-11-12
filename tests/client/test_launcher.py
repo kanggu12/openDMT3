@@ -385,7 +385,7 @@ class LauncherTest(FolderCase):
         self.assertTrue(actions.why_not(stop, en).startswith("The file with the tutorial is missing"))
         # No folder: its own reason. A sign-in that is missing and a game that is open have the launcher's sentence.
         self.state.game_folder = None
-        self.assertEqual(actions.why_not(actions.readiness(self.state)[0], en), "No game folder chosen yet.")
+        self.assertEqual(actions.why_not(actions.readiness(self.state)[0], en), "No client data chosen yet.")
         self.assertEqual(actions.why_not(actions.Check("remote", False, "not signed in", page="online"), en),
                          "Sign in on the Online page first.")
         self.assertEqual(actions.why_not(actions.Check("running", False, "the game is open: close it first"), ko),
@@ -408,7 +408,7 @@ class LauncherTest(FolderCase):
         # The card's own sentence in the player's language, never the reader's ("shorter than an archive's header").
         self.assertEqual(stop.error.key, "error.game.damaged.songs")
         self.assertEqual(actions.why_not(stop, i18n.Words("ko")),
-                         "곡 목록이 든 파일이 손상됐습니다. 게임 폴더를 다시 복사하거나 압축 파일을 다시 푸세요.")
+                         "곡 목록이 든 파일이 손상됐습니다. 클라이언트 데이터를 다시 복사하거나 압축 파일을 다시 푸세요.")
         self.assertNotIn("header", actions.why_not(stop, i18n.Words("en")))
         # PLAY itself says the same when it is pressed all the same (the command line's --play).
         with self.assertRaises(g.GameError) as e:
@@ -443,7 +443,7 @@ class LauncherTest(FolderCase):
             self.assertEqual(main.main(["--check"]), 0)
         text = "\n".join(said)
         # Each line by the name the window gives it; what PLAY makes ready by itself is not a thing to do.
-        self.assertIn("  [ok  ] Game folder: ", text)
+        self.assertIn("  [ok  ] Client data: ", text)
         self.assertIn("  [ok  ] PC client: supported client", text)
         self.assertIn("  [play] Game settings (screen, sound): ", text)
         self.assertNotIn("step:", text)
@@ -454,8 +454,8 @@ class LauncherTest(FolderCase):
         said.clear()
         with mock.patch.object(cli, "say", lambda text, error=False: said.append(text)):
             self.assertEqual(main.main(["--check"]), 1)
-        self.assertTrue(said[0].startswith("  [todo] Game folder: no game folder (a folder with the PC client and the "
-                                           "game's files) at or below "))
+        self.assertTrue(said[0].startswith("  [todo] Client data: no client data (the game's PC client and its files) "
+                                           "at or below "))
 
     # ------------------------------------------------------------------------------------- PLAY
 
@@ -972,7 +972,7 @@ class LauncherTest(FolderCase):
         # The words of the two states: the game's files are named in one line that is there or not.
         en = i18n.Words("en")
         self.assertEqual(en("help.uninstall.game"),
-                         "The files an older openDMT3 changed in the game folder go back to how they were.")
+                         "The files an older openDMT3 changed in the client data go back to how they were.")
         self.assertEqual(en("help.uninstall.hint"), "Removes openDMT3 from this PC. You choose then whether the "
                                                     "settings, players and records stay.")
         self.assertNotIn("game", en("help.uninstall.closes"))
@@ -1282,8 +1282,8 @@ class LauncherTest(FolderCase):
         # What is so, then why in the player's language (the folder's own line, not the code's English), and the way
         # into the launcher.
         self.assertEqual((kind, title, message), ("warn", "플레이", "아직 게임을 시작할 수 없습니다."))
-        self.assertIn("아래에 게임 폴더(PC 클라이언트와 게임 파일이 있는 폴더)가 없습니다.", detail)
-        self.assertNotIn("no game folder", detail)
+        self.assertIn("아래에 클라이언트 데이터(게임의 PC 클라이언트와 게임 파일)가 없습니다.", detail)
+        self.assertNotIn("no client data", detail)
         self.assertTrue(detail.endswith("런처를 열어 확인하세요."))
         self.assertEqual([b[1] for b in shown[0][4]], ["close", "open"])
         # The console copy prints it and opens nothing.

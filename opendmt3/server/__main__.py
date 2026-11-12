@@ -4,11 +4,12 @@
                             [--proxy ADDRESS] [--verbose]
   python -m opendmt3.server --data DIR [--catalog PATH] [--add-player ID ...] [--setup-only]
   python -m opendmt3.server --catalog PATH --save FILE   (save the song list from PATH into FILE, and exit)
-  python -m opendmt3.server ... --game GAME_FOLDER   (the admin's Song list tab finds it and imports it again)
+  python -m opendmt3.server ... --game FOLDER   (the client data the admin's Song list tab finds and imports again)
   python -m opendmt3.server ... --site-address URL   (the site's address for players, in the message to send one)
 
-PATH is a game folder (or a folder above it), an archive holding one (only the files the server needs are taken
-out), or a song list the launcher saved. An archive's password comes from OPENDMT3_ARCHIVE_PASSWORD.
+PATH is the client data's folder (or a folder above it), an archive holding the client data (only the files the
+server needs are taken out), or a song list the launcher saved. An archive's password comes from
+OPENDMT3_ARCHIVE_PASSWORD.
   python -m opendmt3.server --data DIR --backup | --backups | --restore NAME
 
 The game connects on --port; people open the site on --web-port (0 turns the site off), at --web-host (the same
@@ -122,15 +123,16 @@ def main(argv=None):
                         "with commas): its X-Forwarded-For and X-Forwarded-Proto are believed, so visitors are told "
                         "apart and HTTPS sign-ins get secure cookies")
     p.add_argument("--catalog", metavar="PATH",
-                   help="read the song list (with its jackets and the DJ cards) from a game folder, an archive holding "
-                        "one, or a song list the launcher saved, then start")
+                   help="read the song list (with its jackets and the DJ cards) from client data, in a folder or an "
+                        "archive, or from a song list the launcher saved, then start")
     p.add_argument("--save", metavar="FILE",
                    help="with --catalog: save the song list read from PATH into FILE (" + songlist.NAME + "), and exit; "
                         "the server's data is not touched")
     # The folder the admin's Song list tab lists and imports again: in Docker, the one compose.yaml mounts read-only
     # from GAME_DIR (./dmt3 setup sets it); without it the tab offers none.
-    p.add_argument("--game", metavar="GAME_FOLDER", default=os.environ.get("OPENDMT3_GAME") or None,
-                   help="the game folder the admin's Song list tab finds and imports again (or OPENDMT3_GAME)")
+    p.add_argument("--game", metavar="FOLDER", default=os.environ.get("OPENDMT3_GAME") or None,
+                   help="the folder holding the client data, which the admin's Song list tab finds and imports again "
+                        "(or OPENDMT3_GAME)")
     # The address the players reach the site at, which the admin's browser on the server PC does not use
     # (127.0.0.1): the message to send a player carries this one. In Docker, compose.yaml gives it from SITE_ADDRESS
     # (./dmt3 setup keeps the address chosen there).
