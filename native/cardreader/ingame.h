@@ -116,6 +116,9 @@ int flip_follows_frames(void);
 void flip_before_reset(void);
 void post_flip(int on);
 int post_client_fits(void);
+/* Around a reset of openDMT3's own (the flip model's, for a window that changed size): the size the game is drawn at
+ * kept through it (1 before, 0 after). */
+void post_keep_render(int on);
 /* Where the game's picture is in the window's client area (logic.c picture_rect), as the chain placed it at its last
  * present; w and h 0 while no chain runs (Direct3D's own stretch: the picture fills the client). */
 void post_picture(int *x, int *y, int *w, int *h);

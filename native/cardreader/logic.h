@@ -113,6 +113,26 @@ int64_t music_lock_step(MusicLock *m, double ahead_ms, int64_t period);
  * which may be one), 1 otherwise (the frame started just in time keeps that much spare for it). */
 double music_lock_most(const MusicLock *m);
 
+/* The music lock over a game's songs (hooks.c lock_to_music): the song locked (its music's start frame), the distance
+ * the game itself started that music at against its frames, kept for the whole song, and the lock's readings. Through a
+ * reset of the device or a frame with no reading, the same song goes on from its own start: a reset's stall is won back
+ * as any stall is, and the audio offset stays counted once. A song with another start frame takes its own. */
+typedef struct {
+    long song;             /* the locked song's music start frame (-1: none yet) */
+    double base;           /* that song's first distance, ms (the game's own start, kept) */
+    int fresh;             /* the lock's readings start again at the song's next frame (after a reset or a gap) */
+    int playing;           /* a song was read at the last frame (its lock moved that frame's tick) */
+    MusicLock lock;        /* the readings, smoothed */
+} SongLock;
+void song_lock_start(SongLock *s);
+/* A reset of the device, or a frame with no song to read: the lock's readings start again at the next song frame,
+ * the song and its start kept. */
+void song_lock_pause(SongLock *s);
+/* A song frame: the song's music started at frame `started` and is `ahead` ms ahead of this frame at its tick; the
+ * frames are held `offset` ms more behind it (the audio offset). The ticks to take off the next tick (negative: to
+ * add); *began set when this frame began the lock of a song, *off the distance from the lock's target, ms. */
+int64_t song_lock_frame(SongLock *s, long started, double ahead, int offset, int64_t period, int *began, double *off);
+
 /* Locked to the display (VSync on): the pacer's ticks kept in the middle of a refresh, so each frame's present
  * waits for the same refresh every time (on a 240 Hz display, every fourth) and a tick never wavers either side of
  * one. `phase` is where in its refresh the tick fell (0 the start of the refresh, 1 its end; negative: not known);
@@ -188,6 +208,10 @@ void guard_start(Guard *g);
 /* One frame's length and the chain's time for a recent frame (ms; negative: not known). 1 when the chain should step
  * down now (the window then starts again). */
 int guard_frame(Guard *g, double frame_ms, double chain_ms);
+/* guard_frame for a frame shown in `presents` presents: one shown over motion clarity's sub-frames (more than one) is
+ * not judged, nor counted (the sub-frames' own wait leaves the game's next frame a refresh, which says nothing of the
+ * chain's cost: a lighter picture would not give it more); 0 then, guard_frame's answer otherwise. */
+int guard_frame_shown(Guard *g, double frame_ms, double chain_ms, int presents);
 
 /* ------------------------------------------------------------------------------------------- keys the game sees */
 
@@ -375,6 +399,11 @@ PicRect picture_rect(int cw, int ch, int fill);
  * texture sides (max_w x max_h; 0 for no limit), and never smaller than the game's own 1280x768 (in a window that small
  * the game is drawn at its own size and shrunk after). */
 void render_size_for(int cw, int ch, int fill, int max_w, int max_h, int *w, int *h);
+/* The size the game is drawn at after a reset of the device: chosen anew (`chosen_w` x `chosen_h`, render_size_for's)
+ * after the game's own reset, which makes its targets again; kept (`kept_w` x `kept_h`, the size before) after one of
+ * openDMT3's own (`own`: the flip model's, for a window that changed size), which the game does not know of and through
+ * which its targets made at the render size live on (a 9Ex reset keeps them). */
+void render_size_after_reset(int own, int kept_w, int kept_h, int chosen_w, int chosen_h, int *w, int *h);
 /* One of the game's coordinates (a rectangle's edge, in its pixels) on an axis of `from` pixels to one of `to`,
  * rounded to the nearest whole pixel, halves away from zero; the same sum turns it back (from and to swapped). */
 long scale_edge(long v, int from, int to);

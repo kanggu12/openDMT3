@@ -272,6 +272,47 @@ double music_lock_most(const MusicLock *m)
     return 1.0;
 }
 
+void song_lock_start(SongLock *s)
+{
+    /* No song locked yet, nothing read. */
+    s->song = -1;
+    s->base = 0;
+    s->fresh = 1;
+    s->playing = 0;
+    music_lock_start(&s->lock);
+}
+
+void song_lock_pause(SongLock *s)
+{
+    /* The readings from before (a reset's stall, a gap) say nothing of the next one: started again then. The song and
+     * its start stay, so the same song goes on from its own start. */
+    s->fresh = 1;
+    s->playing = 0;
+}
+
+int64_t song_lock_frame(SongLock *s, long started, double ahead, int offset, int64_t period, int *began, double *off)
+{
+    *began = 0;
+    if (started != s->song) {
+        /* A new song: its first distance is how the game itself started the music against its frames; kept for it. */
+        s->song = started;
+        s->base = ahead;
+        s->fresh = 1;
+        *began = 1;
+    }
+    /* The first frame of a song, or the first after a reset or a gap: the readings start again (the song's start
+     * kept). */
+    if (s->fresh) {
+        music_lock_start(&s->lock);
+        s->fresh = 0;
+    }
+    s->playing = 1;
+    /* The audio offset: the frames held that much further behind the music than the game's own start put them. The lock
+     * reaches it as it wins back any distance (1 ms a frame, 4 ms while over 50 ms away). */
+    *off = ahead - s->base - offset;
+    return music_lock_step(&s->lock, *off, period);
+}
+
 int64_t display_lock_step(double phase, int64_t refresh_ticks)
 {
     if (phase < 0 || refresh_ticks <= 0)
@@ -389,6 +430,15 @@ int64_t jit_lead(const JitClock *j, int64_t slack)
         return 0;
     /* Its work, the spare, and what may still move its tick earlier (never less than nothing). */
     return jit_work(j) + j->spare + (slack > 0 ? slack : 0);
+}
+
+int guard_frame_shown(Guard *g, double frame_ms, double chain_ms, int presents)
+{
+    /* Shown over sub-frames: the frame's lateness is the sub-frames' wait, not the chain's; neither judged nor
+     * counted. */
+    if (presents > 1)
+        return 0;
+    return guard_frame(g, frame_ms, chain_ms);
 }
 
 void guard_start(Guard *g)
@@ -925,6 +975,14 @@ PicRect picture_rect(int cw, int ch, int fill)
         r.y = (ch - r.h) / 2;
     }
     return r;
+}
+
+void render_size_after_reset(int own, int kept_w, int kept_h, int chosen_w, int chosen_h, int *w, int *h)
+{
+    /* openDMT3's own reset, with a size from before it: the game's targets live on at that size, so it stays. */
+    int keep = own && kept_w > 0 && kept_h > 0;
+    *w = keep ? kept_w : chosen_w;
+    *h = keep ? kept_h : chosen_h;
 }
 
 void render_size_for(int cw, int ch, int fill, int max_w, int max_h, int *w, int *h)

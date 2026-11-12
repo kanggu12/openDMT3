@@ -181,6 +181,18 @@ void nis_config(float sharpness, int in_w, int in_h, int out_w, int out_h, NisCo
     c->sharp_limit_scale = limit_max - limit_min;
 }
 
+void flip_back_buffer_size(int client_w, int client_h, int monitor_w, int monitor_h, int *w, int *h)
+{
+    /* The client as it is: the whole back buffer is what Windows shows in it, one to one. */
+    if (client_w > 0 && client_h > 0) {
+        *w = client_w;
+        *h = client_h;
+        return;
+    }
+    /* No client to fit: the copy model's size, which a window grows into later. */
+    back_buffer_size(client_w, client_h, monitor_w, monitor_h, w, h);
+}
+
 void back_buffer_size(int client_w, int client_h, int monitor_w, int monitor_h, int *w, int *h)
 {
     /* The larger of the window and its monitor: the window may grow to the monitor without a device reset. */

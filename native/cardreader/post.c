@@ -451,13 +451,12 @@ int post_prepare(D3DPRESENT_PARAMETERS *pp, HWND window, int creating)
         mon_w = mi.rcMonitor.right - mi.rcMonitor.left;
         mon_h = mi.rcMonitor.bottom - mi.rcMonitor.top;
     }
-    back_buffer_size(client.right, client.bottom, mon_w, mon_h, &g_bb_w, &g_bb_h);
-    /* Flipped, the whole back buffer is presented (no source rectangle): exactly the window's client, at least the
-     * game's picture (a smaller window is the copy model's: flip_wanted). */
-    if (g_flip && client.right >= GAME_W && client.bottom >= GAME_H) {
-        g_bb_w = client.right;
-        g_bb_h = client.bottom;
-    }
+    /* Copied, a back buffer the window can grow to with no reset; flipped, the whole back buffer is presented (no
+     * source rectangle), so exactly the window's client, a window smaller than the game's picture too (postmath.c). */
+    if (g_flip)
+        flip_back_buffer_size(client.right, client.bottom, mon_w, mon_h, &g_bb_w, &g_bb_h);
+    else
+        back_buffer_size(client.right, client.bottom, mon_w, mon_h, &g_bb_w, &g_bb_h);
     /* What Direct3D makes: that size, copied (a source rectangle can then be presented one to one), no depth surface
      * of its own (ours is at the game's size), no samples (ours are in the proxy). With the flip model two back
      * buffers (Direct3D adds one), flipped. */
@@ -486,10 +485,9 @@ int post_client_fits(void)
     RECT r;
     if (!g_active || !g_window || !GetClientRect(g_window, &r) || r.right <= 0 || r.bottom <= 0)
         return 1;
-    /* A client smaller than the game's picture keeps the back buffer post_prepare gives it (never the client's size):
-     * no reset would make the two the same, so it fits as it is (Windows scales the back buffer into it). */
-    if (r.right < GAME_W || r.bottom < GAME_H)
-        return 1;
+    /* Flipped, post_prepare makes the back buffer the client's size whatever it is: a client of another size is a
+     * window that changed, made again by a reset (a smaller one too: shown scaled down, the picture would sit small
+     * in a corner). */
     return r.right == g_bb_w && r.bottom == g_bb_h;
 }
 
@@ -810,6 +808,14 @@ static int make_default_at(IDirect3DDevice9 *dev)
 
 /* Whether render.c's replacements are in the device's tables (the game can be drawn at the picture's size). */
 static int g_render_hooked;
+/* A reset of openDMT3's own under way (post_keep_render: the flip model's, for a window that changed size): the size
+ * the game is drawn at stays as it was, its targets made at it living on (logic.c render_size_after_reset). */
+static int g_keep_render;
+
+void post_keep_render(int on)
+{
+    g_keep_render = on;
+}
 
 /* The size the game is drawn at: its own, or (OPENDMT3_RENDER=display) the picture's size in the window's client now,
  * the largest its targets may be on this device; never smaller than its own. */
@@ -832,7 +838,10 @@ static void render_size(IDirect3DDevice9 *dev, int *w, int *h)
  * larger size cannot be made, everything again at the game's own size (today's path). 1 on success. */
 static int make_default(IDirect3DDevice9 *dev)
 {
-    render_size(dev, &g_src_w, &g_src_h);
+    /* The size chosen for the window as it is now, or (a reset of openDMT3's own) the one the game's targets have. */
+    int w, h;
+    render_size(dev, &w, &h);
+    render_size_after_reset(g_keep_render, g_src_w, g_src_h, w, h, &g_src_w, &g_src_h);
     render_set(g_src_w, g_src_h);
     /* Drawn at the picture's size, the chain only copies it there (bilinear when the window changes size after): the
      * upscale filters' targets are not made. Otherwise the player's filter. */
@@ -956,8 +965,10 @@ void post_before_reset(IDirect3DDevice9 *dev)
     IDirect3DDevice9_SetDepthStencilSurface(dev, NULL);
     release_default();
     /* The game's own size until the chain is made again (post_after_reset: make_default picks the size anew): a reset
-     * the chain does not follow (post_prepare refused it) leaves the game's targets at their own size. */
-    render_set(0, 0);
+     * the chain does not follow (post_prepare refused it) leaves the game's targets at their own size. A reset of
+     * openDMT3's own keeps the size: the game's targets made at it live on, and render.c knows them by it. */
+    if (!g_keep_render)
+        render_set(0, 0);
     ingame_log("post: the game resets its device: the chain's objects released");
 }
 

@@ -292,10 +292,9 @@ static LONGLONG g_chip_from;
 static LONG g_chip_frames;
 /* The client's own limiter was taken out (even pacing): openDMT3's clock holds the game at 60. */
 static int g_own_clock;
-/* The music lock's state, and the song it follows (the frame its music started at; -1: none yet). */
-static MusicLock g_lock;
-static long g_lock_song = -1;
-static double g_lock_base;
+/* The music lock over the game's songs: the song it follows (the frame its music started at), that song's own start
+ * kept through resets, and the lock's readings (logic.c SongLock; at first as song_lock_start leaves it: no song). */
+static SongLock g_song = {-1, 0.0, 1, 0, {0.0, 0}};
 /* The display's refresh in counter ticks (VSync on; 0: not known), for the display lock. */
 static LONGLONG g_refresh_ticks;
 static int g_refresh_hz, g_display_h;
@@ -359,8 +358,10 @@ static void take_parameters(const D3DPRESENT_PARAMETERS *pp)
     jit_start(&g_jit, g_frequency.QuadPart, g_own_clock ? GAME_FPS : 0);
     g_frame_start = 0;
     g_started_late = 0;
-    /* A new song lock after a reset: the next frame's reading starts it again. */
-    g_lock_song = -1;
+    /* After a reset the lock's readings start again at the next song frame; the song it follows keeps its own start,
+     * so a song going on after the reset is held where it was (the reset's stall won back, the audio offset counted
+     * once), and only a new song takes a new one. */
+    song_lock_pause(&g_song);
     ingame_log("picture: vsync %s, pacing %s", g_vsync ? "on" : "off",
                !g_own_clock ? "the client's own"
                : g_settings.music_lock ? "even (openDMT3's clock), locked to a song's music while one plays"
@@ -373,8 +374,7 @@ static void take_parameters(const D3DPRESENT_PARAMETERS *pp)
 static LONGLONG g_sub_ticks;
 static LONG g_subs, g_subs_late;
 /* While the flip model finds the display following the frames (a variable refresh rate): the display lock's refresh
- * it stopped, to give back when the display keeps its own refresh again (-1: the lock was not running; 0: none
- * stopped). */
+ * it stopped, to give back when the display keeps its own refresh again (0: none stopped). */
 static LONGLONG g_vrr_kept;
 
 static void take_refresh_rate(IDirect3DDevice9 *dev);
@@ -434,27 +434,23 @@ static void lock_to_music(LONGLONG now)
     long started;
     if (!g_settings.music_lock || !g_own_clock || g_pacer.period <= 0 || !g_pacer.next ||
         !sound_music_position(&ms, &started)) {
-        /* No song plays: the frame clock alone (the next song starts a new lock). */
-        g_lock_song = -1;
+        /* No song plays: the frame clock alone (the readings start again with the next song frame). */
+        song_lock_pause(&g_song);
         return;
     }
     /* This frame is the song's frame (frames since its music started, this one included); due at the pacer's tick. */
     double frame_ms = (double)(ingame_frame() + 1 - started) * 1000.0 / GAME_FPS;
     double until_due = (double)(g_pacer.next - now) * 1000.0 / (double)g_frequency.QuadPart;
     double ahead = ms + (until_due > 0 ? until_due : 0) - frame_ms;
-    if (started != g_lock_song) {
-        /* A new song: its first distance is how the game itself started the music against its frames; kept. */
-        g_lock_song = started;
-        g_lock_base = ahead;
-        music_lock_start(&g_lock);
+    /* The lock's step (logic.c song_lock_frame): a new song takes its first distance as its own start, a song going on
+     * keeps its own; the audio offset holds the frames that much further behind the music than that start, so what is
+     * seen and judged meets the music as a sound device that plays late lets it be heard. */
+    int began;
+    double off;
+    g_pacer.next -= song_lock_frame(&g_song, started, ahead, g_settings.audio_offset, g_pacer.period, &began, &off);
+    if (began)
         ingame_log("pacing: locked to the music started at frame %ld (%.1f ms from its frames; the frames kept %d ms "
                    "behind it for the sound device)", started, ahead, g_settings.audio_offset);
-    }
-    /* The audio offset: the frames held that much further behind the music than the game's own start put them, so
-     * what is seen and judged meets the music as a sound device that plays late lets it be heard. The lock reaches it
-     * as it wins back any distance (1 ms a frame, 4 ms while over 50 ms away). */
-    double off = ahead - g_lock_base - g_settings.audio_offset;
-    g_pacer.next -= music_lock_step(&g_lock, off, g_pacer.period);
     /* Measuring (OPENDMT3_SOUND_WATCH): the song's first 10 s, every sixth frame, how far the frames are from the
      * lock's target (how a new offset settles). */
     static int watch = -1;
@@ -465,7 +461,7 @@ static void lock_to_music(LONGLONG now)
     long frame = ingame_frame() + 1 - started;
     if (watch > 0 && frame <= 600 && frame % 6 == 0)
         ingame_log("pacing: song frame %ld, the music %.1f ms ahead of the frames, %.1f ms from the lock's target",
-                   frame, ahead - g_lock_base, off);
+                   frame, ahead - g_song.base, off);
 }
 
 /* At most one frame queued: the previous frame's present done on the GPU before this one is handed over. */
@@ -753,7 +749,7 @@ static void jit_rest(void)
         return;
     /* What may move the tick earlier before the next frame leaves: the music lock's step while a song's music leads,
      * and the display lock's (a 64th of a refresh). */
-    double slack_ms = g_settings.music_lock && g_lock_song >= 0 ? music_lock_most(&g_lock) : 0.0;
+    double slack_ms = g_settings.music_lock && g_song.playing ? music_lock_most(&g_song.lock) : 0.0;
     LONGLONG slack = (LONGLONG)(slack_ms * (double)g_frequency.QuadPart / 1000.0);
     if (g_refresh_ticks)
         slack += g_refresh_ticks / 64;
@@ -825,7 +821,9 @@ static void safety(double frame_ms)
     post_layer_cost(&layer_cpu, &parts, &panels);
     if (panels > 0)
         return;
-    if (!guard_frame(&g_guard, frame_ms, chain_ms))
+    /* A frame shown over motion clarity's sub-frames is not judged either (logic.c guard_frame_shown): their wait
+     * leaves the game's next frame one refresh, so it runs late at 180 and 240 Hz whatever the chain costs. */
+    if (!guard_frame_shown(&g_guard, frame_ms, chain_ms, strobe_subframes() > 1 ? strobe_subframes() : 1))
         return;
     int up, aa, aa_changed;
     if (post_lighten(&up, &aa, &aa_changed))
@@ -993,19 +991,20 @@ static void count_present(LONGLONG now, int game)
         g_jit_held = g_jit_missed = g_jit_missed_held = g_jit_measured = 0;
         g_jit_lead_sum = g_jit_work_sum = g_jit_all_sum = g_jit_cpu_sum = 0;
     }
-    /* The flip model: what the presents were shown at (the refreshes the display's mode gives a frame, its rate
-     * rounded to the nearest 60th); a display found to follow the frames (a variable refresh rate) has no refresh to
-     * keep the ticks in, nor sub-frames to show, until it is found to keep its own refresh again. */
+    /* The flip model: what the presents were shown at (the refreshes the display's mode gives a frame, its rate rounded
+     * to the nearest 60th). A display found to follow the frames (a variable refresh rate) has no refresh to keep the
+     * ticks in: the display lock stops until it is found keeping its own refresh again. Only frames shown whole are
+     * judged (flip.c, logic.c display_follows): while motion clarity's sub-frames run, a present every refresh drives a
+     * display that follows the frames at its own rate just as a fixed one is driven, so the two cannot be told apart
+     * and the sub-frames, timed by openDMT3's clock either way, go on the same on both. */
     flip_summary((g_refresh_hz + 30) / 60);
-    if (flip_follows_frames() && !g_vrr_kept && (g_refresh_ticks || strobe_subframes())) {
-        g_vrr_kept = g_refresh_ticks ? g_refresh_ticks : -1;
+    if (flip_follows_frames() && !g_vrr_kept && g_refresh_ticks) {
+        g_vrr_kept = g_refresh_ticks;
         g_refresh_ticks = 0;
-        strobe_refresh(0, g_vsync);
     } else if (!flip_follows_frames() && g_vrr_kept) {
-        /* Back to a fixed refresh: the display lock and the sub-frames at the rate the display's mode gave. */
-        g_refresh_ticks = g_vrr_kept > 0 ? g_vrr_kept : 0;
+        /* Back to a fixed refresh: the display lock at the rate the display's mode gave. */
+        g_refresh_ticks = g_vrr_kept;
         g_vrr_kept = 0;
-        strobe_refresh(g_refresh_ticks ? g_refresh_hz : 0, g_vsync);
     }
     if (g_subs) {
         /* Motion clarity's sub-frames past each frame's first, and those that left more than half a refresh late. */
@@ -1190,7 +1189,11 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
      * picture is lost with it: one frame of the bars' colour). */
     if (flip_device(dev) && post_running() && g_have_params && !post_client_fits()) {
         D3DPRESENT_PARAMETERS pp = g_game_params;
+        /* The game knows nothing of this reset, and its targets made at the size it is drawn at live on through it:
+         * that size kept (render.c knows the targets by it). */
+        post_keep_render(1);
         HRESULT r = our_reset(dev, &pp);
+        post_keep_render(0);
         ingame_log("flip: the window changed size: back buffer made again (0x%08lx)", (unsigned long)r);
     }
     /* The post-process chain first (its time is the frame's work; the wait below is not): what to present. With no

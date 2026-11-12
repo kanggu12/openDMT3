@@ -181,6 +181,19 @@ static void test_render_size(void)
     check(scale_edge(1280, 1280, 1800) == 1800 && scale_edge(640, 1280, 1800) == 900 &&
               scale_edge(-1, 1280, 1800) == -1 && round_trip,
           "render size: a rectangle's edges to the larger target and back, every one of the game's pixels");
+    /* Through resets with the flip model: made full screen at 1080 lines (1800x1080), its own reset for a 1350x810
+     * window and back keeps 1800x1080 (the game's glow targets live on at it); the game's own reset in the window
+     * takes the window's; a first making, with nothing kept, takes the chosen. */
+    int kw = 1800, kh = 1080, cw, ch;
+    render_size_after_reset(1, kw, kh, 1350, 810, &cw, &ch);
+    int kept_window = cw == 1800 && ch == 1080;
+    render_size_after_reset(1, cw, ch, 1800, 1080, &cw, &ch);
+    int kept_back = cw == 1800 && ch == 1080;
+    render_size_after_reset(0, cw, ch, 1350, 810, &cw, &ch);
+    int game_reset = cw == 1350 && ch == 810;
+    render_size_after_reset(1, 0, 0, 1800, 1080, &cw, &ch);
+    check(kept_window && kept_back && game_reset && cw == 1800 && ch == 1080,
+          "render size: openDMT3's own reset keeps it, the game's own reset chooses it again");
 }
 
 /* The picture's GPU time by pass: medians by step name over a stretch (passtimes.c). */
@@ -696,6 +709,15 @@ static void test_post(void)
     check(w == 3840 && h == 2160, "post: the back buffer is the monitor's size, the window may grow to it");
     back_buffer_size(1000, 600, 1024, 600, &w, &h);
     check(w == 1280 && h == 768, "post: never under the game's picture");
+    /* Flipped, the client's size whatever it is (a window the chip makes on a 768-line screen, under the game's
+     * picture, too: presented whole, it is what Windows shows one to one); a client of no size: the copy model's. */
+    int fw, fh, ok = 1;
+    flip_back_buffer_size(960, 576, 1366, 768, &fw, &fh);
+    ok &= fw == 960 && fh == 576;
+    flip_back_buffer_size(1920, 1080, 1920, 1080, &fw, &fh);
+    ok &= fw == 1920 && fh == 1080;
+    flip_back_buffer_size(0, 0, 1366, 768, &fw, &fh);
+    check(ok && fw == 1366 && fh == 768, "post: flipped, the back buffer is the window's client, a small one too");
 }
 
 
@@ -814,6 +836,65 @@ static void test_display_choices(void)
     check(!display_follows(2, 0, 0), "display: frames with sub-frames say nothing");
 }
 
+/* A song locked to its music through resets of the device (hooks.c take_parameters and lock_to_music, logic.c
+ * SongLock): the audio offset `offset_ms`; at the song's 20th and 40th second a reset stalls the frames `stall_ms`,
+ * then the pacer and the lock's readings start again, as a switch between a window and full screen does. Returns how
+ * far behind the music the frames end, past the game's own start (ms: the offset when the lock holds it); the
+ * longest and shortest gaps between frames from the first reset on, the resets' own frames left out. */
+static double reset_song(int offset_ms, double stall_ms, double *longest_ms, double *shortest_ms)
+{
+    const int64_t f = 10000000;
+    Pacer p;
+    SongLock s;
+    song_lock_start(&s);
+    pacer_start(&p, f, GAME_FPS);
+    int64_t now = 0, last = 0;
+    /* The game's own start distance, as the song's first frame found it (never taken again: what the frames end
+     * behind is measured from it, whatever the lock holds). */
+    double behind = 0, start = 0;
+    int started = 0;
+    *longest_ms = 0;
+    *shortest_ms = 1e9;
+    for (long k = 1; k <= 60 * 60; k++) {
+        /* The frame's own work. */
+        now += 50000;
+        /* A reset at the 20th and the 40th second: the device's own time, then the pacer and the lock start again. */
+        int reset = k == 60 * 20 || k == 60 * 40;
+        if (reset) {
+            now += (int64_t)(stall_ms * (double)f / 1000.0);
+            pacer_start(&p, f, GAME_FPS);
+            song_lock_pause(&s);
+        }
+        if (p.next) {
+            /* The music as it plays, against the frame's place at its tick; the song's music started at frame 1. */
+            double music = (double)now / f * 1000.0;
+            double until = (double)(p.next - now) * 1000.0 / f;
+            double ahead = music + (until > 0 ? until : 0) - (double)k * 1000.0 / 60.0;
+            int began;
+            double off;
+            p.next -= song_lock_frame(&s, 1, ahead, offset_ms, p.period, &began, &off);
+            if (!started) {
+                start = s.base;
+                started = 1;
+            }
+        }
+        now += pacer_wait(&p, now);
+        /* How far behind the music this frame is now, past the game's own start distance. */
+        behind = (double)now / f * 1000.0 - (double)k * 1000.0 / 60.0 - start;
+        /* The gaps after the first reset, but for the resets' own (their stall) and the frame after each. */
+        int near = k == 60 * 20 || k == 60 * 20 + 1 || k == 60 * 40 || k == 60 * 40 + 1;
+        if (k > 60 * 20 && !near && !reset) {
+            double gap = (double)(now - last) * 1000.0 / f;
+            if (gap > *longest_ms)
+                *longest_ms = gap;
+            if (gap < *shortest_ms)
+                *shortest_ms = gap;
+        }
+        last = now;
+    }
+    return behind;
+}
+
 static void test_audio_offset(void)
 {
     Settings s;
@@ -846,6 +927,25 @@ static void test_audio_offset(void)
     check(at > 0 && at < 4.0 && end > -2.0 && end < 2.0, "audio offset: 250 ms reached within 4 s");
     check(longest <= 1000.0 / 60.0 + 4.01 && shortest >= 1000.0 / 60.0 - 1.01,
           "audio offset: 250 ms reached 4 ms a frame at most");
+    /* Two resets in a song (a window switch each), 300 ms of stall each: the song keeps its own start, so the frames
+     * end the offset behind the music, never the offset again for each reset, and each stall is won back. */
+    end = reset_song(200, 300.0, &longest, &shortest);
+    check(end > 197.0 && end < 203.0, "music lock: a song through two resets ends its audio offset (200 ms) behind");
+    check(shortest >= 1000.0 / 60.0 - 4.01, "music lock: a reset's stall won back 4 ms a frame at most");
+    end = reset_song(0, 300.0, &longest, &shortest);
+    check(end > -3.0 && end < 3.0, "music lock: with no offset, a song through two resets ends on its music");
+    /* Another song (its music started at another frame) takes its own start; the same song after a reset keeps its. */
+    SongLock sl;
+    song_lock_start(&sl);
+    int began;
+    double off;
+    song_lock_frame(&sl, 100, 5.0, 0, 166667, &began, &off);
+    check(began && sl.base == 5.0, "music lock: a song's first frame takes its start");
+    song_lock_pause(&sl);
+    song_lock_frame(&sl, 100, 305.0, 0, 166667, &began, &off);
+    check(!began && sl.base == 5.0 && off == 300.0, "music lock: after a reset the same song keeps its start");
+    song_lock_frame(&sl, 900, 12.0, 0, 166667, &began, &off);
+    check(began && sl.base == 12.0, "music lock: a new song takes its own start");
 }
 
 /* Frames started just in time: none while loading or without a clock, the lead from the slowest 1 % of the work and the
@@ -1040,6 +1140,19 @@ static void test_guard(void)
     for (int i = 0; i < 300; i++)
         steps += guard_frame(&g, 30.0, -1);
     check(steps == 0, "guard: no reading of the chain's time, no step");
+    /* Motion clarity at 240 Hz: frames shown over four presents run late by the sub-frames' wait (the game's next frame
+     * has one refresh), with the chain's time light enough that they would not be late without it: never judged, so
+     * never a step; the same frames shown whole are the chain's doing and step it down. */
+    guard_start(&g);
+    steps = 0;
+    for (int i = 0; i < 600 + 240; i++)
+        steps += guard_frame_shown(&g, 18.5, 2.5, 4);
+    int shown_over = steps;
+    guard_start(&g);
+    steps = 0;
+    for (int i = 0; i < 600 + 240; i++)
+        steps += guard_frame_shown(&g, 18.5, 2.5, 1);
+    check(shown_over == 0 && steps >= 1, "guard: frames shown over motion clarity's sub-frames are not judged");
     int up = UPSCALE_NIS, aa = AA_SMAA_ULTRA, n = 0;
     while (post_lighter(&up, &aa))
         n++;

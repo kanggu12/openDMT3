@@ -501,13 +501,16 @@ frame late is a game slower than its music. Three pacings:
   music's position at the frame's tick and the frame's place is smoothed (a tenth of each reading: the sound card's
   cursor moves in steps), and a twentieth of it moves the next tick: nothing within 1 ms, at most 1 ms a frame for a
   drift, 4 ms a frame (a quarter of a frame) to win back a stall over 50 ms, so no frame is skipped or doubled and a
-  correction is spread over many frames. The distance the game itself started the music at is kept, not corrected.
+  correction is spread over many frames. The distance the game itself started the music at is kept, not corrected,
+  for the whole song: a reset of the device during it (a switch between a window and full screen, a device lost)
+  starts the lock's readings again from the same start, so the reset's own stall is won back as any stall is.
 
 **The audio offset** (**Sound**, 0 to 500 ms, 0 by default; `OPENDMT3_AUDIO_OFFSET`) moves the lock's target: a
 song's frames are held that many milliseconds further behind its music than the game's own start put them, so the
 notes, and the presses judged against them, meet the music where a sound device that plays late (Bluetooth, a TV over
 HDMI) lets it be heard. The lock takes the new distance as it wins back a stall, 4 ms a frame while more than 50 ms
 off and 1 ms a frame after that: no frame is skipped or doubled, the song's first frames only run a little slower.
+The offset is counted once a song, from its own start, through any reset during it (`logic.c` `SongLock`).
 Measured under Wine on the GPU over a whole song at 1920x1080: with 200 ms, the frames went from 184 ms short of it at
 the song's 6th frame to it at the 54th (0.9 s) and kept within 4 ms of it from the 102nd on, but for a stall of the
 busy machine's (81 ms), won back within a second; at the music's stop it was 213 ms ahead of its frames.
@@ -648,10 +651,11 @@ bright one for most of the frame. **CRT beam** rolls from the top down over the 
 number of refreshes a frame and is left out, and so is its slew for LCD polarity (N plus 0.001): every game frame here
 is exactly N refreshes. A display not at such a rate, VSync off, or no chain leaves every frame shown whole, and so
 does a display whose raster position does not move (its ticks are then not kept mid-refresh, and a sub-frame would now
-and then miss its refresh) or one the flip model finds following the frames. The sub-frames are presented from the
+and then miss its refresh). The sub-frames are presented from the
 game's own thread, so the game's next frame has the frame's last refresh for its work and the chain's (8.3 ms at
 120 Hz, 4.2 at 240): the log's `strobe:` line every two seconds counts the sub-frames that left over half a refresh
-late.
+late. The picture's safety net does not judge frames shown over sub-frames (`logic.c` `guard_frame_shown`): the
+sub-frames' wait, not the chain, is what leaves the next frame late there, and a lighter picture would not help it.
 
 Measured under Wine on the GPU (`OPENDMT3_REFRESH` gives Wine's virtual screen, which reports no rate, 240 or 120 Hz;
 `OPENDMT3_STROBE_WATCH` reads one frame in 120 back small, in eight bands from the top): with the CRT beam at 240 Hz the
@@ -671,10 +675,12 @@ running, its device is made with Direct3D 9Ex (`Direct3DCreate9Ex` beside the ga
 `CreateDeviceEx` with present statistics) and a `D3DSWAPEFFECT_FLIPEX` swap chain of two back buffers (Direct3D adds
 one): each frame's back buffer goes to Windows' compositor instead of being copied into its surface, the way to
 Windows' independent flip and to a variable refresh rate for a borderless window. FLIPEX presents its whole back buffer,
-so the back buffer is the window's own size, presented with no rectangle; when the window changes size (to a window and
-back), a 9Ex reset makes it again at the new size, which keeps every other resource (a window smaller than the game's
-picture keeps the back buffer it has, which Windows scales into it). Anything else (another start, a
-Windows with no 9Ex, a device that is not made so) is the copy model, as before.
+so the back buffer is the window's own size, a window smaller than the game's picture too, presented with no
+rectangle; when the window changes size (to a window and back), a 9Ex reset of openDMT3's own makes it again at the new
+size, which keeps every other resource. The game knows nothing of that reset, so with the game drawn at the picture's
+size (**Drawn at**) the size it is drawn at stays as it was: its targets made at that size live on through the reset,
+and the chain scales its picture to the new window (`logic.c` `render_size_after_reset`). Anything else (another start,
+a Windows with no 9Ex, a device that is not made so) is the copy model, as before.
 
 - **No managed pool.** A 9Ex device refuses it: every texture, cube and volume texture, vertex and index buffer asked of
   the managed pool, by the game, its D3DX loader or openDMT3, is made in the default pool as a dynamic one, which can be
@@ -688,8 +694,10 @@ Windows with no 9Ex, a device that is not made so) is the copy model, as before.
   presents shown since the frame before went. Frames that were one present each (none with motion clarity's
   sub-frames), nine in ten a refresh apart over two seconds, on a display whose mode gives each frame two or more, mean
   the display follows the frames (a variable refresh rate, G-SYNC or FreeSync; `logic.c` `display_follows`): the
-  display lock then stops, as there is no refresh to keep a tick in, and so does motion clarity, until the display is
-  found keeping its own refresh again. Wine gives no statistics (zeros), so this part is for Windows.
+  display lock then stops, as there is no refresh to keep a tick in, until the display is found keeping its own
+  refresh again. While motion clarity's sub-frames run there is nothing to judge: a present every refresh drives a
+  display that follows the frames at its own rate just as it drives a fixed one, and the sub-frames, timed by
+  openDMT3's clock, go on the same on either. Wine gives no statistics (zeros), so this part is for Windows.
 
 Measured under Wine on the GPU: a whole song with it at 1920x1080 (152 textures and a buffer moved from the managed
 pool, none refused, 25,764 read locks taken as writes), 7,391 frames at 60.00 a second with the music within 6.3 ms of

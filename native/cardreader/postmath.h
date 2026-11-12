@@ -114,6 +114,10 @@ extern const float NIS_COEF_USM[NIS_PHASES][NIS_TAPS];
 /* The back buffer openDMT3 asks for when the chain runs: the window's client size, at least the monitor's (so the
  * window can grow to it with no reset), and never smaller than the game's own picture. */
 void back_buffer_size(int client_w, int client_h, int monitor_w, int monitor_h, int *w, int *h);
+/* The flip model's back buffer: presented whole (no source rectangle), so exactly the window's client, smaller than the
+ * game's picture too (a window the chip makes on a 768-line screen); back_buffer_size's for a client of no size (a
+ * window minimised, or not known). */
+void flip_back_buffer_size(int client_w, int client_h, int monitor_w, int monitor_h, int *w, int *h);
 
 /* "Off" (sharp bilinear), the shader ps_nearest's sums for one axis: where to read with a bilinear filter, in input
  * texels, for the output pixel whose centre is at `t` input texels, `scale` output pixels to an input one, so each
