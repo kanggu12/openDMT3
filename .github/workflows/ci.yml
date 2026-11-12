@@ -132,12 +132,16 @@ jobs:
       - name: Every page, with the layout check
         run: tests/e2e/web/run.sh "$PWD/_work/web"
 
-      # What the browser saw, for looking through: also when it passed.
+      # What the browser saw, for looking through: also when it passed. The made-up servers' data folders stay out:
+      # their database and backups are their own user's alone (0600), which the runner's user cannot read.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: web-pages
-          path: _work/web
+          path: |
+            _work/web
+            !_work/web/data
+            !_work/web/empty-data
           retention-days: 14
 
   # The server's image as packaging/docker/Dockerfile builds it: every part's license text in it, then started as
