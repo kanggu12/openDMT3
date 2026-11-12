@@ -35,6 +35,11 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - With the frames locked to the music or even, each frame starts just in time for its turn instead of right after
   the frame before, so the touch it carries is read later and shows sooner.
 
+### Fixed
+
+- A switch between full screen and a window during a song, or any other reset of the game's graphics device, no
+  longer moves the music lock's target: the lock keeps the song's start through it, and wins the pause back where
+  the display can show frames faster than 60 a second.
 
 ## [0.1.1] - 2026-11-13
 
