@@ -509,6 +509,45 @@ video and notes, the result, the end) at 1920x1080, the title, the mode select, 
 2560x1440 and the title, the mode select and two moments of a song at 3840x2160: every part in its place and at its
 size, and the click on TOUCH to START reached the game's button.
 
+#### Anime4K
+
+The shader passes (`third_party/anime4k/generate.py`, from Anime4K's own mpv shader of its CNN x2 S) were held against
+a reference that runs that shader's maths in 32-bit floats, on the game's title frame from the chain's dump at
+1920x1080: 63.7 dB PSNR, no pixel more than 2 levels of 255 apart (the passes keep their features in half floats).
+
+Its picture against the other filters: seven of the game's own frames (the title, the mode select, the tutorial, the
+song select, two moments of a song, the result), each made smaller by a window's scale with an area filter, enlarged
+back to 1280x768 by each filter (FSR 1 and NIS by references of the chain's passes, at sharpness 50), and held
+against the frame itself: PSNR, SSIM, and the share of pixels pushed more than 16 levels of 255 past the range of
+their 3x3 neighbours in the frame itself (rings the frame does not have). The means of the seven:
+
+| Filter | At 1920x1080's scale (1.41): PSNR, SSIM, rings | At 3840x2160's scale (2.81): PSNR, SSIM, rings |
+|---|---|---|
+| Smooth | 31.87 dB, 0.9800, 0.000 % | 27.00 dB, 0.9280, 0.806 % |
+| AMD FSR 1 | 32.90 dB, 0.9847, 0.002 % | 27.84 dB, 0.9417, 0.454 % |
+| NVIDIA NIS | 30.75 dB, 0.9752, 1.308 % | 27.05 dB, 0.9364, 2.300 % |
+| Anime4K | 33.55 dB, 0.9868, 0.099 % | 28.27 dB, 0.9492, 0.414 % |
+
+Anime4K came out ahead of FSR 1 on each of the seven frames at both scales, in PSNR and in SSIM. Anime4K's larger
+models came closer still, by 0.1 to 0.2 dB (M, about twice the work) and 0.35 to 0.55 dB (VL, about eight times), and
+were left out.
+
+Its GPU time on the card, the filters in turns on the title screen in one run of the game (`choice.now`, 10 s each,
+three rounds; the card's clock moved between 225 and 2535 MHz, so in thousands of the card's cycles, each line at its
+own clock, the medians of the lines):
+
+| Filter | 1920x1080: its passes, the chain and layer | 3840x2160: its passes, the chain and layer |
+|---|---|---|
+| Smooth | bilinear 20; 45 | bilinear 63; 92 |
+| AMD FSR 1 at 50 | EASU's lengths 20, EASU 69, RCAS 27; 145 | EASU's lengths 20, EASU 257, RCAS 80; 450 |
+| NVIDIA NIS at 50 | edges 17, column sums 23, scaler 64; 133 | edges 18, column sums 45, scaler 244; 348 |
+| Anime4K | network 121, its 2x picture 35, to the window 22; 253 | network 122, its 2x picture 35, to the window 63; 263 |
+
+Its four layers run on the game's 1280x768 pixels whatever the window's size, so its cost hardly grows with the
+window, where EASU's and NIS's scaler grow with the window's pixels: about 1.7 times FSR 1's chain at 1920x1080, 0.6
+times at 3840x2160. At the card's resting 225 MHz its chain takes about 1.1 ms of a 16.7 ms frame at 1920x1080 and
+1.2 ms at 3840x2160.
+
 ## Before a release
 
 1. `./dmt3 test` (the unit tests, the boundary test, pyflakes), `native/cardreader/test.sh`, then the launcher's and

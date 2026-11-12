@@ -44,7 +44,8 @@ UPLOAD = re.compile(r"^(\d+) layer cost fps chip: .*?drawn again \d+ times at ([
                     r"\d+ times at ([\d.]+) us", re.M)
 # The steps in the order a frame makes them (the passes run table's columns).
 STEP_ORDER = ("game", "timestamp", "empty pass", "blur", "bars", "fxaa", "smaa edges", "smaa weights", "smaa blend",
-              "sharp bilinear", "bilinear", "easu len", "easu", "rcas", "nis edges", "nis rows", "nis scale", "layer", "all")
+              "sharp bilinear", "bilinear", "easu len", "easu", "rcas", "nis edges", "nis rows", "nis scale",
+              "anime4k layers", "anime4k picture", "anime4k to the window", "layer", "all")
 FRAMETIME = re.compile(r"Frame duration (\d+) ")
 
 

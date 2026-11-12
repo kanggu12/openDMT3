@@ -12,7 +12,7 @@
 #include <math.h>
 #include <string.h>
 
-const char *const UPSCALE_NAMES[4] = {"off", "smooth", "fsr1", "nis"};
+const char *const UPSCALE_NAMES[UPSCALE_COUNT] = {"off", "smooth", "fsr1", "nis", "anime4k"};
 const char *const AA_NAMES[AA_COUNT] = {"off", "fxaa", "smaa-low", "smaa-medium", "smaa-high", "smaa-ultra"};
 
 /* Text equal to `word`, whatever its case (the launcher writes lower case; a hand-set variable may not). */
@@ -37,7 +37,7 @@ static int find(const char *name, const char *const *names, int count)
 
 int upscale_from_name(const char *name)
 {
-    return find(name, UPSCALE_NAMES, 4);
+    return find(name, UPSCALE_NAMES, UPSCALE_COUNT);
 }
 
 int aa_from_name(const char *name)
@@ -77,6 +77,11 @@ int post_plan(int upscale, int aa, int in_w, int in_h, int out_w, int out_h, int
         out[n++] = PASS_EASU_LEN;
         out[n++] = PASS_EASU;
         out[n++] = PASS_RCAS;
+    } else if (upscale == UPSCALE_ANIME4K && (long long)out_w * 5 > (long long)in_w * 6 &&
+               (long long)out_h * 5 > (long long)in_h * 6) {
+        /* Anime4K's layers and its 2x picture, then that picture to the window (down at 1080 lines, up past 1536). */
+        out[n++] = PASS_ANIME4K;
+        out[n++] = PASS_BILINEAR;
     } else if (upscale == UPSCALE_NIS && !shrinks) {
         /* NIS's edge map at the game's size, its scaler down the game's columns for each of the window's rows, then
          * across them at the window's size with its directions' filters. */
@@ -333,8 +338,8 @@ int post_lighter(int *upscale, int *aa)
         *aa = AA_OFF;
         return 1;
     }
-    /* Then the sharpening filters to bilinear, the picture as Direct3D's own stretch draws it. */
-    if (*upscale == UPSCALE_FSR1 || *upscale == UPSCALE_NIS) {
+    /* Then the heavier filters to bilinear, the picture as Direct3D's own stretch draws it. */
+    if (*upscale == UPSCALE_FSR1 || *upscale == UPSCALE_NIS || *upscale == UPSCALE_ANIME4K) {
         *upscale = UPSCALE_SMOOTH;
         return 1;
     }

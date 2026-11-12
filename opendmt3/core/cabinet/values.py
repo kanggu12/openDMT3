@@ -24,9 +24,11 @@ WINDOW_SIZES = ("1280x768", "1600x960", "1920x1152", "2240x1344", "2560x1536", "
 FRAME_PACINGS = ("music", "even", "game")
 
 # How the game's 1280x768 picture is enlarged to the window, openDMT3's in-game layer's own step (native/cardreader):
-# "off" sharp bilinear (each game pixel a block of the same width), "smooth" bilinear (Direct3D's own stretch), "fsr1" AMD FidelityFX Super
-# Resolution 1, "nis" NVIDIA Image Scaling. The names are the layer's (UPSCALE_NAMES in native/cardreader/postmath.c).
-UPSCALES = ("off", "smooth", "fsr1", "nis")
+# "off" sharp bilinear (each game pixel a block of the same width), "smooth" bilinear (Direct3D's own stretch), "fsr1"
+# AMD FidelityFX Super Resolution 1, "nis" NVIDIA Image Scaling, "anime4k" Anime4K's CNN x2 (a small neural network
+# made for drawn art doubles the picture, then bilinear to the window). The names are the layer's (UPSCALE_NAMES in
+# native/cardreader/postmath.c).
+UPSCALES = ("off", "smooth", "fsr1", "nis", "anime4k")
 
 # Where the game draws its picture (openDMT3's in-game layer, native/cardreader/render.c): "game" its own 1280x768,
 # enlarged to the window by the upscale filter, or "display" at the picture's size on the screen (every target the game

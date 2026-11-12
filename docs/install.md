@@ -190,7 +190,9 @@ most one frame waiting for the graphics card, so a touch is not held behind fram
   pixels. The upscale filter's rows then leave the page: there is nothing to enlarge.
 - **Upscale filter** (**Screen**): how the game's 1280x768 picture is enlarged to the window. **Off** is sharp
   bilinear (each game pixel a block, all of the same width), **Smooth** is bilinear, as the game drew it before,
-  **AMD FSR 1** (the default) is AMD FidelityFX Super Resolution 1, **NVIDIA NIS** is NVIDIA Image Scaling.
+  **AMD FSR 1** (the default) is AMD FidelityFX Super Resolution 1, **NVIDIA NIS** is NVIDIA Image Scaling, and
+  **Anime4K** is Anime4K's small neural network made for drawn art: it draws the picture at twice its size, which is
+  then fitted to the window (on a window up to 1.2 times the game's picture it is Smooth).
 - **Sharpness** (**Screen**, shown for **AMD FSR 1** and **NVIDIA NIS**): how much those two sharpen, from 0 to 100
   (50 by default).
 - **Anti-aliasing** (**Screen**): smooths the game's jagged edges before the picture is enlarged (with **Screen size**,
@@ -216,8 +218,8 @@ most one frame waiting for the graphics card, so a touch is not held behind fram
   keeps its 10 ms.
 
 When the upscale filter or the anti-aliasing chosen makes frames late on this PC's graphics card, the game steps it
-down one step at a time (SMAA to FXAA to off, then AMD FSR 1 or NVIDIA NIS to Smooth) for the rest of the run, says
-so in a toast at the top of the game, and the launcher's log says which step it took.
+down one step at a time (SMAA to FXAA to off, then AMD FSR 1, NVIDIA NIS or Anime4K to Smooth) for the rest of the
+run, says so in a toast at the top of the game, and the launcher's log says which step it took.
 
 **Measure the picture's GPU time** (**Screen**, **Advanced**, off by default) times each step of the picture on the
 graphics card while the game runs: the game's own frame, the glass behind the in-game panels, the bars, each
@@ -402,7 +404,7 @@ The settings `--set` takes, each as its page keeps it:
 | `show_fps` | `on`, `off` | **Screen**, **Show FPS** |
 | `fps_position` | `top_left`, `top_right`, `bottom_left`, `bottom_right` | **Screen**, **Position** |
 | `render_size` | `game`, `display` | **Screen**, **Drawn at** |
-| `upscale` | `off`, `smooth`, `fsr1`, `nis` | **Screen**, **Upscale filter** |
+| `upscale` | `off`, `smooth`, `fsr1`, `nis`, `anime4k` | **Screen**, **Upscale filter** |
 | `sharpness` | 0 to 100 | **Screen**, **Sharpness** |
 | `antialiasing` | `off`, `fxaa`, `smaa-low`, `smaa-medium`, `smaa-high`, `smaa-ultra` | **Screen**, **Anti-aliasing** |
 | `pass_times` | `on`, `off` | **Screen**, **Measure the picture's GPU time** |

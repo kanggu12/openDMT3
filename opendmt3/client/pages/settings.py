@@ -98,7 +98,7 @@ def build_screen(app, parent):
         app.go("screen")
 
     # The in-game layer's enlarging of the 1280x768 picture to the window, only while the game draws at its own size;
-    # four choices fit one segmented row.
+    # five choices fit one segmented row.
     if render == "game":
         widgets.setting_row(parent, ui, w("screen.upscale"),
                             lambda p: widgets.Segmented(p, ui, [(value, w("screen.upscale." + value))

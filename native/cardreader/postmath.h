@@ -12,7 +12,9 @@ enum {
     UPSCALE_OFF = 0,       /* nearest: each game pixel as a block, the game's own pixels */
     UPSCALE_SMOOTH = 1,    /* bilinear, as Direct3D's own stretch draws it today */
     UPSCALE_FSR1 = 2,      /* AMD FidelityFX Super Resolution 1: EASU, then RCAS sharpening */
-    UPSCALE_NIS = 3        /* NVIDIA Image Scaling: its 6-tap directional scaler with built-in sharpening */
+    UPSCALE_NIS = 3,       /* NVIDIA Image Scaling: its 6-tap directional scaler with built-in sharpening */
+    UPSCALE_ANIME4K = 4,   /* Anime4K's CNN x2 (S): a small convolutional network doubles the picture, bilinear after */
+    UPSCALE_COUNT = 5
 };
 
 /* The anti-aliasing choices (OPENDMT3_ANTIALIASING), run on the game's 1280x768 picture before the upscale. */
@@ -39,7 +41,7 @@ enum {
 #define AA_DEFAULT AA_OFF
 
 /* The names the launcher writes for each choice (the same as its --set values), in the order of the enums. */
-extern const char *const UPSCALE_NAMES[4];
+extern const char *const UPSCALE_NAMES[UPSCALE_COUNT];
 extern const char *const AA_NAMES[AA_COUNT];
 
 /* A name to its choice; -1 when it is not one. Case does not matter. */
@@ -63,6 +65,7 @@ enum {
     PASS_NIS_EDGES,        /* NIS's edge map, at the game's size */
     PASS_NIS_ROWS,         /* NIS's scaler down each of the game's columns, at the game's width and the window's height */
     PASS_NIS_SCALE,        /* NIS's scaler across them and its directions' filters, at the window's size */
+    PASS_ANIME4K,          /* Anime4K's network: four layers at the game's size, its 2x picture (anime4k_x2_s.hlsl) */
     PASS_UI_DOWN,          /* the in-game layer's glass: the game's frame averaged to a quarter of its size, */
     PASS_UI_BLUR,          /* blurred, */
     PASS_UI_GLASS,         /* and a panel laid over it, tinted (never in a choice's plan: the layer draws them) */
@@ -71,11 +74,12 @@ enum {
 };
 
 /* The passes for a choice, in order, into `out` (at most 8); how many. An output smaller than the game's picture in
- * either direction gets bilinear (FSR's EASU and NIS's scaler only enlarge). */
+ * either direction gets bilinear (FSR's EASU and NIS's scaler only enlarge); Anime4K runs when the output is more than
+ * 1.2 times the input both ways (its own rule), its 2x picture then brought to the output by bilinear. */
 int post_plan(int upscale, int aa, int in_w, int in_h, int out_w, int out_h, int out[8]);
 
-/* The safety net's next lighter choice, in place: SMAA (any preset) to FXAA, FXAA to none, then NVIDIA NIS or AMD
- * FSR 1 to bilinear. 0 when nothing lighter is left (nearest or bilinear with no anti-aliasing). */
+/* The safety net's next lighter choice, in place: SMAA (any preset) to FXAA, FXAA to none, then NVIDIA NIS, AMD FSR 1
+ * or Anime4K to bilinear. 0 when nothing lighter is left (nearest or bilinear with no anti-aliasing). */
 int post_lighter(int *upscale, int *aa);
 
 /* Whether a choice needs a pass of the chain's for the picture itself: bilinear with no anti-aliasing is what

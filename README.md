@@ -107,9 +107,9 @@ runs [in the launcher](docs/server.md#in-the-launcher) or [with Python](docs/ser
   open, a toast when there is something to say, an FPS chip if you want one, and a pointer of its own. They keep to
   the top band and the corners, never where the notes come, and no key of the keyboard brings them.
 - **A picture and a sound for your PC.** Frame pacing locked to the music, the game's own 5:3 shape kept on any
-  screen, the game drawn at its own 1280x768 or at the screen's size, upscale filters (AMD FSR 1, NVIDIA NIS) and
-  anti-aliasing (FXAA, SMAA) with a safety net that keeps 60 frames a second, and the sound device chosen on
-  **Sound**.
+  screen, the game drawn at its own 1280x768 or at the screen's size, upscale filters (AMD FSR 1, NVIDIA NIS,
+  Anime4K) and anti-aliasing (FXAA, SMAA) with a safety net that keeps 60 frames a second, and the sound device
+  chosen on **Sound**.
 - **Logs in by card, without a reader.** The PC client logs players in only by card. openDMT3 gives the game a card
   reader library of its own in place of the cabinet's, which reads a card number the launcher writes, so the game logs
   in the player you picked.

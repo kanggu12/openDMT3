@@ -18,6 +18,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   on a 1920x1080 screen, 3600x2160 at 3840x2160) rather than at its own 1280x768 enlarged after, so what moves,
   scales or turns lands on the screen's own pixels. The game is answered its own sizes wherever it asks, and its
   videos are drawn to the larger picture with the rest. **1280×768** stays the default; `--set render_size=display`.
+- **Anime4K** among the Screen page's upscale filters: the small model of Anime4K's CNN x2, a neural network made for
+  drawn art, doubles the game's picture, which is then fitted to the window. `--set upscale=anime4k`.
 
 ## [0.1.1] - 2026-11-13
 

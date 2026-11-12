@@ -140,9 +140,11 @@ TEXT = {
     "screen.upscale.smooth": ("Smooth", "부드럽게"),
     "screen.upscale.fsr1": ("AMD FSR 1", "AMD FSR 1"),
     "screen.upscale.nis": ("NVIDIA NIS", "NVIDIA NIS"),
+    "screen.upscale.anime4k": ("Anime4K", "Anime4K"),
     "screen.upscale.hint": ("How the game's 1280×768 picture is enlarged to the window: sharp bilinear, bilinear, "
-                            "AMD FSR 1 or NVIDIA NIS.",
-                            "게임의 1280×768 화면을 창 크기로 확대하는 방식입니다. 선명한 쌍선형, 쌍선형, AMD FSR 1, NVIDIA NIS 중에서 고릅니다."),
+                            "AMD FSR 1, NVIDIA NIS or Anime4K, a small neural network made for drawn art.",
+                            "게임의 1280×768 화면을 창 크기로 확대하는 방식입니다. 선명한 쌍선형, 쌍선형, AMD FSR 1, NVIDIA NIS, "
+                            "그림체용 작은 신경망인 Anime4K 중에서 고릅니다."),
     "screen.sharpness": ("Sharpness", "선명도"),
     "screen.sharpness.hint": ("How much AMD FSR 1 and NVIDIA NIS sharpen, from 0 to 100.",
                               "AMD FSR 1과 NVIDIA NIS가 게임 화면을 얼마나 선명하게 할지 0~100으로 고릅니다."),

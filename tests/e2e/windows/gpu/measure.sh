@@ -30,12 +30,12 @@
 #                   the CPU's renderer they say nothing, and measure.py leaves them out)
 #   passes          the picture's GPU time by pass (OPENDMT3_PASS_TIMES=on), every choice in turn in one run of the game
 #                   (every pass is made when measuring, and choice.now turns the choice at once): Off, Smooth, FSR 1,
-#                   NIS with no anti-aliasing, then FSR 1 with FXAA and SMAA Low to Ultra, each in the picture's own
-#                   shape (Keep) and filling the screen (Fill), 6 s each after 2.5 s to settle; then, at the defaults,
-#                   the layer's parts in turn (the chip, the bar, the menu, the question, a toast) for the glass's blur
-#                   and the parts' drawing. Each step's time is the gap between its timestamp and the one before it,
-#                   with an empty pass (one pixel drawn) and two timestamps in a row to say what any pass and any
-#                   timestamp cost before their own work, and the game's own frame from the last present on
+#                   NIS, Anime4K with no anti-aliasing, then FSR 1 with FXAA and SMAA Low to Ultra, each in the
+#                   picture's own shape (Keep) and filling the screen (Fill), 6 s each after 2.5 s to settle; then, at
+#                   the defaults, the layer's parts in turn (the chip, the bar, the menu, the question, a toast) for the
+#                   glass's blur and the parts' drawing. Each step's time is the gap between its timestamp and the one
+#                   before it, with an empty pass (one pixel drawn) and two timestamps in a row to say what any pass and
+#                   any timestamp cost before their own work, and the game's own frame from the last present on
 #   chip            the frame rate chip on with the limiter out and VSync off: the frame rate moves, so the chip's
 #                   number changes at every count (twice a second) and each update is timed (its picture drawn again,
 #                   then what changed of it uploaded); with what making every part's textures took at the layer's
@@ -228,8 +228,8 @@ turns() {
   for i in $(seq 1 "$TURNS"); do echo "Picture quality lowered to keep 60 FPS (Smooth upscale)" > "$SESSION/$(dir_of "$run")/toast.now"; wait_s 0.8; phase toast "$run"; wait_s 2.4; phase off-toast "$run"; done
 }
 # Every picture choice in turn, Keep and Fill, then the layer's parts at the defaults, for the passes run.
-CHOICES=("off 50 off" "smooth 50 off" "fsr1 50 off" "nis 50 off" "fsr1 50 fxaa" "fsr1 50 smaa-low" "fsr1 50 smaa-medium"
-         "fsr1 50 smaa-high" "fsr1 50 smaa-ultra")
+CHOICES=("off 50 off" "smooth 50 off" "fsr1 50 off" "nis 50 off" "anime4k 50 off" "fsr1 50 fxaa" "fsr1 50 smaa-low"
+         "fsr1 50 smaa-medium" "fsr1 50 smaa-high" "fsr1 50 smaa-ultra")
 passes_turns() {
   local run=$1 d shape c
   d=$(dir_of "$run")

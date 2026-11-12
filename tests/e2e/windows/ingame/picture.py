@@ -6,7 +6,9 @@ OUT_DIR holds the chain's measuring dump of one frame ("e2e": the game's picture
 and the frame as presented), the screen captured after it (screen-e2e.bmp) and the game's picture just before that
 capture and just after it ("e2e1-src", "e2e2-src"). Passes when:
   - the presented frame is byte for byte the chain's SMAA High then FSR 1 (the options the test chose);
-  - FSR 1 differs from bilinear on the same frame (a known difference: it sharpens);
+  - FSR 1 differs from bilinear on the same frame (a known difference: it sharpens), and so does Anime4K (its
+    network's picture, enlarged twice, then fitted to the window; bilinear in its place would differ by nothing: 0.42
+    a byte on the title screen at 1920x1080, where FSR 1 differs by 0.79);
   - where the game's picture held still over the three frames, the screen shows the chain's output, closer to it
     than to bilinear (the screen is a later frame than the dump, so only still parts can be compared; a part of the
     game that pulses can show alike in two frames a pulse apart, so the two beside the capture are held to as well).
@@ -53,6 +55,8 @@ def main(out):
     middle = [(x, y) for y in range(h // 4, 3 * h // 4, 4) for x in range(w // 4, 3 * w // 4, 4)]
     d = mean_diff(fsr, smooth, middle)
     print("  FSR 1 against bilinear on the same frame: %.2f a byte" % d)
+    a4k = mean_diff(bmp(out + "/e2e-up-anime4k.bmp"), smooth, middle)
+    print("  Anime4K against bilinear on the same frame: %.2f a byte" % a4k)
     # The game's picture where it held still: a game pixel and its eight neighbours equal in the dumped frame, in the
     # frame just before the screen was captured and in the frame just after it.
     a = bmp(out + "/e2e-src.bmp")
@@ -80,7 +84,7 @@ def main(out):
     to_chain, to_smooth = mean_diff(screen, shown, points), mean_diff(screen, smooth, points)
     print("  the screen where the game held still (%d pixels): %.2f a byte from the chain's output, %.2f from bilinear"
           % (len(points), to_chain, to_smooth))
-    ok = same and d > 0.3 and len(points) > 1000 and to_chain < 2.0 and to_chain < to_smooth
+    ok = same and d > 0.3 and a4k > 0.1 and len(points) > 1000 and to_chain < 2.0 and to_chain < to_smooth
     sys.exit(0 if ok else 1)
 
 

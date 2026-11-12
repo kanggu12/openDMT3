@@ -201,7 +201,7 @@ game's import table that hold the real functions get ours, which call the real o
 | `postmath.c` | The chain's plan and numbers with no Windows calls: which passes a choice runs, FSR 1's EASU and RCAS constants (as `FsrEasuCon` and `FsrRcasCon` work them out), NIS's (as `NVScalerUpdateConfig`), NIS's filter banks, the back buffer's size |
 | `passtimes.c` | The picture's GPU time by pass (`OPENDMT3_PASS_TIMES=on`): each step's time a frame, kept over a stretch of frames and said as its median, with no Windows calls |
 | `shaders/post.hlsl`, `shaders/smaa.hlsl` | The passes, shader model 3.0: nearest, bilinear, EASU's lengths (once a game texel) and EASU, RCAS, NIS's edge map and its scaler's two passes (the column sums, then across), FXAA, and SMAA's three passes around `third_party/smaa/SMAA.hlsl` |
-| `third_party/` | SMAA's shader and its precomputed area and search textures (MIT), and the license texts of AMD FSR 1 and NVIDIA NIS (MIT) and the FXAA 3.11 notice, whose algorithms the shaders follow |
+| `third_party/` | SMAA's shader and its precomputed area and search textures (MIT); Anime4K's CNN x2 (S) as shader model 3.0 passes, `anime4k_x2_s.hlsl`, written by `generate.py` from Anime4K's own mpv shader with its weights as they are there (MIT); and the license texts of AMD FSR 1 and NVIDIA NIS (MIT) and the FXAA 3.11 notice, whose algorithms the shaders follow |
 | `engine.c` | Windows' shared sound engine at the shortest period the game's output offers while the game runs ([the sound engine's period](#the-sound-engines-period)) |
 | `openal.c` | The Sound page's **Mixer** on OpenAL Soft: DSOAL's DirectSound over OpenAL Soft in place of Windows' own, Windows' own when it does not open ([the mixer](#the-mixer)) |
 | `sound.c` | Which of the game's DirectSound buffers plays and how far, its copies of them too (for the music lock and the hold: the song's music is one buffer of minutes, played once; its key sounds are copies of short buffers), and the hold's fade, stop and start again. With `OPENDMT3_SOUND_WATCH` set (the Wine tests only), also the streams watched: when each plays against the frame count, and underruns, seen as a 20 ms block about to play that holds what it held a lap earlier (the game writes its music through one Lock a buffer, so its writes cannot be counted) |
@@ -296,7 +296,15 @@ in-game layer is drawn in it:
   FidelityFX's own mapping), **NVIDIA NIS** its edge map at 1280x768, then its 6-tap scaler with its sharpening in two
   passes: down each of the game's columns for each of the window's rows (the game's width by the window's height, one
   32-bit float), then across those sums at the window's size (NVIDIA's compute shader limits it to 2x for its tiles; as
-  a pixel shader the same maths runs at 3x).
+  a pixel shader the same maths runs at 3x), **Anime4K** the small variant of Anime4K's CNN x2 (a convolutional network
+  trained on drawn art): four 3x3 layers at 1280x768, each four signed features in a half-float target (the second to
+  the fourth reading the one before split into its positive and negative halves), then its last layer's four values a
+  texel put on the 2x2 pixels they cover at 2560x1536 and added to the picture enlarged bilinearly, and that picture
+  fitted to the window bilinearly. As Anime4K's own rule, it runs only on a window more than 1.2 times the game's
+  picture both ways; below that it is Smooth. On the game's own frames made smaller by the window's scale and
+  enlarged back, it came closer to them than Smooth, FSR 1 and NIS at 1920x1080 and at 3840x2160, with fewer pixels
+  pushed past their neighbours' range than NIS; its passes cost about 1.7 times FSR 1's at 1920x1080 and 0.6 times at
+  3840x2160, since its network runs once a game pixel whatever the window's size ([measured](testing.md#anime4k)).
 - **Anti-aliasing**: FXAA 3.11 Quality (preset 39) or SMAA 1x at its four presets, SMAA's luma edges (its edge pass
   reads the picture with the point filter: it reads whole pixels only).
 - **Written from their published sources in floats**: shader model 3.0 has no integer or bit operations, so FSR's
@@ -307,7 +315,8 @@ in-game layer is drawn in it:
 - **The shaders are compiled** when the device is made by `D3DXCompileShader` from the game's own `d3dx9_40.dll` (one
   of its imports, so it is always in its process; no HLSL compiler exists for this DLL's MinGW build). Its 2008
   compiler takes 20 s over NIS's scaler at its optimisation level 3 for the same instructions it gives at its default
-  level in 0.15 s, so the default is used. A shader that does not compile leaves the game as Direct3D's own stretch.
+  level in 0.15 s, so the default is used. A shader that does not compile leaves the game as Direct3D's own stretch;
+  one of Anime4K's (compiled only when it is chosen) leaves bilinear in its place.
 - **The defaults**, chosen on the game's own screens at 3840x2160 (title, mode select, tutorial, song select, a song
   over its video, the result): **AMD FSR 1** at 50 with no anti-aliasing. FSR 1 is sharper than bilinear and puts no
   pixel more than 16 levels past the game's own neighbouring values on chrome and lime (NIS does on 0.6 % to 2.4 % of

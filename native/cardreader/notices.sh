@@ -31,6 +31,7 @@ text() {
   echo "- AMD FidelityFX Super Resolution 1, the upscale filter AMD FSR 1: MIT License"
   echo "- NVIDIA Image Scaling, the upscale filter NVIDIA NIS: MIT License"
   echo "- SMAA with its area and search textures, the anti-aliasing SMAA: MIT License"
+  echo "- Anime4K's CNN x2 (S), its weights in the upscale filter Anime4K: MIT License"
   echo "- FXAA 3.11, the algorithm the anti-aliasing FXAA is written from: NVIDIA's notice"
   echo "- The mingw-w64 C runtime $MINGW, linked in by the compiler: the licences its copyright file lists"
   echo "- The GCC runtime library (libgcc) $GCC, linked in by the compiler:"
@@ -38,6 +39,7 @@ text() {
   text "AMD FidelityFX Super Resolution 1 (third_party/fsr/LICENSE.txt)" "$HERE/third_party/fsr/LICENSE.txt"
   text "NVIDIA Image Scaling (third_party/nis/LICENSE.txt)" "$HERE/third_party/nis/LICENSE.txt"
   text "SMAA (third_party/smaa/LICENSE.txt)" "$HERE/third_party/smaa/LICENSE.txt"
+  text "Anime4K (third_party/anime4k/LICENSE.txt)" "$HERE/third_party/anime4k/LICENSE.txt"
   text "FXAA 3.11 (third_party/fxaa/NOTICE.txt)" "$HERE/third_party/fxaa/NOTICE.txt"
   text "The mingw-w64 C runtime $MINGW (Debian's copyright file of mingw-w64-i686-dev)" \
     /usr/share/doc/mingw-w64-i686-dev/copyright

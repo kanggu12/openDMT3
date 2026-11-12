@@ -46,6 +46,7 @@
 #define RES_POST 101
 #define RES_SMAA_LIB 102
 #define RES_SMAA_PASSES 103
+#define RES_ANIME4K 106
 
 /* IDirect3DDevice9's methods replaced while the chain runs, by their place in its table. */
 #define M_GET_BACK_BUFFER 18
@@ -88,6 +89,11 @@ static DWORD *g_code_smaa[4][3];
 static IDirect3DVertexShader9 *g_vs;
 static IDirect3DPixelShader9 *g_ps[PASS_KINDS];
 static IDirect3DPixelShader9 *g_smaa_ps[4][3];
+/* Anime4K's network (third_party/anime4k): its four layers at the game's size, then its 2x picture. */
+#define A4K_PASSES 5
+static const char *const A4K_ENTRY[A4K_PASSES] = {"ps_a4k_0", "ps_a4k_1", "ps_a4k_2", "ps_a4k_3", "ps_a4k_out"};
+static DWORD *g_code_a4k[A4K_PASSES];
+static IDirect3DPixelShader9 *g_a4k_ps[A4K_PASSES];
 static IDirect3DVertexDeclaration9 *g_decl;
 /* The one triangle every full-screen pass draws (over the whole viewport, already in clip space), and the card's own
  * copy of it, made once: DrawPrimitiveUP copied its 48 bytes into a buffer of the driver's again for every pass. */
@@ -113,6 +119,10 @@ static IDirect3DTexture9 *g_nis_rows;
 static IDirect3DTexture9 *g_nis_coef;       /* managed */
 static IDirect3DTexture9 *g_easu;           /* EASU's result at the back buffer's size, RCAS's input */
 static IDirect3DTexture9 *g_easu_len;       /* EASU's lengths of each texel, the game's size and a texel around */
+/* Anime4K's features (four signed values a texel, half floats, the game's size: each layer reads the one before, so
+ * two in turn) and its picture at twice the game's size. */
+static IDirect3DTexture9 *g_a4k_feat[2];
+static IDirect3DTexture9 *g_a4k_out;
 /* SMAA's stencil at the game's size: its edge pass marks the pixels with an edge, and its weights pass runs on those
  * alone (the others keep the cleared weights, 0, which is what the pass gives a pixel with no edge). */
 static IDirect3DSurface9 *g_smaa_stencil;
@@ -299,7 +309,7 @@ static DWORD *compile(CompileFn fn, const char *source, size_t length, const D3D
 /* The entry point of post.hlsl for each pass (SMAA's are in smaa.hlsl). */
 static const char *const ENTRY[PASS_KINDS] = {"ps_fxaa", NULL, NULL, NULL, "ps_nearest", "ps_copy",
                                               "ps_easu_len", "ps_easu", "ps_rcas", "ps_nis_edges", "ps_nis_rows",
-                                              "ps_nis_scale",
+                                              "ps_nis_scale", NULL /* Anime4K's: A4K_ENTRY */,
                                               "ps_ui_down", "ps_ui_blur", "ps_ui_glass", "ps_ui_compose"};
 static const char *const SMAA_PRESET[4] = {"SMAA_PRESET_LOW", "SMAA_PRESET_MEDIUM", "SMAA_PRESET_HIGH",
                                            "SMAA_PRESET_ULTRA"};
@@ -324,8 +334,9 @@ static int compile_all(void)
         ingame_log("post: no D3DXCompileShader in the game's process: Direct3D's own stretch");
         return 0;
     }
-    DWORD post_len = 0, lib_len = 0, passes_len = 0;
+    DWORD post_len = 0, lib_len = 0, passes_len = 0, a4k_len = 0;
     const char *post = resource(RES_POST, &post_len);
+    const char *a4k = resource(RES_ANIME4K, &a4k_len);
     const char *lib = resource(RES_SMAA_LIB, &lib_len);
     const char *passes = resource(RES_SMAA_PASSES, &passes_len);
     if (!post || !lib || !passes) {
@@ -355,6 +366,12 @@ static int compile_all(void)
             continue;
         ok &= (g_code_ps[k] = compile(fn, post, post_len, NULL, ENTRY[k], "ps_3_0")) != NULL;
     }
+    /* Anime4K's layers and its 2x picture, from their own file, when the choice runs them; apart, as the glass's: one
+     * that does not compile (compile() logs why) leaves bilinear in Anime4K's place (run_upscale), never the picture
+     * without the chain. */
+    for (int k = 0; a4k && k < A4K_PASSES && needs(PASS_ANIME4K, plan, count); k++)
+        if (!g_code_a4k[k])
+            g_code_a4k[k] = compile(fn, a4k, a4k_len, NULL, A4K_ENTRY[k], "ps_3_0");
     /* SMAA: its library with our definitions in front, our three passes after it, one build per preset. */
     /* mad() is not an intrinsic of the game's 2008 compiler: written out (SMAA's own GLSL path does the same). */
     static const char head[] = "float4 smaa_rt : register(c0);\n#define SMAA_RT_METRICS smaa_rt\n#define SMAA_HLSL_3 1\n"
@@ -582,6 +599,9 @@ static void release_default(void)
     DROP(g_nis_rows);
     DROP(g_easu);
     DROP(g_easu_len);
+    DROP(g_a4k_feat[0]);
+    DROP(g_a4k_feat[1]);
+    DROP(g_a4k_out);
     DROP(g_smaa_stencil);
     for (int i = 0; i < 4; i++)
         DROP(g_blur[i]);
@@ -701,6 +721,24 @@ static int make_default_at(IDirect3DDevice9 *dev)
         g_easu_len = NULL;
         ingame_log("post: FSR 1 needs 32-bit float targets this device does not draw into: bilinear in its place");
     }
+    /* Anime4K's features in half floats (32-bit floats on a device that cannot draw into those) and its 2x picture in
+     * the frame's format; a device that has neither gets bilinear in its place (run_upscale), the rest as chosen. */
+    if (needs(PASS_ANIME4K, plan, count) && !g_a4k_out) {
+        int made = 1;
+        /* Two feature textures (each layer reads the one before), each in half floats or else in 32-bit floats. */
+        for (int i = 0; i < 2 && made; i++)
+            made = rt_texture(dev, g_src_w, g_src_h, D3DFMT_A16B16G16R16F, &g_a4k_feat[i], "Anime4K's features") ||
+                   rt_texture(dev, g_src_w, g_src_h, D3DFMT_A32B32G32R32F, &g_a4k_feat[i],
+                              "Anime4K's features in floats");
+        /* Its picture at twice the game's size, in the frame's own format. */
+        if (!made || !rt_texture(dev, 2 * g_src_w, 2 * g_src_h, fmt, &g_a4k_out, "Anime4K's picture")) {
+            /* All three or none: run_upscale runs Anime4K only with all of them, so none is kept for nothing. */
+            DROP(g_a4k_feat[0]);
+            DROP(g_a4k_feat[1]);
+            DROP(g_a4k_out);
+            ingame_log("post: Anime4K needs targets this device does not draw into: bilinear in its place");
+        }
+    }
     /* The passes' triangle in a buffer of the card's own; DrawPrimitiveUP as before when it cannot be made. */
     if (!g_tri && SUCCEEDED(IDirect3DDevice9_CreateVertexBuffer(dev, sizeof TRI, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                                                 &g_tri, NULL))) {
@@ -802,6 +840,14 @@ static int make_shaders(IDirect3DDevice9 *dev)
             if (g_code_smaa[p][s] && !g_smaa_ps[p][s] &&
                 FAILED(IDirect3DDevice9_CreatePixelShader(dev, g_code_smaa[p][s], &g_smaa_ps[p][s])))
                 return 0;
+    /* Anime4K's passes: one the device does not take is left out (bilinear in Anime4K's place, as for one that did
+     * not compile), the rest of the chain as chosen. */
+    for (int k = 0; k < A4K_PASSES; k++)
+        if (g_code_a4k[k] && !g_a4k_ps[k] &&
+            FAILED(IDirect3DDevice9_CreatePixelShader(dev, g_code_a4k[k], &g_a4k_ps[k]))) {
+            g_a4k_ps[k] = NULL;
+            ingame_log("post: Anime4K's %s not made on this device: bilinear in its place", A4K_ENTRY[k]);
+        }
     return 1;
 }
 
@@ -1134,6 +1180,43 @@ static void run_upscale(IDirect3DDevice9 *dev, int up, IDirect3DTexture9 *in, in
         step(dev, "nis scale");
         /* The sums unbound: their pass draws into them next frame. */
         IDirect3DDevice9_SetTexture(dev, 4, NULL);
+        return;
+    }
+    /* Anime4K: its four layers at the game's size, each reading the one before at whole texels (point), then its 2x
+     * picture (its residual over the frame enlarged bilinearly: s0 linear), then that picture to the window. */
+    /* Only with its targets and every one of its passes made (a target or a pass the device would not make leaves
+     * bilinear below in its place), and bilinear's pass for its last step. */
+    int a4k = plan[0] == PASS_ANIME4K && g_a4k_out && g_a4k_feat[0] && g_a4k_feat[1] && g_ps[PASS_BILINEAR];
+    for (int k = 0; k < A4K_PASSES && a4k; k++)
+        a4k = g_a4k_ps[k] != NULL;
+    if (a4k) {
+        for (int k = 0; k < 4; k++) {
+            /* Layer k draws into one of the two feature textures in turn (0, 1, 0, 1): never the one it reads. */
+            IDirect3DSurface9 *out = level0(g_a4k_feat[k & 1]);
+            /* The first layer reads the frame (s0), the others the layer before (s1). */
+            if (k == 0)
+                bind(dev, 0, in, 0);
+            else
+                bind(dev, 1, g_a4k_feat[(k - 1) & 1], 0);
+            /* At the game's size, its texel the frame's: c0 and c1 say that size to the shader. */
+            draw(dev, g_a4k_ps[k], out, g_src_w, g_src_h, sw, sh);
+            DROP(out);
+        }
+        step(dev, "anime4k layers");
+        /* The 2x picture: the frame (s0, linear, for its bilinear base) and the last layer (s1, the second texture). */
+        IDirect3DSurface9 *pic = level0(g_a4k_out);
+        bind(dev, 0, in, 1);
+        bind(dev, 1, g_a4k_feat[1], 0);
+        /* Drawn at twice the game's size, the game's own size in c0 (the shader reads its texels from it). */
+        draw(dev, g_a4k_ps[4], pic, 2 * g_src_w, 2 * g_src_h, sw, sh);
+        DROP(pic);
+        /* The features unbound: the layers draw into them next frame. */
+        IDirect3DDevice9_SetTexture(dev, 1, NULL);
+        step(dev, "anime4k picture");
+        /* That picture to the window bilinearly, read at its own size (twice the game's). */
+        bind(dev, 0, g_a4k_out, 1);
+        draw(dev, g_ps[PASS_BILINEAR], g_real_bb, w, h, 2 * sw, 2 * sh);
+        step(dev, "anime4k to the window");
         return;
     }
     /* Off (sharp bilinear, its own pass) or bilinear (the copy pass), both reading with a linear filter. */
@@ -2051,7 +2134,7 @@ static void dump(IDirect3DDevice9 *dev, int w, int h)
     if (!strcmp(mode, "all")) {
         /* Each upscale filter with no anti-aliasing, then each anti-aliasing pass at the game's size and enlarged with
          * the filter chosen. */
-        for (int u = 0; u < 4; u++) {
+        for (int u = 0; u < UPSCALE_COUNT; u++) {
             run_chain(dev, u, AA_OFF, w, h);
             snprintf(name, sizeof name, "%s-up-%s.bmp", label, UPSCALE_NAMES[u]);
             write_bmp(dev, g_real_bb, g_client_w, g_client_h, name);

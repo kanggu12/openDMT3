@@ -654,6 +654,22 @@ static void test_post(void)
     check(n == 1 && plan[0] == PASS_BILINEAR, "post: a window smaller than the game's picture gets bilinear");
     n = post_plan(UPSCALE_OFF, AA_OFF, 1280, 768, 2560, 1536, plan);
     check(n == 1 && plan[0] == PASS_NEAREST, "post: nearest is one pass");
+    /* Anime4K: its network and its 2x picture brought to the window, only past 1.2 times both ways (its own rule). */
+    n = post_plan(UPSCALE_ANIME4K, AA_OFF, 1280, 768, 1800, 1080, plan);
+    int at_1080 = n == 2 && plan[0] == PASS_ANIME4K && plan[1] == PASS_BILINEAR;
+    n = post_plan(UPSCALE_ANIME4K, AA_FXAA, 1280, 768, 3600, 2160, plan);
+    int at_4k = n == 3 && plan[0] == PASS_FXAA && plan[1] == PASS_ANIME4K && plan[2] == PASS_BILINEAR;
+    n = post_plan(UPSCALE_ANIME4K, AA_OFF, 1280, 768, 1536, 920, plan);
+    int under = n == 1 && plan[0] == PASS_BILINEAR;
+    /* Exactly 1.2 times across, past it down: bilinear (past 1.2 times both ways, not at it); one more pixel across:
+     * the network. */
+    n = post_plan(UPSCALE_ANIME4K, AA_OFF, 1280, 768, 1536, 922, plan);
+    int at_edge = n == 1 && plan[0] == PASS_BILINEAR;
+    n = post_plan(UPSCALE_ANIME4K, AA_OFF, 1280, 768, 1537, 922, plan);
+    check(at_1080 && at_4k && under && at_edge && n == 2 && plan[0] == PASS_ANIME4K,
+          "post: Anime4K's network then bilinear past 1.2 times, bilinear alone up to it");
+    check(upscale_from_name("Anime4K") == UPSCALE_ANIME4K && !strcmp(UPSCALE_NAMES[UPSCALE_ANIME4K], "anime4k"),
+          "post: Anime4K by its name");
     float con[16];
     easu_constants(1280, 768, 3840, 2160, con);
     check(fabsf(con[0] - 1.0f / 3.0f) < 1e-6f && fabsf(con[2] - (0.5f / 3.0f - 0.5f)) < 1e-6f &&
@@ -777,6 +793,9 @@ static void test_guard(void)
     while (post_lighter(&up, &aa))
         n++;
     check(n == 3 && up == UPSCALE_SMOOTH && aa == AA_OFF, "guard: SMAA to FXAA to off, then NIS to bilinear");
+    up = UPSCALE_ANIME4K;
+    aa = AA_OFF;
+    check(post_lighter(&up, &aa) && up == UPSCALE_SMOOTH, "guard: Anime4K steps down to bilinear");
     up = UPSCALE_OFF;
     aa = AA_OFF;
     check(!post_lighter(&up, &aa), "guard: nearest is as light as it goes");

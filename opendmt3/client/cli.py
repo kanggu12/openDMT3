@@ -26,7 +26,8 @@
   openDMT3.exe --folder <path>         use the client data in this folder (or up to four levels below it); an
                                        archive is unpacked first (beside it unless --to)
   openDMT3.exe --set name=value ...    change a setting (the names are in core/cabinet/values.py; unlock=on|off too)
-                                       the Screen page's picture: upscale=off|smooth|fsr1|nis, sharpness=0..100,
+                                       the Screen page's picture: upscale=off|smooth|fsr1|nis|anime4k,
+                                       sharpness=0..100,
                                        antialiasing=off|fxaa|smaa-low|smaa-medium|smaa-high|smaa-ultra,
                                        frame_pacing=music|even|game, show_fps=on|off,
                                        fps_position=top_left|top_right|bottom_left|bottom_right,
