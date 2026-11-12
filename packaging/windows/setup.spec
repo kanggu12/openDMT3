@@ -28,6 +28,8 @@ analysis = Analysis(
     noarchive=False,
 )
 analysis.datas = [entry for entry in analysis.datas if LAUNCHER["kept_data"](entry[0])]
+# Windows' own C runtime stays Windows' (launcher_parts.kept_binary).
+analysis.binaries = [entry for entry in analysis.binaries if LAUNCHER["kept_binary"](entry[0])]
 pyz = PYZ(analysis.pure)
 # The picture shown while the one file unpacks itself, before Python starts (installer.py closes it).
 splash = Splash(os.path.join(BUILD, "setup-splash.png"), binaries=analysis.binaries, datas=analysis.datas,

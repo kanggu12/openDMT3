@@ -16,6 +16,16 @@ TCL_ENCODINGS_KEPT = {"ascii.enc", "iso8859-1.enc", "cp874.enc", "cp932.enc", "c
     "cp125%d.enc" % n for n in range(9)}
 
 
+def kept_binary(dest):
+    """False for Windows' own C runtime (ucrtbase.dll and its api-ms-win-* forwarders): part of every Windows 10 and 11,
+    so the program needs no copy, and a copy would be a part of Microsoft's in it that the notices do not cover. A Python
+    built with them beside it (as a hosted one is) has PyInstaller take them in; the build machine's has none. dest is
+    the file's place in the program's folder, as PyInstaller gives it."""
+    # Only the file's name counts, in any letter case.
+    name = dest.replace("\\", "/").rsplit("/", 1)[-1].lower()
+    return not (name == "ucrtbase.dll" or (name.startswith("api-ms-win-") and name.endswith(".dll")))
+
+
 def kept_data(dest):
     """False for a data file of Tcl's that the window never reads: its time zones (1.3 MB: the window never asks Tcl's
     clock for a named zone), its message catalogs (clock's month names in other languages) and the character sets not

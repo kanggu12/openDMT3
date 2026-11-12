@@ -81,6 +81,14 @@ class PreviousReleaseTest(unittest.TestCase):
 
 
 class LeftOutTest(unittest.TestCase):
+    def test_windows_own_c_runtime_is_never_taken_in(self):
+        kept = load("launcher_parts.py")["kept_binary"]
+        for dest in ("ucrtbase.dll", "api-ms-win-crt-heap-l1-1-0.dll", "API-MS-WIN-CORE-PATH-L1-1-0.DLL",
+                     "sub\\api-ms-win-crt-stdio-l1-1-0.dll"):
+            self.assertFalse(kept(dest), dest)
+        for dest in ("python312.dll", "VCRUNTIME140.dll", "tcl86t.dll", "_internal/libssl-3-x64.dll"):
+            self.assertTrue(kept(dest), dest)
+
     def test_tcl_data_the_window_never_reads(self):
         kept = load("launcher_parts.py")["kept_data"]
         for dest in ("_tcl_data\\tzdata\\Asia\\Seoul", "_tcl_data/msgs/de.msg", "_tcl_data/encoding/koi8-r.enc",

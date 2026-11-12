@@ -48,6 +48,8 @@ analysis = Analysis(
     noarchive=False,
 )
 analysis.datas = [entry for entry in analysis.datas if PARTS["kept_data"](entry[0])]
+# Windows' own C runtime stays Windows' (launcher_parts.kept_binary).
+analysis.binaries = [entry for entry in analysis.binaries if PARTS["kept_binary"](entry[0])]
 icon = os.path.join(BUILD, "openDMT3.ico")
 # The window carries the archive of every Python module the launcher runs (5 MB), as PyInstaller makes it.
 window = EXE(PYZ(analysis.pure), analysis.scripts, [], exclude_binaries=True, name="openDMT3", console=False, icon=icon,
