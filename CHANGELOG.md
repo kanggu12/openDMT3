@@ -6,6 +6,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-13
+
 ### Added
 
 - Every finger on a touch screen plays, as on the cabinet: openDMT3's own touch screen library takes the place of the
@@ -117,7 +119,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - Updates inside the launcher, signed by the project, and an installer with repair and removal, in English and
   Korean.
 
-[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/kanggu12/openDMT3/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kanggu12/openDMT3/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/kanggu12/openDMT3/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/kanggu12/openDMT3/releases/tag/v0.1.0
