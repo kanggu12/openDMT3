@@ -23,6 +23,14 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   with a cut corner, **Check again** at the ready check's title, and a page's main button quiet beside a lit **PLAY**.
   The first-start guide's steps stand across the top, with **Skip**, **Back**, **Next** and the last step's **PLAY** at
   its foot.
+- The overlay bar slides down out of the game's top edge and back up into it, in about a fifth of a second, as
+  OpenDMTQ's does, turned back from where it is when the pointer comes back and at once with Windows' animation
+  effects off; the menu and the quit question come out from under it as sheets hanging from its foot, and the notice
+  and an FPS counter in a top corner move down with it. A handle at the game's top centre shows where it comes from.
+- The FPS counter is one line, at the bottom right beside the game's FREE PLAY, below the notes (where it was, half
+  of a note at the right end of the lowest row came under it), and its words read on the game's brightest screens.
+  The quit question's QUIT THE GAME is quiet until the pointer or the keys are on it, and a notice that comes during
+  a song waits for the song's end, so nothing of the overlay covers the groove meter while you play.
 - Words as the menu and the guides say them: a page by the menu's name (the ONLINE page), **Last game**,
   **FPS counter**, the overlay bar and its handle, **Open my records**, **Open on the site**, the site's address.
 
