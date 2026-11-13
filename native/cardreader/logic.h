@@ -356,7 +356,7 @@ typedef struct {
     float name_x, name_y;  /* the product's name: its left edge and its middle */
     float name_h;          /* the product's mark's height (the launcher's picture of it is drawn to this height) */
     Box chip[CHIPS];       /* the bar's chips at its right (CHIP_*), each the box its leaning plate fills */
-    Box panel;             /* the menu or the question, dropped down under its chip (w 0: none open) */
+    Box panel;             /* the menu or the question, hanging from the bar's foot under its chip (w 0: none open) */
     Box tab;               /* the question's title tab, hanging from the panel's top edge */
     float line_y;          /* the question's one line, its capitals' middle (with no line: none) */
     Box rows[4];           /* the menu's rows, or the question's answers side by side */
@@ -377,8 +377,10 @@ int ui_at_top_edge(float y, int area_h);
 /* A press that began at the top edge and is drawn down this far: a finger asking for the bar. */
 int ui_swipe_down(float start_y, float y, int area_h);
 
-/* The mark at the top centre that says where the bar is: a small tab in the game's own tab shape hanging from the top
- * edge, taller while the pointer is on it (`lit`). Clicks go through it to the game. */
+/* The mark at the top centre that says where the bar is, the bar's handle (OpenDMTQ's word): a rail along the top edge
+ * and a small tab in the game's own tab shape hanging from it, deeper while the pointer is on it (`lit`), within the
+ * game's top 12 lines (the groove meter's chrome rim in a song). Its box is the rail's width and the tab's depth.
+ * Clicks go through it to the game. */
 Box ui_mark_box(int area_w, int area_h, int lit);
 /* Whether a point is on the mark, or near enough to rest there (its box and 10 game pixels round it). */
 int ui_on_mark(float x, float y, int area_w, int area_h);
@@ -414,11 +416,10 @@ int gate_quiet(const RevealGate *g, double now);
 void gate_stall(RevealGate *g, double now, double gap);
 
 /* How long the bar stays, as OpenDMTQ's bar: whole for BAR_STAY_MS after the pointer was last on it (or after a rest
- * brought it), then fading over BAR_FADE_MS; a finger's bar whole for BAR_TOUCH_MS (a finger leaves no pointer on
- * it); by itself (the game's first screen, a switch between a window and full screen) whole for BAR_REVEAL_MS whatever
- * the pointer does. Times in milliseconds of any one clock. */
+ * brought it), then it slides back up into the top edge (the layer's slides, below); a finger's bar whole for
+ * BAR_TOUCH_MS (a finger leaves no pointer on it); by itself (the game's first screen, a switch between a window and
+ * full screen) whole for BAR_REVEAL_MS whatever the pointer does. Times in milliseconds of any one clock. */
 #define BAR_STAY_MS 600.0
-#define BAR_FADE_MS 300.0
 #define BAR_TOUCH_MS 4000.0
 #define BAR_REVEAL_MS 3000.0
 typedef struct {
@@ -435,26 +436,27 @@ void bar_clock_rest(BarClock *b, double now);
 void bar_clock_touch(BarClock *b, double now);
 /* It shows by itself. */
 void bar_clock_reveal(BarClock *b, double now);
-/* A press on the game: it goes at once (fading). */
+/* A press on the game: it goes at once (sliding up). */
 void bar_clock_hide(BarClock *b);
 /* The mouse moved with its button up: the pointer is the mouse's again (no finger's, not parked). */
 void bar_clock_moved(BarClock *b);
 /* Whether the pointer on the bar's band keeps it whole now: not a finger's, and not one parked there before the bar
  * came by itself (it would keep the bar on the game for good while nobody moves it). */
 int bar_clock_pointer_counts(const BarClock *b);
-/* Whether it is whole now (after that it fades out over BAR_FADE_MS). */
+/* Whether it is wanted whole now (after that it slides up). */
 int bar_clock_whole(const BarClock *b, double now);
 
-/* The toast: hanging from the game's top edge in the middle, as wide as its words need (`text_w` pixels). */
+/* The toast: hanging from the game's top edge in the middle, as wide as its words need (`text_w` pixels), its right end
+ * kept a gap left of the menu and the question, which hang under the bar's right end (moved left on a screen too
+ * narrow). */
 Box toast_box(int area_w, int area_h, float text_w);
 /* The frame rate chip in its corner (CORNER_*): 12 game pixels in from the side; at the top 6 down, at the foot above
  * the game's own labels there (ID CARD and NET at the left, FREE PLAY at the right, which start 35 and 26 lines up). */
 Box fps_box(int area_w, int area_h, int corner);
-/* The chip's opacity as a whole: faint, so the game shows through it (62 %, as OpenDMTQ's counter). */
-#define FPS_ALPHA 0.62f
-
-/* Motion: a value from 0 to 1 eased out (fast at first, settling), for slides and fades. */
-float ease_out(float t);
+/* The chip's glass's opacity: faint, so the game shows through it, and its words, drawn over it whole, keep 4.5:1 over
+ * a white screen (the lightest, its quieter grey line: 4.8:1; at 62 %, the whole chip's opacity before, its words over
+ * the game's brightest song came to 2.8:1). */
+#define FPS_ALPHA 0.80f
 
 /* The safety net's note: one line saying the picture's quality was lowered and how, in the card's language (UTF-8),
  * into `out`. `aa_changed`: the anti-aliasing changed (to `aa`); otherwise the upscale filter (to bilinear). */
@@ -551,5 +553,53 @@ double engine_ms(unsigned frames, unsigned rate);
  * output=chosen device={...} rate=48000 default=480 step=16 min=128 max=480 before=480 asked=128 got=128
  * hr=0x00000000" (output=default for Windows' default output). */
 void engine_note(const EngineReport *r, char *out, int size);
+
+/* -------------------------------------------------------------------------------------------- the layer's slides */
+
+/* How the bar comes down out of the game's top edge and goes back up into it, and the menu, the question and the notice
+ * out from under its foot (layer.c moves them by it once a frame, on the frame's clock, so each step of the way is one
+ * of the display's refreshes): a place from 0 (out of sight) to 1 (in place). A way down takes SLIDE_DOWN_MS and slows
+ * into its place (a cubic ease out: a thing that arrives is watched); a way up takes SLIDE_UP_MS and gathers speed (a
+ * quadratic ease in: a thing that leaves is not waited for). A way begun midway (the pointer back on a bar on its way
+ * up) starts from where the part is and takes the share of the whole way's time its length is, so a turn never jumps.
+ * With Windows' animation effects off a way takes no time: the part comes and goes at once. The same motion as
+ * OpenDMTQ's bar, so the two products move alike. */
+#define SLIDE_DOWN_MS 220.0
+#define SLIDE_UP_MS 170.0
+typedef struct {
+    float from, to;        /* where the way set out from and where it is headed (0 or 1) */
+    double began;          /* when it set out, ms of any one clock */
+    double lasts;          /* how long the way takes, ms (0: at rest at `to`) */
+} Slide;
+/* At rest at `place` from now on, whatever it was doing. */
+void slide_rest(Slide *s, float place);
+/* Where it is at `now`: from 0 to 1. */
+float slide_at(const Slide *s, double now);
+/* Whether it is on its way at `now` (not yet where it is headed). */
+int slide_moving(const Slide *s, double now);
+/* Headed for `target` (0 or 1) from where it is at `now`; a way already headed there goes on as it is. `animate` 0
+ * (Windows' animation effects off): there at once. */
+void slide_aim(Slide *s, float target, double now, int animate);
+/* The way down's pace and the way up's, from a share of the way's time: 0 at 0, 1 at 1, never back. */
+float slide_ease_down(float t);
+float slide_ease_up(float t);
+
+/* The room under a part's foot that its soft shadow takes, in game pixels: a part slides by its own height and this,
+ * so nothing of it shows at place 0, its shadow neither. */
+#define SLIDE_SHADE 8.0f
+/* How far below the game's top edge the bar's foot is at `place` (output pixels, 0 to bar_h; `shade` the room its
+ * shadow takes, output pixels): what hangs from the bar (the menu, the question, the notice, the handle, a frame rate
+ * chip in a top corner) hangs that much lower than at the top edge, and the handle fades as it grows. */
+float slide_rows(float place, float bar_h, float shade);
+/* The top of a part `h` tall that slides out from under a foot `rows` below the top edge (the top edge itself: 0): at
+ * place 0 it is out of sight above the foot (its shadow too), at 1 its top is on the foot. The bar itself is such a
+ * part under the top edge. */
+float slide_top(float place, float rows, float h, float shade);
+
+/* What a point of the game area is on (ui_hit's codes) while the bar and the panel slide: the bar and its chips
+ * `bar_dy` from their places (negative: higher), the menu or the question `panel_dy` from theirs. The bar lies over the
+ * panel (the panel slides out from under it), so on the bar a point is the bar's. A press counts against the places
+ * the parts stood at when it was pressed, so a chip pressed while the bar still comes down acts too. */
+int ui_hit_moved(const UiLayout *l, float x, float y, float bar_dy, float panel_dy);
 
 #endif

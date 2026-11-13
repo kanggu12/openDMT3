@@ -52,15 +52,18 @@ void look_bar(Sprite *s, const UiLayout *l, const Canvas *mark);
  * now (the full screen chip then shows the way back to a window). Its sprite spans the four, from the menu chip's top
  * left. */
 void look_chips(Sprite *s, const UiLayout *l, int hover, int pressed, int full);
-/* The mark at the top centre (ui_mark_box): a small tab in the game's tab shape, lit while the pointer is on it. Its
- * sprite is the lit mark's box; no glass. */
+/* The mark at the top centre, the bar's handle (ui_mark_box): a rail along the top edge and a small tab of the bar's
+ * dark glass hanging from it in the game's tab shape, a chevron in it pointing down; rail and chevron in the game's
+ * light blue while the pointer is on it, the tab deeper then. Its sprite is the lit handle's box; no glass of its own
+ * (the tab is the glass's tint alone, so the handle needs no live blur). */
 void look_mark(Sprite *s, float u, int lit);
-/* The open menu or question: its sprite is the panel's box. `hover` and `pressed` are answers (-1 none); the keys'
- * ring is on card->focus. */
+/* The open menu or question, a sheet hanging from the bar's foot: its sprite is the panel's box, its metal frame down
+ * its sides and along its foot. `hover` and `pressed` are answers (-1 none); the keys' ring is on card->focus. */
 void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int pressed, TextFn text, void *ctx);
 /* A toast with one line of words: its sprite is toast_box's. */
 void look_toast(Sprite *s, float u, const char *words, TextFn text, void *ctx);
-/* The frame rate chip's glass and edge, without its words: drawn once for a size, into a sprite of fps_box's. */
+/* The frame rate chip's glass and edge, without its words: drawn once for a size, into a sprite of fps_box's. Its
+ * glass is faint (FPS_ALPHA), its words drawn over it whole. */
 void look_fps_base(Sprite *s, float u);
 /* The chip's pieces of words made ready for a size (its digits, the point, FPS and ms), so that no update draws a
  * piece for the first time. */
@@ -87,9 +90,14 @@ void look_cursor(Canvas *c, int pressed, int *hot_x, int *hot_y);
  * #0c0e11), opaque, as Direct3D writes a colour (ARGB). */
 #define BAR_COLOR 0xff0c0e11u
 #define GLASS_TINT_ALPHA 0.80f
+/* The frame rate chip's tint: deeper, as its glass is faint as a whole (FPS_ALPHA) and reads a blurred frame made when
+ * it first showed (no live blur under it alone): 8 % of that frame comes through the tint, too little to tell an old
+ * screen from the one behind it. */
+#define FPS_TINT_ALPHA 0.92f
 
 /* The game's colours the layer uses, measured on its own screens. */
-#define RGB_ACCENT 0x7cc4f2u      /* the light blue of its glossy buttons' upper half: the number, the keys' ring */
+#define RGB_ACCENT 0x7cc4f2u      /* the light blue of its glossy buttons' upper half: the chip's FPS, the keys' ring,
+                                   * the handle under the pointer */
 #define RGB_WORDS 0xf2f5f7u       /* words on glass */
 #define RGB_QUIET 0xb9c2cau       /* a quieter line on glass */
 #define RGB_DANGER 0xff9aa4u      /* the words of the row that quits: a light red that keeps 5.2:1 on the glass */

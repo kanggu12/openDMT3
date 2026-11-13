@@ -8,15 +8,20 @@
  *     the game has had no press or release for 1.5 s (a click or a held note at the top of a song is play), or when a
  *     finger is drawn down from the top edge after such a quiet; by itself for 3 s when the game's first screen shows
  *     and after each switch between a window and full screen. No key brings it. It goes soon after the pointer
- *     leaves it;
- *   - the mark: a small tab at the top centre in the game's tab shape that says where the bar is; clicks go through
- *     it to the game;
- *   - the menu (Back to the game, Show FPS, Quit the game) dropping down under its chip, and the question (Keep
- *     playing, Quit the game) under the X; the window's own close request asks the same question; arrow keys and
- *     Enter choose, Esc closes them. No other key of the layer's: Esc never opens the question (the game never sees
- *     it either: its own Esc ends it at once), Alt+F4 does nothing;
- *   - a toast hanging from the top edge for a few seconds (the safety net's note);
- *   - the frame rate chip, faint, in the corner the launcher chose, hidden while the game is held still;
+ *     leaves it. It slides down out of the game's top edge, its foot first, and back up into it (logic.h's slides:
+ *     220 ms down, 170 ms up, turned back from where it is, at once with Windows' animation effects off);
+ *   - the mark, the bar's handle: a rail along the top edge's middle with a small tab of the bar's glass hanging from it
+ *     in the game's tab shape, a chevron in it pointing down; it goes down with the bar's foot, fading; clicks go
+ *     through it to the game;
+ *   - the menu (Back to the game, Show FPS, Quit the game) under its chip and the chips beside it, and the question
+ *     (Keep playing, Quit the game) under the X: sheets that slide out from under the bar's foot and back; the window's
+ *     own close request asks the same question; arrow keys and Enter choose, Esc closes them. No other key of the
+ *     layer's: Esc never opens the question (the game never sees it either: its own Esc ends it at once), Alt+F4 does
+ *     nothing;
+ *   - a toast hanging from the top edge for a few seconds (the safety net's note), riding down with the bar's foot; one
+ *     that comes during a song waits for the song's end;
+ *   - the frame rate chip, faint, in the corner the launcher chose (riding down with the bar's foot in a top one),
+ *     hidden while the game is held still;
  *   - the pointer over the game: openDMT3's dart, a Windows cursor sized for the display's scaling.
  *
  * In a window the game's frame keeps its title bar (to move it) and its borders (to size it), with no buttons: the
@@ -65,12 +70,24 @@ static double now_ms(void)
 
 /* ------------------------------------------------------------------------------------------- what shows */
 
-/* Each part's motion: how far it is in (0 gone, 1 whole), moved towards whether it is wanted at each frame. */
+/* Each part's motion: how far it is in (0 gone, 1 whole), moved towards whether it is wanted at each frame. For the bar,
+ * the open panel and the notice `v` is their slide's place (logic.h Slide: down out of the top edge, or out from under
+ * the bar's foot, and back); the chip and the handle fade. */
 typedef struct {
     float v;
     int want;
 } Motion;
 static Motion g_bar, g_panel, g_toast, g_fps, g_mark;
+/* The bar's, the open panel's and the notice's slides, aimed once a frame at whether each is wanted. */
+static Slide g_bar_slide, g_panel_slide, g_toast_slide;
+/* Where the bar and the panel stood on the screen at the last frame drawn, from their places (output pixels; negative:
+ * higher, on their way): the mouse's handlers, between frames, judge a point against what the player sees. And where
+ * they stood when the button went down: a click is judged where it was pressed (a chip pressed while the bar still
+ * comes down acts too). */
+static float g_bar_dy, g_panel_dy, g_press_bar_dy, g_press_panel_dy;
+/* A notice that came while a song played, waiting for its end: nothing of the layer covers the game's top band (its
+ * groove meter) during a song unless the player calls the bar. */
+static int g_toast_waiting;
 /* How long the bar stays (logic.h BarClock, as OpenDMTQ's bar): whole for 600 ms after the pointer was last on it,
  * 4 s after a finger brought it, 3 s by itself, while a panel is open; then fading over 300 ms. The pointer is looked
  * for ten times a second while it shows (it may leave over the window's title bar, where the game hears no move). */
@@ -146,13 +163,43 @@ static int g_drawn_bar = -1, g_drawn_chips = -1, g_drawn_panel = -1, g_drawn_fps
 static int g_drawn_toast;
 static int g_drawn_w, g_drawn_h;
 
-/* One step of a part's motion over `dt` ms: in over `in_ms`, out over `out_ms`. */
+/* One step of a part's fade over `dt` ms: in over `in_ms`, out over `out_ms`; at once with no time to take (Windows'
+ * animation effects off). */
 static void step(Motion *m, float dt, float in_ms, float out_ms)
 {
-    if (m->want)
+    if (in_ms <= 0.0f || out_ms <= 0.0f)
+        m->v = m->want ? 1.0f : 0.0f;
+    else if (m->want)
         m->v = m->v + dt / in_ms > 1.0f ? 1.0f : m->v + dt / in_ms;
     else
         m->v = m->v - dt / out_ms < 0.0f ? 0.0f : m->v - dt / out_ms;
+}
+
+/* SystemParametersInfo's "Animation effects" setting (Settings, Accessibility, Visual effects), where an older
+ * Windows header has no name for it. */
+#ifndef SPI_GETCLIENTAREAANIMATION
+#define SPI_GETCLIENTAREAANIMATION 0x1042
+#endif
+
+/* Whether Windows shows animations (its Animation effects setting): with them off, nothing of the layer slides or fades,
+ * each part comes and goes at once. Asked of Windows at most twice a second (a read of the user's settings, which never
+ * waits); where Windows cannot say, as if they were on. */
+static int animations(void)
+{
+    static double asked;
+    static int on = 1, said = -1;
+    double now = now_ms();
+    if (!asked || now - asked >= 500.0) {
+        asked = now;
+        BOOL shown = TRUE;
+        on = !SystemParametersInfoA(SPI_GETCLIENTAREAANIMATION, 0, &shown, 0) || shown;
+        /* Said in the log when it is first read and whenever it changes. */
+        if (on != said) {
+            said = on;
+            ingame_log("layer: Windows' animation effects %s", on ? "on: the parts slide" : "off: the parts come and go at once");
+        }
+    }
+    return on;
 }
 
 /* The mouse's client coordinates on the target's (the same unless the chain draws the window at another size). */
@@ -262,7 +309,8 @@ static void refresh_hover(void)
     UiLayout now;
     to_target(p.x, p.y, &x, &y);
     ui_layout(&g_card, g_tw, g_th, &now);
-    g_hover = ui_hit(&now, x, y);
+    /* Against where the bar and the panel stand on the screen now (they may still be on their way). */
+    g_hover = ui_hit_moved(&now, x, y, g_bar_dy, g_panel_dy);
 }
 
 /* ------------------------------------------------------------------------------------------------ the words */
@@ -449,6 +497,12 @@ int layer_parts(LayerPart *out, int max, int w, int h)
             g_hover = HIT_NONE;
     }
     int iconic = IsIconic(g_game);
+    /* A notice that waited for a song's end shows once no song plays: its few seconds start now. */
+    if (g_toast_waiting && !sound_song_playing()) {
+        g_toast_waiting = 0;
+        g_toast_until = now + TOAST_MS;
+        ingame_log("layer: toast shown (it waited for the song's end)");
+    }
     /* What is wanted now. The bar: whole in its time (logic.h BarClock), or a panel open. */
     g_bar.want = !g_quitting && (open || bar_clock_whole(&g_bar_clock, now));
     g_panel.want = !g_quitting && open;
@@ -456,14 +510,19 @@ int layer_parts(LayerPart *out, int max, int w, int h)
     /* The chip: on, counted, after the first screen (never a 0 before it), not while the game is held still (its
      * count would say a 60 of frames presented again) or minimised. */
     g_fps.want = !g_quitting && g_fps_on && g_fps_have && g_first_at && !g_holding && !iconic;
-    /* The mark: after the first screen, while nothing else of the layer is at the top (the bar, a panel, a toast) and
-     * the game is not held still or minimised. */
-    g_mark.want = !g_quitting && g_first_at && !g_bar.want && g_bar.v <= 0.0f && !open && !g_toast.want &&
-                  g_toast.v <= 0.0f && !g_holding && !iconic;
-    /* The motion: the bar in over 160 ms and out over 300 (its fade, as OpenDMTQ's); a panel in over 150 and out over
-     * 110; the toast in over 240 and out over 400; the chip and the mark in and out over 150. Short, never a pop. */
+    /* The handle: after the first screen, while no panel is open and no notice hangs at the top centre where it is, and
+     * the game is not held still or minimised; it fades as the bar comes down (below), never hidden for the bar alone,
+     * so it goes down with the bar's foot and comes back up with it. */
+    g_mark.want = !g_quitting && g_first_at && !open && !g_toast.want && g_toast.v <= 0.0f && !g_holding && !iconic;
+    /* The motion, at the display's pace: each frame moves each part to where its way has it at this frame's time. The
+     * bar, the panel and the notice slide (down in 220 ms slowing into place, up in 170 ms gathering speed, turned back
+     * from where they are when wanted again); the chip and the handle fade in and out over 150 ms. With Windows'
+     * animation effects off, all of it at once. */
+    int animate = animations();
+    float fade_ms = animate ? 150.0f : 0.0f;
     float bar_was = g_bar.v;
-    step(&g_bar, dt, 160, (float)BAR_FADE_MS);
+    slide_aim(&g_bar_slide, g_bar.want ? 1.0f : 0.0f, now, animate);
+    g_bar.v = slide_at(&g_bar_slide, now);
     /* Its time on the screen, from its first frame to its last, in the log (the tests sum it). */
     if (bar_was <= 0.0f && g_bar.v > 0.0f) {
         g_bar_on_at = now;
@@ -472,19 +531,38 @@ int layer_parts(LayerPart *out, int max, int w, int h)
         ingame_log("layer: bar gone after %.2f s on the screen", (now - g_bar_on_at) / 1000.0);
         g_bar_on_at = 0;
     }
-    step(&g_panel, dt, 150, 110);
-    step(&g_toast, dt, 240, 400);
-    step(&g_fps, dt, 150, 150);
-    step(&g_mark, dt, 150, 150);
-    /* The panel drawn is the open one, or the last one while it fades out. */
+    slide_aim(&g_panel_slide, g_panel.want ? 1.0f : 0.0f, now, animate);
+    g_panel.v = slide_at(&g_panel_slide, now);
+    slide_aim(&g_toast_slide, g_toast.want ? 1.0f : 0.0f, now, animate);
+    g_toast.v = slide_at(&g_toast_slide, now);
+    step(&g_fps, dt, fade_ms, fade_ms);
+    step(&g_mark, dt, fade_ms, fade_ms);
+    /* The panel drawn is the open one, or the last one while it slides back up. */
     if (open)
         g_shown = g_card;
     ui_layout(&g_shown, w, h, &g_lay);
     float u = g_lay.u;
+    /* Where everything stands now. The bar's top, out of sight above the top edge at place 0, and its foot below the
+     * top edge, which everything at the top hangs from; the room its shadow takes under it travels with it. */
+    float shade = SLIDE_SHADE * u;
+    float bar_top = slide_top(g_bar.v, 0.0f, g_lay.bar.h, shade);
+    float rows = slide_rows(g_bar.v, g_lay.bar.h, shade);
+    /* The panel's top, sliding out from under the bar's foot (on the foot when it is whole), as an offset from its
+     * place in the layout (the foot of the bar in place); both kept for the mouse's handlers. */
+    float panel_top = g_lay.panel.w > 0 ? slide_top(g_panel.v, rows, g_lay.panel.h, shade) : g_lay.panel.y;
+    g_bar_dy = bar_top;
+    g_panel_dy = panel_top - g_lay.panel.y;
+    /* While the bar or the panel is on its way, what the pointer is on is read again each frame: a still pointer is
+     * under another chip or answer as they move. */
+    if (slide_moving(&g_bar_slide, now) || slide_moving(&g_panel_slide, now))
+        refresh_hover();
     int n = 0;
-    /* The chip first (under everything else: at a top corner the bar covers it while it shows). */
+    /* The chip first (under everything else). In a top corner it hangs that much lower while the bar is down, as
+     * OpenDMTQ's counter rides down with its bar's foot. */
     if (g_fps.v > 0.0f && n < max) {
         Box b = fps_box(w, h, g_settings.fps_corner);
+        if (g_settings.fps_corner == CORNER_TOP_LEFT || g_settings.fps_corner == CORNER_TOP_RIGHT)
+            b.y += rows;
         /* Drawn again only when what it shows changes: the whole frames a second and the tenths of the frame's length. */
         double shown = g_fps_value < 0 ? 0.0 : g_fps_value > 999 ? 999.0 : g_fps_value;
         int key = (int)(shown + 0.5) * 100000 + (shown > 0 ? (int)(10000.0 / shown + 0.5) % 100000 : 0);
@@ -506,13 +584,15 @@ int layer_parts(LayerPart *out, int max, int w, int h)
             g_drawn_fps = key;
             g_v_fps++;
         }
-        /* Faint as a whole (FPS_ALPHA): the game shows through it. */
+        /* Its faintness is in its picture (FPS_ALPHA, its words whole over it): drawn at its fade alone. */
         if (g_s_fps.content)
             out[n++] = (LayerPart){&g_s_fps, g_v_fps, (int)lroundf(b.x - g_s_fps.room), (int)lroundf(b.y - g_s_fps.room),
-                                   g_fps.v * FPS_ALPHA, PART_FPS, g_v_fps_mask};
+                                   g_fps.v, PART_FPS, g_v_fps_mask};
     }
-    /* The mark at the top centre, lit while the pointer is on it (drawn again only when that changes). */
-    if (g_mark.v > 0.0f && n < max) {
+    /* The handle at the top centre, lit while the pointer is on it (drawn again only when that changes): hanging from
+     * the bar's foot and fading as the bar comes down, gone when the bar is whole, back as it goes up. */
+    float mark_alpha = g_mark.v * (1.0f - g_bar.v);
+    if (mark_alpha > 0.0f && n < max) {
         Box mb = ui_mark_box(w, h, 1);
         int lit = g_on_mark ? 1 : 0;
         if (lit != g_drawn_mark && sprite_for(&g_s_mark, mb.w, mb.h, ceilf(2 * u))) {
@@ -524,10 +604,44 @@ int layer_parts(LayerPart *out, int max, int w, int h)
         }
         if (g_s_mark.content)
             out[n++] = (LayerPart){&g_s_mark, g_v_mark, (int)lroundf(mb.x - g_s_mark.room),
-                                   (int)lroundf(mb.y - g_s_mark.room), g_mark.v, PART_MARK};
+                                   (int)lroundf(mb.y + rows - g_s_mark.room), mark_alpha, PART_MARK};
     }
-    /* The bar: sliding down from above its place as it comes, fading as it goes; drawn once for a size. Its chips,
-     * drawn again when the pointer goes on or off one, move with it. */
+    /* The notice: hanging from the top edge in the middle (from the bar's foot while the bar is down), sliding down out
+     * of it and back up into it. Under the bar, so the bar coming down over it carries it down. */
+    if (g_toast.v > 0.0f && n < max) {
+        float tw = text_gdi(NULL, NULL, g_toast_words, 14 * u, 0, 0, 0, TEXT_REGULAR);
+        Box b = toast_box(w, h, tw);
+        if (!g_drawn_toast && sprite_for(&g_s_toast, b.w, b.h, 8 * u)) {
+            redraw_start();
+            look_toast(&g_s_toast, u, g_toast_words, text_gdi, NULL);
+            redraw_end(PART_TOAST);
+            g_drawn_toast = 1;
+            g_v_toast++;
+        }
+        float top = slide_top(g_toast.v, rows, b.h, shade);
+        if (g_s_toast.content)
+            out[n++] = (LayerPart){&g_s_toast, g_v_toast, (int)lroundf(b.x - g_s_toast.room),
+                                   (int)lroundf(top - g_s_toast.room), 1.0f, PART_TOAST};
+    }
+    /* The menu or the question: a sheet sliding out from under the bar's foot as it opens and back up under it as it
+     * closes. Drawn before the bar, which lies over what of it is still under the bar. */
+    if (g_panel.v > 0.0f && g_lay.panel.w > 0 && n < max) {
+        int hover = g_hover >= 0 ? g_hover : -1, held = g_pressed >= 0 && g_pressed == g_hover ? g_pressed : -1;
+        int key = ((((g_shown.open * 8 + g_shown.focus) * 2 + g_shown.fps) * 2 + g_shown.korean) * 8 + hover + 1) * 8 +
+                  held + 1;
+        if (key != g_drawn_panel && sprite_for(&g_s_panel, g_lay.panel.w, g_lay.panel.h, 8 * u)) {
+            redraw_start();
+            look_panel(&g_s_panel, &g_shown, &g_lay, hover, held, text_gdi, NULL);
+            redraw_end(PART_PANEL);
+            g_drawn_panel = key;
+            g_v_panel++;
+        }
+        if (g_s_panel.content)
+            out[n++] = (LayerPart){&g_s_panel, g_v_panel, (int)lroundf(g_lay.panel.x - g_s_panel.room),
+                                   (int)lroundf(panel_top - g_s_panel.room), 1.0f, PART_PANEL};
+    }
+    /* The bar: sliding down out of the game's top edge, its foot first, and back up into it; drawn once for a size. Its
+     * chips, drawn again when the pointer goes on or off one, move with it. */
     if (g_bar.v > 0.0f && n + 1 < max) {
         if (g_drawn_bar != 1 && sprite_for(&g_s_bar, g_lay.bar.w, g_lay.bar.h, ceilf(8 * u))) {
             redraw_start();
@@ -549,48 +663,12 @@ int layer_parts(LayerPart *out, int max, int w, int h)
             g_drawn_chips = key;
             g_v_chips++;
         }
-        float drop = g_bar.want ? (1.0f - ease_out(g_bar.v)) * 0.4f * g_lay.bar.h : 0.0f;
         if (g_s_bar.content)
-            out[n++] = (LayerPart){&g_s_bar, g_v_bar, (int)lroundf(-g_s_bar.room), (int)lroundf(-g_s_bar.room - drop),
-                                   g_bar.v, PART_BAR};
+            out[n++] = (LayerPart){&g_s_bar, g_v_bar, (int)lroundf(-g_s_bar.room), (int)lroundf(bar_top - g_s_bar.room),
+                                   1.0f, PART_BAR};
         if (g_s_chips.content)
             out[n++] = (LayerPart){&g_s_chips, g_v_chips, (int)lroundf(both.x - g_s_chips.room),
-                                   (int)lroundf(both.y - g_s_chips.room - drop), g_bar.v, PART_BAR_CHIPS};
-    }
-    /* The menu or the question: dropping down a little under its chip as it opens. */
-    if (g_panel.v > 0.0f && g_lay.panel.w > 0 && n < max) {
-        int hover = g_hover >= 0 ? g_hover : -1, held = g_pressed >= 0 && g_pressed == g_hover ? g_pressed : -1;
-        int key = ((((g_shown.open * 8 + g_shown.focus) * 2 + g_shown.fps) * 2 + g_shown.korean) * 8 + hover + 1) * 8 +
-                  held + 1;
-        if (key != g_drawn_panel && sprite_for(&g_s_panel, g_lay.panel.w, g_lay.panel.h, 8 * u)) {
-            redraw_start();
-            look_panel(&g_s_panel, &g_shown, &g_lay, hover, held, text_gdi, NULL);
-            redraw_end(PART_PANEL);
-            g_drawn_panel = key;
-            g_v_panel++;
-        }
-        float drop = (1.0f - ease_out(g_panel.v)) * 10.0f * u;
-        if (g_s_panel.content)
-            out[n++] = (LayerPart){&g_s_panel, g_v_panel, (int)lroundf(g_lay.panel.x - g_s_panel.room),
-                                   (int)lroundf(g_lay.panel.y - g_s_panel.room - (g_panel.want ? drop : 0.0f)),
-                                   g_panel.v, PART_PANEL};
-    }
-    /* The toast: hanging from the top edge, sliding down into place, fading as it goes. */
-    if (g_toast.v > 0.0f && n < max) {
-        float tw = text_gdi(NULL, NULL, g_toast_words, 14 * u, 0, 0, 0, TEXT_REGULAR);
-        Box b = toast_box(w, h, tw);
-        if (!g_drawn_toast && sprite_for(&g_s_toast, b.w, b.h, 8 * u)) {
-            redraw_start();
-            look_toast(&g_s_toast, u, g_toast_words, text_gdi, NULL);
-            redraw_end(PART_TOAST);
-            g_drawn_toast = 1;
-            g_v_toast++;
-        }
-        float rise = (1.0f - ease_out(g_toast.v)) * b.h;
-        if (g_s_toast.content)
-            out[n++] = (LayerPart){&g_s_toast, g_v_toast, (int)lroundf(b.x - g_s_toast.room),
-                                   (int)lroundf(b.y - g_s_toast.room - rise), g_toast.v < 0.67f ? g_toast.v * 1.5f : 1.0f,
-                                   PART_TOAST};
+                                   (int)lroundf(both.y + bar_top - g_s_chips.room), 1.0f, PART_BAR_CHIPS};
     }
     return n;
 }
@@ -914,8 +992,17 @@ void layer_toast(const char *words)
     /* The same words again while it shows: only its time is lengthened (its picture is as it was). */
     int same = g_drawn_toast && !strcmp(g_toast_words, words);
     snprintf(g_toast_words, sizeof g_toast_words, "%s", words);
-    g_toast_until = now_ms() + TOAST_MS;
-    ingame_log("layer: toast shown");
+    if (sound_song_playing()) {
+        /* During a song it would hang over the game's groove meter for its seconds: it waits for the song's end
+         * (layer_parts shows it then), and one on the screen goes up out of the way. */
+        g_toast_waiting = 1;
+        g_toast_until = 0;
+        ingame_log("layer: toast waits for the song's end");
+    } else {
+        g_toast_waiting = 0;
+        g_toast_until = now_ms() + TOAST_MS;
+        ingame_log("layer: toast shown");
+    }
     /* Drawn again with new words. */
     if (!same)
         g_drawn_toast = 0;
@@ -963,7 +1050,7 @@ static void pointer_moved(int cx, int cy, float x, float y, int held)
         g_press_y = -1;
     }
     /* What the pointer is on, while something of the layer can be (the bar showing, or a panel open). */
-    g_hover = bar_shown() || g_card.open != CARD_NONE ? ui_hit(&g_lay, x, y) : HIT_NONE;
+    g_hover = bar_shown() || g_card.open != CARD_NONE ? ui_hit_moved(&g_lay, x, y, g_bar_dy, g_panel_dy) : HIT_NONE;
     /* On the bar: whole 600 ms more from now (not over a finger's own time). */
     if (g_hover != HIT_NONE && bar_shown())
         bar_clock_rest(&g_bar_clock, now_ms());
@@ -979,7 +1066,10 @@ static int pointer_pressed(float x, float y)
      * top edge asks for the bar. */
     g_swipe_ok = gate_quiet(&g_gate, now_ms());
     g_press_y = y;
-    int hit = bar_shown() || g_card.open != CARD_NONE ? ui_hit(&g_lay, x, y) : HIT_NONE;
+    /* Judged where the bar and the panel stand on the screen now, and kept for the release (logic.h ui_hit_moved). */
+    g_press_bar_dy = g_bar_dy;
+    g_press_panel_dy = g_panel_dy;
+    int hit = bar_shown() || g_card.open != CARD_NONE ? ui_hit_moved(&g_lay, x, y, g_bar_dy, g_panel_dy) : HIT_NONE;
     if (hit != HIT_NONE) {
         /* On the layer: held there until the button comes up (a click counts where it began and ended). */
         g_pressed = hit;
@@ -1012,7 +1102,7 @@ static int pointer_released(float x, float y)
     }
     ReleaseCapture();
     /* Counted only where it began (slide off to change your mind). */
-    if (ui_hit(&g_lay, x, y) != was)
+    if (ui_hit_moved(&g_lay, x, y, g_press_bar_dy, g_press_panel_dy) != was)
         return 1;
     if (was == HIT_MENU)
         /* The menu's chip opens the menu, or closes it when it is open. */

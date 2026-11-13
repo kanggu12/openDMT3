@@ -771,19 +771,21 @@ float ui_unit(int area_h)
  * band whole and no more. Its chips are the launcher's buttons (34 tall, their ends leaning as its buttons' do), 50
  * wide, in the bar's middle: the window's three 6 apart with the X 12 from the right edge, the menu's 16 further left.
  * The question is 300 wide (the game's panels hold 16 pixel lines in 627; this one holds one line and two answers),
- * its right edge under the X's; the menu 216 wide under its own chip. Both hang 6 under the bar and are at most 106
- * tall, so with their shadows they end above a quarter of the game's height (line 192 of 768) on a screen of any
- * shape: nothing of the layer reaches the middle of the game. The title tab keeps the game's slope: each end leans in
- * 30 pixels over 37. */
+ * its right edge under the X's; the menu as wide as the chips' row, from its own chip's left edge to the X's right
+ * edge (228), so the notice at the top centre never reaches it. Both hang from the bar's foot, sheets the bar lets
+ * down (they slide out from under it: logic.h's slides), and are at most 106 tall, so with their shadows they end above
+ * a quarter of the game's height (line 192 of 768) on a screen of any shape: nothing of the layer reaches the middle of
+ * the game. The title tab keeps the game's slope: each end leans in 30 pixels over 37. */
 #define BAR_H 70.0f
 #define CHIP_W 50.0f
 #define CHIP_H 34.0f
 #define CHIP_GAP 6.0f
 #define MENU_GAP 16.0f
 #define EDGE 12.0f
-#define DROP 6.0f
 #define QUIT_W 300.0f
-#define MENU_W 216.0f
+/* The chips' row from the menu's chip's left edge to the X's right edge: four chips, the window's three 6 apart and the
+ * menu's 16 further left. */
+#define CHIPS_ROW_W (4 * CHIP_W + 2 * CHIP_GAP + MENU_GAP)
 #define TAB_H 28.0f
 #define PAD 16.0f
 #define ANSWER_H 32.0f
@@ -817,9 +819,9 @@ void ui_layout(const Card *c, int area_w, int area_h, UiLayout *l)
     l->px_button = 13 * u;
     l->count = card_count(c);
     if (c->open == CARD_QUIT) {
-        /* The question under the X, its right edge on the X's. */
+        /* The question under the X, its right edge on the X's, its top on the bar's foot. */
         float pw = QUIT_W * u;
-        l->panel = (Box){l->chip[CHIP_X].x + l->chip[CHIP_X].w - pw, (BAR_H + DROP) * u, pw, 0};
+        l->panel = (Box){l->chip[CHIP_X].x + l->chip[CHIP_X].w - pw, BAR_H * u, pw, 0};
         /* The tab hangs from the panel's top edge across most of it, narrowing down with the game's slope. */
         l->tab = (Box){l->panel.x + 28 * u, l->panel.y, pw - 56 * u, TAB_H * u};
         /* The one line under the tab while a song plays; with none, the answers come up into its place. */
@@ -831,9 +833,10 @@ void ui_layout(const Card *c, int area_w, int area_h, UiLayout *l)
             l->rows[i] = (Box){l->panel.x + PAD * u + (float)i * (aw + 10 * u), ay, aw, ANSWER_H * u};
         l->panel.h = (TAB_H + below + ANSWER_H + 10) * u;
     } else if (c->open == CARD_MENU) {
-        /* The menu under its chip, its right edge on the chip's, its rows one under the other. */
-        float pw = MENU_W * u;
-        l->panel = (Box){l->chip[CHIP_MENU].x + l->chip[CHIP_MENU].w - pw, (BAR_H + DROP) * u, pw, 0};
+        /* The menu under its chip and the chips beside it: from the chip's left edge to the X's right edge, its top on
+         * the bar's foot, its rows one under the other. */
+        float pw = CHIPS_ROW_W * u;
+        l->panel = (Box){l->chip[CHIP_MENU].x, BAR_H * u, pw, 0};
         for (int i = 0; i < l->count && i < 4; i++)
             l->rows[i] = (Box){l->panel.x + 8 * u, l->panel.y + (8 + (float)i * (ROW_H + ROW_GAP)) * u, pw - 16 * u,
                                ROW_H * u};
@@ -889,19 +892,20 @@ int ui_swipe_down(float start_y, float y, int area_h)
     return start_y <= 4.0f * u && y - start_y >= 24.0f * u;
 }
 
-/* The mark: 40 game pixels wide along the top edge, 6 tall (8 with the pointer on it), its ends leaning in with the
- * game's tab slope; small against the game's top band (70 lines), where it hangs over the edge of whatever the game
- * shows there. */
-#define MARK_W 40.0f
-#define MARK_H 6.0f
-#define MARK_LIT_H 8.0f
+/* The mark, the bar's handle (OpenDMTQ's word for its own): a rail along the top edge 72 game pixels wide, and a tab
+ * hanging from its middle, 32 wide at its top and leaning in with the game's tab slope, 9 deep (12 with the pointer on
+ * it). The game's top centre holds the groove meter in a song, whose chrome rim takes its top 12 lines and its gauge
+ * the lines from 14 down (measured on its screens): the handle stays on the rim, never over the gauge. */
+#define MARK_W 72.0f
+#define MARK_H 9.0f
+#define MARK_LIT_H 12.0f
 #define MARK_NEAR 10.0f
 
 Box ui_mark_box(int area_w, int area_h, int lit)
 {
     float u = ui_unit(area_h);
     Box b;
-    /* In the middle of the top edge. */
+    /* In the middle of the top edge: the rail's width, the tab's depth. */
     b.w = MARK_W * u;
     b.h = (lit ? MARK_LIT_H : MARK_H) * u;
     b.x = ((float)area_w - b.w) / 2;
@@ -1050,11 +1054,19 @@ Box toast_box(int area_w, int area_h, float text_w)
     float u = ui_unit(area_h);
     Box b;
     /* The words with room each side for the tab's slanted ends, 40 tall, hanging from the top edge in the middle as the
-     * game's title tab hangs from its panel: inside the game's top band, over the bar when it shows. */
+     * game's title tab hangs from its panel: inside the game's top band (with the bar down it hangs from the bar's foot,
+     * logic.h slide_top). */
     b.w = text_w + 2 * (22 + 40 * 30.0f / 37.0f) * u;
     b.h = 40 * u;
     b.x = ((float)area_w - b.w) / 2;
     b.y = 0;
+    /* Clear of the menu and the question, which hang from the bar's foot at its right end (the question the wider, past
+     * the chips' row): its right end a menu gap left of them, moved left when the middle would reach further (a narrow
+     * screen filled, as 5:4), never past the left edge's room. */
+    float panels = QUIT_W > CHIPS_ROW_W ? QUIT_W : CHIPS_ROW_W;
+    float limit = (float)area_w - (EDGE + panels + MENU_GAP) * u;
+    if (b.x + b.w > limit)
+        b.x = limit - b.w < EDGE * u ? EDGE * u : limit - b.w;
     return b;
 }
 
@@ -1075,17 +1087,6 @@ Box fps_box(int area_w, int area_h, int corner)
     b.x = right ? (float)area_w - EDGE * u - b.w : EDGE * u;
     b.y = foot ? (float)area_h - (FPS_FOOT + 40) * u : 6 * u;
     return b;
-}
-
-float ease_out(float t)
-{
-    if (t <= 0.0f)
-        return 0.0f;
-    if (t >= 1.0f)
-        return 1.0f;
-    /* A cubic easing out: quick at first, settling into place. */
-    float k = 1.0f - t;
-    return 1.0f - k * k * k;
 }
 
 void note_words(int korean, int aa_changed, int aa, char *out, int size)
@@ -1287,4 +1288,114 @@ void engine_note(const EngineReport *r, char *out, int size)
     snprintf(out, (size_t)size, "engine %s output=%s device=%s rate=%u default=%u step=%u min=%u max=%u before=%u "
              "asked=%u got=%u hr=0x%08lx", word, r->chosen ? "chosen" : "default", device, r->rate, r->def, r->step,
              r->min, r->max, r->before, r->asked, r->got, r->hr);
+}
+
+/* -------------------------------------------------------------------------------------------- the layer's slides */
+
+/* A share held to 0..1. */
+static float share01(float t)
+{
+    return t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t;
+}
+
+float slide_ease_down(float t)
+{
+    /* What is left of the way's time, cubed: quick at first, the last of the way the slowest. */
+    float left = 1.0f - share01(t);
+    return 1.0f - left * left * left;
+}
+
+float slide_ease_up(float t)
+{
+    /* The time gone, squared: slow at first, gathering speed (gentler than the way down's cubic, so the part is seen to
+     * set out at once rather than wait and then be gone). */
+    float done = share01(t);
+    return done * done;
+}
+
+void slide_rest(Slide *s, float place)
+{
+    /* There, still: no way under way. */
+    s->from = s->to = share01(place);
+    s->began = 0;
+    s->lasts = 0;
+}
+
+int slide_moving(const Slide *s, double now)
+{
+    /* A way with a length, its end not yet reached. */
+    return s->lasts > 0 && now < s->began + s->lasts;
+}
+
+float slide_at(const Slide *s, double now)
+{
+    /* At rest, or past the way's end: where it was headed, exactly. */
+    if (!slide_moving(s, now))
+        return s->to;
+    /* Before its start (a clock read a moment earlier): where it set out. */
+    if (now <= s->began)
+        return s->from;
+    float t = (float)((now - s->began) / s->lasts);
+    /* Down slows into its place, up gathers speed, each over the way's own length. */
+    float pace = s->to > s->from ? slide_ease_down(t) : slide_ease_up(t);
+    return s->from + (s->to - s->from) * pace;
+}
+
+void slide_aim(Slide *s, float target, double now, int animate)
+{
+    float here = slide_at(s, now);
+    target = share01(target);
+    /* Headed there already (a way under way keeps its own pace), or there: nothing changes. */
+    if (target == s->to && (slide_moving(s, now) || here == target))
+        return;
+    s->from = here;
+    s->to = target;
+    s->began = now;
+    /* The way's length, and the whole way's time for its direction: a way from midway takes its share of it. */
+    float way = target > here ? target - here : here - target;
+    double whole = target > here ? SLIDE_DOWN_MS : SLIDE_UP_MS;
+    /* Windows' animation effects off: there at once. */
+    s->lasts = animate ? whole * (double)way : 0.0;
+}
+
+float slide_rows(float place, float bar_h, float shade)
+{
+    /* The bar's foot below the top edge: its whole travel (its height and its shadow's room) times its place, less the
+     * shadow's room, never above the edge nor below its height. */
+    float rows = share01(place) * (bar_h + shade) - shade;
+    return rows < 0.0f ? 0.0f : rows > bar_h ? bar_h : rows;
+}
+
+float slide_top(float place, float rows, float h, float shade)
+{
+    /* On the foot when in place; a whole travel (its height and its shadow's room) higher when out of sight. */
+    return rows - (1.0f - share01(place)) * (h + shade);
+}
+
+int ui_hit_moved(const UiLayout *l, float x, float y, float bar_dy, float panel_dy)
+{
+    /* The bar first: it lies over the panel while the panel slides out from under it. Its chips, then the rest of it,
+     * where they stand now. */
+    UiLayout bar = *l;
+    bar.count = 0;
+    bar.panel.w = 0;
+    bar.bar.y += bar_dy;
+    for (int i = 0; i < CHIPS; i++)
+        bar.chip[i].y += bar_dy;
+    int hit = ui_hit(&bar, x, y);
+    if (hit != HIT_NONE)
+        return hit;
+    /* Then the panel and its answers where they stand now (none open: nothing more). */
+    if (l->panel.w <= 0)
+        return HIT_NONE;
+    UiLayout panel = *l;
+    panel.panel.y += panel_dy;
+    panel.tab.y += panel_dy;
+    for (int i = 0; i < l->count && i < 4; i++)
+        panel.rows[i].y += panel_dy;
+    /* The bar and its chips out of reach here (the pass above had them): only an answer or the panel can be hit. */
+    panel.bar.y = -1e9f;
+    for (int i = 0; i < CHIPS; i++)
+        panel.chip[i].y = -1e9f;
+    return ui_hit(&panel, x, y);
 }

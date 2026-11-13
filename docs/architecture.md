@@ -246,17 +246,29 @@ the real functions get ours, which call the real ones.
   <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs under its button: BACK TO THE GAME, SHOW FPS, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter in the bottom right corner above the game's FREE PLAY, 60 FPS over 16.7 ms" width="100%">
 </p>
 
-- **The bar** comes when the pointer, moved to the game's very top edge or onto the mark at its top centre with no
-  button down, rests there 150 ms and the game has had no press or release for 1.5 s, or when a finger is drawn down
+- **The bar** comes when the pointer, moved to the game's very top edge or onto the mark at its top centre (the
+  player's guide calls it the handle) with no button down, rests there 150 ms and the game has had no press or release for 1.5 s, or when a finger is drawn down
   from the top edge after such a quiet. It comes by itself for 3 s when the game's first screen shows and after each
   switch between a window and full screen. No key brings it.
 - **How long it stays**: whole 600 ms after the pointer was last on it (looked for ten times a second), 4 s after a
-  finger, then it fades over 300 ms; a press on the game takes it away.
+  finger, then it slides back up; a press on the game takes it away.
 - **Its chips**: the menu, minimise, full screen or back to a window, the X.
 - **The menu** (Back to the game, Show FPS, Quit the game) and **the question** (Keep playing, Quit the game; its
-  line only while a song plays) drop down under their chips.
-- **The toast, the mark and the frame rate chip**, which the menu's Show FPS turns on and off for the run.
-- **Motion**: the parts' slides and fades are worked out once a frame, in the frame's own time.
+  line only while a song plays): sheets hanging from the bar's foot, the menu under its chip and the chips beside it,
+  the question under the X.
+- **The toast, the mark and the frame rate chip**, which the menu's Show FPS turns on and off for the run. A toast
+  that comes during a song waits for the song's end (`sound.c`'s song music), so nothing of the layer covers the
+  game's groove meter while it is played.
+- **Motion** (`logic.c`'s slides, worked out once a frame at the frame's own time, so each step is one refresh): the
+  bar slides down out of the game's top edge, its foot first, in 220 ms slowing into place (a cubic ease out), and
+  back up in 170 ms gathering speed (a quadratic ease in), its shadow's room travelling with it so nothing of it shows
+  above; the menu, the question and the toast slide the same way out from under the bar's foot (drawn before the bar,
+  which lies over what of them is still under it); the mark and a frame rate chip in a top corner hang from the bar's
+  foot, the mark fading as the bar comes. A part wanted again on its way turns back from where it is, its way taking
+  the share of the whole way's time its length is. With Windows' animation effects off (`SPI_GETCLIENTAREAANIMATION`,
+  read at most twice a second) every part comes and goes at once; the chip and the mark fade over 150 ms otherwise. A
+  press is judged where the parts stood on the screen when it was pressed (a chip pressed while the bar comes down
+  acts).
 - **The game's window** is subclassed for its mouse, its keys while a panel is up, Esc (kept from the game, which
   would end at once), Alt+F4 (nothing), its close request and command (the question) and Windows' menu mode
   (nothing). In a window its title bar's buttons are taken away and its borders size it. A press on the layer never
@@ -350,7 +362,8 @@ in-game layer is drawn in it:
   - Two windows of 60 frames in a row with 30 such frames each step the chain down for the rest of the run, one step
     each time: SMAA to FXAA (compiled with the chain, so a step never waits for the compiler), FXAA to none, then
     FSR 1 or NIS to bilinear.
-  - Each step is logged, shown once for six seconds as the layer's toast at the top of the game, and written to
+  - Each step is logged, shown once for six seconds as the layer's toast at the top of the game (a step during a song
+    waits for the song's end), and written to
     `openDMT3-picture.txt` beside the DLL, which the launcher puts in its own log when the game ends and then
     removes.
 
@@ -431,18 +444,25 @@ and words are sharp at any size and its motion keeps the game's frame timing; no
     (`text.c`, TEXT_GLYPHS: each digit in a cell as wide as the widest, so the number does not shift, and each other
     run as one piece, made by GDI the first time at a size), so its two updates a second copy rows and blend about
     ten small pieces, with no GDI drawing.
-  - It is drawn at 62 % as a whole, so the game shows through it, lets clicks through, and hides while the game is
-    held still and before the game's first screen.
+  - Its glass is faint (80 %), so the game shows through it, with its tint deeper than the panels' (92 %, so the
+    blurred frame it reads, made when it first showed, comes through at 8 %: no old screen to be seen in it), and its
+    words are drawn whole over it, so they keep 4.5:1 over the game's brightest screens (62 % as a whole, words
+    and all, gave 2.8:1 over a bright song). It lets clicks through, and hides while the game is held still and before
+    the game's first screen.
 - **The mark and the bar's chips** have no glass of their own (the chips lie on the bar's): their pictures alone are
   drawn with the fixed function, the blurred frame not read (about 1.2 ms a frame on that renderer had the mark read
   the live blur's last frame; drawn so, nothing measurable).
 - **Sizes.** A part's size is the game's own: one game pixel is the window's height over 768 output pixels, so the
   panels keep the proportions of the game's own dialogs at every resolution (Windows' scaling sizes the pointer).
 - **Places.** Everything stays in the game's top band and its corners: the bar covers the game's own top bar (70 of
-  its 768 lines), the menu and the question hang under their chips at the right and end above a quarter of the
-  height, the toast hangs from the top edge, the mark (40 by 6 lines, the game's tab shape) hangs from the top edge's
-  middle, the chip sits in the corner chosen. Nothing reaches the middle half of the game, where notes come
-  (`native/cardreader/test_native.c` checks it at five window shapes).
+  its 768 lines), the menu and the question hang from its foot at the right (the menu as wide as the chips' row, the
+  question under the X) and end above a quarter of the height, the toast hangs from the top edge's middle (from the
+  bar's foot while the bar is down), its right end kept clear of the panels, the mark (a rail 72 game pixels wide and
+  a tab 32 wide, 9 deep, 12 under the pointer) hangs from the top edge's middle on the groove meter's chrome rim, never over
+  its gauge, the chip sits in the corner chosen. The parts' quads are cut to the picture, so a part on its way out of
+  the top edge never shows over a bar above the picture. Nothing reaches the middle half of the game, where notes
+  come, and none of these parts covers another (`native/cardreader/test_native.c` checks both at seven window
+  shapes).
 - **The chip's corner.** Its default is the bottom right, above the game's FREE PLAY label: on the game's screens
   (its warning, the title, the mode and song selects, a song, the results) every corner's very edge holds something
   of the game's own (JOIN THE CREW or a mode's banner at the top left, SKIP or a countdown at the top right, ID CARD

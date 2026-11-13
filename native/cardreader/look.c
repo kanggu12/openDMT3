@@ -126,14 +126,17 @@ static void edge(Canvas *c, Pt a, Pt b, float width, const Paint *p)
     paint_line(c, a, b, width, p);
 }
 
-/* The game's metal frame round a box: light along its top and right, darker down its left and foot, as its dialogs'
- * frames are lit (measured: #dfe0e1 right, #868c8f left, #72767a foot). `t` is its thickness. */
-static void metal_frame(Canvas *c, const Pt *q, int n, float t, float y0, float y1)
+/* The game's metal frame round a box that hangs from the bar's foot (q: its four corners, clockwise from the top
+ * left), lit as its dialogs' frames are (measured: #dfe0e1 right, #868c8f left, #72767a foot): down its right side,
+ * along its foot and up its left side; its top is the bar's foot line, which it comes out from under. `t` is its
+ * thickness. */
+static void metal_hung(Canvas *c, const Pt q[4], float t, float y0, float y1)
 {
     Stop metal[4] = {{0.0f, 0xd6dde0}, {0.25f, 0xa7b1b6}, {0.7f, 0x7a848a}, {1.0f, 0x5b6268}};
     Paint p = ramp_stops(metal, 4, y0, y1, 1.0f);
-    for (int i = 0; i < n; i++)
-        edge(c, q[i], q[(i + 1) % n], t, &p);
+    /* The right side, the foot, the left side: the edges after the top one. */
+    for (int i = 1; i < 4; i++)
+        edge(c, q[i], q[(i + 1) % 4], t, &p);
 }
 
 /* The game's glossy two-tone button (NO ID CARD, measured): a light top, a hard step at the middle to a deep colour
@@ -147,6 +150,10 @@ typedef struct {
 static const Gloss BLUE = {0x8ec2ea, 0x2f6ea3, 0x2a6599, 0x163d63, 0x2a5f92, 0xc9e0f2, 0x1d4a75};
 /* Red for the answer that ends the game: the same light top and hard step, white words 6.8:1 on its middle. */
 static const Gloss RED = {0xf2a7a7, 0xb8333b, 0xa82c34, 0x6b1219, 0x8e2129, 0xf5cdd0, 0x4f0c12};
+/* The question's quiet answer: the launcher's quiet metal (the bar's chips') in the same glossy two-tone, white words
+ * 8.3:1 on its middle. Quitting wears it until it is the answer chosen (under the pointer or the keys' ring), then the
+ * red: the answer that ends a song is never the loudest thing on the screen, as OpenDMTQ's quit is its quiet button. */
+static const Gloss METAL = {0x9aa4ae, 0x4a5561, 0x46505c, 0x2b323b, 0x3a434e, 0xc3cbd2, 0x1c2228};
 
 /* One glossy button in a box: lit when under the pointer, sunk a little when held. */
 static void gloss_button(Canvas *c, const Box *b0, const Gloss *g, float u, int lit, int held)
@@ -347,19 +354,36 @@ void look_mark(Sprite *s, float u, int lit)
     canvas_clear(s->content);
     canvas_clear(s->mask);
     float o = s->room;
-    /* The tab's box at its size now (the sprite holds the lit one, the taller). */
+    /* The handle's box at its depth now (the sprite holds the lit one, the deeper): the rail across its top, the tab
+     * hanging from the rail's middle. */
     float w = (float)s->content->w - 2 * o;
-    float h = (lit ? 8.0f : 6.0f) * u;
-    Box b = {o, o, w, h};
+    float h = (lit ? 12.0f : 9.0f) * u;
+    /* The rail: two game pixels along the top edge, the game's light metal (the bar's foot line); lit, the game's light
+     * blue, as the game marks a choice. */
+    Pt rail[4];
+    rect_points(o, o, w, 2.0f * u, rail);
+    Paint rp = lit ? paint_solid(RGB_ACCENT, 1.0f) : paint_solid(0xc9d2d6, 0.8f);
+    /* The tab: 32 game pixels wide at the rail, its ends leaning in with the game's tab slope; a piece of the bar's dark
+     * glass (its tint: no live blur, so the handle costs the game nothing), deeper while lit. */
+    float tw = 32.0f * u;
+    Box t = {o + (w - tw) / 2, o, tw, h};
     Pt q[4];
-    tab_points(&b, q);
-    /* The game's tab: its teal-grey, faint on the game (lit: nearly whole), with a light line along its foot (lit:
-     * the game's light blue, as it marks a choice). */
-    Stop teal[3] = {{0.0f, 0x85a1a9}, {0.6f, 0x98afb6}, {1.0f, 0x89a4ac}};
-    Paint fill = ramp_stops(teal, 3, b.y, b.y + h, lit ? 0.85f : 0.45f);
-    paint_polygon(s->content, q, 4, &fill);
-    Paint foot = lit ? paint_solid(RGB_ACCENT, 1.0f) : paint_solid(0xdbe6ea, 0.7f);
-    edge(s->content, q[2], q[3], 1.0f * u, &foot);
+    tab_points(&t, q);
+    Paint tint = paint_solid(GLASS_TINT, lit ? 0.92f : 0.78f);
+    paint_polygon(s->content, q, 4, &tint);
+    /* Its slanted ends in the game's metal, lit from the top, as the notice's are. */
+    Stop metal[3] = {{0.0f, 0xb9c3c8}, {0.6f, 0x7a848a}, {1.0f, 0x5b6268}};
+    Paint mp = ramp_stops(metal, 3, o, o + h, 1.0f);
+    edge(s->content, q[1], q[2], 1.0f * u, &mp);
+    edge(s->content, q[3], q[0], 1.0f * u, &mp);
+    /* The rail over the tab's top. */
+    paint_polygon(s->content, rail, 4, &rp);
+    /* A chevron pointing down in the tab, under the rail: the bar comes down from here. 8 game pixels across, in the
+     * rail's colour. */
+    float cx = o + w / 2, cy = o + 2.0f * u + (h - 2.0f * u) / 2, half = 4.0f * u, fall = 2.6f * u;
+    Paint cp = lit ? paint_solid(RGB_ACCENT, 1.0f) : paint_solid(0xdbe6ea, 0.92f);
+    paint_line(s->content, (Pt){cx - half, cy - fall / 2}, (Pt){cx, cy + fall / 2}, 1.4f * u, &cp);
+    paint_line(s->content, (Pt){cx, cy + fall / 2}, (Pt){cx + half, cy - fall / 2}, 1.4f * u, &cp);
 }
 
 /* ------------------------------------------------------------------------------------------ the menu and question */
@@ -375,9 +399,10 @@ void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int p
     rect_points(p.x, p.y, p.w, p.h, q);
     shadow(s->content, q, 4, u, 1.0f);
     glass(s, q, 4);
-    /* The game's dialog on its notice's glass: the sheen from the top left, the metal frame. */
+    /* The game's dialog on its notice's glass: the sheen from the top left, the metal frame down its sides and along
+     * its foot (it hangs from the bar's foot, whose line is its top). */
     sheen(s->content, p.x, p.y, p.w, p.h, 0.16f);
-    metal_frame(s->content, q, 4, 2.0f * u, p.y, p.y + p.h);
+    metal_hung(s->content, q, 2.0f * u, p.y, p.y + p.h);
     const char *title = card_title(card), *line = card_line(card);
     if (title) {
         /* The title in the game's teal tab hanging from the top edge, in its body's weight as the game writes it. */
@@ -404,8 +429,10 @@ void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int p
         /* Korean where English is in capitals: its own size, so both fill the button alike. */
         float px = card->korean ? l->px_button * look_ko_label : l->px_button;
         if (card->open == CARD_QUIT) {
-            /* The question's two: going on in the game's blue, quitting in red. */
-            gloss_button(s->content, &b, i == 0 ? &BLUE : &RED, u, lit, held);
+            /* The question's two: going on in the game's blue; quitting in quiet metal, red once it is the answer chosen
+             * (the pointer on it, held, or the keys' ring on it). */
+            const Gloss *g = i == 0 ? &BLUE : lit || held || card->focus == i ? &RED : &METAL;
+            gloss_button(s->content, &b, g, u, lit, held);
             text(ctx, s->content, words, px, b.x + b.w / 2, b.y + b.h / 2 + (held ? u : 0), 0xffffff, TEXT_EDGE);
         } else {
             /* The menu's rows: plain on the glass, the chosen one (the keys' or the pointer's) a glossy plate (red for
@@ -470,17 +497,28 @@ void look_toast(Sprite *s, float u, const char *words, TextFn text, void *ctx)
 #define FPS_BIG 18.0f
 #define FPS_SMALL 10.0f
 
+/* The chip's two lines (logic.h fps_box's 84 x 40): the number's capitals' middle 15 game pixels from its top, the
+ * frame's length's 9 from its foot, both from 9 in. */
+#define FPS_LEFT 9.0f
+#define FPS_LINE1 15.0f
+#define FPS_LINE2 9.0f
+
 void look_fps_base(Sprite *s, float u)
 {
     canvas_clear(s->content);
     canvas_clear(s->mask);
     float o = s->room;
     float w = (float)s->content->w - 2 * o, h = (float)s->content->h - 2 * o;
+    /* The game's own badges beside it in the bottom band (ID CARD, NET) are rounded boxes: the chip is one too, its
+     * corners of 5 as the game's glossy buttons'. */
     Pt q[28];
     int n = round_rect(o, o, w, h, 5 * u, q);
-    glass(s, q, n);
-    /* A thin silver edge, lit along its top. */
-    Paint frame = paint_ramp(0xb9bec3, 0x3f444a, o, o + h, 1.0f);
+    /* The bar's glass, faint (FPS_ALPHA: the game shows through it), its words over it whole. */
+    Paint faint = paint_solid(0xffffff, FPS_ALPHA);
+    paint_polygon(s->mask, q, n, &faint);
+    /* The bar's light across the glass from the top left, and a thin silver edge lit along its top, faint with it. */
+    sheen(s->content, o, o, w, h, 0.10f * FPS_ALPHA);
+    Paint frame = paint_ramp(0xb9bec3, 0x3f444a, o, o + h, FPS_ALPHA);
     for (int i = 0; i < n; i++)
         edge(s->content, q[i], q[(i + 1) % n], 1.0f * u, &frame);
 }
@@ -508,16 +546,17 @@ void look_fps(Sprite *s, const Sprite *base, float u, double fps, int mask_too, 
     }
     float o = s->room;
     float h = (float)s->content->h - 2 * o;
-    /* The number large in the game's light blue, in the wide face; FPS beside it; the frame's mean length under it (what
-     * a player reads: the chain's own time goes to the log). Every piece kept, so no GDI work here. */
+    /* The number large in white, in the wide face; FPS beside it in the game's light blue, as OpenDMTQ's counter has
+     * its FPS in its game's lime and the number in white; the frame's mean length under it, quieter (what a player
+     * reads: the chain's own time goes to the log). Every piece kept, so no GDI work here. */
     char number[16], ms[16];
     double shown = fps < 0 ? 0.0 : fps > 999 ? 999.0 : fps;
     snprintf(number, sizeof number, "%.0f", shown);
     snprintf(ms, sizeof ms, "%.1f ms", shown > 0 ? 1000.0 / shown : 0.0);
     float big = FPS_BIG * u, small = FPS_SMALL * u;
-    float x = o + 9 * u, y1 = o + 15 * u, y2 = o + h - 9 * u;
-    float wn = text(ctx, s->content, number, big, x, y1, RGB_ACCENT, TEXT_WIDE | TEXT_LEFT | TEXT_GLYPHS);
-    text(ctx, s->content, "FPS", small, x + wn + 4 * u, y1 + 2 * u, RGB_WORDS, TEXT_LEFT | TEXT_GLYPHS);
+    float x = o + FPS_LEFT * u, y1 = o + FPS_LINE1 * u, y2 = o + h - FPS_LINE2 * u;
+    float wn = text(ctx, s->content, number, big, x, y1, RGB_WORDS, TEXT_WIDE | TEXT_LEFT | TEXT_GLYPHS);
+    text(ctx, s->content, "FPS", small, x + wn + 4 * u, y1 + 2 * u, RGB_ACCENT, TEXT_LEFT | TEXT_GLYPHS);
     text(ctx, s->content, ms, small, x, y2, RGB_QUIET, TEXT_REGULAR | TEXT_LEFT | TEXT_GLYPHS);
 }
 

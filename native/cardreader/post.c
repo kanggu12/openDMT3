@@ -1499,24 +1499,44 @@ static void draw_part_quad(IDirect3DDevice9 *dev, const LayerPart *part, int w, 
     IDirect3DDevice9_DrawPrimitiveUP(dev, D3DPT_TRIANGLESTRIP, 2, quad, 4 * sizeof(float));
 }
 
+/* A part's quad in pre-transformed positions (the target's own pixels, which the viewport does not cut): its sprite's
+ * pixels at its place in the picture, which starts at g_pic's origin in the window, cut to the picture (w x h: a part
+ * on its way down out of the top edge lies partly above it, and above the picture there may be a bar), its texture's
+ * share cut alike. 0 when nothing of it is in the picture. */
+typedef struct {
+    float x, y, z, rhw, u, v;
+} PartVertex;
+static int part_quad(const PartTextures *t, const LayerPart *part, int w, int h, PartVertex q[4])
+{
+    /* Its pixels' edges in the picture, then kept within the picture's. */
+    float x0 = (float)part->x, y0 = (float)part->y;
+    float x1 = x0 + (float)part->sprite->content->w, y1 = y0 + (float)part->sprite->content->h;
+    float cx0 = x0 > 0 ? x0 : 0, cy0 = y0 > 0 ? y0 : 0;
+    float cx1 = x1 < (float)w ? x1 : (float)w, cy1 = y1 < (float)h ? y1 : (float)h;
+    if (cx1 <= cx0 || cy1 <= cy0)
+        return 0;
+    /* The texture's texels for the same pixels (it may be larger than the sprite: made as large as the part gets). */
+    float u0 = (cx0 - x0) / (float)t->w, v0 = (cy0 - y0) / (float)t->h;
+    float u1 = (cx1 - x0) / (float)t->w, v1 = (cy1 - y0) / (float)t->h;
+    /* In the target's pixels: Direct3D 9 samples a pixel at its integer corner, so the edges go half a pixel up and left
+     * of the pixel lines. */
+    float X0 = cx0 + (float)g_pic.x - 0.5f, Y0 = cy0 + (float)g_pic.y - 0.5f;
+    float X1 = cx1 + (float)g_pic.x - 0.5f, Y1 = cy1 + (float)g_pic.y - 0.5f;
+    q[0] = (PartVertex){X0, Y0, 0, 1, u0, v0};
+    q[1] = (PartVertex){X1, Y0, 0, 1, u1, v0};
+    q[2] = (PartVertex){X0, Y1, 0, 1, u0, v1};
+    q[3] = (PartVertex){X1, Y1, 0, 1, u1, v1};
+    return 1;
+}
+
 /* A part drawn with no shader of ours (the glass passes did not compile, or the chain does not run): where the glass
  * would be, the tint opaque (no blur: the game's own panels are opaque too); its picture over it. */
-static void draw_part_fixed(IDirect3DDevice9 *dev, const PartTextures *t, const LayerPart *part)
+static void draw_part_fixed(IDirect3DDevice9 *dev, const PartTextures *t, const LayerPart *part, int w, int h)
 {
-    struct {
-        float x, y, z, rhw, u, v;
-    } q[4];
-    /* At the part's place in the picture, which starts at g_pic's origin in the window (pre-transformed positions are
-     * the target's own pixels, not the viewport's). */
-    float x0 = (float)(part->x + g_pic.x) - 0.5f, y0 = (float)(part->y + g_pic.y) - 0.5f;
-    float x1 = x0 + (float)part->sprite->content->w, y1 = y0 + (float)part->sprite->content->h;
-    float u1 = (float)part->sprite->content->w / (float)t->w, v1 = (float)part->sprite->content->h / (float)t->h;
-    q[0].x = x0, q[0].y = y0, q[0].u = 0, q[0].v = 0;
-    q[1].x = x1, q[1].y = y0, q[1].u = u1, q[1].v = 0;
-    q[2].x = x0, q[2].y = y1, q[2].u = 0, q[2].v = v1;
-    q[3].x = x1, q[3].y = y1, q[3].u = u1, q[3].v = v1;
-    for (int i = 0; i < 4; i++)
-        q[i].z = 0, q[i].rhw = 1;
+    PartVertex q[4];
+    /* Nothing of it in the picture (still above the top edge on its way down): nothing to draw. */
+    if (!part_quad(t, part, w, h, q))
+        return;
     IDirect3DDevice9_SetVertexShader(dev, NULL);
     IDirect3DDevice9_SetPixelShader(dev, NULL);
     IDirect3DDevice9_SetFVF(dev, D3DFVF_XYZRHW | D3DFVF_TEX1);
@@ -1583,11 +1603,11 @@ static int compose_part(IDirect3DDevice9 *dev, PartTextures *t, const LayerPart 
     bind(dev, 1, t->mask, 0);
     bind(dev, 2, g_blur[g_blur_shown], 1);
     /* c1 the output's size (where the blurred frame is read); c2 the part's place and its textures' texel; c3.y the
-     * tint's opacity; c4 the tint. */
+     * tint's opacity (the frame rate chip's deeper: look.h FPS_TINT_ALPHA); c4 the tint. */
     float c[16] = {(float)GAME_W, (float)GAME_H, 1.0f / GAME_W, 1.0f / GAME_H,
                    (float)w, (float)h, 1.0f / (float)w, 1.0f / (float)h,
                    (float)part->x, (float)part->y, 1.0f / (float)t->w, 1.0f / (float)t->h,
-                   1.0f, GLASS_TINT_ALPHA, 0, 0};
+                   1.0f, part->kind == PART_FPS ? FPS_TINT_ALPHA : GLASS_TINT_ALPHA, 0, 0};
     float tint[4] = {(float)((GLASS_TINT >> 16) & 0xff) / 255.0f, (float)((GLASS_TINT >> 8) & 0xff) / 255.0f,
                      (float)(GLASS_TINT & 0xff) / 255.0f, 1.0f};
     IDirect3DDevice9_SetPixelShaderConstantF(dev, 0, c, 4);
@@ -1615,22 +1635,12 @@ static int compose_part(IDirect3DDevice9 *dev, PartTextures *t, const LayerPart 
  * The blurred frame is not read here: on Wine's software renderer a draw that reads it after a live blur cost about
  * 1 ms a frame (measured with OPENDMT3_LAYER_TIMING=frame), the fixed function's picture a tenth of that. */
 static void draw_part_texture(IDirect3DDevice9 *dev, IDirect3DTexture9 *tex, const PartTextures *t,
-                              const LayerPart *part)
+                              const LayerPart *part, int w, int h)
 {
-    struct {
-        float x, y, z, rhw, u, v;
-    } q[4];
-    /* At the part's place in the picture, which starts at g_pic's origin in the window (pre-transformed positions are
-     * the target's own pixels, not the viewport's). */
-    float x0 = (float)(part->x + g_pic.x) - 0.5f, y0 = (float)(part->y + g_pic.y) - 0.5f;
-    float x1 = x0 + (float)part->sprite->content->w, y1 = y0 + (float)part->sprite->content->h;
-    float u1 = (float)part->sprite->content->w / (float)t->w, v1 = (float)part->sprite->content->h / (float)t->h;
-    q[0].x = x0, q[0].y = y0, q[0].u = 0, q[0].v = 0;
-    q[1].x = x1, q[1].y = y0, q[1].u = u1, q[1].v = 0;
-    q[2].x = x0, q[2].y = y1, q[2].u = 0, q[2].v = v1;
-    q[3].x = x1, q[3].y = y1, q[3].u = u1, q[3].v = v1;
-    for (int i = 0; i < 4; i++)
-        q[i].z = 0, q[i].rhw = 1;
+    PartVertex q[4];
+    /* At the part's place in the picture, cut to it (part_quad); nothing of it there: nothing to draw. */
+    if (!part_quad(t, part, w, h, q))
+        return;
     IDirect3DDevice9_SetVertexShader(dev, NULL);
     IDirect3DDevice9_SetPixelShader(dev, NULL);
     IDirect3DDevice9_SetFVF(dev, D3DFVF_XYZRHW | D3DFVF_TEX1);
@@ -1861,14 +1871,14 @@ static void layer_draw_parts(IDirect3DDevice9 *dev, const LayerPart *parts, int 
         int composed = !bare && glass && compose_part(dev, t, &parts[i], target, w, h);
         int copies = alone && glass && !bare && (g_sync_frames & 1) ? 8 : 0;
         if (bare) {
-            draw_part_texture(dev, t->picture, t, &parts[i]);
+            draw_part_texture(dev, t->picture, t, &parts[i], w, h);
         } else if (composed) {
-            draw_part_texture(dev, t->composed, t, &parts[i]);
+            draw_part_texture(dev, t->composed, t, &parts[i], w, h);
             /* The measuring copies: the same texture at a ten thousandth of the opacity (no pixel changes). */
             LayerPart faint = parts[i];
             faint.alpha = 0.0001f;
             for (int k = 0; k < copies; k++)
-                draw_part_texture(dev, t->composed, t, &faint);
+                draw_part_texture(dev, t->composed, t, &faint, w, h);
         } else if (glass) {
             IDirect3DDevice9_SetVertexShader(dev, g_vs);
             IDirect3DDevice9_SetVertexDeclaration(dev, g_decl);
@@ -1882,7 +1892,7 @@ static void layer_draw_parts(IDirect3DDevice9 *dev, const LayerPart *parts, int 
             float c[16] = {(float)GAME_W, (float)GAME_H, 1.0f / GAME_W, 1.0f / GAME_H,
                            (float)w, (float)h, 1.0f / (float)w, 1.0f / (float)h,
                            (float)parts[i].x, (float)parts[i].y, 1.0f / (float)t->w, 1.0f / (float)t->h,
-                           parts[i].alpha, GLASS_TINT_ALPHA, 0, 0};
+                           parts[i].alpha, parts[i].kind == PART_FPS ? FPS_TINT_ALPHA : GLASS_TINT_ALPHA, 0, 0};
             float tint[4] = {(float)((GLASS_TINT >> 16) & 0xff) / 255.0f, (float)((GLASS_TINT >> 8) & 0xff) / 255.0f,
                              (float)(GLASS_TINT & 0xff) / 255.0f, 1.0f};
             IDirect3DDevice9_SetPixelShaderConstantF(dev, 0, c, 4);
@@ -1896,7 +1906,7 @@ static void layer_draw_parts(IDirect3DDevice9 *dev, const LayerPart *parts, int 
                     draw_part_quad(dev, &parts[i], w, h);
             }
         } else {
-            draw_part_fixed(dev, t, &parts[i]);
+            draw_part_fixed(dev, t, &parts[i], w, h);
         }
         if (alone && copies) {
             g_costs.gpu9_us[kind] += ticks_us(alone, idle_now(dev));

@@ -8,10 +8,11 @@ doing. The zones are native/cardreader/logic.c's measures, in game pixels times 
 picture as the chain placed it in the frame (its own shape kept, bars on two sides, or filling the frame with
 OPENDMT3_PICTURE_SHAPE=fill in this script's environment), each with room for its shadow and the keys' ring:
   bar       the band of the bar across the top (70 lines, its shadow under it)
-  question  the question, hanging under the X at the right
-  menu      the menu, hanging under its own chip (left of minimise, full screen and the X)
+  question  the question, hanging from the bar's foot under the X at the right
+  menu      the menu, hanging from the bar's foot under its own chip and the chips beside it (from the menu's chip's
+            left edge to the X's right edge)
   toast     the toast, hanging from the top edge in the middle
-  mark      the small tab at the top centre that says where the bar is
+  mark      the bar's handle at the top centre: a rail along the top edge and a small tab under it
   chip      the frame rate chip in the bottom right corner, above the game's FREE PLAY
   middle    the middle half of the game, where the notes come
 ZONE: the zones that must hold drawn pixels, "!ZONE" for one that must hold none, or "none" (nothing drawn at all).
@@ -42,15 +43,16 @@ def zones(w, h, fill=False):
     px, py, pw, ph = picture(w, h, fill)
     u = ph / GAME_H
     x_right = px + pw - 12 * u
-    # The menu's chip: left of the X, full screen and minimise (50 wide, 6 apart) and 16 more.
-    menu_right = x_right - (3 * 50 + 2 * 6 + 16) * u
+    # The menu's chip's left edge: left of the X, full screen and minimise (50 wide, 6 apart), 16 more and its own 50.
+    menu_left = x_right - (4 * 50 + 2 * 6 + 16) * u
     return {
         "bar": (px, py, px + pw, py + (70 + 10) * u),
-        "question": (x_right - 300 * u - 10 * u, py + 70 * u, px + pw, py + (76 + 106 + 12) * u),
-        "menu": (menu_right - 216 * u - 10 * u, py + 70 * u, menu_right + 10 * u, py + (76 + 106 + 12) * u),
+        # Both hang from the bar's foot (70 lines), at most 106 tall, with room for their shadows and the keys' ring.
+        "question": (x_right - 300 * u - 10 * u, py + 70 * u, px + pw, py + (70 + 106 + 12) * u),
+        "menu": (menu_left - 10 * u, py + 70 * u, px + pw, py + (70 + 106 + 12) * u),
         "toast": (px + pw * 0.15, py, px + pw * 0.85, py + (40 + 12) * u),
-        # 40 wide at the top edge, 8 tall lit, with a little room.
-        "mark": (px + pw / 2 - 24 * u, py, px + pw / 2 + 24 * u, py + 12 * u),
+        # The rail 72 wide along the top edge, the tab 12 deep lit, with a little room.
+        "mark": (px + pw / 2 - 38 * u, py, px + pw / 2 + 38 * u, py + 14 * u),
         # 84 x 40, 12 from the right edge, its foot 41 lines over the game's (above FREE PLAY), with room.
         "chip": (px + pw - (12 + 84 + 6) * u, py + ph - (41 + 40 + 6) * u, px + pw, py + ph - (41 - 6) * u),
         "middle": (px + pw / 4, py + ph / 4, px + 3 * pw / 4, py + 3 * ph / 4),

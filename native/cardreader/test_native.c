@@ -386,9 +386,10 @@ static void test_layout(void)
               l.chip[CHIP_MIN].x - (l.chip[CHIP_MENU].x + l.chip[CHIP_MENU].w) >
                   l.chip[CHIP_X].x - (l.chip[CHIP_FULL].x + l.chip[CHIP_FULL].w),
           "layout: the bar over the game's top band; the menu's chip, then minimise, full screen and the X at its right");
-    check(fabsf(l.panel.x + l.panel.w - (l.chip[CHIP_X].x + l.chip[CHIP_X].w)) < 0.01f && l.panel.y > l.bar.h &&
-              l.rows[0].x < l.rows[1].x && l.tab.y == l.panel.y && l.line_y == 0,
-          "layout: the question drops under the X, Keep playing left of Quit, its tab on its top edge, no line");
+    check(fabsf(l.panel.x + l.panel.w - (l.chip[CHIP_X].x + l.chip[CHIP_X].w)) < 0.01f &&
+              fabsf(l.panel.y - l.bar.h) < 0.01f && l.rows[0].x < l.rows[1].x && l.tab.y == l.panel.y && l.line_y == 0,
+          "layout: the question hangs from the bar's foot under the X, Keep playing left of Quit, its tab on its top "
+          "edge, no line");
     float short_h = l.panel.h;
     q.song = 1;
     ui_layout(&q, 1920, 1080, &l);
@@ -404,9 +405,11 @@ static void test_layout(void)
           "layout: each chip, answer, panel and the bar where it is drawn; the game elsewhere");
     card_open(&q, CARD_MENU);
     ui_layout(&q, 1920, 1080, &l);
-    check(l.count == 3 && fabsf(l.panel.x + l.panel.w - (l.chip[CHIP_MENU].x + l.chip[CHIP_MENU].w)) < 0.01f &&
-              l.rows[1].y > l.rows[0].y + l.rows[0].h,
-          "layout: the menu drops under its own chip, its rows one under the other");
+    check(l.count == 3 && fabsf(l.panel.x - l.chip[CHIP_MENU].x) < 0.01f &&
+              fabsf(l.panel.x + l.panel.w - (l.chip[CHIP_X].x + l.chip[CHIP_X].w)) < 0.01f &&
+              fabsf(l.panel.y - l.bar.h) < 0.01f && l.rows[1].y > l.rows[0].y + l.rows[0].h,
+          "layout: the menu hangs from the bar's foot under its chip and the chips beside it, its rows one under the "
+          "other");
     check(ui_at_top_edge(0, 1080) && ui_at_top_edge(2, 1080) && !ui_at_top_edge(4, 1080),
           "reveal: only the very top edge brings the bar (its two top lines of 768)");
     check(ui_swipe_down(2, 40, 1080) && !ui_swipe_down(2, 20, 1080) && !ui_swipe_down(30, 90, 1080),
@@ -424,14 +427,13 @@ static void test_layout(void)
     Box tl = fps_box(1920, 1080, CORNER_TOP_LEFT), tr = fps_box(1920, 1080, CORNER_TOP_RIGHT);
     check(clear_labels && fabsf(tl.y - 6 * 1.40625f) < 0.01f && fabsf(tr.x + tr.w - (1920 - 12 * 1.40625f)) < 0.01f,
           "layout: the frame rate chip in its corner, at the foot above the game's own labels");
-    /* The mark: at the top centre, small, taller lit; resting near it counts, the game's top band elsewhere not. */
+    /* The handle: at the top centre, deeper lit, on the groove meter's chrome rim (the game's top 12 lines) whatever the
+     * shape; resting near it counts, the game's top band elsewhere not. */
     Box m0 = ui_mark_box(1920, 1080, 0), m1 = ui_mark_box(1920, 1080, 1);
-    check(m0.y == 0 && fabsf(m0.x + m0.w / 2 - 960) < 0.01f && m1.h > m0.h && m0.h < 10 * 1.40625f &&
+    check(m0.y == 0 && fabsf(m0.x + m0.w / 2 - 960) < 0.01f && m1.h > m0.h && m1.h <= 12 * 1.40625f + 0.01f &&
               ui_on_mark(960, 3, 1920, 1080) && ui_on_mark(960 + m1.w / 2 + 8, 5, 1920, 1080) &&
               !ui_on_mark(960, 40, 1920, 1080) && !ui_on_mark(700, 3, 1920, 1080),
-          "layout: the mark at the top centre, near it counts as on it");
-    check(ease_out(0) == 0 && ease_out(1) == 1 && ease_out(0.5f) > 0.5f && ease_out(2) == 1,
-          "motion: eased out, quick first and settling");
+          "layout: the handle at the top centre within the game's top 12 lines, near it counts as on it");
 }
 
 /* How long the bar stays, as OpenDMTQ's: 600 ms after the pointer, 4 s after a finger, 3 s by itself; a press on the
@@ -469,6 +471,140 @@ static void test_bar_clock(void)
     check(!bar_clock_pointer_counts(&b), "bar clock: a finger's parked pointer does not keep it");
     bar_clock_moved(&b);
     check(bar_clock_pointer_counts(&b) && !b.by_touch, "bar clock: a move of the mouse after a finger counts again");
+}
+
+/* The layer's slides (logic.h): the bar down out of the top edge in 220 ms slowing into place, up in 170 ms gathering
+ * speed, a turn midway from where it is and in its share of the time, at once with Windows' animation effects off; and
+ * what hangs from the bar's foot. */
+static void test_slides(void)
+{
+    /* The paces: 0 at 0, 1 at 1, the way down quick first, the way up slow first; neither ever goes back. */
+    int never_back = 1;
+    float d0 = 0, u0 = 0;
+    for (int i = 1; i <= 100; i++) {
+        float d = slide_ease_down((float)i / 100.0f), up = slide_ease_up((float)i / 100.0f);
+        never_back &= d >= d0 && up >= u0;
+        d0 = d;
+        u0 = up;
+    }
+    check(slide_ease_down(0) == 0 && slide_ease_down(1) == 1 && fabsf(slide_ease_down(0.5f) - 0.875f) < 1e-5f &&
+              slide_ease_up(0) == 0 && slide_ease_up(1) == 1 && fabsf(slide_ease_up(0.5f) - 0.25f) < 1e-5f &&
+              slide_ease_down(2) == 1 && slide_ease_up(-1) == 0 && never_back,
+          "slides: down slows into place, up gathers speed, neither goes back");
+    /* Down: out of sight at its start, 220 ms to its place, on its way until then. */
+    Slide s;
+    slide_rest(&s, 0);
+    check(slide_at(&s, 1000) == 0 && !slide_moving(&s, 1000), "slides: at rest out of sight");
+    slide_aim(&s, 1, 1000, 1);
+    check(slide_at(&s, 1000) == 0 && fabsf(slide_at(&s, 1110) - 0.875f) < 1e-4f && slide_moving(&s, 1219) &&
+              !slide_moving(&s, 1220) && slide_at(&s, 1220) == 1 && slide_at(&s, 5000) == 1,
+          "slides: the way down takes 220 ms, slowing into place");
+    /* Aimed again at where it is headed: its way goes on as it was. */
+    slide_aim(&s, 1, 1100, 1);
+    check(s.began == 1000 && fabsf(s.lasts - 220) < 1e-6, "slides: aimed again the same way, it keeps its pace");
+    /* Up: 170 ms, slow at first. */
+    slide_aim(&s, 0, 2000, 1);
+    check(fabsf(slide_at(&s, 2085) - 0.75f) < 1e-4f && slide_moving(&s, 2169) && slide_at(&s, 2170) == 0,
+          "slides: the way up takes 170 ms, gathering speed");
+    /* A turn midway: down for 110 ms (at 0.875), then up from there, in 0.875 of the way up's time; no jump at the
+     * turn, and back down again from where it is then. */
+    slide_rest(&s, 0);
+    slide_aim(&s, 1, 3000, 1);
+    float before = slide_at(&s, 3110);
+    slide_aim(&s, 0, 3110, 1);
+    float after = slide_at(&s, 3110);
+    check(fabsf(before - after) < 1e-5f && fabsf((float)s.lasts - 170.0f * 0.875f) < 1e-3f &&
+              slide_at(&s, 3110 + 170.0 * 0.875) == 0,
+          "slides: turned back midway, it sets out from where it is, in its share of the way's time");
+    float mid = slide_at(&s, 3160);
+    slide_aim(&s, 1, 3160, 1);
+    check(fabsf(slide_at(&s, 3160) - mid) < 1e-5f && fabsf((float)s.lasts - 220.0f * (1.0f - mid)) < 1e-3f &&
+              slide_at(&s, 3160 + 220.0 * (1.0 - mid)) == 1,
+          "slides: turned back again, again from where it is");
+    /* Windows' animation effects off: there at once, both ways. */
+    slide_rest(&s, 0);
+    slide_aim(&s, 1, 4000, 0);
+    int down_at_once = slide_at(&s, 4000) == 1 && !slide_moving(&s, 4000);
+    slide_aim(&s, 0, 4001, 0);
+    check(down_at_once && slide_at(&s, 4001) == 0 && !slide_moving(&s, 4001),
+          "slides: with Windows' animation effects off, at once both ways");
+    /* The bar's foot: nothing in sight until its shadow's room has come out, then its rows, its whole height at 1. */
+    float h = 98.4375f, shade = 8 * 1.40625f;
+    check(slide_rows(0, h, shade) == 0 && slide_rows(shade / (h + shade) - 0.01f, h, shade) == 0 &&
+              slide_rows(1, h, shade) == h && fabsf(slide_rows(0.5f, h, shade) - ((h + shade) / 2 - shade)) < 1e-3f,
+          "slides: the bar's foot comes out of the top edge after its shadow, its whole height in place");
+    /* The bar itself: whole above the top edge at 0, its shadow too; its top on the edge at 1. */
+    check(slide_top(0, 0, h, shade) == -(h + shade) && slide_top(1, 0, h, shade) == 0,
+          "slides: the bar slides out of the top edge by its height and its shadow's room");
+    /* A panel under the bar's foot, wherever the bar is: wholly above the foot, its shadow too, at 0 (under the bar,
+     * which is drawn over it), its top on the foot at 1. */
+    float ph = 106 * 1.40625f;
+    int under = 1;
+    for (int k = 0; k <= 10; k++) {
+        float rows = slide_rows((float)k / 10.0f, h, shade);
+        under &= slide_top(0, rows, ph, shade) + ph + shade <= rows + 1e-3f &&
+                 fabsf(slide_top(1, rows, ph, shade) - rows) < 1e-4f;
+    }
+    check(under, "slides: a panel out of sight under the bar's foot at 0, its top on the foot at 1, wherever the bar is");
+}
+
+/* Where the parts stand on screens of every shape: the menu and the question hang from the bar's foot in the chips'
+ * row; the notice clear of the chips' row (so of either panel) and of the middle; the handle on the top 12 lines; a
+ * press on a chip of a bar still on its way acts on that chip. */
+static void test_places(void)
+{
+    /* The game's own 5:3, 16:9 kept (the picture 5:3 inside) or filled, 21:9 filled, 16:10 kept, 5:4 filled, 4K. */
+    static const int sizes[7][2] = {{1280, 768}, {1800, 1080}, {1920, 1080}, {2560, 1080}, {1920, 1152}, {1280, 1024},
+                                    {3600, 2160}};
+    /* The widest note the layer shows (the safety net's: 52 letters at about 7.6 game pixels each, English). */
+    int clear = 1, hung = 1, handle = 1;
+    for (int k = 0; k < 7; k++) {
+        int w = sizes[k][0], h = sizes[k][1];
+        float u = ui_unit(h);
+        Box note = toast_box(w, h, 400 * u);
+        Box middle = {w * 0.25f, h * 0.25f, w * 0.5f, h * 0.5f};
+        for (int open = CARD_MENU; open <= CARD_QUIT; open++) {
+            Card c = {0, 0, 0, 0};
+            card_open(&c, open);
+            c.song = 1;
+            UiLayout l;
+            ui_layout(&c, w, h, &l);
+            /* The chips' row, from the menu's chip's left edge to the X's right edge. */
+            Box row = {l.chip[CHIP_MENU].x, 0, l.chip[CHIP_X].x + l.chip[CHIP_X].w - l.chip[CHIP_MENU].x, (float)h};
+            /* The notice, hanging from the bar's foot (the bar down), clear of the panel and of the chips' row. */
+            Box hanging = note;
+            hanging.y = l.bar.h;
+            clear &= !overlap(hanging, l.panel) && note.x + note.w <= row.x - 15.9f * u && note.x >= 11.9f * u &&
+                     !overlap(note, middle);
+            /* Each panel on the bar's foot, inside the chips' row's width or under the X, above a quarter. */
+            hung &= fabsf(l.panel.y - l.bar.h) < 0.01f && l.panel.x + l.panel.w <= row.x + row.w + 0.01f &&
+                    l.panel.y + l.panel.h + SLIDE_SHADE * u <= h * 0.25f + 0.01f;
+            if (open == CARD_MENU)
+                hung &= fabsf(l.panel.x - row.x) < 0.01f;
+        }
+        Box m = ui_mark_box(w, h, 1);
+        handle &= m.y == 0 && m.h <= 12 * u + 0.01f && fabsf(m.x + m.w / 2 - w / 2.0f) < 0.01f;
+    }
+    check(clear, "places: the notice clear of the menu, the question and the chips' row, and of the middle, at every shape");
+    check(hung, "places: the menu and the question hang from the bar's foot within the chips' row, above a quarter");
+    check(handle, "places: the handle at the top centre within the game's top 12 lines, at every shape");
+    /* A press while the bar comes down: the X where it is drawn now, not where it will be. */
+    Card c = {0, 0, 0, 0};
+    UiLayout l;
+    ui_layout(&c, 1920, 1080, &l);
+    float dy = -20;
+    float x = l.chip[CHIP_X].x + l.chip[CHIP_X].w / 2, y = l.chip[CHIP_X].y + 4 + dy;
+    check(ui_hit_moved(&l, x, y, dy, 0) == HIT_X && ui_hit_moved(&l, x, l.bar.h + dy + 3, dy, 0) == HIT_NONE &&
+              ui_hit_moved(&l, x, y - dy, 0, 0) == HIT_X,
+          "places: a chip of a bar on its way is hit where it is drawn");
+    /* The question sliding out under the bar: the bar over it where they meet, its answers where they are drawn. */
+    card_open(&c, CARD_QUIT);
+    ui_layout(&c, 1920, 1080, &l);
+    float pdy = -40;
+    float ax = l.rows[0].x + 5, ay = l.rows[0].y + 5 + pdy;
+    check(ui_hit_moved(&l, ax, ay, 0, pdy) == 0 && ui_hit_moved(&l, l.panel.x + 5, l.bar.h - 5, 0, pdy) == HIT_BAR &&
+              ui_hit_moved(&l, ax, ay - pdy, 0, 0) == 0,
+          "places: the bar lies over a panel coming out from under it; an answer is hit where it is drawn");
 }
 
 /* When a rest at the top edge or on the mark may bring the bar: never while a button is held or within 1.5 s of a
@@ -600,19 +736,34 @@ static void test_pictures(void)
               (corner >> 24) == 0,
           "pictures: the X in the launcher's blue, the others its metal, their ends leaning");
     sprite_free(&sp);
-    /* The mark: the game's tab at the top edge, wider at its top, lit taller. */
+    /* The handle: the rail across its top, the tab's dark glass under the rail's middle, deeper lit, a light chevron
+     * in it (the game's light blue lit), no glass of its own. */
     Box mb = ui_mark_box(1920, 1080, 1);
     sprite_make(&sp, mb.w, mb.h, 2 * l.u);
     look_mark(&sp, l.u, 0);
-    int ty = (int)(sp.room + 1), fy = (int)(sp.room + 7 * l.u);
-    int unlit_top = (sp.content->px[ty * sp.content->w + sp.content->w / 2] >> 24) > 0;
-    int unlit_low = (sp.content->px[fy * sp.content->w + sp.content->w / 2] >> 24) > 0;
-    int edge_top = (sp.content->px[ty * sp.content->w + (int)(sp.room + 1)] >> 24) > 0;
-    int edge_foot = (sp.content->px[(int)(sp.room + 5 * l.u) * sp.content->w + (int)(sp.room + 1)] >> 24) > 0;
+    int cw = sp.content->w, mid_x = cw / 2, top_y = (int)(sp.room + 0.5f * l.u);
+    /* Rows inside the unlit tab (5 game pixels down) and between its foot and the lit one's (10.5 down). */
+    int in_y = (int)(sp.room + 5.0f * l.u), deep_y = (int)(sp.room + 10.5f * l.u);
+    uint32_t rail_end = sp.content->px[top_y * cw + (int)(sp.room + 2)];
+    int rail_unlit = (rail_end >> 24) > 150 && ((rail_end >> 16) & 0xff) > 120;
+    int below_rail_end = (sp.content->px[in_y * cw + (int)(sp.room + 2)] >> 24) == 0;
+    int tab_unlit = (sp.content->px[in_y * cw + mid_x - (int)(8 * l.u)] >> 24) > 150;
+    int deep_unlit = (sp.content->px[deep_y * cw + mid_x - (int)(3 * l.u)] >> 24) > 0;
+    /* The chevron: a light pixel on the tab's middle line, below the rail. */
+    int light = 0;
+    for (int y = (int)(sp.room + 3 * l.u); y < (int)(sp.room + 9 * l.u); y++) {
+        uint32_t p = sp.content->px[y * cw + mid_x];
+        light |= (p >> 24) > 150 && ((p >> 8) & 0xff) > 150;
+    }
+    int no_glass = (sp.mask->px[in_y * sp.mask->w + mid_x] >> 24) == 0;
     look_mark(&sp, l.u, 1);
-    int lit_low = (sp.content->px[fy * sp.content->w + sp.content->w / 2] >> 24) > 0;
-    check(unlit_top && !unlit_low && lit_low && edge_top && !edge_foot && (sp.mask->px[ty * sp.mask->w + sp.mask->w / 2] >> 24) == 0,
-          "pictures: the mark is the game's tab from the top edge, taller lit, with no glass");
+    uint32_t rail_lit = sp.content->px[top_y * cw + (int)(sp.room + 2)];
+    int deep_lit = (sp.content->px[deep_y * cw + mid_x - (int)(3 * l.u)] >> 24) > 150;
+    check(rail_unlit && below_rail_end && tab_unlit && !deep_unlit && light && no_glass,
+          "pictures: the handle is a rail along the top edge with the bar's glass tab under its middle and a chevron, "
+          "no glass of its own");
+    check(deep_lit && (rail_lit & 0xff) > ((rail_lit >> 16) & 0xff) + 60,
+          "pictures: the handle lit is deeper, its rail in the game's light blue");
     sprite_free(&sp);
     /* An image drawn smaller: each pixel the average of what it covers. */
     Canvas *src = canvas_new(4, 2), *dst = canvas_new(2, 1);
@@ -1795,11 +1946,13 @@ int main(void)
     test_keys();
     test_gate();
     test_bar_clock();
+    test_slides();
     test_slot_index();
     test_sharp();
     test_picture();
     test_card();
     test_layout();
+    test_places();
     test_pictures();
     test_redirect();
     printf("%d checks, %d failed\n", checks, failures);

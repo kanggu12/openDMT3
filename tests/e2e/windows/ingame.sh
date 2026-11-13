@@ -1,19 +1,18 @@
 #!/bin/bash
 # openDMT3's in-game layer on the real client, under Wine on a virtual screen with no network:
-#   1. On this PC, from the installer (as install_and_play.sh): the guide, a DJ, PLAY, the card login. The bar came
-#      down by itself at the game's first screen, its 3 s and its fade on the screen and no more. The pointer over the
-#      game is openDMT3's dart, read through XFixes,
-#      up and pressed. The pointer in the game's top quarter brings nothing but the mark at the top centre; a click on
-#      the game, then the pointer resting on the mark: no bar for 1.5 s after the click, then the bar; resting at the
-#      very top edge brings it too; its X drops the question down under it (no line on the game's menus), Keep playing
-#      keeps the game 15 s more; Esc and Alt+F4 do nothing (the game alive, no question); the window's close (the
-#      taskbar's, as WM_DELETE_WINDOW: ingame/close.py) asks the same question; the bar's menu chip drops the menu
-#      down, Esc closes it; a toast hangs from the top edge; full screen to a window (its title bar and borders, no
-#      buttons; the bar by itself after the switch, its 3 s and its fade) and back; minimise and back (the taskbar's restore:
-#      ingame/restore.c); the X again, Quit the game, and the game ends with exit code 0 and the launcher's window
-#      says so. Where the layer drew is read from the chain's measuring dump of one frame without it and with it
-#      (ingame/layer.py): in the bar's band, under the X or the menu chip, the toast's place, the mark's, never the
-#      middle half of the game.
+#   1. On this PC, from the installer (as install_and_play.sh): the guide, a DJ, PLAY, the card login. The bar came down
+#      by itself at the game's first screen, its 3 s and its slide back up on the screen and no more. The pointer over
+#      the game is openDMT3's dart, read through XFixes, up and pressed. The pointer in the game's top quarter brings
+#      nothing but the handle at the top centre (the layer's mark); a click on the game, then the pointer resting on it:
+#      no bar for 1.5 s after the click, then the bar; resting at the very top edge brings it too; its X drops the
+#      question down under it (no line on the game's menus), Keep playing keeps the game 15 s more; Esc and Alt+F4 do
+#      nothing (the game alive, no question); the window's close (the taskbar's, as WM_DELETE_WINDOW: ingame/close.py)
+#      asks the same question; the bar's menu chip drops the menu down, Esc closes it; a toast hangs from the top edge;
+#      full screen to a window (its title bar and borders, no buttons; the bar by itself after the switch, its 3 s and
+#      its slide up) and back; minimise and back (the taskbar's restore: ingame/restore.c); the X again, Quit the game,
+#      and the game ends with exit code 0 and the launcher's window says so. Where the layer drew is read from the
+#      chain's measuring dump of one frame without it and with it (ingame/layer.py): in the bar's band, under the X or
+#      the menu chip, the toast's place, the mark's, never the middle half of the game.
 #   2. Offline, from openDMT3-cmd.exe with VSync off, pacing locked to the music, the frame rate chip, a sound device
 #      and the picture defaults (upscale fsr1, sharpness 50, no anti-aliasing) chosen: at most one frame is queued, its
 #      log names the device it opened and the picture options it got; each of the layer's parts shown for 8 s in turn
@@ -306,13 +305,13 @@ echo "== the bar by itself, the mark, the guard, the top edge, the question unde
 # The bar came down by itself when the game's first screen showed (and went 3 s later).
 grep -q "layer: bar shown by itself for 3 s (the game's first screen)" "$OUT/ingame.log" \
   || fail "the bar did not show by itself at the game's first screen"
-# Its time on the screen then: its 3 s and its fade (0.3 s), no more (the pointer was not on it).
+# Its time on the screen then: its 3 s and its slide back up (0.17 s), no more (the pointer was not on it).
 first=$(grep -oE "layer: bar gone after [0-9.]+ s on the screen" "$OUT/ingame.log" | head -1 | grep -oE "[0-9.]+")
 revealed=$(grep -m1 -oE "^[0-9]+ layer: bar shown by itself" "$OUT/ingame.log" | cut -d' ' -f1)
 slow=$(stall_s "${revealed:-0}" "$(python3 -c "print(int(${revealed:-0} + 1000 * ${first:-0}))")")
 echo "  the bar by itself at the first screen: ${first:-?} s on the screen (the game's frames over 100 ms then: $slow s)"
 python3 -c "import sys; sys.exit(0 if 3.0 <= float('${first:-0}') <= 3.8 + $slow else 1)" \
-  || fail "the bar by itself at the first screen was ${first:-?} s on the screen (3.3 s wanted, frames over 100 ms $slow s)"
+  || fail "the bar by itself at the first screen was ${first:-?} s on the screen (3.2 s wanted, frames over 100 ms $slow s)"
 # Moving in the top quarter (not its edge) brings nothing: a song played with the mouse never shows the bar. The mark
 # alone is there, at the top centre.
 x "xdotool mousemove 960 540 sleep 0.2 mousemove 1500 230 sleep 0.2 mousemove 1650 150"; wait_s 0.8
@@ -398,7 +397,7 @@ gone=$(gone_after "${switched:-0}" 10)
 slow=$(stall_s "${switched:-0}" "$gone")
 echo "  after the switch the bar was $(python3 -c "print('%.2f' % ((${gone:-0} - ${switched:-0}) / 1000.0))") s on the screen (the game's frames over 100 ms then: $slow s)"
 python3 -c "import sys; d = (${gone:-0} - ${switched:-0}) / 1000.0; sys.exit(0 if 3.0 <= d <= 3.8 + $slow else 1)" \
-  || fail "after the switch the bar was not on the screen its 3.3 s and then gone"
+  || fail "after the switch the bar was not on the screen its 3.2 s and then gone"
 grep -oE "layer: in a window .*" "$OUT/ingame.log" | tail -1 | sed 's/^/  /'
 # Its title bar (WS_CAPTION) and borders that size it (WS_THICKFRAME), and none of Windows' buttons (WS_SYSMENU, its
 # minimise and maximise).
@@ -658,7 +657,8 @@ played=$(grep -c "^xdotool" "$OUT/player.sh")
 [ "$(seen "layer: bar on the screen")" = "$on" ] || fail "the bar came on the screen while the song was played ($(grep 'layer: bar shown (' "$OUT/ingame.log" | tail -1))"
 echo "  a minute of the song played ($played steps of the mouse, the top band and its edge included): the bar on the screen 0 s"
 # Then a call on purpose: 1.6 s of quiet, the pointer moved to the top edge and resting there: the bar, 1.5 s or more
-# after the last press; the pointer away after a second: gone 0.9 s later (600 ms whole, 300 ms of fade).
+# after the last press; the pointer away after a second: gone about 0.8 s later (600 ms whole, looked for ten times a
+# second, then 170 ms sliding up).
 x "xdotool mousemove 960 700"; wait_s 1.6
 bars=$(seen "layer: bar shown \(")
 x "xdotool mousemove 1300 0"; wait_s 1.15; shot 11c-called
@@ -670,7 +670,7 @@ gone=$(gone_after "$left" 5)
 slow=$(stall_s "$left" "$gone")
 echo "  called on purpose: the bar ${quiet:-?} s after the last press, gone $(python3 -c "print('%.2f' % ((${gone:-0} - $left) / 1000.0))") s after the pointer left it (the game's frames over 100 ms then: $slow s)"
 python3 -c "import sys; d = (${gone:-0} - $left) / 1000.0; sys.exit(0 if 0.7 <= d <= 1.3 + $slow else 1)" \
-  || fail "the bar did not go 0.9 s after the pointer left it"
+  || fail "the bar did not go 0.8 s after the pointer left it"
 # The chip in its corner checked after the song (the song needs its time first: the tutorial lasts four minutes).
 echo "== the chip in the corner: the menu's Show FPS"
 # The pointer off the bar (it rested on minimise): the bar gone, the mark and the chip alone.

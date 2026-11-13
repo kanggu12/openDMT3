@@ -188,7 +188,8 @@ void layer_first_screen(void);
 void layer_stepped_down(int upscale, int aa, int aa_changed);
 /* The game's window got a press of the mouse's button (input latency, measured with OPENDMT3_LATENCY_WATCH). */
 void ingame_press(void);
-/* A toast with these words, hanging from the game's top edge for a few seconds. */
+/* A toast with these words, hanging from the game's top edge for a few seconds (from the bar's foot while the bar is
+ * down); during a song it waits for the song's end, so nothing covers the game's groove meter while it is played. */
 void layer_toast(const char *words);
 
 /* The kinds of the layer's parts, for their costs and for the glass: the frame rate chip (its glass still, no live
