@@ -332,6 +332,48 @@ class ClientTest(OwnCase):
         self.assertEqual(_read(self.own.path("CRT_R1.dll")), b"MZ openDMT3 library stand-in")
         self.assertTrue(steps.Client().status(self.game, self.own, steps.Options()).done)
 
+    def touch_screen_client(self):
+        """The client importing the touch screen's library too, the cabinet's copy of it in the game folder (with a
+        library of its own it needs in turn)."""
+        with open(self.game.path("Client.exe"), "wb") as f:
+            f.write(tiny_pe(["KERNEL32.dll", "libmadeup.DLL", "CRT_R1.dll", "multiDLL.dll"]))
+        with open(self.game.path("multiDLL.dll"), "wb") as f:
+            f.write(tiny_pe(["MFC42.DLL"]))
+        with open(self.game.path("MFC42.DLL"), "wb") as f:
+            f.write(b"MZ the touch frame library's own")
+
+    def test_openDMT3s_touch_screen_library_takes_the_place_of_the_client_datas(self):
+        from opendmt3.core.cabinet import native
+        self.touch_screen_client()
+        # The build's own beside its card reader library, as build.sh makes them.
+        with open(os.path.join(os.path.dirname(self.dll), "multiDLL.dll"), "wb") as f:
+            f.write(b"MZ openDMT3 touch screen stand-in")
+        self.assertEqual(native.touch_library(), os.path.join(os.path.dirname(self.dll), "multiDLL.dll"))
+        # The client step leaves the cabinet's out, and what only it needed.
+        found = steps.Client().libraries(self.game, _read(self.game.path("Client.exe")))
+        self.assertEqual(sorted(found), ["LibMadeUp.dll", "libdeep.dll"])
+        self.prepare()
+        self.assertEqual(_read(self.own.path("multiDLL.dll")), b"MZ openDMT3 touch screen stand-in")
+        self.assertFalse(os.path.exists(self.own.path("MFC42.DLL")))
+        self.assertTrue(steps.Client().status(self.game, self.own, steps.Options()).done)
+        self.assertTrue(steps.CardReader().status(self.game, self.own, steps.Options()).done)
+        # A copy of it changed (or one an earlier openDMT3 copied from the client data): made again.
+        with open(self.own.path("multiDLL.dll"), "wb") as f:
+            f.write(b"MZ the cabinet's touch screen library")
+        self.assertFalse(steps.CardReader().status(self.game, self.own, steps.Options()).done)
+        self.prepare()
+        self.assertEqual(_read(self.own.path("multiDLL.dll")), b"MZ openDMT3 touch screen stand-in")
+
+    def test_a_build_without_openDMT3s_touch_screen_library_copies_the_client_datas(self):
+        from opendmt3.core.cabinet import native
+        self.touch_screen_client()
+        self.assertIsNone(native.touch_library())
+        # As before: the client's import and what it imports in turn, from the client data.
+        found = steps.Client().libraries(self.game, _read(self.game.path("Client.exe")))
+        self.assertEqual(sorted(found), ["LibMadeUp.dll", "MFC42.DLL", "libdeep.dll", "multiDLL.dll"])
+        self.prepare()
+        self.assertEqual(_read(self.own.path("multiDLL.dll")), _read(self.game.path("multiDLL.dll")))
+
     def test_a_library_changed_in_the_game_folder_is_copied_again(self):
         self.prepare()
         with open(self.game.path("libdeep.dll"), "wb") as f:

@@ -29,6 +29,23 @@ def notices():
     return path if os.path.isfile(path) else None
 
 
+# openDMT3's own touch screen library (native/cardreader/multidll.c), which native/cardreader/build.sh makes beside the
+# card reader library and a build keeps beside it in bin/: PLAY puts it beside its copy of the client in place of the
+# client data's multiDLL.dll, the cabinet's touch frame's, whose program a PC does not have. It hands the game every
+# finger on its window, through the card reader library (native/cardreader/touch.c).
+TOUCH = "multiDLL.dll"
+
+
+def touch_library():
+    """openDMT3's multiDLL.dll beside the card reader library in use (bin/ in a build, or beside
+    OPENDMT3_CARD_READER's), or None when there is none there (a library a test made): the client data's own is then
+    copied as before, and the game plays the mouse as before."""
+    library = card_reader()
+    # The same folder as the card reader library, which it calls into: the two are built and travel together.
+    path = os.path.join(os.path.dirname(library), TOUCH) if library else os.path.join(BIN, TOUCH)
+    return path if os.path.isfile(path) else None
+
+
 # The Sound page's OpenAL Soft mixer (native/openal/build.sh): DSOAL and OpenAL Soft with their notices, which a build
 # keeps in bin/ beside the card reader library; PLAY puts them beside its copy, where the in-game layer loads them
 # from when the mixer is chosen (native/cardreader/openal.c).

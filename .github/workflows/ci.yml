@@ -64,11 +64,12 @@ jobs:
           cat lint.txt
           ! grep -v "'velopack' imported but unused" lint.txt | grep -q .
 
-  # openDMT3's card reader library (native/cardreader), built for the game's 32 bits with MinGW-w64, with its notices,
-  # and its native tests under Wine, both in containers with no network (build.sh, test.sh); then the official 7-Zip
-  # for Windows taken out of its release as the launcher's build takes it (packaging/windows/sevenzip.sh), and DSOAL
-  # and OpenAL Soft built from their pinned sources (native/openal/build.sh). The library, its notices, 7-Zip and the
-  # two OpenAL libraries go to the windows job, which builds the launcher with them.
+  # openDMT3's card reader library (native/cardreader), built for the game's 32 bits with MinGW-w64, with its touch
+  # screen library and their notices, and its native tests under Wine, both in containers with no network (build.sh,
+  # test.sh); then the official 7-Zip for Windows taken out of its release as the launcher's build takes it
+  # (packaging/windows/sevenzip.sh), and DSOAL and OpenAL Soft built from their pinned sources (native/openal/build.sh).
+  # The libraries, their notices, 7-Zip and the two OpenAL libraries go to the windows job, which builds the launcher
+  # with them.
   native:
     runs-on: ubuntu-24.04
     # The Wine image takes most of it (WineHQ's packages): several times that is a stalled job.
@@ -93,6 +94,7 @@ jobs:
           name: windows-parts
           path: |
             _work/windows-parts/CRT_R1.dll
+            _work/windows-parts/multiDLL.dll
             _work/windows-parts/card-reader-NOTICES.txt
             _work/windows-parts/7zip/
             _work/windows-parts/openal/dsoal-aldrv.dll

@@ -6,9 +6,11 @@
  *   methods.c  the methods put in Direct3D's tables, watched each frame and put back if Direct3D fills a table again
  *   layer.c  the bar, the menu, the question, the toast and the frame rate chip: their state, the mouse and the keys
  *            over the game's window, the cursor, quitting
+ *   touch.c  the touch screen openDMT3's multiDLL.dll hands the game: the fingers on its window and the mouse
  *   post.c   the post-process chain, which draws the layer's parts over the game at the window's size
  *   text.c   the words (GDI)
- *   look.c, logic.c, paint.c  the pictures and the decisions, with no Windows calls (the native tests run them)
+ *   look.c, logic.c, paint.c, contacts.c  the pictures and the decisions, with no Windows calls (the native tests run
+ *            them)
  */
 #ifndef OPENDMT3_INGAME_H
 #define OPENDMT3_INGAME_H
@@ -292,5 +294,28 @@ int sound_song_playing(void);
 
 /* The keyboard hook's state between calls: the answer's keys still down after the card closed. */
 extern int g_keys_waiting;
+
+/* The touch screen (touch.c, its rules in contacts.c): what openDMT3's own multiDLL.dll hands the game in place of the
+ * cabinet's touch frame program, once the game opened it. A pointer message of the game's window (WM_POINTERDOWN,
+ * UPDATE, UP, CAPTURECHANGED), before the game's own window procedure gets it as before. */
+void touch_pointer(HWND w, UINT msg, WPARAM wp, LPARAM lp);
+/* The mouse's left button went down (1) or up (0) on the game's window: whether Windows made it from a finger or a
+ * pen (the finger is a contact already, so that button is no point of its own). */
+void touch_button(int down);
+/* The game's own view of its keys this frame, the overlay's hold applied: the mouse's left button, its one point. */
+void touch_keys(const BYTE *keys);
+/* The overlay took Windows' first finger (drawn down for the bar: `every` 0) or every contact down now (its menu or
+ * question opened or closed: 1): none of them reaches the game again until it is lifted. */
+void touch_withhold(int every);
+/* The game's window lost its input (another program came forward): nothing on the screen any more. */
+void touch_clear(void);
+/* At each frame's start (measuring only, OPENDMT3_TOUCH_WATCH=on): what the game holds after its last read. */
+void touch_frame(void);
+/* Whether a press at client pixel (cx, cy) is the overlay's (layer.c): on the bar or a chip while the bar shows, on
+ * the menu or the question, or anywhere while either is up. */
+int layer_takes_press(int cx, int cy);
+/* A finger other than Windows' first pressed the game (`pressed` 1) or let go of it (0, `any_down` whether one is still
+ * down): play, as a click is (the bar goes, and no rest brings it for a while). */
+void layer_finger(int pressed, int any_down);
 
 #endif

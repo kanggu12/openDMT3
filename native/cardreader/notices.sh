@@ -1,8 +1,8 @@
 #!/bin/sh
-# The notices of the code built into CRT_R1.dll, in one text file that goes wherever the library goes (the launcher
-# puts both in place together: opendmt3/core/cabinet/steps.py, CardReader; the installed program keeps a copy in its
-# licenses folder). Run by build.sh in the compiler's image, which has the runtime the compiler links in and that
-# runtime's own copyright file:
+# The notices of the code built into CRT_R1.dll and multiDLL.dll, in one text file that goes wherever the libraries go
+# (the launcher puts them in place together: opendmt3/core/cabinet/steps.py, CardReader; the installed program keeps a
+# copy in its licenses folder). Run by build.sh in the compiler's image, which has the runtime the compiler links in
+# and that runtime's own copyright file:
 #   sh notices.sh OUT_FILE      (from this folder, or with this folder mounted at /src)
 # The picture's passes come with their licences from third_party/; the runtime's versions and licences are the
 # compiler image's own packages', read here, not written by hand.
@@ -26,7 +26,8 @@ text() {
 
 {
   echo "openDMT3's card reader library, CRT_R1.dll, holds openDMT3's own code (MIT License) and code from these"
-  echo "projects, each under its own licence. The texts follow in full."
+  echo "projects, each under its own licence. Its touch screen library, multiDLL.dll, holds openDMT3's own code and"
+  echo "the two runtimes at the end of the list. The texts follow in full."
   echo
   echo "- AMD FidelityFX Super Resolution 1, the upscale filter AMD FSR 1: MIT License"
   echo "- NVIDIA Image Scaling, the upscale filter NVIDIA NIS: MIT License"

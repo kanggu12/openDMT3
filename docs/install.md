@@ -100,8 +100,9 @@ sign-in there, on this PC only.
 
 ## In the game
 
-Clicking is touching, and holding the button down while moving is sliding. **TOUCH to START** starts; the game is on
-FREE PLAY, so it needs no coins. The launcher has already put your card in: the game logs you in on its own.
+Clicking is touching, and holding the button down while moving is sliding. On a touch screen every finger plays, as on
+the cabinet: hold a long note with one finger while the others tap; the game's menus take the first finger as a click.
+**TOUCH to START** starts; the game is on FREE PLAY, so it needs no coins. The launcher has already put your card in: the game logs you in on its own.
 **NO ID CARD** plays without logging in.
 
 openDMT3 adds an overlay of its own over the game: frosted glass in the shapes of the game's own panels (their title

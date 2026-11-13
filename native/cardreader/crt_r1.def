@@ -1,4 +1,5 @@
-; The plain export names the game imports, each mapped to its __stdcall decorated symbol.
+; The plain export names the game imports, each mapped to its __stdcall decorated symbol; then the three calls
+; openDMT3's own multiDLL.dll makes for the game's touch screen (touch.c, __cdecl, so their names are plain).
 LIBRARY CRT_R1.dll
 EXPORTS
 CommOpen=CommOpen@4
@@ -11,3 +12,6 @@ RF_GetCardID=RF_GetCardID@8
 RF_LoadSecKey=RF_LoadSecKey@16
 RF_ReadBlock=RF_ReadBlock@16
 RF_WriteBlock=RF_WriteBlock@16
+openDMT3_touch_open
+openDMT3_touch_read
+openDMT3_touch_close

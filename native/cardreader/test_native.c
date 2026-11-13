@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "contacts.h"
 #include "logic.h"
 #include "methods.h"
 #include "passtimes.h"
@@ -1910,6 +1911,383 @@ static void test_picture(void)
     check(!outside_in, "picture: a bar's pixel left of the picture lands left of the game's picture");
 }
 
+/* ------------------------------------------------------------------------------------------- the touch screen */
+
+/* What the game holds of a read, as its point reader keeps it (the client's FUN_0070efa0 with the touch screen open):
+ * its points in its own pixels, their count, and its flags, of which the notes take a press from `pressed` (its
+ * touching began) or `new_finger` (with several touches, the count grew). */
+typedef struct {
+    int x[100], y[100];
+    int count;
+    int touching, pressed, several, new_finger;
+    uint32_t sum;          /* the last read's groups and points added up (the game's own 0x199fae0c) */
+} GameTouch;
+
+/* Little-endian numbers back out of the buffer, as the game's x86 reads them. */
+static uint32_t get32(const uint8_t *at)
+{
+    return (uint32_t)at[0] | (uint32_t)at[1] << 8 | (uint32_t)at[2] << 16 | (uint32_t)at[3] << 24;
+}
+
+static uint32_t get16(const uint8_t *at)
+{
+    return (uint32_t)at[0] | (uint32_t)at[1] << 8;
+}
+
+/* The game's reader, step by step as the client does it after WaitNexioMulti answered `result` (its comparisons are
+ * of unsigned numbers). */
+static void game_reads(GameTouch *g, const uint8_t *b, int result)
+{
+    /* Each read starts with no point and no new press. */
+    g->count = 0;
+    g->pressed = g->new_finger = 0;
+    uint32_t h0 = get32(b), h1 = get32(b + 4), h2 = get32(b + 8), h3 = get32(b + 12);
+    if (result == 2 || h0 == 0) {
+        /* Nothing on the screen: touching ends (an answer of 2 with something said leaves everything as it was). */
+        if (h0 == 0) {
+            g->touching = g->several = 0;
+            g->sum = h2 + h3;
+        }
+        return;
+    }
+    if (!g->touching)
+        g->pressed = 1;
+    g->touching = 1;
+    if (h1 > 1) {
+        g->several = 1;
+        if (g->sum < h2 + h3)
+            g->new_finger = 1;
+    }
+    g->sum = h2 + h3;
+    /* Groups times points, 100 at most, each turned back by the game. */
+    for (uint32_t c = 0; c < h2; c++)
+        for (uint32_t p = 0; p < h3 && g->count < 100; p++, g->count++) {
+            g->x[g->count] = 0x500 - (int)get16(b + 0x10 + c * 0x960 + p * 0x18 + 0xc);
+            g->y[g->count] = 0x300 - (int)get16(b + 0x10 + c * 0x960 + p * 0x18 + 0xe);
+        }
+}
+
+/* A note's press as the game judges it: the flags its note judge reads (FUN_00532af0). */
+static int game_press(const GameTouch *g)
+{
+    return g->pressed || g->new_finger;
+}
+
+/* Whether the game holds a point at (x, y) this read. */
+static int game_has(const GameTouch *g, int x, int y)
+{
+    for (int i = 0; i < g->count; i++)
+        if (g->x[i] == x && g->y[i] == y)
+            return 1;
+    return 0;
+}
+
+/* Whether a point lies on the game's screen (its lanes and boxes take nothing else: FUN_00514740). */
+static int game_on_screen(int x, int y)
+{
+    return x >= 0 && x <= 1280 && y >= 0 && y <= 768;
+}
+
+/* The points the game holds on its screen this read. */
+static int game_on_screen_count(const GameTouch *g)
+{
+    int n = 0;
+    for (int i = 0; i < g->count; i++)
+        n += game_on_screen(g->x[i], g->y[i]);
+    return n;
+}
+
+/* One frame: openDMT3's read into a buffer of the game's size, then the game's own reading of it; the frames' clock
+ * (ms) moves on by a frame. */
+static uint8_t g_touch_buffer[TOUCH_BUFFER];
+static double g_now = 1000.0;
+static void frame_read(Contacts *t, GameTouch *g, int hold)
+{
+    /* The game's buffer keeps what the last read left in it, as the game's own does. */
+    contacts_read(t, hold, g_touch_buffer, sizeof g_touch_buffer, g_now);
+    game_reads(g, g_touch_buffer, 0);
+    g_now += 1000.0 / 60.0;
+}
+
+static void test_touch(void)
+{
+    Contacts t;
+    GameTouch g;
+    /* The buffer as the game makes it: 16 bytes of head and 100 groups of 100 points. */
+    check(TOUCH_BUFFER == TOUCH_HEAD + 100 * TOUCH_GROUP && TOUCH_GROUP == 100 * TOUCH_POINT,
+          "touch: the buffer is the game's 0x3A990 bytes, a head and 100 groups of 100 points of 24 bytes");
+
+    /* One finger: a press, held, let go. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 7, 100, 600, 0);
+    frame_read(&t, &g, 0);
+    int pressed = game_press(&g) && g.count == 1 && g.x[0] == 100 && g.y[0] == 600;
+    /* The point as the frame's program wrote it: turned on both axes. */
+    int turned = get16(g_touch_buffer + TOUCH_HEAD + TOUCH_X) == 1180 && get16(g_touch_buffer + TOUCH_HEAD + TOUCH_Y) == 168
+                 && get32(g_touch_buffer) == 1 && get32(g_touch_buffer + 8) == 1 && get32(g_touch_buffer + 12) == 1;
+    frame_read(&t, &g, 0);
+    int held = !game_press(&g) && g.touching && g.count == 1;
+    contacts_move(&t, 7, 120, 610);
+    frame_read(&t, &g, 0);
+    int moved = !game_press(&g) && g.count == 1 && g.x[0] == 120 && g.y[0] == 610;
+    contacts_up(&t, 7, g_now);
+    frame_read(&t, &g, 0);
+    check(pressed && held && moved && !g.touching && g.count == 0 && t.n == 0,
+          "touch: one finger is a press, held as it moves, and let go");
+    check(turned, "touch: a point is written turned as the touch frame's program wrote it (1280 - x, 768 - y), so the "
+                  "game's own turn puts it back under the finger");
+
+    /* A second finger while the first holds: a new press, the first still held and still the game's first point. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 1, 200, 500, 0);
+    frame_read(&t, &g, 0);
+    contacts_down(&t, 2, 900, 500, 0);
+    frame_read(&t, &g, 0);
+    check(g.new_finger && g.count == 2 && g.x[0] == 200 && g.x[1] == 900 && g.several,
+          "touch: a second finger while the first holds is a new press, the first still held and the first point");
+
+    /* A held note through taps elsewhere: every read has the held finger where it is, and every tap is a press. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 1, 640, 600, 0);
+    frame_read(&t, &g, 0);
+    int always_held = 1, every_tap = 1;
+    for (int k = 0; k < 20; k++) {
+        /* A tap down for a read, then up. */
+        contacts_down(&t, 10 + (uint32_t)k % 3, 100 + 50 * k, 500, 0);
+        frame_read(&t, &g, 0);
+        every_tap &= game_press(&g);
+        always_held &= game_has(&g, 640, 600);
+        contacts_up(&t, 10 + (uint32_t)k % 3, g_now);
+        frame_read(&t, &g, 0);
+        always_held &= game_has(&g, 640, 600) && !game_press(&g);
+    }
+    check(always_held && every_tap,
+          "touch: a held finger stays in every read through 20 taps elsewhere, and every tap is a press");
+
+    /* Fingers taking turns, each down in the read the other came up in: still a press each time (the count kept
+     * growing by a point off the screen), and the finger that came up gone at once. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 1, 300, 600, 0);
+    frame_read(&t, &g, 0);
+    int trill = 1, gone = 1, padded_off = 1;
+    for (int k = 0; k < 30; k++) {
+        uint32_t up = k % 2 ? 2 : 1, down = k % 2 ? 1 : 2;
+        int x = k % 2 ? 300 : 340;
+        contacts_up(&t, up, g_now);
+        contacts_down(&t, down, x, 600, 0);
+        frame_read(&t, &g, 0);
+        trill &= game_press(&g) && game_has(&g, x, 600);
+        gone &= !game_has(&g, k % 2 ? 340 : 300, 600) && game_on_screen_count(&g) == 1;
+        for (int i = 0; i < g.count; i++)
+            if (!(g.x[i] == x && g.y[i] == 600))
+                padded_off &= !game_on_screen(g.x[i], g.y[i]);
+    }
+    /* Each down in the read the other came up in. */
+    check(trill && gone, "touch: two fingers taking turns are a press every time, the one up gone at once (30 turns)");
+    /* The next read with no new press: the finger alone again (the count may fall; only a press needs it to grow). */
+    frame_read(&t, &g, 0);
+    check(padded_off && g.count == 1 && !game_press(&g) && g.touching,
+          "touch: the points that make the count grow lie off the game's screen, under nothing, and go at the next read "
+          "with no new press");
+
+    /* Two fingers held, one let go and another down in the same read: a press. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 1, 100, 600, 0);
+    contacts_down(&t, 2, 200, 600, 0);
+    frame_read(&t, &g, 0);
+    contacts_up(&t, 2, g_now);
+    contacts_down(&t, 3, 300, 600, 0);
+    frame_read(&t, &g, 0);
+    check(game_press(&g) && game_has(&g, 100, 600) && game_has(&g, 300, 600) && !game_has(&g, 200, 600),
+          "touch: of two held, one up and another down in the same read is a press, the other still held");
+
+    /* A tap that comes and goes between two reads: handed once, then gone. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 4, 500, 400, 0);
+    contacts_up(&t, 4, g_now);
+    frame_read(&t, &g, 0);
+    int tap = game_press(&g) && g.count == 1 && g.x[0] == 500;
+    frame_read(&t, &g, 0);
+    check(tap && !g.touching && t.n == 0, "touch: a tap between two reads is handed to the game once, then gone");
+
+    /* A tap the game had no read for in 250 ms (its menus read nothing): never handed to the read after. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 6, 500, 400, 0);
+    contacts_up(&t, 6, g_now);
+    g_now += TAP_KEEP_MS + 1;
+    frame_read(&t, &g, 0);
+    int stale = !g.touching && t.n == 0;
+    /* Every place taken by taps not read yet: the oldest makes room for a new finger, which is handed. */
+    for (uint32_t k = 0; k < CONTACTS_MOST; k++) {
+        contacts_down(&t, 100 + k, 10, 10, 0);
+        contacts_up(&t, 100 + k, g_now + k);
+    }
+    int room = contacts_down(&t, 200, 640, 600, 0) && t.n == CONTACTS_MOST && t.c[0].id == 101;
+    frame_read(&t, &g, 0);
+    check(stale && room && game_has(&g, 640, 600) && g.count == CONTACTS_MOST,
+          "touch: a tap with no read for 250 ms is never handed; old taps make room for a new finger");
+
+    /* Windows gives a new finger the id of a tap the game has not had yet: both handed, apart. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 5, 100, 100, 0);
+    contacts_up(&t, 5, g_now);
+    contacts_down(&t, 5, 900, 100, 0);
+    frame_read(&t, &g, 0);
+    int both = g.count == 2 && game_has(&g, 100, 100) && game_has(&g, 900, 100);
+    frame_read(&t, &g, 0);
+    check(both && g.count == 1 && game_has(&g, 900, 100),
+          "touch: a new finger with the id of a tap not read yet: both handed, the tap once");
+
+    /* The overlay's contacts: never the game's, beside the game's own. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 1, 1200, 10, 1);
+    frame_read(&t, &g, 0);
+    int none = !g.touching && g.count == 0;
+    contacts_down(&t, 2, 640, 600, 0);
+    frame_read(&t, &g, 0);
+    int only_game = g.count == 1 && game_has(&g, 640, 600);
+    contacts_up(&t, 1, g_now);
+    contacts_move(&t, 1, 600, 600);
+    frame_read(&t, &g, 0);
+    check(none && only_game && g.count == 1 && t.n == 1, "touch: a contact begun on the overlay never reaches the game");
+
+    /* The overlay takes the contacts down when it answers (its panel closes, a finger asks for the bar): the game sees
+     * them come up, and a finger after is the game's. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 1, 640, 600, 0);
+    contacts_down(&t, 2, 700, 600, 0);
+    frame_read(&t, &g, 0);
+    contacts_withhold(&t, 1);
+    frame_read(&t, &g, 0);
+    int one_taken = g.count == 1 && game_has(&g, 700, 600);
+    contacts_withhold(&t, CONTACT_ALL);
+    contacts_move(&t, 2, 710, 600);
+    frame_read(&t, &g, 0);
+    int all_taken = !g.touching;
+    contacts_down(&t, 3, 100, 600, 0);
+    frame_read(&t, &g, 0);
+    check(one_taken && all_taken && game_press(&g) && g.count == 1 && game_has(&g, 100, 600),
+          "touch: contacts the overlay takes come up for the game until let go, and a finger after is a press");
+
+    /* While the overlay holds the input (its menu or question up): nothing, and no tap made then comes after. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 1, 640, 600, 0);
+    frame_read(&t, &g, 0);
+    contacts_up(&t, 1, g_now);
+    contacts_down(&t, 2, 300, 300, 0);
+    contacts_up(&t, 2, g_now);
+    frame_read(&t, &g, 1);
+    int held_off = !g.touching;
+    frame_read(&t, &g, 0);
+    check(held_off && !g.touching && t.n == 0,
+          "touch: nothing reaches the game while the overlay holds its input, nor a tap made then, after");
+
+    /* The mouse as one point: a press, held 50 ms past its release as the game holds its button, then up. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    g_now = 1000.0;
+    contacts_mouse(&t, 1, 400, 300, 1000.0);
+    frame_read(&t, &g, 0);
+    int mouse_press = game_press(&g) && g.count == 1 && game_has(&g, 400, 300);
+    contacts_mouse(&t, 0, 410, 300, 1016.0);
+    frame_read(&t, &g, 0);
+    int still = g.touching && game_has(&g, 410, 300) && !game_press(&g);
+    contacts_mouse(&t, 0, 410, 300, 1049.0);
+    frame_read(&t, &g, 0);
+    int at_49 = g.touching;
+    contacts_mouse(&t, 0, 410, 300, 1050.0);
+    frame_read(&t, &g, 0);
+    check(mouse_press && still && at_49 && !g.touching,
+          "touch: the mouse is one point, held 50 ms past its release as the game holds its button, then up");
+    /* Pressed again within the 50 ms: the same press, as in the game's own reading. */
+    g_now = 2000.0;
+    contacts_mouse(&t, 1, 400, 300, 2000.0);
+    frame_read(&t, &g, 0);
+    contacts_mouse(&t, 0, 400, 300, 2016.0);
+    frame_read(&t, &g, 0);
+    contacts_mouse(&t, 1, 400, 300, 2032.0);
+    frame_read(&t, &g, 0);
+    int same = g.touching && !game_press(&g);
+    /* The mouse and two fingers: three points, each finger a press. */
+    contacts_down(&t, 1, 100, 700, 0);
+    frame_read(&t, &g, 0);
+    int first = game_press(&g) && g.count == 2;
+    contacts_down(&t, 2, 1100, 700, 0);
+    frame_read(&t, &g, 0);
+    check(same && first && game_press(&g) && g.count == 3,
+          "touch: the mouse pressed again within 50 ms is the same press; with two fingers, three points, each a press");
+
+    /* Ten fingers at once, then more than the contacts kept: the ones past the room are not kept. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    for (uint32_t k = 0; k < 10; k++)
+        contacts_down(&t, k, 100 + 100 * (int)k, 600, 0);
+    frame_read(&t, &g, 0);
+    int ten = g.count == 10 && game_press(&g) && g.x[9] == 1000;
+    int kept = 1;
+    for (uint32_t k = 10; k < CONTACTS_MOST + 5; k++)
+        kept &= contacts_down(&t, k, 50, 50, 0) == (k < CONTACTS_MOST);
+    frame_read(&t, &g, 0);
+    check(ten && kept && g.count == CONTACTS_MOST, "touch: ten fingers are ten points; past the contacts kept, none more");
+
+    /* Past the picture's edges (a finger on a bar): no place on the game's screen. */
+    contacts_start(&t);
+    memset(&g, 0, sizeof g);
+    contacts_down(&t, 1, 1290, 300, 0);
+    contacts_down(&t, 2, -40, 300, 0);
+    contacts_down(&t, 3, 640, 800, 0);
+    contacts_down(&t, 4, 640, -70000, 0);
+    frame_read(&t, &g, 0);
+    int off = g.count == 4;
+    for (int i = 0; i < g.count; i++)
+        off &= !game_on_screen(g.x[i], g.y[i]);
+    check(off && game_has(&g, -40, 300), "touch: a point past the game's edges never lands on its screen (one before "
+                                         "its left edge where it is)");
+
+    /* A buffer too small for the head gets nothing; one too small for every point gets what fits. */
+    uint8_t small[TOUCH_HEAD + 2 * TOUCH_POINT + 5];
+    memset(small, 0xAB, sizeof small);
+    contacts_start(&t);
+    for (uint32_t k = 0; k < 5; k++)
+        contacts_down(&t, k, 10 * (int)k, 10, 0);
+    int handed = contacts_read(&t, 0, small, sizeof small, g_now);
+    check(handed == 2 && get32(small + 12) == 2 && small[sizeof small - 1] == 0xAB &&
+              contacts_read(&t, 0, small, TOUCH_HEAD - 1, g_now) == 0,
+          "touch: never a byte past the buffer it is given");
+
+    /* A finger's game pixel is the pointer's: the same game pixel the display fix's sums give the mouse there. */
+    static const int clients[][2] = {{1920, 1080}, {2560, 1440}, {1280, 1024}, {1366, 768}, {3840, 2160}};
+    int same_pixel = 1, compared = 0;
+    for (int k = 0; k < 5; k++) {
+        for (int fill = 0; fill < 2; fill++) {
+            int cw = clients[k][0], ch = clients[k][1];
+            PicRect r = picture_rect(cw, ch, fill);
+            for (int py = r.y; py < r.y + r.h; py += 13)
+                for (int px = r.x; px < r.x + r.w; px += 11) {
+                    int qx, qy, mx, my, fx, fy;
+                    pointer_for_game(px, py, cw, ch, r, &qx, &qy);
+                    game_from_client(qx, qy, cw, ch, &mx, &my);
+                    game_pixel_under(px, py, r, &fx, &fy);
+                    same_pixel &= mx == fx && my == fy;
+                    compared++;
+                }
+        }
+    }
+    /* Kept and filled, five screen shapes. */
+    check(same_pixel && compared > 50000, "touch: a finger reaches the game pixel the mouse reaches at the same place");
+}
+
 /* --------------------------------------------------------------------------------- the methods in the tables */
 
 /* A method table as a library keeps one: read-only data of this program's own image (as Direct3D's is in its
@@ -2038,6 +2416,7 @@ int main(void)
     test_bar_clock();
     test_slides();
     test_slot_index();
+    test_touch();
     test_methods();
     test_sharp();
     test_picture();

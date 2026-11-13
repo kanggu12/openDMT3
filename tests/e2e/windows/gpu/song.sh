@@ -13,7 +13,8 @@
 #     tests/e2e/windows/gpu/song.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS] [VAR=VALUE...]
 #
 # GAME_PARENT, LINK_SOURCE and WINE_DLLS are measure.sh's; BUILD_DIR is ./dmt3 build's output, whose
-# native/CRT_R1.dll is the layer (a folder holding CRT_R1.dll itself is taken too). Each VAR=VALUE is passed to the
+# native/CRT_R1.dll is the layer (a folder holding CRT_R1.dll itself is taken too), with the touch screen's library
+# beside it when the build has one (multiDLL.dll, put in the copy as PLAY puts it). Each VAR=VALUE is passed to the
 # game on top of the layer's defaults as a player has them (locked to the music, FSR 1 at 50, no anti-aliasing, the
 # safety net off so the picture stays as chosen): OPENDMT3_JIT=off, say, to compare.
 set -u
@@ -54,6 +55,13 @@ DMT3=$(dirname "$CLIENT")
 REL_DMT3=${DMT3#"$OUT/game/"}
 rm -f "$DMT3/openDMT3-card.txt" "$DMT3/openDMT3-picture.txt"
 cp "$DLL" "$DMT3/CRT_R1.dll"
+# openDMT3's touch screen library in place of the client data's, as PLAY puts it, when the build has it (the game then
+# reads the mouse through it, and OPENDMT3_TOUCH_INJECT's made-up fingers).
+TOUCH=$(dirname "$DLL")/multiDLL.dll
+if [ -f "$TOUCH" ]; then
+  find "$DMT3" -maxdepth 1 -iname "multidll.dll" -delete
+  cp "$TOUCH" "$DMT3/multiDLL.dll"
+fi
 F="$REPO/opendmt3/client/assets/fonts"
 cp "$F/Pretendard-Bold.ttf" "$DMT3/openDMT3-Pretendard-Bold.ttf"
 cp "$F/Pretendard-Regular.ttf" "$DMT3/openDMT3-Pretendard-Regular.ttf"

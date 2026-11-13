@@ -1,6 +1,7 @@
 #!/bin/bash
 # Build CRT_R1.dll (32-bit, like the game) with MinGW-w64 in a Debian container: the card reader and the in-game
-# layer. Usage: build.sh OUT_DIR
+# layer; and multiDLL.dll, openDMT3's stand-in for the cabinet's touch screen library, which hands the game the touch
+# screen CRT_R1.dll reads (touch.c). Usage: build.sh OUT_DIR
 set -euo pipefail
 OUT=$(realpath -m "${1:?usage: build.sh OUT_DIR}")
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -31,14 +32,18 @@ docker run --rm --network none -u "$AS" -v "$HERE:/src:ro" -v "$OUT:/out" opendm
   i686-w64-mingw32-gcc -O2 -s -shared -static-libgcc -Wall -o /out/CRT_R1.dll \
     /src/crt_r1.c /src/hooks.c /src/trace.c /src/post.c /src/postmath.c /src/sound.c /src/engine.c /src/openal.c \
     /src/layer.c /src/text.c /src/look.c /src/logic.c /src/paint.c /src/files.c /src/redirect.c /src/passtimes.c \
-    /src/render.c /src/strobe.c /src/flip.c /src/methods.c \
+    /src/render.c /src/strobe.c /src/flip.c /src/touch.c /src/contacts.c /src/methods.c \
     /src/crt_r1.def /out/post.res \
     -Wl,--kill-at -luser32 -lgdi32 -lm
+# The touch screen's library the game imports (multidll.c): three plain __cdecl names at the original's numbers.
+docker run --rm --network none -u "$AS" -v "$HERE:/src:ro" -v "$OUT:/out" opendmt3-mingw:local \
+  i686-w64-mingw32-gcc -O2 -s -shared -static-libgcc -Wall -o /out/multiDLL.dll /src/multidll.c /src/multidll.def
 # Not executable: a Windows program is never started from here (WSL would hand it to Windows).
-chmod 0644 "$OUT/CRT_R1.dll"
+chmod 0644 "$OUT/CRT_R1.dll" "$OUT/multiDLL.dll"
 rm -f "$OUT/post.res" "$OUT/mark.bin"
 # The notices of the code built into the library, in one file that goes wherever the library goes (notices.sh, in
 # the compiler's image, which knows the runtime it links in).
 docker run --rm --network none -u "$AS" -v "$HERE:/src:ro" -v "$OUT:/out" opendmt3-mingw:local \
   sh /src/notices.sh /out/card-reader-NOTICES.txt
-echo "the card reader library and its notices: $OUT/CRT_R1.dll, $OUT/card-reader-NOTICES.txt"
+echo "the card reader library, the touch screen's and their notices: $OUT/CRT_R1.dll, $OUT/multiDLL.dll," \
+  "$OUT/card-reader-NOTICES.txt"

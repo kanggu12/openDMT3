@@ -26,8 +26,9 @@
  *
  * In a window the game's frame keeps its title bar (to move it) and its borders (to size it), with no buttons: the
  * bar's chips minimise it, take it to full screen and back, and quit. Nothing of the layer is in the middle of the
- * game, where the notes come. The game's window is subclassed for its mouse, its keys and its close request; a click
- * on the layer never reaches the game (the keyboard hook keeps the button from it too). While the menu or the question
+ * game, where the notes come. The game's window is subclassed for its mouse, its keys, its close request and its
+ * fingers (handed on to touch.c, then to the game as before); a click or a touch on the layer never reaches the game
+ * (the keyboard hook keeps the button from it too, touch.c the finger). While the menu or the question
  * is open during a song, or the game is minimised in one, the device's present holds the game still (hooks.c), and
  * this file pumps the messages meanwhile, the game's own window procedure left out.
  */
@@ -796,6 +797,8 @@ static void open_card(int what)
     if (g_quitting)
         return;
     card_open(&g_card, what);
+    /* Every finger down now answered the overlay or waits under its panel: none reaches the game until lifted. */
+    touch_withhold(1);
     g_card.korean = g_settings.korean;
     /* The menu's Show FPS row says the chip's state as it is now. */
     g_card.fps = g_fps_on;
@@ -815,6 +818,8 @@ static void close_card(void)
 {
     g_card.open = CARD_NONE;
     g_keys_waiting = 1;
+    /* The fingers that answered stay away from the game until they are lifted, as the keys and the button do. */
+    touch_withhold(1);
     /* The bar stays its 600 ms after the panel goes (longer while the pointer is on it). */
     bar_clock_rest(&g_bar_clock, now_ms());
     /* What the pointer is on now that the panel is gone (it rested on an answer, maybe with no move since): the bar
@@ -1054,8 +1059,10 @@ static void pointer_moved(int cx, int cy, float x, float y, int held)
         bar_clock_moved(&g_bar_clock);
     if (g_mouse_down && g_press_y >= 0 && g_pressed == HIT_NONE && g_swipe_ok && ui_swipe_down(g_press_y, y, g_th)) {
         ask_bar_by_finger();
-        /* The finger was asking for the bar, not playing: the game sees the button up until it is let go. */
+        /* The finger was asking for the bar, not playing: the game sees the button up until it is let go, and the
+         * finger itself (Windows' first, which it made this mouse from) leave its touch screen. */
         g_keys_waiting = 1;
+        touch_withhold(0);
         g_press_y = -1;
     }
     /* What the pointer is on, while something of the layer can be (the bar showing, or a panel open). */
@@ -1148,6 +1155,8 @@ static LRESULT CALLBACK game_proc(HWND h, UINT msg, WPARAM w, LPARAM l)
         break;
     case WM_LBUTTONDOWN:
         g_mouse_down = 1;
+        /* Whether Windows made this press from a finger or a pen (the touch screen has that finger already). */
+        touch_button(1);
         /* Measuring input latency: the press's time (nothing when not measuring). */
         ingame_press();
         if (pointer_pressed(x, y)) {
@@ -1158,6 +1167,7 @@ static LRESULT CALLBACK game_proc(HWND h, UINT msg, WPARAM w, LPARAM l)
         break;
     case WM_LBUTTONUP:
         g_mouse_down = 0;
+        touch_button(0);
         g_press_y = -1;
         if (pointer_released(x, y)) {
             set_pointer();
@@ -1178,6 +1188,14 @@ static LRESULT CALLBACK game_proc(HWND h, UINT msg, WPARAM w, LPARAM l)
         /* A drag that began on the layer stays the layer's. */
         if (g_pressed != HIT_NONE)
             return 0;
+        break;
+    case WM_POINTERDOWN:
+    case WM_POINTERUPDATE:
+    case WM_POINTERUP:
+    case WM_POINTERCAPTURECHANGED:
+        /* A finger or a pen: the touch screen's contact (touch.c). The message goes on as before, so Windows still
+         * makes the first finger the mouse the game's menus and the overlay's chips are pressed with. */
+        touch_pointer(h, msg, w, l);
         break;
     case WM_CLOSE:
         /* The window's own close (the taskbar's) asks first, as the bar's X does; quitting goes through. */
@@ -1231,6 +1249,8 @@ static LRESULT CALLBACK game_proc(HWND h, UINT msg, WPARAM w, LPARAM l)
             g_bar_clock.since = g_bar_clock.stay = 0;
             g_bar_clock.by_touch = 0;
             g_gate.armed = 0;
+            /* No finger is on the game's window any more as far as the game goes (its messages went elsewhere). */
+            touch_clear();
         }
         break;
     default:
@@ -1279,6 +1299,28 @@ void layer_first_screen(void)
 int layer_holds_input(void)
 {
     return g_card.open != CARD_NONE;
+}
+
+int layer_takes_press(int cx, int cy)
+{
+    /* The menu or the question up: a press anywhere answers it, or closes it beside its panel (pointer_pressed). */
+    if (g_card.open != CARD_NONE)
+        return 1;
+    /* Nothing of the layer's to land on while the bar is away (the mark lets presses through to the game). */
+    if (!bar_shown())
+        return 0;
+    float x, y;
+    to_target(cx, cy, &x, &y);
+    /* On the bar or one of its chips: the same test the mouse's press takes. */
+    return ui_hit(&g_lay, x, y) != HIT_NONE;
+}
+
+void layer_finger(int pressed, int any_down)
+{
+    /* The game is played: no rest brings the bar for a while, and one that shows goes (fading), as for a click. */
+    gate_press(&g_gate, now_ms(), any_down);
+    if (pressed)
+        bar_clock_hide(&g_bar_clock);
 }
 
 int layer_hold_wanted(void)

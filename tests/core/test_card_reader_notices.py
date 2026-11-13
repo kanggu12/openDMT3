@@ -76,6 +76,17 @@ class CardReaderNoticesTest(unittest.TestCase):
         with mock.patch.dict(os.environ, {"OPENDMT3_OPENAL_DIR": folder}):
             self.assertEqual(native.openal(), {})
 
+    def test_the_touch_screen_library_goes_with_the_library_when_the_build_has_it(self):
+        # Beside the card reader library, as build.sh makes it: in the step's files, written beside the client copy.
+        touch = os.path.join(self.tmp, native.TOUCH)
+        with mock.patch.dict(os.environ, {"OPENDMT3_CARD_READER": self.dll}):
+            self.assertIsNone(native.touch_library())
+            self.assertNotIn(native.TOUCH, steps.CardReader()._sources())
+            with open(touch, "wb") as f:
+                f.write(b"MZ openDMT3 touch screen stand-in")
+            self.assertEqual(native.touch_library(), touch)
+            self.assertEqual(steps.CardReader()._sources()[native.TOUCH], touch)
+
     def test_a_library_without_notices_goes_alone(self):
         # A library a test made has none: the step still works, without them.
         with mock.patch.dict(os.environ, {"OPENDMT3_CARD_READER": self.dll}):
@@ -83,9 +94,12 @@ class CardReaderNoticesTest(unittest.TestCase):
             self.assertNotIn(steps.CardReader.NOTICES, steps.CardReader()._sources())
 
     def test_the_build_makes_them_and_keeps_them_beside_the_library(self):
-        # native/cardreader/build.sh writes them beside CRT_R1.dll (notices.sh, every third-party text in full) ...
+        # native/cardreader/build.sh writes them beside CRT_R1.dll (notices.sh, every third-party text in full), and
+        # the touch screen's library beside both ...
         with open(os.path.join(ROOT, "native", "cardreader", "build.sh"), encoding="utf-8") as f:
-            self.assertIn("notices.sh /out/card-reader-NOTICES.txt", f.read())
+            build = f.read()
+        self.assertIn("notices.sh /out/card-reader-NOTICES.txt", build)
+        self.assertIn("-o /out/%s" % native.TOUCH, build)
         with open(os.path.join(ROOT, "native", "cardreader", "notices.sh"), encoding="utf-8") as f:
             script = f.read()
         for text in ("third_party/fsr/LICENSE.txt", "third_party/nis/LICENSE.txt", "third_party/smaa/LICENSE.txt",
@@ -94,7 +108,7 @@ class CardReaderNoticesTest(unittest.TestCase):
         # ... and the launcher's build keeps them beside it in bin/, where native.notices() finds them.
         with open(os.path.join(ROOT, "packaging", "windows", "openDMT3.spec"), encoding="utf-8") as f:
             spec = f.read()
-        self.assertIn('for name in ("CRT_R1.dll", "card-reader-NOTICES.txt")', spec)
+        self.assertIn('for name in ("CRT_R1.dll", "%s", "card-reader-NOTICES.txt")' % native.TOUCH, spec)
         # The OpenAL Soft mixer's three files too, the names native.openal() looks for.
         self.assertIn("for name in (%s)]," % ", ".join('"%s"' % name for name in native.OPENAL_FILES), spec)
         self.assertEqual(native.NOTICES, "card-reader-NOTICES.txt")

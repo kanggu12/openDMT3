@@ -1794,6 +1794,8 @@ static HWND WINAPI our_active(void)
     /* Direct3D's tables first, before the frame's own draws and its present. */
     look_at_methods();
     presents_watched();
+    /* Measuring only: what the game holds after its last read of the touch screen. */
+    touch_frame();
     QueryPerformanceCounter(&t1);
     /* Its time counts with the frame's openDMT3 time (once a frame). */
     ingame_cost(t1.QuadPart - t0.QuadPart);
@@ -1816,6 +1818,9 @@ static BOOL WINAPI our_keys(PBYTE keys)
     /* The press mark follows the button as the game reads it this frame (measuring only). */
     if (ok && keys)
         g_mark_down = (keys[VK_LBUTTON] & 0x80) != 0;
+    /* The touch screen's one point of the mouse is the button as the game reads it, the overlay's hold applied. */
+    if (ok && keys)
+        touch_keys(keys);
     /* A second look at the methods in Direct3D's tables (the frame's first, GetActiveWindow's, may be a client's that
      * calls it elsewhere). */
     look_at_methods();

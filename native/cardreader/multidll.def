@@ -1,0 +1,7 @@
+; The three names the PC client imports, at the original library's own numbers (Close 1, Open 2, Wait 3); __cdecl,
+; so the names are plain.
+LIBRARY multiDLL.dll
+EXPORTS
+CloseNexioMulti @1
+OpenNexioMulti @2
+WaitNexioMulti @3

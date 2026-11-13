@@ -492,6 +492,10 @@ void game_from_client(int qx, int qy, int cw, int ch, int *gx, int *gy);
  * in the picture shown at `r`: the pixel whose area holds that centre, as every upscale filter draws it there. Outside
  * the picture (a bar), the same mapping carried on: the game sees a point past its edge. */
 void pointer_for_game(int px, int py, int cw, int ch, PicRect r, int *qx, int *qy);
+/* The game pixel under the centre of client pixel (px, py) in the picture shown at `r`: the one the pointer reaches
+ * through pointer_for_game and the display fix's sums, worked out at once (a finger's point, which goes to the game in
+ * its own pixels). Outside the picture (a bar), past the game's edge as the pointer's is. */
+void game_pixel_under(int px, int py, PicRect r, int *gx, int *gy);
 
 /* ------------------------------------------------------------------------------------------------- slot index */
 

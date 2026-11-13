@@ -183,7 +183,9 @@ PLAY starts the game with (`OPENDMT3_LANGUAGE`, `OPENDMT3_CURSOR`, `OPENDMT3_PAC
 `OPENDMT3_PICTURE_SHAPE`, `OPENDMT3_PASS_TIMES`, `OPENDMT3_LOW_LATENCY`, `OPENDMT3_SOUND_PATH`, `OPENDMT3_RENDER`,
 `OPENDMT3_AUDIO_OFFSET`, `OPENDMT3_MOTION_CLARITY`, `OPENDMT3_FLIP_MODEL`, from `core/cabinet/values.py`
 `layer_environment`) and turns five of the game's imports to its own: the slots of the game's import table that hold
-the real functions get ours, which call the real ones.
+the real functions get ours, which call the real ones. Beside it, PLAY puts openDMT3's own `multiDLL.dll` in place of
+the cabinet's touch screen library, which hands the game every finger through this one
+([the touch screen](#the-touch-screen)).
 
 <p align="center">
   <picture>
@@ -198,6 +200,8 @@ the real functions get ours, which call the real ones.
 | `files.c`, `redirect.c` | The client's file calls turned to openDMT3's: the list beside the library read once (`redirect.c`, plain C the native tests run), each path the game opens matched against it without letter case, openDMT3's file opened in its place with the wide call; the client told it runs from the client data's folder. `OPENDMT3_FILES_TRACE` (measuring only) writes every call, and every read of one of the game's files with its place, into the in-game log |
 | `hooks.c` | The five imports turned to openDMT3's: `DirectSoundCreate8` (and `DirectSoundCreate`), `Direct3DCreate9`, `GetKeyboardState`, `GetCursorPos` and `GetActiveWindow` ([the five hooks](#the-five-hooks)) |
 | `methods.c` | The methods openDMT3 put in Direct3D's method tables, watched: each entry looked at once a frame and put back as openDMT3's when Direct3D filled its table in again ([the methods in the tables](#the-methods-in-the-tables)) |
+| `touch.c`, `contacts.c` | The touch screen: the fingers and pens Windows reports on the game's window and the mouse as one point, handed to the game at each of its reads by `contacts.c`'s rules (plain C the native tests run) ([the touch screen](#the-touch-screen)) |
+| `multidll.c`, `multidll.def` | openDMT3's `multiDLL.dll`: the three calls the client imports from the cabinet's touch screen library, at the original's names and numbers, answered from `CRT_R1.dll`'s touch screen |
 | `layer.c` | The layer's state and its input: the bar and its chips, the menu and the question, the toast, the mark and the frame rate chip ([the layer's parts and their input](#the-layers-parts-and-their-input)) |
 | `text.c` | The layer's words: GDI text in Pretendard Bold and Regular and DMT3 Wide, which the setup puts beside the DLL and the layer loads for the game's process only, kept once drawn so a panel drawn again costs no GDI work |
 | `post.c` | The post-process chain over the game's picture, and the layer drawn in it ([the picture's chain](#the-pictures-chain), [the layer in the chain](#the-layer-in-the-chain)) |
@@ -214,7 +218,7 @@ the real functions get ours, which call the real ones.
 | `look.c`, `paint.c`, `logic.c` | The pictures (anti-aliased polygons after the game's own panels: its dialogs' title tab and metal frame, its notice's glass, its glossy buttons; the bar's chips in the launcher's leaning button shape) and the decisions (the settings, the frame clock, the keys the game may see, the panels' answers and keys, the layout, when a rest may bring the bar), with no Windows calls |
 | `mark.py` | The product's mark for the bar, drawn by the launcher's own code (`opendmt3/client/art.py` logo) when the DLL is built and carried in it as a resource: the bar shows the launcher's picture of the mark, never letters set in its face |
 | `trace.c` | With `OPENDMT3_INGAME_TRACE` set, how the game draws (its device, its draws' vertex formats, transforms, render targets, copies), into the log; never set by the launcher |
-| `test_native.c`, `test.sh` | The tests of the files with no Windows calls, and of the methods' watch, built with the same compiler and run under Wine |
+| `test_native.c`, `test.sh` | The tests of the files with no Windows calls (the touch screen's rules read back the way the game reads them), and of the methods' watch, built with the same compiler and run under Wine |
 
 ### The five hooks
 
@@ -258,6 +262,52 @@ loop). The log says it the first time for each entry, then at its 10th, 100th...
 module's image are watched: one that could go with its object is never read after it is freed. A device whose table
 was swapped for another, which no look at the entries can see, shows as 300 frames of the game with no present through
 openDMT3's, said once in the log.
+
+### The touch screen
+
+The cabinet's touch frame came with a program that wrote the touches into shared memory; the PC client reads them
+through `multiDLL.dll`, its only imports from it `OpenNexioMulti` (once at its start), `WaitNexioMulti(1, buffer)` (a
+frame while a song plays, its window the active one) and `CloseNexioMulti`, all three `__cdecl`. On a PC the
+original's open finds no such program, and the game plays one point read from the mouse. Measured in the client (its
+touch screen's open and its point reader), with the open made to succeed:
+
+- **The buffer**: 0x3A990 bytes, 16 of head (touching or not; how many touches, above 1 several; groups; points in a
+  group), then 100 groups of 100 points of 24 bytes; the game takes up to 100 points, each at `1280 - X`, `768 - Y` of
+  the point's two 16-bit numbers.
+- **A press**, for the notes, is the touching starting, or, with several touches, the head's groups and points added
+  up growing past the last read's. A held note and the lanes take every point of each read.
+- **The menus** never read it: they read the mouse's button (`GetKeyboardState`) and the pointer, which Windows moves
+  for the first finger and presses with it (its mouse made from a finger), as the cabinet's frame did.
+
+openDMT3's `multiDLL.dll` (`multidll.c`) has those three exports at the original's names and numbers and answers from
+`CRT_R1.dll` (`touch.c`, its three `openDMT3_touch_*` exports): its open succeeds when openDMT3's library is beside it
+(`OPENDMT3_MULTI_TOUCH=off`, for measuring only, keeps the game's own mouse), and each read fills the game's buffer at
+once (`contacts.c`):
+
+- every finger and pen Windows reports on the game's window (`WM_POINTERDOWN`, `UPDATE`, `UP`, `CAPTURECHANGED`, from
+  the layer's window procedure, which then hands them on to the game's as before, so Windows still makes the first
+  finger the mouse), at the game pixel under it in the picture as placed, the same pixel the mouse gets there;
+- the mouse as one point more: its left button as the game reads it this frame (the overlay's hold applied), held
+  50 ms past its release as the game's own reading of the button holds it, never a button Windows made from a finger
+  (`GetMessageExtraInfo`'s mark), which is a contact already;
+- written turned as the frame's program wrote them, in one group, the oldest contact first;
+- a contact down in the read another came up in would leave the count as it was, and the game would miss its press:
+  the read then adds points off the game's screen, where nothing of the game's is, until the count is one past the
+  last read's;
+- a tap that comes and goes between two reads is handed once, when a read comes within 250 ms of it (the game reads
+  only while a song plays: a tap on its menus is never handed to the song after);
+- **the overlay's rules**: a contact begun on the bar, a chip or a panel while it shows, or anywhere while the menu or
+  the question is up, never reaches the game; when a panel opens or closes, or Windows' first finger is drawn down for
+  the bar, the contacts down then stay away from the game until they are lifted, as the keys and the button do;
+  another finger on the game counts as play for the bar, as a click does; nothing reaches the game while a panel is
+  up, nor a tap made then.
+
+The place a finger is read at comes in the screen's physical pixels, turned into the window's own; a press that lies
+in the window only one way says which way Windows gives them, and the log says so. The log says the first contact's
+place and the game pixel it gave, the first finger against Windows' pointer, and each new most of fingers at once.
+For the tests only (a touch screen cannot be made under Wine), `OPENDMT3_TOUCH_INJECT` puts made-up contacts down at
+given reads, and `OPENDMT3_TOUCH_WATCH=on` writes what the game itself holds after each read (its count, flags and
+first points) into the log, read from its memory in the PC build.
 
 ### The layer's parts and their input
 

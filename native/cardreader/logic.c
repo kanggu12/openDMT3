@@ -1182,15 +1182,31 @@ void game_from_client(int qx, int qy, int cw, int ch, int *gx, int *gy)
     *gy = ch > 0 ? qy * GAME_H / ch : qy;
 }
 
+/* One axis: the game pixel whose area holds the centre of picture pixel `p` (the picture `size` wide, starting at
+ * `at`, the game `game` pixels across it): floor((p - at + 0.5) * game / size), in whole numbers. */
+static long long game_axis(int p, int at, int size, int game)
+{
+    /* The centre's place times two, so the half pixel stays a whole number. */
+    long long num = (long long)(2 * (p - at) + 1) * game, den = 2LL * size;
+    /* C's division goes towards zero: a centre left of the picture (a bar) is rounded down all the same. */
+    return num >= 0 ? num / den : -((-num + den - 1) / den);
+}
+
+void game_pixel_under(int px, int py, PicRect r, int *gx, int *gy)
+{
+    /* A picture of no size (none placed yet): the point as it is, as pointer_for_game hands it on. */
+    *gx = r.w > 0 ? (int)game_axis(px, r.x, r.w, GAME_W) : px;
+    *gy = r.h > 0 ? (int)game_axis(py, r.y, r.h, GAME_H) : py;
+}
+
 /* One axis: the client coordinate whose helper sum (q * game / client, towards zero) gives the game pixel under the
  * centre of picture pixel `p` (the picture `size` wide, starting at `at`). */
 static int pointer_axis(int p, int at, int size, int client, int game)
 {
     if (size <= 0 || client <= 0)
         return p;
-    /* The game pixel whose area holds the centre: floor((p - at + 0.5) * game / size), in whole numbers. */
-    long long num = (long long)(2 * (p - at) + 1) * game, den = 2LL * size;
-    long long g = num >= 0 ? num / den : -((-num + den - 1) / den);
+    /* The game pixel whose area holds the centre (game_axis, the same sum a finger's point takes). */
+    long long g = game_axis(p, at, size, game);
     /* The smallest q with q * game / client >= g (for g < 0 the largest with q * game / client <= g, as division goes
      * towards zero there): the first client coordinate inside that game pixel. */
     long long q = g >= 0 ? (g * client + game - 1) / game : -((-g * client + game - 1) / game);

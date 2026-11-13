@@ -10,7 +10,7 @@ trap 'rm -rf "$OUT"' EXIT
 # The compiler image, as build.sh makes it.
 docker image inspect opendmt3-mingw:local >/dev/null 2>&1 || "$HERE/build.sh" "$OUT/dll" >/dev/null
 docker run --rm --network none -v "$HERE:/src:ro" -v "$OUT:/out" opendmt3-mingw:local \
-  i686-w64-mingw32-gcc -O2 -Wall -o /out/test_native.exe /src/test_native.c /src/look.c /src/logic.c /src/postmath.c /src/paint.c /src/redirect.c /src/passtimes.c /src/methods.c -lm \
+  i686-w64-mingw32-gcc -O2 -Wall -o /out/test_native.exe /src/test_native.c /src/look.c /src/logic.c /src/postmath.c /src/paint.c /src/redirect.c /src/passtimes.c /src/contacts.c /src/methods.c -lm \
   || { echo "FAIL: the native tests did not build"; exit 1; }
 # Not executable here: only Wine, in its container, runs it. Changed in a container as the compiler's wrote it (as
 # root, which a CI runner's own user may not change).

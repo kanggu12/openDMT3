@@ -216,7 +216,8 @@ class Client:
 
     def libraries(self, game, data):
         """The client's libraries in the game folder: its imports and theirs in turn that are files there (any letter
-        case), openDMT3's card reader left out. {name as the game folder spells it: its path}."""
+        case), openDMT3's card reader left out, and the touch screen's library when this build has openDMT3's own (the
+        library step puts it in place). {name as the game folder spells it: its path}."""
         found = {}
         try:
             todo = list(pe.imports(data))
@@ -225,11 +226,14 @@ class Client:
             log.warning("the client's libraries cannot be read (%s): none copied", e)
             return found
         seen = set()
+        # openDMT3's own touch screen library, when this build has it: the client data's (the cabinet's touch frame's)
+        # is never loaded, nor what it needs in turn.
+        ours = {"crt_r1.dll"} | ({native.TOUCH.lower()} if native.touch_library() else set())
         while todo:
             name = todo.pop(0)
             low = name.lower()
             # Each name once; the card reader is openDMT3's (the cabinet's is never loaded).
-            if low in seen or low == "crt_r1.dll":
+            if low in seen or low in ours:
                 continue
             seen.add(low)
             real = g.real_name(game.root, name)
@@ -371,6 +375,11 @@ class CardReader:
         # The Sound page's OpenAL Soft mixer, beside the library, which loads it from there when it is chosen: DSOAL
         # and OpenAL Soft with their notices, in every build that has them (native.openal: all three or none).
         sources.update(native.openal())
+        # openDMT3's own touch screen library in place of the client data's, in every build that has it: the game
+        # loads it from beside the client copy, and it hands the game every finger through this library.
+        touch = native.touch_library()
+        if touch:
+            sources[native.TOUCH] = touch
         return sources
 
     def status(self, game, own, options):

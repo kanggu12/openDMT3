@@ -12,7 +12,8 @@
  * With OPENDMT3_CARD_LOG set, every call is appended to that file (empty value: openDMT3-card.log beside the DLL).
  *
  * Every export is __stdcall with the argument sizes of the original library (crt_r1.def keeps the plain names
- * the game imports). The game imports these ten of the original's 68 exports and nothing else.
+ * the game imports). The game imports these ten of the original's 68 exports and nothing else; the library's three
+ * others (openDMT3_touch_*, touch.c) are for openDMT3's own multiDLL.dll, the touch screen's.
  *
  * The game loads this library by name before its own code runs, in every way of playing, so it also carries
  * openDMT3's in-game layer (ingame.h): DllMain starts it. Without a card file the reader is simply empty, and the

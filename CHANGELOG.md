@@ -6,6 +6,14 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+### Added
+
+- Every finger on a touch screen plays, as on the cabinet: openDMT3's own touch screen library takes the place of the
+  cabinet's in openDMT3's copy of the client, so the game reads each finger on its window, and the mouse as one point,
+  where it read one point from the mouse before. A long note held with one finger stays held while others tap, a
+  finger down as another comes up is a press, and a touch on the overlay bar or its panels never reaches the game.
+  Tried with made-up touches under Wine; a real touch screen has yet to try it.
+
 ### Changed
 
 - The methods openDMT3 puts in Direct3D's tables are looked at every frame and put back if Direct3D fills a table in
