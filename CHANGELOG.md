@@ -18,6 +18,13 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 - The methods openDMT3 puts in Direct3D's tables are looked at every frame and put back if Direct3D fills a table in
   again, as it was seen to do in another build of the game, so the frames stay paced and the picture's passes stay on.
+- The launcher is laid out as OpenDMTQ's PC client and openDMT3's own site are: the pages' names in a bar across the
+  top, in English in both languages and reached by the keyboard, each page's title scrolling with its parts on cards
+  with a cut corner, **Check again** at the ready check's title, and a page's main button quiet beside a lit **PLAY**.
+  The first-start guide's steps stand across the top, with **Skip**, **Back**, **Next** and the last step's **PLAY** at
+  its foot.
+- Words as the menu and the guides say them: a page by the menu's name (the ONLINE page), **Last game**,
+  **FPS counter**, the overlay bar and its handle, **Open my records**, **Open on the site**, the site's address.
 
 ### Fixed
 

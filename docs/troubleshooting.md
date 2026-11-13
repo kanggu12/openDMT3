@@ -107,7 +107,7 @@ after the game.
 - The game reports only the stages a player clears, at the end of a session: a failed stage is not kept, and a
   guest's stages are not kept.
 - Offline keeps nothing. Records are kept playing on this PC or on another server.
-- **Records** and **My records** show the player chosen on **Play**.
+- **Records** and **Open my records** show the player chosen on **Play**.
 
 ## The other PCs on your network cannot connect
 

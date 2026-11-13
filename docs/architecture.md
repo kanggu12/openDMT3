@@ -973,7 +973,7 @@ Measured under Wine 11.0, the sound on a PulseAudio null sink in the container a
 ## The launcher
 
 The launcher is `opendmt3/client/`. The window is Tk, drawn by the launcher itself (`theme.py`, `art.py`, `widgets.py`):
-no Windows controls, so it looks the same at every scaling. Pages fill the area right of the menu (`client/pages/`);
+no Windows controls, so it looks the same at every scaling. Pages fill the area under the menu (`client/pages/`);
 dialogs are drawn inside the window (`dialogs.py`), over a picture of the window made from its own widgets
 (`snapshot.py`).
 

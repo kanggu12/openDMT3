@@ -137,7 +137,7 @@ the notes come, and no key of the keyboard brings it:
 - **The game holds still** while the menu or the question is open during a song, or while the game is minimized in
   one: the picture stops on the frame it showed, the music on the note it played, and both go on together when you
   go back to the game. The game sees none of the keys and clicks that answer them.
-- **The FPS counter** (**Screen**, **Show FPS**; off by default) shows the frames a second and the time of a frame, on
+- **The FPS counter** (**Screen**, **FPS counter**; off by default) shows the frames a second and the time of a frame, on
   one line, on faint glass that its words read over on any screen, in the corner chosen under **Position** (the bottom
   right by default, beside the game's FREE PLAY on its line, below the notes: it covers none of the game's own labels or
   buttons, and no more of a note than the game's own FREE PLAY). In a top corner it moves down with the bar. Clicks go
@@ -153,13 +153,13 @@ the notes come, and no key of the keyboard brings it:
 
 Logged in, the game shows your DJ card (your level, icon, plate, plate pattern and comment), and the song select shows
 your best on each chart and the first place on your server. Choose the card's icon, plate, plate pattern and comment
-on the site, under **My account**: playing on this PC, **Play**, **My records** opens it.
+on the site, under **My account**: playing on this PC, **Play**, **Open my records** opens it.
 
 ## The pages
 
 | Page | What it does |
 | :--- | :--- |
-| **Play** | Who plays, the ready check (what PLAY makes), how to play, the last session's stages |
+| **Play** | Who plays, the ready check (what PLAY makes), how to play, the last game's stages |
 | **Screen** | Full screen or a window and its size, vertical sync, frame pacing, motion clarity (on a display at a whole multiple of 60 Hz from 120 up), the picture's shape, the FPS counter and its corner, the size the game draws at, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time, the flip model |
 | **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), the output device, who mixes the game's sounds, low latency, and the audio offset for a device that plays late |
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen), and how each plays |
@@ -208,11 +208,12 @@ is read as late as the frame's own work allows.
 - **Anti-aliasing** (**Screen**): smooths the game's jagged edges before the picture is enlarged (with **Screen size**,
   in the picture the game draws): **Off** (the default), **FXAA**, **SMAA Low**, **SMAA Medium**, **SMAA High** or
   **SMAA Ultra**.
-- **Show FPS** (**Screen**, off by default): a small, faint counter over the game on one line, the frames a second and
-  the frame's length, updated twice a second. **SHOW FPS** in the in-game menu turns it on or off for that run; the
-  launcher's choice is how each run starts.
-- **Position** (**Screen**, shown while **Show FPS** is on): the counter's corner, **Bottom right** by default (beside
-  the game's FREE PLAY, below the notes, where it covers none of the game's own labels); **Top left**, **Top right** or
+- **FPS counter** (**Screen**, off by default): a small, faint counter over the game on one line, the frames a
+  second and the frame's length, updated twice a second. **SHOW FPS** in the in-game menu turns it on or off for
+  that run; the launcher's choice is how each run starts.
+- **Position** (**Screen**, shown while **FPS counter** is on): the counter's corner, **Bottom right** by default
+  (beside the game's FREE PLAY, below the notes, where it covers none of the game's own labels); **Top left**,
+  **Top right** or
   **Bottom left** can be chosen instead.
 - **Motion clarity** (**Screen**, shown when the main screen runs at a whole multiple of 60 Hz from 120 up, such as
   120, 180 or 240 Hz, off by default): each frame is shown over its refreshes as a CRT showed it. **CRT beam** lights
@@ -260,7 +261,7 @@ All take effect at the next PLAY.
 
 ## Your records
 
-Playing on this PC, **Records** shows the chosen player's numbers, and **Play**, **My records** opens the rankings,
+Playing on this PC, **Records** shows the chosen player's numbers, and **Play**, **Open my records** opens the rankings,
 the songs and your own page in the browser, signed in as that player. That site is for this PC only and runs while
 the launcher does. On another server, the same page reads that server.
 
@@ -425,7 +426,7 @@ The settings `--set` takes, each as its page keeps it:
 | `vsync`, `glow`, `videos`, `preload` | `on`, `off` | **Screen**: **VSync**, **Glow**, **Background videos**, **Load ahead** |
 | `frame_pacing` | `music`, `even`, `game` | **Screen**, **Frame pacing** |
 | `picture_shape` | `keep`, `fill` | **Screen**, **Picture shape** |
-| `show_fps` | `on`, `off` | **Screen**, **Show FPS** |
+| `show_fps` | `on`, `off` | **Screen**, **FPS counter** |
 | `fps_position` | `top_left`, `top_right`, `bottom_left`, `bottom_right` | **Screen**, **Position** |
 | `render_size` | `game`, `display` | **Screen**, **Drawn at** |
 | `upscale` | `off`, `smooth`, `fsr1`, `nis`, `anime4k` | **Screen**, **Upscale filter** |
