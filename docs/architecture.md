@@ -174,7 +174,9 @@ with NO ID CARD). It is also openDMT3's in-game layer, below.
 
 ## The in-game layer
 
-The game loads `CRT_R1.dll` by name before its own code runs, so openDMT3's library (`native/cardreader/`, 32-bit C
+The in-game overlay of the player's guide (the overlay bar, the menu, the quit question, notices, the FPS counter) is
+the layer in the code, with frame pacing, the picture's passes, the sound and the card beside it in one library. The
+game loads `CRT_R1.dll` by name before its own code runs, so openDMT3's library (`native/cardreader/`, 32-bit C
 built with MinGW) lives inside the game's process. Its `DllMain` reads the launcher's choices from the environment
 PLAY starts the game with (`OPENDMT3_LANGUAGE`, `OPENDMT3_CURSOR`, `OPENDMT3_PACING`, `OPENDMT3_FPS`,
 `OPENDMT3_FPS_POSITION`, `OPENDMT3_SOUND_DEVICE`, `OPENDMT3_UPSCALE`, `OPENDMT3_SHARPNESS`, `OPENDMT3_ANTIALIASING`,
@@ -240,7 +242,7 @@ the real functions get ours, which call the real ones.
 ### The layer's parts and their input
 
 <p align="center">
-  <img src="images/ingame.png" alt="openDMT3's in-game overlay over the game's own tutorial, in frames captured under Wine: the overlay bar at the game's top edge with openDMT3's mark at its left and, at its right, the menu (open, with Back to the game, Show FPS and Quit the game), minimise, window and quit; under it the quit question, a notice that the picture stepped down to keep 60 FPS, and the FPS counter in its corner" width="100%">
+  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs under its button: BACK TO THE GAME, SHOW FPS, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter in the bottom right corner above the game's FREE PLAY, 60 FPS over 16.7 ms" width="100%">
 </p>
 
 - **The bar** comes when the pointer, moved to the game's very top edge or onto the mark at its top centre with no

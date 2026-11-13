@@ -1,8 +1,8 @@
 # Playing on your PC
 
-The launcher plays the game from your own TECHNIKA 3 client data on a Windows PC without changing it, remembers how you
-want the picture and the sound, puts your card in and starts the game. This guide is the player's: it goes from the
-installer to everyday play. To run a server for other players' PCs, see [Running a server](server.md).
+For players: the launcher plays the game from your own TECHNIKA 3 client data on a Windows PC without changing it,
+keeps your picture and sound settings, puts your card in and starts the game. This guide goes from the installer to
+everyday play; to run a server for other players' PCs, see [Running a server](server.md).
 
 <p align="center">
   <picture>
@@ -48,7 +48,7 @@ launcher started is running (close the game, then **Try again**).
 
 The launcher and the game are Windows programs. On Linux they run under Wine, as this project's own tests run them for
 every release: Wine 11 from WineHQ's stable packages on Debian 12, from the installer to whole songs, card logins, the
-in-game layer, updates and **Repair**, drawn on the processor and on a graphics card.
+in-game overlay, updates and **Repair**, drawn on the processor and on a graphics card.
 
 1. Install Wine 11 or newer with its 32-bit part (WineHQ's `winehq-stable` package) and `winetricks`.
 2. Add the one library the game needs that Wine does not have: `winetricks mfc42`.
@@ -104,42 +104,41 @@ Clicking is touching, and holding the button down while moving is sliding. **TOU
 FREE PLAY, so it needs no coins. The launcher has already put your card in: the game logs you in on its own.
 **NO ID CARD** plays without logging in.
 
-openDMT3 adds a few things of its own over the game, in the look of the game's own panels (its dialogs' title tab
-and metal frame, its glossy buttons) on an opaque frosted glass, and in the launcher's language. None of them is in
-the middle of the game, where the notes come, and no key of the keyboard brings any of them:
+openDMT3 adds an overlay of its own over the game: frosted glass in the shapes of the game's own panels (their title
+tab, metal frame and glossy buttons), in the launcher's language. Nothing of it is in the middle of the game, where
+the notes come, and no key of the keyboard brings it:
 
 <p align="center">
-  <img src="images/ingame.png" alt="openDMT3's in-game overlay over the game's own tutorial, in frames captured under Wine: the overlay bar at the game's top edge with openDMT3's mark at its left and, at its right, the menu (open, with Back to the game, Show FPS and Quit the game), minimise, window and quit; under it the quit question, a notice that the picture stepped down to keep 60 FPS, and the FPS counter in its corner" width="100%">
+  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs under its button: BACK TO THE GAME, SHOW FPS, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter in the bottom right corner above the game's FREE PLAY, 60 FPS over 16.7 ms" width="100%">
 </p>
 
-- **The bar.** Move the pointer to the very top edge of the game, or onto the small tab at its top center, and let it
-  rest there with its button up (or draw a finger down from the top edge): a bar comes down over the game's own top
-  bar, with openDMT3's mark at its left and, at its right, the menu, then **minimize**, **full screen** (or back to a
-  window) and the **X**.
-- **When the bar comes and goes.** It comes only when the game has had no click or touch for 1.5 s, so a click or a
+- **The overlay bar.** Let the pointer rest at the very top edge of the game, or on the small tab at its top center,
+  with its button up (or draw a finger down from the top edge): the bar comes down over the game's own top bar, with
+  openDMT3's mark at its left and, at its right, the menu, **minimize**, **full screen** (or back to a window) and the
+  **X**.
+- **When the bar comes and goes.** It comes only after the game has had no click or touch for 1.5 s, so a click or a
   held note at the top of a song never brings it. It also comes down by itself for 3 s when the game's first screen
   shows and after each switch between a window and full screen, so you see where it is. It stays 0.6 s after the
   pointer leaves it, then fades; a click on the game takes it away at once.
-- **The X** asks first, under the X at the top right: **Quit the game?**, **KEEP PLAYING** first and **QUIT THE GAME**
-  in red; during a song with one line more, **A play in progress is not kept.** (the game sends a play's results when
-  the play ends). The window's own close (the taskbar's) asks the same, so a click by mistake ends nothing. **QUIT THE
-  GAME** ends the game the way its own close does, and the launcher sees it end. Esc and Alt+F4 do nothing: the
-  game's own Esc would end it at once, so the game never sees it.
+- **The quit question.** The X asks first, under the X: **Quit the game?**, with **KEEP PLAYING** first and **QUIT THE
+  GAME** in red, and during a song one more line, **A play in progress is not kept.** (the game sends a play's
+  results when the play ends). The window's own close (the taskbar's) asks the same, so a click by mistake ends
+  nothing. **QUIT THE GAME** ends the game the way its own close does, and the launcher sees it end. Esc and Alt+F4
+  do nothing: the game's own Esc would end it at once, so the game never sees it.
 - **In a window** the game keeps its title bar, to move it, and its borders, to size it, with no buttons on the title
-  bar: the bar's chips minimize it, take it to full screen and back, and quit.
-- **The menu** drops down under its chip: **BACK TO THE GAME**, **SHOW FPS** (the FPS chip on or off for this run)
-  and **QUIT THE GAME**. The arrow keys and Enter choose, Esc closes; a click beside the menu or the question
+  bar: the overlay bar's buttons minimize it, take it to full screen and back, and quit.
+- **The menu** drops down under its button: **BACK TO THE GAME**, **SHOW FPS** (the FPS counter on or off for this
+  run) and **QUIT THE GAME**. The arrow keys and Enter choose, Esc closes; a click beside the menu or the question
   closes it too.
 - **The game holds still** while the menu or the question is open during a song, or while the game is minimized in
-  one: the picture stops on the frame it showed, the music stops on the note it played, and both go on together from
-  there when you go back to the game. The game sees none of the keys and clicks that answer them.
-- **The FPS chip** (Screen, **Show FPS**; off by default) shows the frames a second and the time of a frame,
+  one: the picture stops on the frame it showed, the music on the note it played, and both go on together when you
+  go back to the game. The game sees none of the keys and clicks that answer them.
+- **The FPS counter** (**Screen**, **Show FPS**; off by default) shows the frames a second and the time of a frame,
   small and faint, in the corner chosen under **Position** (the bottom right by default, above the game's FREE PLAY,
   where it covers none of the game's own labels). Clicks go through it to the game, and it hides while the game holds
   still.
-- **A toast** hangs from the top edge for a few seconds when openDMT3 has a line to say: `Picture quality lowered to
-  keep 60 FPS`, with the step it took
-  ([the safety net](#frame-pacing-the-picture-the-fps-chip-and-the-sound-device)).
+- **A notice** hangs from the top edge for a few seconds when openDMT3 has something to say: `Picture quality lowered
+  to keep 60 FPS`, with the step it took ([the safety net](#frame-pacing-the-picture-the-fps-counter-and-the-sound-device)).
 - **The pointer** over the game is openDMT3's own: a dart with a chrome edge round a blue core, all blue and a little
   smaller while the button is down, sized for the display's scaling (32 pixels at 100 %). With **Controls** set to a
   touch screen the game hides it as before.
@@ -153,7 +152,7 @@ on the site, under **My account**: playing on this PC, **Play**, **My records** 
 | Page | What it does |
 | :--- | :--- |
 | **Play** | Who plays, the ready check (what PLAY makes), how to play, the last session's stages |
-| **Screen** | Full screen or a window and its size, vertical sync, frame pacing, motion clarity (on a display at a whole multiple of 60 Hz from 120 up), the picture's shape, the FPS chip and its corner, the size the game draws at, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time, the flip model |
+| **Screen** | Full screen or a window and its size, vertical sync, frame pacing, motion clarity (on a display at a whole multiple of 60 Hz from 120 up), the picture's shape, the FPS counter and its corner, the size the game draws at, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time, the flip model |
 | **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), the output device, who mixes the game's sounds, low latency, and the audio offset for a device that plays late |
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen), and how each plays |
 | **Game** | The client data in use, with its client, songs and jackets; the song list (**Save the song list...** and, signed in as a server's admin, **Send the song list to this server**); FREE PLAY; the hidden patterns |
@@ -165,7 +164,7 @@ on the site, under **My account**: playing on this PC, **Play**, **My records** 
 The version installed shows beside the logo. Tab moves between the buttons and switches, and Enter or Space presses one.
 A setting takes effect at the next PLAY.
 
-## Frame pacing, the picture, the FPS chip and the sound device
+## Frame pacing, the picture, the FPS counter and the sound device
 
 The game runs its logic once a frame and holds 60 frames a second itself, on any display (a faster rate would run the
 game faster), so a song's notes move with its frames and its music with the sound card's clock. **Frame pacing**
@@ -185,7 +184,8 @@ is read as late as the frame's own work allows.
 - **Picture shape** (**Screen**): **Keep** (the default) shows the game's 1280x768 picture in its own 5:3 shape, the
   largest that fits, centered, with bars of the launcher's darkest gray on the two other sides of a screen or window
   of another shape (16:9, 21:9, 16:10, 5:4); **Fill** stretches it to the whole screen. The pointer and a finger reach
-  the game pixel under them either way, and the in-game bar, menu, question, toast and FPS chip lie in the picture.
+  the game pixel under them either way, and the overlay bar, the menu, the question, a notice and the FPS counter
+  lie in the picture.
 - **Drawn at** (**Screen**): **1280×768** (the default) has the game draw its own 1280x768 picture, which the upscale
   filter enlarges; **Screen size** has it draw at its picture's size on the screen (1800x1080 on a 1920x1080 screen,
   3600x2160 on 3840x2160), so the edges of its art and whatever it scales or turns are drawn at the screen's own
@@ -200,10 +200,10 @@ is read as late as the frame's own work allows.
 - **Anti-aliasing** (**Screen**): smooths the game's jagged edges before the picture is enlarged (with **Screen size**,
   in the picture the game draws): **Off** (the default), **FXAA**, **SMAA Low**, **SMAA Medium**, **SMAA High** or
   **SMAA Ultra**.
-- **Show FPS** (**Screen**, off by default): a small, faint chip over the game with the frames a second, large, and
+- **Show FPS** (**Screen**, off by default): a small, faint counter over the game with the frames a second, large, and
   the frame's length under it, updated twice a second. **SHOW FPS** in the in-game menu turns it on or off for that
   run; the launcher's choice is how each run starts.
-- **Position** (**Screen**, shown while **Show FPS** is on): the chip's corner, **Bottom right** by default (above the
+- **Position** (**Screen**, shown while **Show FPS** is on): the counter's corner, **Bottom right** by default (above the
   game's FREE PLAY, where it covers none of the game's own labels); **Top left**, **Top right** or **Bottom left** can
   be chosen instead.
 - **Motion clarity** (**Screen**, shown when the main screen runs at a whole multiple of 60 Hz from 120 up, such as
@@ -234,7 +234,7 @@ is read as late as the frame's own work allows.
   running a little slower until then.
 When the upscale filter or the anti-aliasing chosen makes frames late on this PC's graphics card, the game steps it
 down one step at a time (SMAA to FXAA to off, then AMD FSR 1, NVIDIA NIS or Anime4K to Smooth) for the rest of the
-run, says so in a toast at the top of the game, and the launcher's log says which step it took.
+run, says so in a notice at the top of the game, and the launcher's log says which step it took.
 
 **Measure the picture's GPU time** (**Screen**, **Advanced**, off by default) times each step of the picture on the
 graphics card while the game runs: the game's own frame, the glass behind the in-game panels, the bars, each
@@ -314,7 +314,7 @@ mounted read only, or on a disc.
 | The operator data (rankings, bookkeeping and the cabinet's settings) | FREE PLAY on: a PC has no coin slot. Taken once from the game: a copy of a cabinet's drives brings the cabinet's own; the rankings the game writes stay here |
 | The lists of the songs each stage offers | Shows the patterns the cabinet hid from guests (only with **Show hidden patterns** on) |
 | The server address | Points the game at the server you play on (not offline) |
-| The card reader library, with the fonts its words use (Pretendard Bold and Regular, DMT3 Wide), DSOAL and OpenAL Soft for the **Mixer**, and their licenses | Gives the game these files, lets the launcher put your card in, and adds the bar with the menu and the X, the question, the toast, the pointer, frame pacing, the upscale filter and anti-aliasing, the FPS chip, the sound device and its mixer; offline it holds no card, so the game plays with **NO ID CARD** |
+| The card reader library, with the fonts its words use (Pretendard Bold and Regular, DMT3 Wide), DSOAL and OpenAL Soft for the **Mixer**, and their licenses | Gives the game these files, lets the launcher put your card in, and adds the overlay (the overlay bar with the menu and the X, the question, notices, the FPS counter, the pointer), frame pacing, the upscale filter and anti-aliasing, the sound device and its mixer; offline it holds no card, so the game plays with **NO ID CARD** |
 | `openDMT3-card.txt` | The card number the launcher puts in while the game runs (not offline) |
 
 When the path of the folder holding the client data has letters this Windows' language cannot give the game, or is

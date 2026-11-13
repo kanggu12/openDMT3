@@ -7,8 +7,8 @@
 
 <p align="center">
   <b>An open-source launcher and server for DJMAX TECHNIKA 3, on your own PC.</b><br>
-  It plays the game from your own client data as it is, with card logins, records, rankings and a site for the
-  players.
+  It plays the game from your own client data as it is, with an overlay in the game, card logins, records, rankings
+  and a site for the players.
 </p>
 
 <p align="center">
@@ -31,10 +31,9 @@
 </p>
 
 **DJMAX TECHNIKA 3** is an arcade rhythm game of 2011: a cabinet with a touch screen, coins for each play, and an ID
-card that logged a player in to the game's online service, which kept their records and rankings. openDMT3 is an
-open-source project that plays your own copy of the game on a Windows PC: a mouse or a touch screen in place of the
-cabinet's, FREE PLAY in place of coins, a card the launcher puts in for you, and a server of your own in place of the
-service.
+card that logged a player in to the game's online service, which kept their records and rankings. openDMT3 plays your
+own copy of the game on a Windows PC: a mouse or a touch screen in place of the cabinet's, FREE PLAY in place of coins,
+a card the launcher puts in for you, and a server of your own in place of the service.
 
 > [!IMPORTANT]
 > **No game files are included.** You need your own copy of the TECHNIKA 3 client data, with a client that runs on a
@@ -60,16 +59,15 @@ On Windows 10 or 11, with your own client data ([which](docs/client-data.md#whic
 2. Choose **Install**. The launcher opens on its first-start guide, which finds your client data and takes you to
    **PLAY**.
 
-Downloaded with a browser, the installer may make Windows say it protected your PC: **More info**, then **Run anyway**
-(it is not signed). On Linux, the same installer runs under Wine ([how](docs/install.md#on-linux-with-wine)).
+If Windows says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed). On Linux
+the same installer runs under Wine ([how](docs/install.md#on-linux-with-wine)).
 
 **[The player's guide](docs/install.md)**
 
 </td>
 <td valign="top">
 
-On Linux, macOS or Windows in WSL 2: Docker with Compose v2, git, Python 3, and your client data for the song list.
-In a terminal:
+On Linux, macOS or Windows in WSL 2, with Docker (Compose v2), git, Python 3, and your client data for the song list:
 
 ```sh
 git clone https://github.com/kanggu12/openDMT3
@@ -78,8 +76,8 @@ cd openDMT3
 ```
 
 A wizard in the terminal asks where your client data is and which installer to hand out (an
-`openDMT3-win-Setup.exe` you downloaded), then ends with the site's address and the admin's password. A server also
-runs [in the launcher](docs/server.md#in-the-launcher) or [with Python](docs/server.md#with-python).
+`openDMT3-win-Setup.exe` you downloaded), then gives the site's address and the admin's password. A server also runs
+[in the launcher](docs/server.md#in-the-launcher) or [with Python](docs/server.md#with-python).
 
 **[The server guide](docs/server.md)**
 
@@ -96,45 +94,45 @@ runs [in the launcher](docs/server.md#in-the-launcher) or [with Python](docs/ser
 
 ## What it does
 
-<p align="center">
-  <img src="docs/images/ingame.png" alt="openDMT3's in-game overlay over the game's own tutorial, in frames captured under Wine: the overlay bar at the game's top edge with openDMT3's mark at its left and, at its right, the menu (open, with Back to the game, Show FPS and Quit the game), minimise, window and quit; under it the quit question, a notice that the picture stepped down to keep 60 FPS, and the FPS counter in its corner" width="100%">
-</p>
-
-- **Plays your client data as it is.** It only reads the client data. What the game needs on a PC is made in a
-  folder of openDMT3's own: a copy of the client that fills the screen at any Windows scaling and reads the mouse in
+- **Plays your client data as it is.** It only reads the client data. What the game needs on a PC goes in a folder of
+  openDMT3's own: a copy of the client that fills the screen at any Windows scaling and reads the mouse in the right
   place, FREE PLAY, the patterns the cabinet hid, the server address.
-- **In the game.** A bar at the top edge with a menu and an X that asks first, the game held still while they are
-  open, a toast when there is something to say, an FPS chip if you want one, and a pointer of its own. They keep to
-  the top band and the corners, never where the notes come, and no key of the keyboard brings them.
-- **A picture and a sound for your PC.** Frame pacing locked to the music, each frame started just in time so a
-  touch shows sooner, the game's own 5:3 shape kept on any screen, the game drawn at its own 1280x768 or at the
-  screen's size, upscale filters (AMD FSR 1, NVIDIA NIS, Anime4K) and anti-aliasing (FXAA, SMAA) with a safety net
-  that keeps 60 frames a second. On **Sound**, the device, Windows' sound engine in its shortest steps, OpenAL Soft
-  as the mixer if you choose it, and an offset for headphones or a TV that play late.
+- **An overlay in the game.** An overlay bar at the top edge with a menu and an X that asks first, the game held still
+  while the menu or the question is open, a notice when there is something to say, an FPS counter if you want one,
+  and a pointer of its own. It stays in the top band and the corners, never where the notes come, and no key brings it.
+- **A picture and a sound for your PC.** Frame pacing locked to the music, the game's 5:3 shape kept on any screen,
+  upscale filters and anti-aliasing with a safety net that keeps 60 frames a second, and on the **Sound** page the
+  device, Windows' sound engine in its shortest steps, OpenAL Soft as the mixer and an offset for headphones or a TV
+  that play late.
 - **Logs in by card, without a reader.** The PC client logs players in only by card. openDMT3 gives the game a card
-  reader library of its own in place of the cabinet's, which reads a card number the launcher writes, so the game logs
-  in the player you picked.
-- **Records.** The stages each player clears, on the launcher's **Records** page and on the site: rankings per mode,
-  a board per chart, each DJ's page with the last 12 weeks. In the game, the song select shows each player's best
-  and the server's first place.
-- **The DJ card.** A level from the stages cleared, and an icon, a plate, a plate pattern and a comment each player
-  chooses on the site, from the pictures in the game's own files.
+  reader library of its own, which reads the card number the launcher writes, so the game logs in the player you
+  picked.
+- **Records and the DJ card.** The stages each player clears, on the launcher's **Records** page and on the site:
+  rankings per mode, a board per chart, each DJ's page with the last 12 weeks. The song select shows each player's best
+  and the server's first place; the DJ card shows a level, and an icon, plate, pattern and comment chosen on the site.
 - **A site for the players.** Rankings, songs, DJ pages, the launcher's installer set up for that server, admin pages
   with backups, and an API for all of it, in English and Korean.
-- **Plays with others.** On someone's server, or on one PC opened to the other PCs on its network.
-- **Works without internet.** On this PC, or with a server on a closed network
-  ([without internet](docs/server.md#without-internet)).
-- **Updates itself.** Only with packages the openDMT3 project signed, and only what changed when a release has a
-  delta from the version installed.
-- **Says what is wrong**, in English or Korean, with a ready check before PLAY and a report for an issue.
+- **Plays with others, and without internet.** On someone's server, or on one PC opened to the others on its network;
+  without internet on this PC, or with a server on a closed network ([without internet](docs/server.md#without-internet)).
+- **Updates itself** with packages signed by the openDMT3 project, downloading only what changed when it can, and
+  **says what is wrong** in English or Korean, with a ready check before PLAY and a report for an issue.
+
+### In the game
+
+Rest the pointer at the game's top edge and the overlay bar comes down: openDMT3's mark, the menu, minimize, full
+screen or a window, and the X. The X asks before the game ends, and during a song the menu and the question hold the
+game still until you go back to it.
+
+<p align="center">
+  <img src="docs/images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs under its button: BACK TO THE GAME, SHOW FPS, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter in the bottom right corner above the game's FREE PLAY, 60 FPS over 16.7 ms" width="100%">
+</p>
 
 ### Frames on time, and on the music
 
-The game runs its logic once a frame, so a frame late is a game slower than its music. openDMT3 holds the frames to
-60.0 a second with a clock of its own, and while a song plays it follows the song's music, so the notes stay on it.
-Each frame also starts just in time for its turn rather than right after the frame before, so the touch it carries
-is read as late as it can be and reaches the screen sooner: under Wine at 1280x768, 1.7 ms less from the game's read
-of a touch to its frame done, with the same pacing
+The game runs its logic once a frame, so a late frame slows the game against its music. openDMT3 holds the frames to
+60.0 a second with its own clock and, while a song plays, follows the song's music, so the notes stay on it. Each frame
+also starts just in time for its turn, so the touch it carries reaches the screen sooner: under Wine at 1280x768,
+1.7 ms less from the game's read of a touch to its frame done
 ([measured](docs/testing.md#a-song-each-frame-started-just-in-time-before-and-after)).
 
 <p align="center">
@@ -144,35 +142,18 @@ of a touch to its frame done, with the same pacing
   </picture>
 </p>
 
-### The picture's passes
-
-The game draws 1280x768. openDMT3 enlarges it to your screen with AMD FSR 1 by default, or NVIDIA NIS, or Anime4K's
-small neural network made for drawn art, or bilinear, with FXAA or SMAA before it if you want them; or it has the
-game draw at the screen's size, with nothing left to enlarge. Seven of the game's own frames, made smaller and
-enlarged back, came closest to themselves with Anime4K, then with FSR 1 ([measured](docs/testing.md#anime4k)).
-Nothing is written for one maker's graphics card: the passes are shaders that any card with shader model 3.0 runs,
-and when frames come late anyway they step down by themselves.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/chart-passes-dark.svg">
-    <img alt="The picture's passes on the graphics card, each choice's time a frame at 1920x1080 and at 3840x2160, of the 16.7 milliseconds a frame has at 60 a second: Off 0.12 and 0.31 milliseconds; Smooth 0.11 and 0.32; AMD FSR 1, the default, 0.49 and 1.21; NVIDIA NIS 0.49 and 1.36; FSR 1 and FXAA 0.56 and 1.20; FSR 1 and SMAA Low 0.62 and 1.37; FSR 1 and SMAA Ultra 0.79 and 1.47. An RTX 4090 held at its resting 225 MHz under WSL 2 through Wine; at its boost clock each takes about an eleventh of that" src="docs/images/chart-passes-light.svg" width="100%">
-  </picture>
-</p>
-
-### Sound with less delay
-
-While the game runs, Windows mixes its sound device in the shortest steps the device's driver allows: 2.7 ms with
-Windows' own audio driver, where 10 ms is usual ([how](docs/architecture.md#the-sound-engines-period)). The game's sounds can also be
-mixed by OpenAL Soft through DSOAL, on a shorter way to the device: under Wine, from a sound's start to its sound
-out, 12 to 16 ms against DirectSound's 44 ([measured](docs/architecture.md#the-mixer)). For headphones or a TV that
-play late, an audio offset holds a song's notes and their judging behind its music.
+The game draws 1280x768. openDMT3 enlarges it to your screen with AMD FSR 1 by default, or NVIDIA NIS, Anime4K or
+bilinear, with FXAA or SMAA first if you want them, or has the game draw at the screen's size. They are shaders any
+card with shader model 3.0 runs, and when frames come late they step down by themselves
+([the picture](docs/install.md#frame-pacing-the-picture-the-fps-counter-and-the-sound-device)). While the game runs,
+Windows mixes its sound in the shortest steps the device's driver allows (2.7 ms with Windows' own audio driver, where
+10 ms is usual), and OpenAL Soft can mix the game's sounds on a shorter way to the device: under Wine, 12 to 16 ms
+from a sound's start to its output, against DirectSound's 44 ([measured](docs/architecture.md#the-mixer)).
 
 ### A server for many cabinets
 
-One process answers the cabinets, the site's visitors and the API at once, and none of them can hold up the others:
-the game's links never wait for a page, the lists made from everyone's plays are kept until the plays change, and
-each caller has a fair share ([many players at once](docs/server.md#many-players-at-once)).
+One process answers the cabinets, the site's visitors and the API at once, and none of them holds up the others
+([many players at once](docs/server.md#many-players-at-once)).
 
 <p align="center">
   <picture>
@@ -183,22 +164,29 @@ each caller has a fair share ([many players at once](docs/server.md#many-players
 
 ### Where things stand
 
-Works: the launcher with its guide and pages, the installer and its updates, the connection to the game (NET), card
-logins with the DJ card, the stages a player clears (song, pattern, score) and the song select's records, the site
-with its rankings, song and DJ pages and its admin pages, and the server in Docker. It is checked with the game's own
-PC client under Wine, from the installer to a whole song, on one PC and across two machines.
-
-Experiments, off by default: motion clarity on a display at 120, 180 or 240 Hz (each frame shown as a CRT's rolling
-beam or with black frames between, from the Blur Busters CRT beam simulator), and the flip model (Direct3D 9Ex's flip
-swap chain, the way to Windows' independent flip and a variable refresh rate). How they look and what they save is
-for real displays to say.
-
-Not yet: the rank and max combo of each stage, missions and crews, and two-finger touch.
+- **Works:** the launcher with its guide and pages, the installer and its updates, the connection to the game (NET),
+  card logins with the DJ card, the stages a player clears (song, pattern, score) and the song select's records, the
+  site with its rankings, song and DJ pages and admin pages, and the server in Docker. Each release is checked with the
+  game's own PC client under Wine, from the installer to a whole song, on one PC and across two machines.
+- **Experiments, off by default:** motion clarity on a 120, 180 or 240 Hz display (a CRT's rolling beam or black
+  frames, from the Blur Busters CRT beam simulator) and the flip model (Direct3D 9Ex's flip swap chain, the way to
+  Windows' independent flip and a variable refresh rate). How they look on real displays is still to be seen.
+- **Not yet:** the rank and max combo of each stage, missions and crews, and two-finger touch.
 
 ## How it works
 
-The launcher plays the game on your PC. Logins and records live on a server: the one inside the launcher, someone
-else's, or none at all. Choose on the launcher's **Online** page or in its first-start guide:
+The game runs on your PC, from your client data, which stays as it is. Logins and records live on a server: the one
+inside the launcher, someone else's, or none at all. The launcher talks to the server over HTTP, and the game over its
+own protocol; browsers and programs use the same site and API.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/system-dark.svg">
+    <img alt="How openDMT3 fits together. On the player's Windows PC, the client data (the PC client and the game's files) is only read: the launcher finds it, and the game plays from it in place. The launcher sets the picture and the sound, puts the card in, and PLAY starts the game with openDMT3's card reader library and overlay inside it. Other players' PCs are the same. The launcher talks to a server over HTTP on port 4730: signing in, the card at each PLAY, records; the game talks to it over the game's own protocol on port 4725: its card login and its results. Browsers open the server's site (players: rankings, songs, DJ pages; the owner: the admin pages) and programs its API with a named token, on port 4730 too. The server is one process, inside the launcher, with Docker or with Python: the game server, the site and its API, and one SQLite file in its data folder, which holds the accounts, the plays and the song list read once from the client data" src="docs/images/system-light.svg" width="100%">
+  </picture>
+</p>
+
+Choose how you play on the launcher's **Online** page or in its first-start guide:
 
 <p align="center">
   <picture>
@@ -207,17 +195,9 @@ else's, or none at all. Choose on the launcher's **Online** page or in its first
   </picture>
 </p>
 
-Run a server when others play from their own PCs. It is the same server each way: the game connects on port 4725,
-people and launchers on port 4730, and accounts, plays and backups stay in one folder on the PC that runs it.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/ways-to-host-dark.svg">
-    <img alt="Three ways to run a server, each the same server: in the launcher, by turning on Open this PC's server on its Online page, for the other PCs on its network while the launcher is open; with Docker Compose, ./dmt3 setup, a wizard in the terminal, on Linux, macOS or Windows in WSL 2; with Python 3.10 or newer on Linux, python -m opendmt3.server. Each way it is the game on port 4725, the site and its API on port 4730, one SQLite file and its backups in a data folder, and the song list read once from the client data" src="docs/images/ways-to-host-light.svg" width="100%">
-  </picture>
-</p>
-
-A server takes one thing from the client data: the song list, which holds the jackets and the DJ cards too
+Run a server when others play from their own PCs: in the launcher, with Docker or with Python, it is the same server,
+with the game on port 4725, people and launchers on port 4730, and everything it keeps in one folder. It takes one
+thing from the client data: the song list, which holds the jackets and the DJ cards too
 ([what a server takes](docs/client-data.md#what-a-server-takes)). [Running a server](docs/server.md) has each way step
 by step.
 
@@ -225,7 +205,7 @@ by step.
 
 | | Minimum | Recommended |
 | :--- | :--- | :--- |
-| **To play** | 64-bit Windows 10 or 11, or Linux with Wine 11 ([how](docs/install.md#on-linux-with-wine)), on an x64 processor (Intel or AMD), a graphics card with Direct3D 9 (NVIDIA, AMD or Intel), a mouse, and your client data (about 38 GB whole) | Shader model 3.0 on the graphics card for the picture's passes, and a touch screen to play as on the cabinet |
+| **To play** | 64-bit Windows 10 or 11, or Linux with Wine 11 ([how](docs/install.md#on-linux-with-wine)), on an x64 processor (Intel or AMD), a graphics card with Direct3D 9 (NVIDIA, AMD or Intel), a mouse, and your client data (about 38 GB whole) | Shader model 3.0 on the graphics card for the upscale filters and anti-aliasing, and a touch screen to play as on the cabinet |
 | **The launcher** | About 43 MB to download; installed for your Windows user only, without administrator rights | |
 | **A server** | The launcher, for the PCs on its network; Docker with Compose v2, git and Python 3 on Linux, on macOS, or on Windows in WSL 2; or Python 3.10 or newer on Linux; ports 4725 (the game) and 4730 (the site) open to the players' PCs | About 100 MB of memory for 64 cabinets |
 | **On a server** | The song list alone, about 13 MB: no charts, music or videos | |
@@ -239,8 +219,8 @@ WSL's Direct3D 12 and on Mesa's software renderer; not yet on an AMD or Intel gr
 
 | Guide | What it covers |
 | :--- | :--- |
-| [Playing on your PC](docs/install.md) | The player's guide: the installer on Windows or with Wine, the first start, the three ways to play, the pages, the picture and the sound, records, updates, the command line |
-| [The client data](docs/client-data.md) | Which client data plays, the forms it comes in, each card's line with the one thing to do, what a server takes |
+| [Playing on your PC](docs/install.md) | The player's guide: the installer on Windows or with Wine, the first start, the three ways to play, the overlay in the game, the pages, the picture and the sound, records, updates, the command line |
+| [The client data](docs/client-data.md) | Which client data plays, the forms it comes in, what each card on DISC CHECK says and the one thing to do, what a server takes |
 | [Troubleshooting](docs/troubleshooting.md) | When something does not work |
 
 ### For server owners

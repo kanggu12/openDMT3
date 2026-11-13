@@ -1,7 +1,8 @@
 # Troubleshooting
 
-The launcher says what is wrong in its status line, at the bottom of the window, and the **Play** page shows a ready
-check: a red line there is what to fix first. Its log is `%AppData%\openDMT3\logs\launcher.log`; **Help**, **The
+For players and server owners: what to look at when something does not work. The launcher says what is wrong in its
+status line, at the bottom of the window, and the **Play** page shows a ready check: a red line there is what to fix
+first. Its log is `%AppData%\openDMT3\logs\launcher.log`; **Help**, **The
 launcher's log** opens the folder. **Help**, **Report**, **Save** puts the log and the game's settings in a zip on the
 desktop for an issue, with your Windows user name, your sign-in and your card number taken out.
 

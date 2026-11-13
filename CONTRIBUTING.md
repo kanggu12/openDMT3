@@ -2,7 +2,7 @@
 
 Bug reports, fixes, translations and new features are all welcome. This guide shows where the code is, how to run it
 and its tests on your PC, and how a change goes in. **You do not need the game's files for most of it:** the tests
-make stand-in files of their own.
+make stand-ins of their own.
 
 | You know | A good place to start |
 | :--- | :--- |
@@ -11,7 +11,7 @@ make stand-in files of their own.
 | Python and Tk | The launcher, `opendmt3/client/` |
 | Python, HTML and CSS | The site, the admin pages and the API, `opendmt3/server/web/`: [Adding a page or an API call](#adding-a-page-or-an-api-call) |
 | Network protocols | The game server, `opendmt3/server/`: [Changing the game server](#changing-the-game-server), and [what the game says](docs/protocol.md) |
-| C and Direct3D 9 | The card reader library and the in-game layer, `native/cardreader/` |
+| C and Direct3D 9 | The card reader library and the in-game overlay, `native/cardreader/` |
 | Docker | The server's image and the setup wizard, `packaging/docker/`, `compose.yaml`, `dmt3` |
 
 ## Before you start
@@ -38,7 +38,7 @@ One package, `opendmt3`, in three parts ([docs/architecture.md](docs/architectur
 | `opendmt3/core/` | What the other two share: the client data and its formats, the steps PLAY makes, the originals an earlier version kept, the error words, signing, and `python -m opendmt3 check, setup, restore` | `game.py`, then `cabinet/steps.py` | `tests/core/` |
 | `opendmt3/server/` | The game server, its services, its database (`db/`) and its site, admin pages and API (`web/`); `python -m opendmt3.server` | `__main__.py`, then `server.py` for the game and `web/app.py` for the site | `tests/server/` |
 | `opendmt3/client/` | The Windows launcher (its window, its pages, its jobs on the command line) and the installer's dialogs | `main.py`, then `app.py` and `actions.py` | `tests/client/` |
-| `native/cardreader/` | The card reader library with the in-game layer, 32-bit C built with MinGW | `crt_r1.c`, then `layer.c` | `test_native.c`, run by `test.sh` |
+| `native/cardreader/` | The card reader library with the in-game overlay, 32-bit C built with MinGW | `crt_r1.c`, then `layer.c` | `test_native.c`, run by `test.sh` |
 | `native/openal/` | DSOAL and OpenAL Soft for the Sound page's mixer, built for 32-bit Windows from their pinned source archives, with their notices | `build.sh` | `tests/test_launcher_licences.py`, `tests/core/test_card_reader_notices.py` |
 | `dmt3`, `packaging/docker/` | `./dmt3`: the server with Docker Compose, the build and the tests; the server's image and the setup wizard | `dmt3` (`main`), `wizard.py` | `tests/test_front_door.py`, `tests/test_setup_wizard.py` |
 | `packaging/windows/`, `packaging/release.sh` | The launcher's and the installer's build on Linux, and a release | `build.sh` | `tests/test_windows_build.py`, `tests/test_launcher_licences.py` |
@@ -107,7 +107,7 @@ You do not have to run them all: pick the line for what you changed, and CI runs
 
 | You changed | Run | Needs |
 | :--- | :--- | :--- |
-| anything | `./dmt3 test`: the unit tests, the boundary test and pyflakes, and with them the guides' own checks (every test case points at a check that exists, every link and picture is there, the words keep to the term table) | Python 3.10 or newer; for the site's tests its libraries and `httpx`, and `pyflakes` for the lint, in the Python that runs `dmt3` or the one `--python PATH` names (without the libraries those tests are skipped and say so; without pyflakes the run stops and says how to get it); for the archives' tests 7-Zip (`OPENDMT3_7ZIP` naming it, or `7zz`, `7z` or `7za` on the PATH; without it they are skipped, counted in the unit tests' `skipped=`) |
+| anything | `./dmt3 test`: the unit tests, the boundary test and pyflakes, with the guides' own checks (every test case points at a check that exists, every link and picture is there, the words keep to the term table) | Python 3.10 or newer. In the Python that runs `dmt3`, or the one `--python PATH` names: the site's libraries and `httpx` for the site's tests (skipped without them, and said), `pyflakes` for the lint (the run stops without it and says how to get it). 7-Zip for the archives' tests (`OPENDMT3_7ZIP`, or `7zz`, `7z` or `7za` on the PATH; skipped without it, counted in `skipped=`) |
 | `opendmt3/client/`: a page, a dialog, a word | `tests/e2e/ui/run.sh OUT_DIR`: every page, in both languages at three sizes | Docker |
 | `opendmt3/server/web/`: a page, a form | `tests/e2e/web/run.sh OUT_DIR`: every page, in both languages at a desktop and a phone width | Docker |
 | `native/cardreader/` | `native/cardreader/test.sh` | Docker |
@@ -123,7 +123,7 @@ make.
 CI runs the unit tests, the native tests, both sets of screens, the server's image and the launcher's build on
 Windows on every pull request, without the game's files ([docs/testing.md](docs/testing.md#ci)). What needs the game
 runs on a maintainer's machine before a release: the real client under Wine, from the installer to a whole song
-(`tests/e2e/windows/`). A change to the card reader library, the in-game layer or what PLAY makes passes CI without
+(`tests/e2e/windows/`). A change to the card reader library, the in-game overlay or what PLAY makes passes CI without
 ever meeting the real client, so say in the pull request that it needs that run. [docs/testing.md](docs/testing.md)
 has the whole picture, and [docs/test-cases.md](docs/test-cases.md) every case with the check that covers it.
 
@@ -155,7 +155,7 @@ The words a person reads are in these tables, in English and Korean side by side
 | The site's and the admin pages' | `TEXT` in `opendmt3/server/web/strings.py` | `tests/server/test_site_features.py` (Korean with the same gaps), `tests/e2e/web/run.sh` |
 | Errors, shared by both | `TEXT` in `opendmt3/core/errors.py` | `tests/core/test_errors.py` (every word used, Korean with the same gaps) |
 | What a path on the server PC is | `WORDS` in `opendmt3/server/services/sources.py` | `tests/server/test_sources.py` |
-| In the game: the menu, the question, the toast | `native/cardreader/logic.c` | `native/cardreader/test.sh` |
+| In the game: the overlay's menu, quit question and notices | `native/cardreader/logic.c` | `native/cardreader/test.sh` |
 | The setup wizard and the command lines (English only) | `packaging/docker/wizard.py`, `dmt3`, `opendmt3/client/cli.py`, `opendmt3/server/__main__.py` | `tests/test_setup_wizard.py`, `tests/test_front_door.py` |
 
 A new text goes into both languages of its table. `tests/test_words.py` keeps the project's terms in all of them and

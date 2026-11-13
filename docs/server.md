@@ -1,16 +1,15 @@
 # Running a server
 
-A server keeps the players' logins and the stages they clear, for the cabinets that connect to it, and runs a site
-with the rankings, the songs, each DJ's page, the launcher to download, and the admin pages. One process does both:
-the game connects on port 4725, people and launchers on port 4730.
+For server owners. A server keeps the players' logins and the stages they clear, for the cabinets that connect to it,
+and runs a site with the rankings, the songs, each DJ's page, the launcher to download, and the admin pages. One
+process does both: the game connects on port 4725, people and launchers on port 4730.
 
 To the server, each game that connects is a cabinet, the arcade's name for the machine: a PC playing through the
 launcher is one. The server knows each by the address it connects from, and the site's **Home** page and the
 **Admin**, **Cabinets** tab list them.
 
-This guide is the server owner's. You do not need a server to play alone: the launcher has one inside for that
-([Playing on your PC](install.md), the player's guide). Run one when others play from their own PCs, in one of three
-ways, each the same server:
+You do not need a server to play alone: the launcher has one inside for that ([Playing on your PC](install.md), the
+player's guide). Run one when others play from their own PCs, in one of three ways, each the same server:
 
 | Way | Where it runs | For |
 | :--- | :--- | :--- |
