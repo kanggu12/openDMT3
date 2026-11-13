@@ -668,7 +668,7 @@ def send_song_list(state):
     from opendmt3.server.services import songlist
     token = (state.remote or {}).get("token")
     if state.mode != "server" or not state.server_url or not token:
-        raise g.GameError("sign in on the Online page first", "error.records.signin")
+        raise g.GameError("sign in on the ONLINE page first", "error.records.signin")
     folder = tempfile.mkdtemp(prefix="openDMT3-song-list-")
     try:
         path = os.path.join(folder, songlist.NAME)
@@ -726,10 +726,10 @@ def records(state, host):
     if state.mode == "server":
         token = (state.remote or {}).get("token")
         if not token:
-            raise g.GameError("sign in on the Online page first", "error.records.signin")
+            raise g.GameError("sign in on the ONLINE page first", "error.records.signin")
         me = remote.me(state.server_url, token)
         if "player" not in me:
-            raise g.GameError("this server is too old for the Records page",
+            raise g.GameError("this server is too old for the RECORDS page",
                               "error.records.old_server")
         return remote.dj(state.server_url, token, me["player"])
     raise g.GameError("records are kept when playing on this PC or on another server, not offline",

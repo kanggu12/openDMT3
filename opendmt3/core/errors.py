@@ -70,9 +70,9 @@ TEXT = {
     "error.records.no_site": ("this launcher cannot show the records page (its web libraries are missing)",
                               "이 런처는 기록 페이지를 띄울 수 없습니다(웹 라이브러리가 없습니다)."),
     "error.records.no_player": ("{login_id} is not a player on this PC", "이 PC에 없는 플레이어입니다: {login_id}"),
-    "error.records.signin": ("sign in on the Online page first", "먼저 온라인 페이지에서 로그인하세요."),
-    "error.records.old_server": ("this server is too old for the Records page",
-                                 "이 서버는 기록 페이지를 보여 주기에 너무 오래된 버전입니다."),
+    "error.records.signin": ("sign in on the ONLINE page first", "먼저 ONLINE 페이지에서 로그인하세요."),
+    "error.records.old_server": ("this server is too old for the RECORDS page",
+                                 "이 서버는 RECORDS 페이지를 보여 주기에 너무 오래된 버전입니다."),
     "error.records.offline": ("records are kept when playing on this PC or on another server, not offline",
                               "기록은 이 PC나 다른 서버에서 플레이할 때 남습니다. 오프라인에서는 남지 않습니다."),
     # Shortcuts and starting with Windows (client/shortcuts.py).

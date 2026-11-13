@@ -1,7 +1,8 @@
 """Colours, fonts and sizes of the launcher: the game's metal, and the game's colours where they mean something.
 
 The surfaces are neutral gunmetal (the same family as OpenDMTQ, openDMT3's sister project for TECHNIKA Q), never
-tinted by one brand colour. Colour comes from TECHNIKA 3's own screens and marks a section or a meaning: the title
+tinted by one brand colour, laid out as both launchers and both sites are: a bar across the top with the mark and the
+menu, the page's title under it, the page's parts on cards, PLAY at the foot. Colour comes from TECHNIKA 3's own screens and marks a section or a meaning: the title
 screen's electric blue for PLAY, STAR MIXING's lime for the cabinet's settings, POP MIXING's pink for playing
 online, and amber for the tools. Lime, amber and pink also say "fine", "will change" and "problem" in checks.
 
@@ -18,18 +19,21 @@ FONT_DIR = os.path.join(ASSETS, "fonts")
 
 # Surfaces, darkest first: gunmetal, a step lighter for each layer that sits on another.
 BG = "#101317"          # the window behind everything
-SIDEBAR = "#0c0e11"     # the menu column, a step darker than the page
+BAR = "#0c0e11"         # the bar across the top with the mark and the menu, a step darker than the page
 PANEL = "#1a1f25"       # cards and the bottom bar
 PANEL_HI = "#232931"    # a hovered or chosen row, the top of a card
 RAIL = "#2b323b"        # quiet metal: buttons and tracks
 RAIL_UP = "#3a434e"     # the same under the pointer
 LINE = "#343c47"        # 1-pixel seams and rules
 FIELD = "#0d1014"       # inside inputs and lists
+DIVIDER = "#2b3035"     # the faint line between two rows of a card (white at 7.5 % on the card, as OpenDMTQ's)
 
 # Text.
 TEXT = "#eef2f6"        # body text
 MUTED = "#aab4bf"       # hints under a setting
 FAINT = "#7a8592"       # disabled text and small labels (4.5:1 on the page)
+STEP_TO_COME = "#6b7581"  # the guide's big numbers of the steps to come: dimmer than their names, so that only the blue
+#                           ones read as taken or on show (3:1 and more on the page, as large text)
 INK = "#0b0e12"         # words on a bright colour (a lime, amber or pink button)
 
 # The game's colours.
@@ -41,7 +45,8 @@ PINK = "#ff4fa0"        # POP MIXING: a crash, an error, removing for good
 AMBER = "#ffb33d"       # something PLAY will change, a warning
 CYAN = "#5fd3ff"        # the keyboard's place (focus rings)
 
-# A section's colour lights its header's shards, its title's tail, its menu entry and its main buttons.
+# A section's colour lights its head's shards, its title's tail, the rule under its name on the bar and its main
+# buttons.
 SECTION_COLOURS = {
     "technika": {"accent": BLUE_HI, "light": "#2f6bff", "deep": BLUE_DEEP, "fill": BLUE, "ink": "#ffffff"},
     "star": {"accent": LIME, "light": "#8fcc12", "deep": "#2c4406", "fill": LIME, "ink": INK},
@@ -96,6 +101,12 @@ class Fonts:
         korean = language == "ko"
         section = (TEXT_BOLD, 10) if korean else (DISPLAY, 8)
         self.title = tkfont.Font(root, family=TEXT_BOLD if korean else DISPLAY, size=21 if korean else 18)
+        # The menu in the wide face, its names in English in both languages as both sites' menus and the game's are
+        # (13.3 px); a step smaller where the window is too narrow for the menu in one line at the full size.
+        self.nav = tkfont.Font(root, family=DISPLAY, size=10)
+        self.nav_small = tkfont.Font(root, family=DISPLAY, size=9)
+        # The first-start guide's step names under the bar, in the same face (English in both languages too).
+        self.step = tkfont.Font(root, family=DISPLAY, size=9)
         self.section = tkfont.Font(root, family=section[0], size=section[1])         # section headings
         self.display = tkfont.Font(root, family=DISPLAY, size=10)                    # Latin labels in the game's style
         self.display_big = tkfont.Font(root, family=DISPLAY, size=17)                # PLAY

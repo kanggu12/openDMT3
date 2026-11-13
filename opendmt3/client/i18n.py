@@ -1,8 +1,11 @@
 """The launcher's words, in English and Korean.
 
-English is the default whatever Windows is set to (the same rule as the web pages); the player picks Korean on
-the first page or under Launcher. Each entry is (English, Korean). Placeholders use str.format names. The words
-of errors are in errors.py, shared with the site.
+The launcher speaks the language Windows is shown in (Korean, else English; state.system_language) until the player
+picks one on the guide's first page or on the LAUNCHER page. Each entry is (English, Korean). Placeholders use
+str.format names. The words of errors are in errors.py, shared with the site.
+
+The pages' names are the menu's, in English in both languages as both sites' menus and OpenDMTQ's launcher have them
+(pages.TITLES): a sentence that sends the player to a page names it so ("the ONLINE page", "ONLINE 페이지").
 """
 
 from opendmt3.core import errors
@@ -10,36 +13,31 @@ from opendmt3.core import errors
 TEXT = {
     # ---------------------------------------------------------------------------------------------- frame
     "app.tagline": ("Open-source TECHNIKA 3 project", "오픈소스 TECHNIKA 3 프로젝트"),
-    "nav.play": ("Play", "플레이"),
-    "nav.screen": ("Screen", "화면"),
-    "nav.sound": ("Sound", "소리"),
-    "nav.controls": ("Controls", "조작"),
-    "nav.game": ("Game", "게임"),
-    "nav.help": ("Help", "도움말"),
-    "nav.about": ("Launcher", "런처"),
     "bottom.play": ("PLAY", "PLAY"),
     "bottom.playing": ("PLAYING", "PLAYING"),
     "bottom.report": ("Save a report", "보고서 저장"),
     "status.ready": ("Ready to play.", "플레이할 준비가 됐습니다."),
-    "status.choose_folder": ("Choose the client data first, on the Game page.",
-                             "게임 페이지에서 클라이언트 데이터를 먼저 고르세요."),
-    "status.sign_in_first": ("Sign in on the Online page first.", "먼저 온라인 페이지에서 로그인하세요."),
+    "status.choose_folder": ("Choose the client data first, on the GAME page.",
+                             "GAME 페이지에서 클라이언트 데이터를 먼저 고르세요."),
+    "status.sign_in_first": ("Sign in on the ONLINE page first.", "먼저 ONLINE 페이지에서 로그인하세요."),
     "status.game_open": ("The game is open. Close it first.", "게임이 열려 있습니다. 먼저 닫으세요."),
     "status.preparing": ("Getting the game ready: {step}", "게임을 준비하는 중: {step}"),
     "status.starting": ("Starting the game...", "게임을 시작하는 중..."),
     "play.getting_ready.title": ("PLAY", "PLAY"),
     "play.getting_ready": ("Getting the game ready.", "게임을 준비하는 중입니다."),
     "play.phase.song_list": ("Reading the song list...", "곡 목록을 읽는 중..."),
-    "status.playing": ("The game is open.", "게임이 열려 있습니다."),
+    "status.playing": ("The game is open. The launcher waits until it closes.",
+                       "게임이 열려 있습니다. 닫힐 때까지 런처가 기다립니다."),
     "status.ended": ("The game closed after {time}.", "{time} 동안 플레이하고 게임이 닫혔습니다."),
-    "status.crashed": ("The game closed by itself. Help says what to try.", "게임이 저절로 닫혔습니다. 도움말에 해 볼 것이 있습니다."),
-    "status.saved": ("Saved.", "저장했습니다."),
+    "status.crashed": ("The game closed by itself. The HELP page says what to try.",
+                       "게임이 저절로 닫혔습니다. HELP 페이지에 해 볼 것이 있습니다."),
+    "status.saved": ("Saved. It applies at the next PLAY.", "저장했습니다. 다음 PLAY부터 적용됩니다."),
     "status.updated": ("Updated to {v}.", "{v} 버전으로 업데이트했습니다."),
-    "status.not_updated": ("The update to {v} was not installed; this is still {now}. Try again on the Launcher page.",
-                           "{v} 버전으로 업데이트하지 못했습니다. 지금 버전은 {now}입니다. 런처 페이지에서 다시 해 보세요."),
+    "status.not_updated": ("The update to {v} was not installed; this is still {now}. Try again on the LAUNCHER page.",
+                           "{v} 버전으로 업데이트하지 못했습니다. 지금 버전은 {now}입니다. LAUNCHER 페이지에서 다시 해 보세요."),
     "status.error": ("{error}", "{error}"),
-    "status.signed_out": ("The server no longer takes your sign-in. Sign in again on the Online page.",
-                          "서버가 이 로그인을 더는 받지 않습니다. 온라인 페이지에서 다시 로그인하세요."),
+    "status.signed_out": ("The server no longer takes your sign-in. Sign in again on the ONLINE page.",
+                          "서버가 이 로그인을 더는 받지 않습니다. ONLINE 페이지에서 다시 로그인하세요."),
 
     # ------------------------------------------------------------------------------------------- common
     "common.on": ("On", "켬"),
@@ -54,21 +52,28 @@ TEXT = {
 
     # --------------------------------------------------------------------------------------------- play
     "play.title": ("TECHNIKA 3", "TECHNIKA 3"),
+    # The line under PLAY's title: where PLAY plays, as OpenDMTQ's says the server it plays on.
+    "play.on.this_pc": ("On this PC", "이 PC에서 플레이"),
+    "play.on.server": ("On {name}", "{name}에서 플레이"),
+    "play.on.offline": ("Offline, as a guest", "오프라인, 손님으로 플레이"),
     "play.ready": ("Ready check", "준비 점검"),
     "play.ok": ("OK", "정상"),
     "play.will_change": ("ready at PLAY", "PLAY 때 준비됩니다"),
     "play.rest": ("The rest is made ready at PLAY.", "나머지는 PLAY 때 준비됩니다."),
     "play.go.game": ("Client data", "클라이언트 데이터"),
-    "play.go.online": ("Online", "온라인"),
+    "play.go.online": ("ONLINE", "ONLINE"),
     "play.how": ("How to play", "플레이 방법"),
     "play.how.1": ("A click is a tap, a drag is a slide.", "클릭은 터치, 끌기는 슬라이드입니다."),
     "play.how.2": ("Click TOUCH to START. FREE PLAY is on: no coins.", "TOUCH to START를 클릭하면 됩니다. FREE PLAY라 코인은 필요 없습니다."),
     "play.how.3": ("NO ID CARD starts a game without a login.", "NO ID CARD를 누르면 로그인 없이 시작합니다."),
     "play.how.3.card": ("Your card is in: the game logs you in.", "카드가 꽂혀 있어 게임에 바로 로그인됩니다."),
-    "play.how.4": ("To quit: rest the pointer at the top edge (or draw a finger down from it), then press X.",
-                   "끝낼 때는 포인터를 화면 맨 위에 두거나 맨 위에서 아래로 끌어 X를 누르세요."),
-    "play.last": ("Last session", "지난 플레이"),
-    "play.last.none": ("No session yet.", "아직 플레이 기록이 없습니다."),
+    # How the overlay bar comes, as the in-game overlay has it (the handle at the game's top centre, OpenDMTQ's word).
+    "play.how.4": ("To quit: rest the pointer on the handle at the game's top centre or at its top edge (or draw a "
+                   "finger down from that edge), and press X on the overlay bar.",
+                   "끝낼 때는 포인터를 게임 맨 위 가운데 손잡이나 맨 위 가장자리에 두거나 그 가장자리에서 아래로 끌어, "
+                   "오버레이 막대의 X를 누르세요."),
+    "play.last": ("Last game", "지난 플레이"),
+    "play.last.none": ("No game yet.", "아직 플레이 기록이 없습니다."),
     "play.pattern": ("pattern {n}", "패턴 {n}"),
     "play.last.ok": ("{time} of play, closed normally.", "{time} 플레이한 뒤 게임을 닫았습니다."),
     "play.last.crash": ("{time} of play, then the game closed by itself.", "{time} 플레이한 뒤 게임이 저절로 닫혔습니다."),
@@ -85,13 +90,9 @@ TEXT = {
     "check.step:server address": ("Server address", "서버 주소"),
 
     # ------------------------------------------------------------------------------------------- screen
-    "screen.title": ("Screen", "화면"),
-    "screen.sub": ("The game draws 1280×768, or at the screen's size when chosen. These choices decide how its "
-                   "picture is shown.",
-                   "게임은 1280×768로 그리고, 고르면 화면 크기로 그립니다. 여기서는 게임 화면을 어떻게 표시할지 "
-                   "고릅니다."),
-    "screen.display": ("Display", "표시"),
-    "screen.mode": ("Mode", "표시 방식"),
+    "screen.sub": ("Full screen or a window, the frames and the picture.", "전체 화면이나 창, 프레임과 화질을 고릅니다."),
+    "screen.display": ("Display", "디스플레이"),
+    "screen.mode": ("Mode", "화면 모드"),
     "screen.mode.fullscreen": ("Full screen", "전체 화면"),
     "screen.mode.window": ("Window", "창"),
     "screen.mode.hint.fullscreen": ("Over the whole main monitor.", "주 모니터 전체에 표시합니다."),
@@ -100,6 +101,7 @@ TEXT = {
     "screen.size": ("Window size", "창 크기"),
     "screen.size.hint": ("Sizes keep the game's 5:3 shape. Sizes larger than this monitor are left out.",
                          "게임 화면 비율(5:3)을 그대로 둔 크기입니다. 이 모니터보다 큰 크기는 빠집니다."),
+    "screen.frames": ("Frames", "프레임"),
     "screen.picture": ("Picture", "화질"),
     "screen.vsync": ("VSync", "VSync"),
     "screen.vsync.hint": ("Draws in step with the monitor, so notes move without tearing.",
@@ -120,7 +122,7 @@ TEXT = {
                            "screen at once.",
                            "CRT처럼 한 프레임 동안 화면을 잠깐만 밝혀 움직이는 노트의 잔상이 줄고 화면은 어두워집니다. CRT 빔은 "
                            "위에서 아래로 훑고, 검은 프레임은 화면 전체를 한꺼번에 밝힙니다."),
-    "screen.fps": ("Show FPS", "FPS 표시"),
+    "screen.fps": ("FPS counter", "FPS 표시"),
     "screen.fps.hint.off": ("Shows the frames a second over the game.", "초당 프레임 수를 게임 화면 위에 표시합니다."),
     "screen.fps.hint.on": ("The frames a second and the time of a frame, small and faint in a corner of the game.",
                            "초당 프레임 수와 한 프레임의 시간을 게임 화면 구석에 작고 흐리게 표시합니다."),
@@ -183,14 +185,12 @@ TEXT = {
                          "전체 화면에서 프레임을 복사하지 않고 Windows에 그대로 넘깁니다(Direct3D 9Ex). 끄면 프레임을 복사합니다."),
     "screen.pass_times": ("Measure the picture's GPU time", "게임 화면의 GPU 시간 측정"),
     "screen.pass_times.hint": ("Times each step of the picture on the graphics card while the game runs. The times "
-                               "go into the launcher's log when the game closes, and so into Help's report.",
-                               "게임 실행 중에 게임 화면을 그리는 단계마다 그래픽 카드에서 걸린 시간을 잽니다. 게임을 닫으면 런처 로그에 남고 도움말의 보고서에도 들어갑니다."),
+                               "go into the launcher's log when the game closes, and so into the report on the HELP page.",
+                               "게임 실행 중에 게임 화면을 그리는 단계마다 그래픽 카드에서 걸린 시간을 잽니다. 게임을 닫으면 런처 로그에 남고 HELP 페이지의 보고서에도 들어갑니다."),
 
     # -------------------------------------------------------------------------------------------- sound
-    "sound.title": ("Sound", "소리"),
-    "sound.sub": ("How loud the game plays, from 0 to 100, on which device, who mixes it, and how late that device "
-                  "plays.",
-                  "게임 소리의 음량(0~100), 장치, 믹서, 소리 지연 보정입니다."),
+    "sound.sub": ("The game's volume, the device it plays on, who mixes it and how late the device plays.",
+                  "게임 음량과 소리를 낼 장치, 믹서, 소리 지연 보정입니다."),
     "sound.volumes": ("Volume", "음량"),
     "sound.music": ("Music", "음악"),
     "sound.music.hint": ("The song's backing track.", "곡의 배경 음악입니다."),
@@ -219,9 +219,9 @@ TEXT = {
     "sound.mixer.fell_back": ("In the last game, OpenAL Soft could not open the device, so DirectSound played.",
                               "지난 게임에서는 OpenAL Soft가 장치를 열지 못해 DirectSound로 소리를 냈습니다."),
     "sound.mixer.not_loaded": ("In the last game, OpenAL Soft's libraries did not load, so DirectSound played. "
-                               "Repair them on the Help page.",
+                               "Repair them on the HELP page.",
                                "지난 게임에서는 OpenAL Soft 라이브러리를 불러오지 못해 DirectSound로 소리를 냈습니다. "
-                               "도움말 페이지의 복구로 고치세요."),
+                               "HELP 페이지의 복구로 고치세요."),
     "sound.low_latency": ("Low latency", "저지연"),
     "sound.low_latency.hint": ("While the game runs, Windows mixes this device's sound in the shortest steps its "
                                "driver allows: 2.7 ms with Windows' own audio driver, where 10 ms is usual. Every "
@@ -246,7 +246,6 @@ TEXT = {
                           "소리가 늦게 나는 장치에 맞춥니다."),
 
     # ----------------------------------------------------------------------------------------- controls
-    "controls.title": ("Controls", "조작"),
     "controls.sub": ("The game was made for a touch screen; a mouse stands in for it.",
                      "게임은 터치스크린용입니다. 마우스로도 플레이할 수 있습니다."),
     "controls.device": ("Input", "입력"),
@@ -259,12 +258,12 @@ TEXT = {
     "controls.tap": ("Click: a note or a button.", "클릭: 노트나 버튼."),
     "controls.drag": ("Drag: slide notes, and the song list.", "끌기: 슬라이드 노트, 곡 목록 넘기기."),
     "controls.hold": ("Hold: long notes.", "누르고 있기: 롱 노트."),
-    "controls.edge": ("Pointer resting at the top edge, or a finger drawn down from it: openDMT3's bar, with the "
-                      "menu and quitting.",
-                      "포인터를 화면 맨 위에 두기, 또는 맨 위에서 아래로 끌기: 메뉴와 끝내기가 있는 openDMT3 바."),
+    "controls.edge": ("Pointer resting on the handle at the game's top centre or at its top edge, or a finger drawn "
+                      "down from that edge: the overlay bar, with the menu and quitting.",
+                      "포인터를 게임 맨 위 가운데 손잡이나 맨 위 가장자리에 두기, 또는 그 가장자리에서 아래로 끌기: "
+                      "메뉴와 끝내기가 있는 오버레이 막대."),
 
     # --------------------------------------------------------------------------------------------- game
-    "game.title": ("Game", "게임"),
     "game.sub": ("The client data, and how the cabinet is set up.", "클라이언트 데이터와 기체 설정입니다."),
     "game.files": ("Game files", "게임 파일"),
     "game.folder": ("Client data", "클라이언트 데이터"),
@@ -316,8 +315,6 @@ TEXT = {
     "game.data.hint": ("Rankings, bookkeeping and the cabinet's settings.", "랭킹, 장부, 기체 설정입니다."),
 
     # ------------------------------------------------------------------------------------------- online
-    "nav.online": ("Online", "온라인"),
-    "online.title": ("Online", "온라인"),
     "online.sub": ("Where logins and records are kept.", "로그인과 기록을 어디에 둘지 고릅니다."),
     "online.where": ("Where you play", "플레이 방식"),
     "online.mode": ("Play", "방식"),
@@ -330,12 +327,17 @@ TEXT = {
     "online.mode.hint.server": ("A server someone runs: its owner gives you the address, your ID and a password. Logins and records are kept there.",
                                 "누군가 운영하는 서버입니다. 운영자가 주소와 ID, 비밀번호를 줍니다. 로그인과 기록은 그 서버에 남습니다."),
     "online.server": ("Server", "서버"),
-    "online.address": ("Address", "주소"),
+    "online.address": ("The site's address", "사이트 주소"),
     "online.connect": ("Connect", "연결"),
     "online.connecting": ("Connecting...", "연결하는 중..."),
-    "online.connected": ("openDMT3 {version} · the game connects to {game}", "openDMT3 {version} · 게임은 {game}에 연결합니다"),
+    # As the command line says it (--server), and as OpenDMTQ's launcher begins it.
+    "online.connected": ("Connected to {base}: openDMT3 {version}, the game at {game}.",
+                         "{base}에 연결했습니다. openDMT3 {version}, 게임 주소 {game}."),
     "online.signin": ("Sign in", "로그인"),
-    "online.signin.hint": ("With the ID and password from the server's owner.", "서버 운영자에게 받은 ID와 비밀번호로 로그인하세요."),
+    "online.signin.hint": ("With the ID and password from the server's owner. The launcher keeps the sign-in, never "
+                           "the password.",
+                           "서버 운영자에게 받은 ID와 비밀번호로 로그인하세요. 런처는 로그인 상태만 기억하고 비밀번호는 "
+                           "저장하지 않습니다."),
     "online.signed": ("Signed in as {dj} ({login_id}). The game logs in with this card.", "{dj}({login_id}) 계정으로 로그인했습니다. 게임은 이 카드로 로그인합니다."),
     "online.signout": ("Sign out", "로그아웃"),
     "check.remote": ("Server sign-in", "서버 로그인"),
@@ -358,7 +360,7 @@ TEXT = {
                              "클리어한 스테이지 기록도 함께 지워지며 되돌릴 수 없습니다."),
     "online.guest": ("Guest (NO ID CARD)", "손님(NO ID CARD)"),
     "play.who": ("Who plays", "플레이할 사람"),
-    "play.records": ("My records", "내 기록 보기"),
+    "play.records": ("Open my records", "내 기록 보기"),
     "play.records.hint": ("Rankings, songs and your best scores, in the browser.",
                           "랭킹과 곡, 내 최고 점수를 브라우저로 봅니다."),
     "play.records.opening": ("Opening your records in the browser...", "브라우저에서 내 기록을 여는 중입니다..."),
@@ -366,16 +368,15 @@ TEXT = {
     "play.who.hint": ("Their card goes in at PLAY. Change it here between players.", "PLAY를 누르면 이 사람의 카드가 꽂힙니다. 사람이 바뀌면 여기서 고르세요."),
     "play.who.hint.guest": ("A guest plays with NO ID CARD and nothing is recorded. Change it here between players.",
                             "손님은 NO ID CARD로 플레이하고 기록은 남지 않습니다. 사람이 바뀌면 여기서 고르세요."),
-    "play.offline": ("Offline: everyone plays with NO ID CARD. The Online page changes it.",
-                     "오프라인: 모두 NO ID CARD로 플레이합니다. 온라인 페이지에서 바꿀 수 있습니다."),
-    "play.who.signin": ("Nobody is signed in to the server yet. Sign in on the Online page.",
-                        "아직 서버에 로그인하지 않았습니다. 온라인 페이지에서 로그인하세요."),
-    "check.step:game library": ("In-game menu and card reader", "게임 속 메뉴와 카드 리더"),
+    "play.offline": ("Offline: everyone plays with NO ID CARD. The ONLINE page changes it.",
+                     "오프라인: 모두 NO ID CARD로 플레이합니다. ONLINE 페이지에서 바꿀 수 있습니다."),
+    "play.who.signin": ("Nobody is signed in to the server yet. Sign in on the ONLINE page.",
+                        "아직 서버에 로그인하지 않았습니다. ONLINE 페이지에서 로그인하세요."),
+    "check.step:game library": ("In-game overlay and card reader", "게임 안 오버레이와 카드 리더"),
     "check.server": ("Built-in server", "내장 서버"),
     "status.server": ("Starting the server on this PC...", "이 PC의 서버를 켜는 중..."),
     "status.server_failed": ("The server on this PC did not start: {error}", "이 PC의 서버가 켜지지 않았습니다: {error}"),
     "guide.login.name": ("LOG IN", "LOG IN"),
-    "guide.login.sub": ("Logins and records", "로그인과 기록"),
     "guide.login.title": ("Who plays?", "누가 플레이하나요?"),
     "guide.login.text": ("A player's records are kept. Offline, everyone plays as a guest and nothing is kept.",
                          "플레이어로 플레이하면 기록이 남습니다. 오프라인은 손님으로 플레이하고 기록이 남지 않습니다."),
@@ -413,12 +414,10 @@ TEXT = {
     "about.autostart.hint": ("The game starts as soon as you sign in to Windows.", "Windows에 로그인하면 게임이 바로 시작합니다."),
     "about.autostart.on": ("The game now starts with Windows.", "이제 Windows가 시작할 때 게임이 시작합니다."),
     "about.autostart.off": ("The game no longer starts with Windows.", "이제 Windows가 시작할 때 게임을 시작하지 않습니다."),
-    "nav.records": ("Records", "기록"),
-    "records.title": ("Records", "기록"),
     "records.sub": ("Your stages, weeks and best scores, from this PC or from your server.",
                     "내 스테이지와 주간 기록, 최고 점수입니다. 이 PC나 내 서버에서 가져옵니다."),
     "records.loading": ("Reading the records...", "기록을 불러오는 중입니다..."),
-    "records.site": ("On the site", "사이트에서 보기"),
+    "records.site": ("Open on the site", "사이트에서 보기"),
     "records.again": ("Try again", "다시 시도"),
     "records.plays": ("Stages cleared", "클리어한 스테이지"),
     "records.songs": ("Songs", "곡"),
@@ -434,18 +433,19 @@ TEXT = {
     "records.chart": ("{mode} · Pattern {n}", "{mode} · 패턴 {n}"),
     "records.chart.level": ("{mode} · Pattern {n} · Lv {level}", "{mode} · 패턴 {n} · Lv {level}"),
     "common.hours": ("{h} h {m} min", "{h}시간 {m}분"),
-    "help.title": ("Help", "도움말"),
-    "help.sub": ("Checks of the client data, and what to do when something goes wrong.",
-                 "클라이언트 데이터 점검과 문제가 생겼을 때 할 일입니다."),
+    "help.sub": ("The ready check, and what to do when something goes wrong.", "준비 점검과 문제가 생겼을 때 할 일입니다."),
     "help.checks": ("Checks", "점검"),
     "help.recheck": ("Check again", "다시 점검"),
     "help.crash": ("If the game closes by itself", "게임이 저절로 닫히면"),
-    "help.crash.1": ("On the Screen page, play in a window once. If that works, update the graphics driver.",
-                     "'화면' 페이지에서 창 모드로 한 번 플레이해 보세요. 창에서 잘 되면 그래픽 드라이버를 업데이트하세요."),
-    "help.crash.2": ("If it closes when a song starts, turn Background videos off on the Screen page.",
-                     "곡이 시작될 때 닫히면 '화면' 페이지에서 배경 영상을 끄세요."),
+    # Each with the page it names one press away at its end (SCREEN), as OpenDMTQ's Help has its lines.
+    "help.crash.1": ("Play in a window once. If that works, update the graphics driver.",
+                     "창 모드로 한 번 플레이해 보세요. 창에서 잘 되면 그래픽 드라이버를 업데이트하세요."),
+    "help.crash.2": ("If it closes when a song starts, turn Background videos off.",
+                     "곡이 시작될 때 닫히면 배경 영상을 끄세요."),
     "help.crash.3": ("Save a report and attach it to an issue on GitHub.", "보고서를 저장해 GitHub 이슈에 붙여 주세요."),
     "help.tools": ("Tools", "도구"),
+    # The card of what puts back and takes away, from the least to the most, as OpenDMTQ's "Reset and remove".
+    "help.remove": ("Put back and uninstall", "되돌리기와 제거"),
     "help.restore": ("Game files", "게임 파일"),
     "help.restore.hint": ("Every file an older openDMT3 changed in the client data goes back to how it was, and the "
                           "files it added go.",
@@ -468,7 +468,10 @@ TEXT = {
                        "런처가 한 일(PLAY, 이 PC 서버, 업데이트)이 적혀 있습니다."),
     "help.repair": ("Repair", "복구"),
     "help.repair.row": ("Program files", "프로그램 파일"),
-    "help.repair.hint": ("Puts back the program's files that are missing or changed.", "없거나 바뀐 프로그램 파일을 되돌립니다."),
+    "help.repair.hint": ("Compares the program's files with the installed package and puts back what is missing or "
+                         "changed. The settings, players, records and the client data are not touched.",
+                         "프로그램 파일을 설치된 패키지와 대조해 없거나 바뀐 파일을 되돌립니다. 설정, 플레이어, 기록, "
+                         "클라이언트 데이터는 건드리지 않습니다."),
     "help.repair.working": ("Checking the program's files...", "프로그램 파일을 확인하는 중..."),
     "help.repair.working.detail": ("What is missing or changed comes back from the installed package.",
                                    "없거나 바뀐 파일은 설치된 패키지에서 되돌립니다."),
@@ -522,7 +525,6 @@ TEXT = {
                                            "제거 프로그램이 시작되지 않았습니다: {error}\nWindows 설정의 앱에서도 openDMT3를 제거할 수 있습니다."),
 
     # -------------------------------------------------------------------------------------------- about
-    "about.title": ("Launcher", "런처"),
     "about.sub": ("The launcher's own settings and updates.", "런처 자체의 설정과 업데이트입니다."),
     "about.general": ("General", "일반"),
     "about.language": ("Language", "언어"),
@@ -548,7 +550,7 @@ TEXT = {
     "about.update_failed.title": ("Update failed", "업데이트 실패"),
     "about.update_busy": ("Close the game first: the launcher closes to update.",
                           "먼저 게임을 닫으세요. 업데이트하려면 런처가 닫힙니다."),
-    "about.guide": ("First-start guide", "처음 시작 안내"),
+    "about.guide": ("First-start guide", "처음 안내"),
     "about.guide.run": ("Show it again", "다시 보기"),
     "db.broken.hint": ("Its daily backups are in the backups folder beside it. Close the launcher, move "
                        "openDMT3.sqlite and the files that start with its name away, copy the newest backup there as "
@@ -565,7 +567,7 @@ TEXT = {
     "start.newer.detail": ("Install the newer launcher again to go on.\n{path}", "계속하려면 새 버전 런처를 다시 설치하세요.\n{path}"),
     "start.broken": ("The launcher's settings cannot be read.", "런처 설정을 읽을 수 없습니다."),
     "start.broken.detail": ("Start over keeps the file under another name and opens the first-start guide.\n{path}",
-                            "'처음부터'를 누르면 이 파일을 다른 이름으로 남겨 두고 처음 시작 안내를 엽니다.\n{path}"),
+                            "'처음부터'를 누르면 이 파일을 다른 이름으로 남겨 두고 처음 안내를 엽니다.\n{path}"),
     "start.over": ("Start over", "처음부터"),
     "setup.window": ("openDMT3 Setup", "openDMT3 설치"),
     "setup.tab": ("Setup", "설치"),
@@ -637,13 +639,11 @@ TEXT = {
                      "주세요. 권리자가 요청하면 프로젝트를 비공개로 돌리거나 내립니다."),
 
     # -------------------------------------------------------------------------------------------- guide
-    "guide.heading": ("FIRST START", "처음 시작"),
     "guide.skip": ("Skip: I set it up myself", "건너뛰기(직접 설정)"),
     "guide.back": ("Back", "뒤로"),
     "guide.next": ("Next", "다음"),
-    "guide.step": ("Step {n} of {total}", "{n}/{total}단계"),
+    "guide.step": ("Step {n} of {total}", "{total}단계 중 {n}단계"),
     "guide.1.name": ("POWER ON", "POWER ON"),
-    "guide.1.sub": ("Welcome", "환영"),
     "guide.1.title": ("Welcome to openDMT3", "openDMT3에 오신 것을 환영합니다"),
     "guide.1.text": ("A few steps to your first song.", "첫 곡까지 몇 단계면 됩니다."),
     "guide.1.notice": ("openDMT3 comes with no game files. Please use it only with game files you have the right to "
@@ -657,7 +657,6 @@ TEXT = {
                        "파일입니다. 폴더도 되고 압축 파일(.zip, .7z, .rar, 분할 압축은 모든 조각을 한 폴더에)도 됩니다."),
     "guide.1.need.2": ("Windows 10 or 11, and a mouse or a touch screen.", "Windows 10이나 11, 마우스나 터치스크린이 필요합니다."),
     "guide.2.name": ("DISC CHECK", "DISC CHECK"),
-    "guide.2.sub": ("Client data", "클라이언트 데이터"),
     "guide.2.title": ("Where is the game?", "게임은 어디 있나요?"),
     "guide.2.searching": ("Looking in Desktop, Downloads, Documents and the top of each drive...",
                           "바탕 화면, 다운로드, 문서, 드라이브 맨 위에서 찾는 중..."),
@@ -735,8 +734,8 @@ TEXT = {
                                "런처가 읽을 수 없는 곳입니다. 다운로드 같은 내 폴더로 복사하세요."),
     "intake.line.no_space": ("Not enough free space: {needed} needed, {free} free. Choose another folder to unpack into.",
                              "공간이 부족합니다. 필요한 공간 {needed}, 남은 공간 {free}. 풀 곳으로 다른 폴더를 고르세요."),
-    "intake.line.no_7zip": ("This launcher has no 7-Zip to open archives with. Repair it on the Help page.",
-                            "이 런처에 압축 파일을 열 7-Zip이 없습니다. 도움말 페이지의 복구로 고치세요."),
+    "intake.line.no_7zip": ("This launcher has no 7-Zip to open archives with. Repair it on the HELP page.",
+                            "이 런처에 압축 파일을 열 7-Zip이 없습니다. HELP 페이지의 복구로 고치세요."),
     # What a card offers.
     "intake.unpack": ("Unpack...", "풀기..."),
     "intake.put_back": ("Put back...", "되돌리기..."),
@@ -770,10 +769,8 @@ TEXT = {
     "unpack.password.go": ("Open", "열기"),
     "unpack.checking": ("Checking the password...", "암호를 확인하는 중..."),
     "guide.3.name": ("SOUND CHECK", "SOUND CHECK"),
-    "guide.3.sub": ("Screen and sound", "화면과 소리"),
     "guide.3.title": ("Screen and sound", "화면과 소리"),
     "guide.4.name": ("STAGE START", "STAGE START"),
-    "guide.4.sub": ("Ready", "준비 끝"),
     "guide.4.title": ("Ready for stage 1", "1스테이지 준비 끝"),
     "guide.4.text": ("Press PLAY. Your client data is not changed.",
                      "PLAY를 누르면 게임이 시작됩니다. 클라이언트 데이터는 바꾸지 않습니다."),
@@ -802,3 +799,15 @@ class Words:
         if key in TEXT:
             return self(key, **getattr(error, "params", {}))
         return errors.say(error, self.language)
+
+
+def every_language(text):
+    """A text in every language the launcher speaks: the words of each entry whose English or Korean words are `text` (a
+    setting's name, shown in one language while the page keeps room for both, as OpenDMTQ's pages do), or the text alone
+    when none is."""
+    found = {text}
+    for en, ko in TEXT.values():
+        if text in (en, ko):
+            # A Korean entry left empty falls back to the English words (Words): only the words a page can show.
+            found.update(words for words in (en, ko) if words)
+    return sorted(found)

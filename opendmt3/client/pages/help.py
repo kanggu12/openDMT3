@@ -1,5 +1,5 @@
-"""Help: the game folder's checks, what to do when the game closes by itself, and the tools: putting back the game
-files an older openDMT3 changed, a report, the launcher's log, Repair and Uninstall."""
+"""HELP: the ready check, what to do when the game closes by itself, the tools (a report, the launcher's log, Repair),
+and what puts back and takes away (the client data's files an older openDMT3 changed, Uninstall)."""
 
 import logging
 import os
@@ -13,24 +13,48 @@ log = logging.getLogger("opendmt3.launcher")
 # How long Uninstall's last step stays, to be read, before the window closes (as the installer's last one).
 LAST_STEP_MS = 2200
 
-from opendmt3.client.pages.common import _gap
+from opendmt3.client.pages.common import TITLES, card
 from opendmt3.client.pages.play import refresh_checks
 
 
 def build_help(app, parent):
+    """Four cards, as OpenDMTQ's HELP has them: the checks (Check again at the title's right end), what to try when the
+    game closes by itself (each line with the page it names one press away), the tools (a report, the launcher's log,
+    Repair), and what puts back and takes away, from the least to the most (the client data's files an older openDMT3
+    changed, then openDMT3 itself)."""
     ui, w = app.ui, app.words
-    card = widgets.Card(parent, ui, title=w("help.checks"))
-    card.pack(fill="x")
-    app.check_box = tk.Frame(card.body, bg=theme.PANEL)
+    checks = card(parent, ui, w("help.checks"))
+    checks.action(w("help.recheck"), app.refresh_checks)
+    app.check_box = tk.Frame(checks.body, bg=theme.PANEL)
     app.check_box.pack(fill="x")
-    widgets.Button(card.body, ui, w("help.recheck"), app.refresh_checks).pack(anchor="w", pady=(ui.px(8), 0))
     refresh_checks(app)
-    _gap(parent, ui, 22)
-    widgets.section(parent, ui, w("help.crash")).pack(fill="x", pady=(0, ui.px(12)))
-    for key in ("help.crash.1", "help.crash.2", "help.crash.3"):
-        widgets.label(parent, ui, w(key), wrap_margin=0).pack(fill="x", pady=(0, ui.px(6)))
-    _gap(parent, ui, 14)
-    widgets.section(parent, ui, w("help.tools")).pack(fill="x", pady=(0, ui.px(14)))
+    crash = card(parent, ui, w("help.crash"))
+    for i, (key, page) in enumerate((("help.crash.1", "screen"), ("help.crash.2", "screen"), ("help.crash.3", None))):
+        if i:
+            widgets.divider(crash.body, ui, pady=9)
+        line = tk.Frame(crash.body, bg=theme.PANEL)
+        line.pack(fill="x")
+        beside = ()
+        if page:
+            # The page the line names, by the menu's own name, reached by the mouse or the keyboard.
+            to = widgets.link(line, ui, TITLES[page], lambda p=page: app.go(p))
+            to.pack(side="right", anchor="n")
+            beside = (to,)
+        widgets.label(line, ui, w(key), wrap_margin=12, beside=beside).pack(side="left", fill="x")
+    tools = card(parent, ui, w("help.tools"))
+    # Each row is named by what it is about, its button by what it does (never the same words twice on a line).
+    widgets.setting_row(tools.body, ui, w("help.report"),
+                        lambda p: widgets.Button(p, ui, w("help.report.save"), app.save_report),
+                        w("help.report.hint")).pack(fill="x")
+    widgets.divider(tools.body, ui)
+    logs = os.path.join(st.config_dir(), "logs")
+    widgets.setting_row(tools.body, ui, w("help.logs"),
+                        lambda p: widgets.Button(p, ui, w("common.open"), lambda: actions.open_folder(logs)),
+                        w("help.logs.hint")).pack(fill="x")
+    widgets.divider(tools.body, ui)
+    widgets.setting_row(tools.body, ui, w("help.repair.row"),
+                        lambda p: widgets.Button(p, ui, w("help.repair"), lambda: repair_program(app)),
+                        w("help.repair.hint")).pack(fill="x")
 
     def restore():
         if app.busy or playing.game_running(app.session):
@@ -49,24 +73,16 @@ def build_help(app, parent):
         app.set_status(w("help.restore.done", n=len(done)) if done else w("help.restore.nothing"), "ok")
         app.refresh_checks()
 
-    # Each row is named by what it is about, its button by what it does (never the same words twice on a line).
-    widgets.setting_row(parent, ui, w("help.restore"),
+    # What puts back and takes away, on a card of its own as OpenDMTQ's "Reset and remove": the least first.
+    remove = card(parent, ui, w("help.remove"), last=True)
+    widgets.setting_row(remove.body, ui, w("help.restore"),
                         lambda p: widgets.Button(p, ui, w("help.restore.confirm"), restore, kind="danger"),
-                        w("help.restore.hint")).pack(fill="x", pady=(0, ui.px(16)))
-    widgets.setting_row(parent, ui, w("help.report"),
-                        lambda p: widgets.Button(p, ui, w("help.report.save"), app.save_report),
-                        w("help.report.hint")).pack(fill="x", pady=(0, ui.px(16)))
-    logs = os.path.join(st.config_dir(), "logs")
-    widgets.setting_row(parent, ui, w("help.logs"),
-                        lambda p: widgets.Button(p, ui, w("common.open"), lambda: actions.open_folder(logs)),
-                        w("help.logs.hint")).pack(fill="x", pady=(0, ui.px(16)))
-    widgets.setting_row(parent, ui, w("help.repair.row"),
-                        lambda p: widgets.Button(p, ui, w("help.repair"), lambda: repair_program(app)),
-                        w("help.repair.hint")).pack(fill="x", pady=(0, ui.px(16)))
-    # The last of the tools, as in the OpenDMTQ PC client: the one that takes everything away.
-    widgets.setting_row(parent, ui, w("help.uninstall.row"),
+                        w("help.restore.hint")).pack(fill="x")
+    widgets.divider(remove.body, ui)
+    # The last, as in the OpenDMTQ PC client: the one that takes everything away.
+    widgets.setting_row(remove.body, ui, w("help.uninstall.row"),
                         lambda p: widgets.Button(p, ui, w("help.uninstall"), lambda: uninstall(app), kind="danger"),
-                        w("help.uninstall.hint")).pack(fill="x", pady=(0, ui.px(16)))
+                        w("help.uninstall.hint")).pack(fill="x")
 
 
 def repair_program(app):

@@ -51,9 +51,15 @@ class ContrastTest(unittest.TestCase):
             self.assertGreaterEqual(ratio, 4.5, "%s: %.2f" % (name, ratio))
 
     def test_text_on_the_surfaces(self):
-        for surface in (theme.BG, theme.SIDEBAR, theme.PANEL, theme.PANEL_HI):
+        # The bar across the top (the menu's names), the page, the cards and a chosen row.
+        for surface in (theme.BG, theme.BAR, theme.PANEL, theme.PANEL_HI):
             for text, least in ((theme.TEXT, 4.5), (theme.MUTED, 4.5), (theme.FAINT, 3.0)):
                 self.assertGreaterEqual(contrast(text, surface), least, "%s on %s" % (text, surface))
+        # The guide's big numbers of the steps to come, under the bar: large text, 3:1.
+        self.assertGreaterEqual(contrast(theme.STEP_TO_COME, theme.BG), 3.0)
+        # The rule under the page on show: each section's colour reads on the bar.
+        for name, colours in theme.SECTION_COLOURS.items():
+            self.assertGreaterEqual(contrast(colours["accent"], theme.BAR), 3.0, name)
         # The meaning colours are read as words on cards (scores, links, warnings).
         for colour in (theme.LIME, theme.PINK, theme.AMBER, theme.BLUE_HI, theme.CYAN):
             self.assertGreaterEqual(contrast(colour, theme.PANEL), 4.5, colour)
@@ -120,6 +126,29 @@ class PictureTest(unittest.TestCase):
                 art.header(40, 20, seed=100 + seed, colours=colours)
             self.assertEqual(len(art._HEADER_SHARDS), art.HEADER_SHARDS_KEPT)
             self.assertNotIn((300, 60, 11, tuple(sorted(colours.items()))), art._HEADER_SHARDS)
+
+    def test_the_bars_mark_never_changes_with_the_version(self):
+        # The bar's left end (art.brand): the mark, then LAUNCHER over the version. The mark is the same pixels whatever
+        # the version, and the whole is as tall; a version longer than a usual one is set smaller, not wider.
+        for scale in (1.0, 1.5):
+            plain = art.brand(scale, "")
+            for version in ("0.3.0", "0.10.12", "1.0.0-rc.1", "0.7.1-updatetest"):
+                shown = art.brand(scale, version)
+                # The mark stands on the picture's foot, at its left end.
+                mark = shown.crop((0, shown.height - plain.height, plain.width, shown.height))
+                self.assertEqual(mark.tobytes(), plain.tobytes(), (scale, version))
+                self.assertEqual(shown.height, art.brand(scale, "0.3.0").height, (scale, version))
+            usual, long = art.version_block("LAUNCHER", "v0.10.12", scale), art.version_block("LAUNCHER",
+                                                                                              "v0.7.1-updatetest", scale)
+            # The test build's name wider than a usual version, but not by its whole length at the usual size.
+            self.assertLess(long.width, usual.width * len("v0.7.1-updatetest") / len("v0.10.12"))
+
+    def test_a_cards_corner_is_cut(self):
+        # The page's colour beyond the cut (the top right), the card's inside under it (the bottom left).
+        corner = art.corner(14, theme.PANEL, theme.BG, seam=theme.LINE)
+        self.assertEqual(corner.size, (14, 14))
+        self.assertEqual(corner.getpixel((13, 0)), art._rgb(theme.BG))
+        self.assertEqual(corner.getpixel((0, 13)), art._rgb(theme.PANEL))
 
     def test_the_version_never_changes_the_mark(self):
         # DMT3 and OPEN, the left part of the logo, are the same pixels whatever the version (the room beside

@@ -26,7 +26,7 @@
   openDMT3.exe --folder <path>         use the client data in this folder (or up to four levels below it); an
                                        archive is unpacked first (beside it unless --to)
   openDMT3.exe --set name=value ...    change a setting (the names are in core/cabinet/values.py; unlock=on|off too)
-                                       the Screen page's picture: upscale=off|smooth|fsr1|nis|anime4k,
+                                       the SCREEN page's picture: upscale=off|smooth|fsr1|nis|anime4k,
                                        sharpness=0..100,
                                        antialiasing=off|fxaa|smaa-low|smaa-medium|smaa-high|smaa-ultra,
                                        frame_pacing=music|even|game, show_fps=on|off,
@@ -35,7 +35,7 @@
                                        drawn at its own 1280x768 or at the screen's size),
                                        pass_times=on|off (the picture's GPU time by pass, into the log
                                        when the game closes), motion_clarity=off|crt|bfi,
-                                       flip_model=on|off; the Sound page's low_latency=on|off
+                                       flip_model=on|off; the SOUND page's low_latency=on|off
                                        (Windows' sound engine at the shortest period the device offers
                                        while the game runs),
                                        sound_path=directsound|openal|openal-exclusive (its Mixer) and
@@ -585,7 +585,7 @@ def parse(argv):
     job.add_argument("--shortcut", action="store_true", help="make the desktop shortcut that plays at once")
     p.add_argument("--autostart", choices=("on", "off"), help="play when Windows starts, or not")
     p.add_argument("--text", action="store_true",
-                   help="with --records: print the Records page (numbers, recent plays, best scores) instead")
+                   help="with --records: print the RECORDS page (numbers, recent plays, best scores) instead")
     p.add_argument("--yes", action="store_true",
                    help="do not ask before --put-back, --unpack, --update, --uninstall or --delete-player")
     p.add_argument("--status", action="store_true",
@@ -809,7 +809,7 @@ def run_jobs(args, state, play_failed):
         except actions.SignedOut:
             actions.forget_sign_in(state)
             state.save()
-            say("The server no longer takes your sign-in. Sign in again on the Online page.", error=True)
+            say("The server no longer takes your sign-in. Sign in again on the ONLINE page.", error=True)
             return play_failed(state, "status.signed_out")
         except Exception as e:  # noqa: BLE001  (shown and logged, never swallowed)
             log.exception("--play failed")

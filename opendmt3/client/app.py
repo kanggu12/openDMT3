@@ -1,4 +1,6 @@
-"""The launcher window: the menu column, the page header, the page, and the bottom bar with PLAY.
+"""The launcher window, laid out as OpenDMTQ's launcher and both sites are: the bar across the top with the mark, the
+version and the menu, the page under it (its head, the title over the section's shards, then its cards, scrolling
+together), and the strip along the foot with the status line and PLAY.
 
 Slow work (checking the game folder, rewriting archives, reading song discs, update checks) runs on worker
 threads; they hand results back through a queue the window empties every 50 ms, because Tk may only be touched
@@ -20,8 +22,16 @@ from opendmt3.client.window_room import title_bar_height, window_box, work_area
 
 log = logging.getLogger("opendmt3.launcher")
 
-# The menu, top to bottom.
+# The menu, left to right.
 NAV = ("play", "screen", "sound", "controls", "game", "online", "records", "help", "about")
+# The page head's height (logical pixels): the title and the line under it over the section's shards (PLAY's discs at
+# its right), scrolling with the page under the bar as a page of the site does under its own.
+HEAD = 128
+# Where the title stands in the head and where the line under it starts (left edge and baseline, left edge and top).
+TITLE_AT, SUB_AT = (32, 60), (32, 78)
+# The strip along the foot: its least height inside its padding (PLAY's slab and its keyboard ring), the same on every
+# page and every step of the guide, so the page above it never moves as Next turns into PLAY (OpenDMTQ's BAR_HEIGHT).
+BAR_HEIGHT = 54
 # Each page gets its own arrangement of shards, so moving between pages feels like moving.
 SEEDS = {"play": 7, "screen": 11, "sound": 23, "controls": 31, "game": 5, "online": 13, "records": 19, "help": 17,
          "about": 41}
@@ -61,6 +71,8 @@ class LauncherApp:
         self.dialog = None                    # the dialog on show (dialogs.py), while one is
         self.then = None                      # what main() runs once the window is gone (removing openDMT3)
         self.removing = False                 # the game's files are going back to remove openDMT3
+        self.guide = None                     # the first-start guide, while it is on show
+        self.main_buttons = []                # the page's main buttons (pages.main_button), lit while PLAY is not
         self.folder_look = None               # what the folder in use is (client/intake.py), for the Game page
         self.game_list = None                 # the Game page's list of folders to change to, while it is open
         self._setup_fonts()
@@ -114,6 +126,8 @@ class LauncherApp:
             self.guide = guide.Guide(self)
             self.guide.build()
             return
+        # The launcher's own pages: the guide is done with.
+        self.guide = None
         self._build_main()
         self.go(self.page)
         self.refresh_checks()
@@ -121,32 +135,19 @@ class LauncherApp:
 
     def _build_main(self):
         ui, px, w = self.ui, self.ui.px, self.words
-        # ---- the menu column
-        side = tk.Frame(self.root, bg=theme.SIDEBAR, width=px(232))
-        side.pack(side="left", fill="y")
-        side.pack_propagate(False)
-        # The name as a mark (art.logo): OPEN DMT3 in chrome, the blue 3 of the TECHNIKA 3 logo.
-        picture = art.logo(px(232) - px(40), self.scale, version=updates.shown_version())
-        self._logo = ImageTk.PhotoImage(picture, master=self.root)
-        brand = tk.Label(side, image=self._logo, bg=theme.SIDEBAR, bd=0)
-        brand.opendmt3_picture = picture
-        brand.pack(anchor="w", padx=px(20), pady=(px(20), px(20)))
-        self.nav = {}
-        for key in NAV:
-            self.nav[key] = self._nav_item(side, key)
-        # ---- the right side: header, page, bottom bar
-        right = tk.Frame(self.root, bg=theme.BG)
-        right.pack(side="left", fill="both", expand=True)
-        self.header = tk.Canvas(right, height=px(156), bg=theme.BG, highlightthickness=0, bd=0)
-        self.header.pack(fill="x")
-        # Its first size draws it at once (the window just opened); later ones once a drag settles.
-        self.header.bind("<Configure>", lambda e: self._queue_header(
-            now=getattr(self.header, "opendmt3_picture", None) is None))
-        bottom = tk.Frame(right, bg=theme.PANEL)
+        from opendmt3.client import pages
+        # ---- the bar across the top: the mark and the version, then the menu, as both sites' bars and OpenDMTQ's
+        # launcher's (each name as its page's title)
+        self.header = self.make_header(self.root, nav=[(key, pages.TITLES[key]) for key in NAV], on_nav=self.go)
+        # ---- the strip along the foot: what is going on at the left, a report and PLAY at the right
+        bottom = tk.Frame(self.root, bg=theme.PANEL)
         bottom.pack(side="bottom", fill="x")
         tk.Frame(bottom, bg=theme.LINE, height=1).pack(fill="x", side="top")
         bar = tk.Frame(bottom, bg=theme.PANEL)
-        bar.pack(fill="x", padx=px(24), pady=px(14))
+        bar.pack(fill="x", padx=px(24), pady=px(12))
+        # As tall as PLAY with its keyboard ring at the least, on every page and every step of the guide; a status line
+        # long enough to wrap past that makes it taller rather than being cut (an error with a long path).
+        tk.Frame(bar, bg=theme.PANEL, width=1, height=px(BAR_HEIGHT)).pack(side="left")
         self.play_button = self._make_play(bar)
         self.play_button.pack(side="right")
         widgets.Button(bar, ui, w("bottom.report"), self.save_report).pack(side="right", padx=(0, px(14)))
@@ -158,37 +159,24 @@ class LauncherApp:
         self.status_label.pack(side="left", fill="x", expand=True, padx=(px(9), px(12)))
         # The line wraps at the room the bar leaves it (a long error would be cut at a fixed width).
         self.status_label.bind("<Configure>", self._wrap_status)
-        self.body = widgets.ScrollArea(right, ui)
+        # ---- the page: its head and its cards, scrolling together under the bar
+        self.body = widgets.ScrollArea(self.root, ui)
         self.body.pack(fill="both", expand=True)
+        # The head is drawn again for a new width, once a drag settles (the first width draws it at once).
+        self.body.on_width = lambda width: self._queue_header(now=self.body.canvas.head_picture is None)
+        # Tab goes as the window reads: the menu, the page, then the strip along the foot. Tk's Tab follows each
+        # parent's stacking order, the order its children were made in until one is raised. (Misc's own raise: a
+        # canvas's raise moves its items instead.)
+        tk.Misc.tkraise(bottom)
         self._paint_status()
 
-    def _nav_item(self, parent, key):
-        """One menu entry, drawn as the game's mode select sets its choices (art.menu_entry): the chosen page on a
-        striped plate in its section's colour, a hovered one on a dark plate, the rest in grey words."""
-        px = self.ui.px
-        words = self.words("nav." + key)
-        text = words.upper() if self.state.language == "en" else words
-        size = (px(232) - px(24), px(38))
-        # Each state drawn once; the entry swaps pictures as the pointer and the page change.
-        pictures = {state: art.menu_entry(text, *size, state, theme.section_colours(key), self.scale)
-                    for state in ("off", "hover", "on")}
-        images = {state: ImageTk.PhotoImage(p, master=self.root) for state, p in pictures.items()}
-        entry = tk.Label(parent, image=images["off"], bg=theme.SIDEBAR, bd=0, cursor="hand2")
-        entry.pack(anchor="w", padx=px(12), pady=px(2))
-        entry.images, entry.pictures, entry.words = images, pictures, text
-        entry.opendmt3_picture = pictures["off"]
-        entry.bind("<Button-1>", lambda e, k=key: self.go(k))
-        entry.bind("<Enter>", lambda e, k=key: self._paint_nav(k, hover=True))
-        entry.bind("<Leave>", lambda e, k=key: self._paint_nav(k))
-        return entry
-
-    def _paint_nav(self, key, hover=False):
-        """The page on show is lit: its entry on its section's striped plate."""
-        entry = self.nav[key]
-        state = "on" if key == self.page else ("hover" if hover else "off")
-        entry.configure(image=entry.images[state])
-        # The window's picture behind a dialog (snapshot.py) shows the entry as it is now.
-        entry.opendmt3_picture = entry.pictures[state]
+    def make_header(self, parent, nav=(), on_nav=None, steps=()):
+        """The bar across the window's top (widgets.Header): the mark with LAUNCHER and the version beside it
+        (art.brand), then the menu; the guide's has its steps under the bar instead."""
+        header = widgets.Header(parent, self.ui, art.brand(self.scale, updates.shown_version()), nav=nav,
+                                on_nav=on_nav, steps=steps)
+        header.pack(side="top", fill="x")
+        return header
 
     # -------------------------------------------------------------------------------------- PLAY
 
@@ -199,13 +187,17 @@ class LauncherApp:
         self._play_pictures = {s: art.play_button(*size, state=s)
                                for s in ("normal", "hover", "pressed", "disabled", "playing")}
         self._play_images = {s: ImageTk.PhotoImage(p, master=self.root) for s, p in self._play_pictures.items()}
+        # The keyboard reaches it too, as OpenDMTQ's PLAY: Tab brings a cyan ring round it, Enter or Space presses it.
         button = tk.Label(parent, image=self._play_images["normal"], text=self.words("bottom.play"),
                           compound="center", font=self.fonts.display_big, fg=theme.TEXT, bg=theme.PANEL,
-                          cursor="hand2", bd=0)
+                          cursor="hand2", bd=0, takefocus=1, highlightthickness=max(1, px(2)),
+                          highlightbackground=theme.PANEL, highlightcolor=theme.CYAN)
         button.bind("<Enter>", lambda e: self._paint_play("hover"))
         button.bind("<Leave>", lambda e: self._paint_play())
         button.bind("<Button-1>", lambda e: self._paint_play("pressed"))
         button.bind("<ButtonRelease-1>", lambda e: self.play())
+        for key in ("<Return>", "<KP_Enter>", "<space>"):
+            button.bind(key, lambda e: self.play())
         return button
 
     def _paint_play(self, mouse=None):
@@ -223,6 +215,17 @@ class LauncherApp:
         self.play_button.configure(image=self._play_images[look], text=text,
                                    fg=theme.TEXT if look not in ("disabled", "playing") else theme.FAINT,
                                    cursor="hand2" if look not in ("disabled", "playing") else "arrow")
+        # One lit main action on the screen, as OpenDMTQ's launcher has it: a page's main button (Connect, Sign in,
+        # Add a player, the launcher's update) is quiet beside a lit PLAY, and lit while PLAY waits, when it is the
+        # next thing to do.
+        kind = "secondary" if self.play_lit() else "primary"
+        for button in self.main_buttons:
+            if button.winfo_exists():
+                button.set_kind(kind)
+
+    def play_lit(self):
+        """True while PLAY can be pressed (lit), so that a page's main button stays quiet beside it."""
+        return not (self.busy or (self.session is not None and self.session.running()) or not self.ready())
 
     def ready(self):
         """True when nothing blocks PLAY (a folder, a supported client, the game closed)."""
@@ -465,25 +468,35 @@ class LauncherApp:
     # ----------------------------------------------------------------------------------- pages
 
     def go(self, page):
-        """Show a page: its header picture and titles, and its content."""
+        """Show a page: its name lit on the bar, its head (title and line) and its cards."""
         from opendmt3.client import pages
         self.page = page
         # The page's widgets take its section's colour.
         self.ui.use_section(page)
-        for key in self.nav:
-            self._paint_nav(key)
+        self.header.set_current(page)
+        # The page's main buttons are made again with it (pages.main_button).
+        self.main_buttons = []
         for child in self.body.inner.winfo_children():
             child.destroy()
         content = tk.Frame(self.body.inner, bg=theme.BG)
-        content.pack(fill="both", expand=True, padx=self.ui.px(32), pady=(self.ui.px(22), self.ui.px(28)))
+        content.pack(fill="both", expand=True, padx=self.ui.px(32), pady=(self.ui.px(4), self.ui.px(28)))
         pages.BUILDERS[page](self, content)
+        # One column for the names of the page's settings, as wide as the widest in either language and of the rows a
+        # choice brings, so the controls stand on one line as rows come and go (OpenDMTQ's pages do the same).
+        widgets.fit_names(content, self.ui, pages.rows_that_come(page))
         self.body.to_top()
-        # The page's title in the same turn as the page (it came 90 ms and a drawing later): the header's shards are
-        # kept from the page's last visit at this size (art.header_shards).
+        # The page's head in the same turn as the page: the shards are kept from the page's last visit at this size
+        # (art.header_shards).
         self._queue_header(now=True)
 
+    def redraw(self, page):
+        """The page on show drawn again for a choice that adds or takes rows, or an answer that came: where it was
+        scrolled to and with the keyboard on the control it was on (widgets.ScrollArea.keep_place)."""
+        if self.page == page:
+            self.body.keep_place(lambda: self.go(page))
+
     def _queue_header(self, now=False):
-        """Draw the header again: at once (`now`: a page switch, the PLAY page's discs, the window's first size), or
+        """Draw the page's head again: at once (`now`: a page switch, the PLAY page's discs, the area's first width), or
         once the size settles (a drag fires many resize events: drawn 90 ms after the last)."""
         if self._header_job is not None:
             self.root.after_cancel(self._header_job)
@@ -496,29 +509,21 @@ class LauncherApp:
     def _draw_header(self):
         from opendmt3.client import pages
         self._header_job = None
-        if not hasattr(self, "header") or not self.header.winfo_exists():
-            # The guide is on show; it draws its own header.
+        if not hasattr(self, "body") or not self.body.winfo_exists() or getattr(self, "guide", None) is not None:
+            # The guide is on show; it draws its own heads.
             return
-        c = self.header
-        width, height = c.winfo_width(), c.winfo_height()
+        width = self.body.canvas.winfo_width()
         if width < 50:
             return
         px = self.ui.px
         discs = self.discs if (self.page == "play" and self.discs) else ()
         title, sub = pages.HEADERS[self.page](self)
         colours = theme.section_colours(self.page)
-        words = title.upper() if self.state.language == "en" else title
         # The title is part of the picture: chrome letters, the TECHNIKA 3 logo's blue 3 on PLAY.
-        picture = art.header(width, height, discs, seed=SEEDS.get(self.page, 7), colours=colours, title=words,
-                             title_tail="3" if words.endswith(" 3") else None, scale=self.scale,
-                             title_at=(32, 74))
-        self._header_img = ImageTk.PhotoImage(picture, master=self.root)
-        # A dialog draws the window behind it from the widgets (snapshot.py); this is the header's part.
-        c.opendmt3_picture = picture
-        c.delete("all")
-        c.create_image(0, 0, image=self._header_img, anchor="nw")
-        c.create_text(px(32), px(94), text=sub, font=self.fonts.body, fill=theme.MUTED, anchor="nw",
-                      width=max(px(300), int(width * 0.52)))
+        picture = art.header(width, px(HEAD), discs, seed=SEEDS.get(self.page, 7), colours=colours, title=title,
+                             title_tail="3" if title.endswith(" 3") else None, scale=self.scale, title_at=TITLE_AT)
+        # The line under the title, as wide as the room the discs and the brightest shards leave it.
+        self.body.set_head(picture, sub, (px(SUB_AT[0]), px(SUB_AT[1])), max(px(300), int(width * 0.52)))
 
     # ------------------------------------------------------------------------------ background
 
@@ -567,9 +572,12 @@ class LauncherApp:
             elif self.status_tone not in ("ok", "bad") and not self.status_sticky:
                 self.set_status(self.words("status.ready"), "normal")
         self._paint_play()
-        # The PLAY page, the Help page and the guide's last step each show the check when they are on screen.
+        # The PLAY page, the HELP page and the guide's last step each show the check when they are on screen.
         from opendmt3.client import pages
         pages.refresh_checks(self)
+        if self.guide is not None:
+            # The guide's last step: its PLAY follows the check.
+            self.guide.checks_changed()
 
     def load_discs(self):
         """Read a few song discs from the player's archives for the PLAY header (once per folder)."""

@@ -1,4 +1,5 @@
-"""Records: the chosen player's numbers, weeks, recent plays and best scores."""
+"""RECORDS: the chosen player's numbers, weeks, recent plays and best scores, on cards as the other pages have
+theirs."""
 
 import threading
 import time
@@ -6,7 +7,7 @@ import tkinter as tk
 
 from opendmt3.client import actions, theme, widgets
 
-from opendmt3.client.pages.common import _gap
+from opendmt3.client.pages.common import CARD_GAP, TITLES, card
 
 
 def build_records(app, parent):
@@ -15,8 +16,9 @@ def build_records(app, parent):
     ui, w = app.ui, app.words
     box = tk.Frame(parent, bg=theme.BG)
     box.pack(fill="both", expand=True)
-    waiting = widgets.label(box, ui, w("records.loading"), fg=theme.MUTED)
-    waiting.pack(anchor="w")
+    # Until the records come, the page's card says they are being read (an empty page says nothing).
+    waiting = card(box, ui, last=True)
+    widgets.label(waiting.body, ui, w("records.loading"), fg=theme.MUTED).pack(anchor="w")
     state, host = app.state, app.host
 
     def work():
@@ -31,19 +33,22 @@ def build_records(app, parent):
 
 
 def _records_failed(app, box, error):
+    """Why there are no records to show, on the page's card, and the way to what fixes it."""
     ui, w = app.ui, app.words
     for child in box.winfo_children():
         child.destroy()
-    widgets.label(box, ui, w.error(error), fg=theme.AMBER, wrap_margin=0).pack(fill="x")
-    _gap(box, ui, 12)
+    why = card(box, ui, last=True)
+    widgets.label(why.body, ui, w.error(error), fg=theme.AMBER, wrap_margin=0).pack(fill="x")
     if getattr(error, "key", None) in ("error.records.signin", "error.records.offline"):
-        widgets.Button(box, ui, w("nav.online"), lambda: app.go("online")).pack(anchor="w")
+        # The page that fixes it, by the menu's own name, as HELP's lines name theirs.
+        widgets.link(why.body, ui, TITLES["online"], lambda: app.go("online")).pack(anchor="w", pady=(ui.px(10), 0))
     elif getattr(error, "key", None) == "error.records.guest":
-        # A guest has no records: the player is chosen on the Play page.
-        widgets.Button(box, ui, w("nav.play"), lambda: app.go("play")).pack(anchor="w")
+        # A guest has no records: the player is chosen on the PLAY page.
+        widgets.link(why.body, ui, TITLES["play"], lambda: app.go("play")).pack(anchor="w", pady=(ui.px(10), 0))
     else:
         # A server that did not answer may answer now.
-        widgets.Button(box, ui, w("records.again"), lambda: app.go("records")).pack(anchor="w")
+        widgets.Button(why.body, ui, w("records.again"), lambda: app.go("records")).pack(anchor="w",
+                                                                                       pady=(ui.px(10), 0))
 
 
 def _records_open_site(app, player):
@@ -60,7 +65,7 @@ def _records_drawn(app, box, dj):
         child.destroy()
     # ---- the DJ: name, numbers
     head = widgets.Card(box, ui)
-    head.pack(fill="x", pady=(0, ui.px(16)))
+    head.pack(fill="x", pady=(0, ui.px(CARD_GAP)))
     top = tk.Frame(head.body, bg=theme.PANEL)
     top.pack(fill="x")
     tk.Label(top, text=dj["dj_name"], font=ui.fonts.title, fg=theme.TEXT, bg=theme.PANEL).pack(side="left")
@@ -132,12 +137,14 @@ def _records_drawn(app, box, dj):
     row.columnconfigure(1, weight=1, uniform="lists")
     for column, (title_key, items) in enumerate((("records.recent", dj["recent"]), ("records.bests", dj["bests"][:10]))):
         card = widgets.Card(row, ui, title=w(title_key))
-        card.grid(row=0, column=column, sticky="nsew", padx=(0, ui.px(16)) if column == 0 else 0)
+        card.grid(row=0, column=column, sticky="nsew", padx=(0, ui.px(CARD_GAP)) if column == 0 else 0)
         if not items:
             widgets.label(card.body, ui, w("records.none"), fg=theme.MUTED, bg=theme.PANEL, wrap_margin=0).pack(fill="x")
-        for item in items:
-            widgets.label(card.body, ui, item["title"], font=ui.fonts.body_bold, bg=theme.PANEL, wrap_margin=0).pack(
-                fill="x", pady=(ui.px(8), 0))
+        for i, item in enumerate(items):
+            if i:
+                # One play each, parted by the card's faint lines, as PLAY's last game has them.
+                widgets.divider(card.body, ui, pady=7)
+            widgets.label(card.body, ui, item["title"], font=ui.fonts.body_bold, wrap_margin=0).pack(fill="x")
             line = tk.Frame(card.body, bg=theme.PANEL)
             line.pack(fill="x")
             chart_words = (w("records.chart.level", mode=item["mode_name"], n=item["pattern"], level=item["level"])

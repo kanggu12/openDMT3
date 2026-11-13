@@ -387,7 +387,7 @@ class LauncherTest(FolderCase):
         self.state.game_folder = None
         self.assertEqual(actions.why_not(actions.readiness(self.state)[0], en), "No client data chosen yet.")
         self.assertEqual(actions.why_not(actions.Check("remote", False, "not signed in", page="online"), en),
-                         "Sign in on the Online page first.")
+                         "Sign in on the ONLINE page first.")
         self.assertEqual(actions.why_not(actions.Check("running", False, "the game is open: close it first"), ko),
                          "게임이 열려 있습니다. 먼저 닫으세요.")
         # A line with nothing under it says nothing there.
@@ -1690,9 +1690,11 @@ class LauncherTest(FolderCase):
                 self.assertTrue(en and ko)
                 # No dash between clauses, the house style for every word the launcher shows.
                 self.assertNotIn("\u2014", en + ko)
-        # The frame rate row is named for what it does; its hint says what the chip shows and its corner's what the
-        # bottom right is over (one fact each), and no key in the game turns the chip (only the menu's row there does).
-        self.assertEqual(i18n.Words("en")("screen.fps"), "Show FPS")
+        # The frame rate row is named for the counter it turns on, as the guides and OpenDMTQ's launcher name it (the
+        # in-game menu's row keeps SHOW FPS, what it does there); its hint says what the counter shows and its corner's
+        # what the bottom right is over (one fact each), and no key in the game turns the counter (only the menu's row
+        # there does).
+        self.assertEqual(i18n.Words("en")("screen.fps"), "FPS counter")
         self.assertEqual(i18n.Words("ko")("screen.fps"), "FPS 표시")
         for key in ("screen.fps.hint.off", "screen.fps.hint.on", "screen.fps.position.hint"):
             for language in ("en", "ko"):
@@ -2140,7 +2142,7 @@ class SongListLauncherTest(GameCase):
         from opendmt3.server.services import songlist
         with mock.patch("sys.stderr", io.StringIO()) as err:
             self.assertEqual(main.main(["--send-song-list"]), 2)
-        self.assertIn("sign in on the Online page first", err.getvalue())
+        self.assertIn("sign in on the ONLINE page first", err.getvalue())
         state = st.LauncherState.load()
         state.mode, state.server_url = "server", "http://192.0.2.1:4730"
         actions.signed_in(state, {"login_id": "BOSS", "dj_name": "BOSS", "card": "1" * 20, "token": "t",

@@ -7,6 +7,7 @@ Shapes are drawn three times larger and scaled down, because Tk's own canvas doe
 
 import collections
 import io
+import math
 import random
 import threading
 import time
@@ -298,6 +299,106 @@ def logo(width, scale=1.0, label="LAUNCHER", accent=theme.BLUE_HI, version=None)
 # How far a leaning edge runs sideways for each pixel of its height: one slope for every plate, tab and button.
 LEAN = 0.36
 
+# The bar's mark: its width in logical pixels (DMT3 at the size the site's bar sets it, its capitals 19 px tall).
+BAR_MARK = 108
+# The version's number in the bar: this size (logical pixels) while it is as short as a usual version, a smaller one
+# for a longer one, and never smaller than that: the mark beside it keeps its size whatever the version.
+VERSION_POINTS, VERSION_POINTS_LONG = 15, 11
+
+
+def version_block(label, version, scale=1.0, accent=theme.BLUE_HI):
+    """The version as the family's launchers set it beside their mark (OpenDMTQ's PC CLIENT block): a line in the accent
+    leaning on the game's plates' slope, what this program is named small and spaced out over the number, the number
+    in the wide face and larger, both upright as the TECHNIKA 3 logo stands. Returns an RGBA picture.
+
+    A version as long as a usual one ("v0.10.12") keeps its size; a longer one (a test build's name) is set smaller
+    rather than wider, down to VERSION_POINTS_LONG, and only past that does the block grow."""
+    k = SS
+    s = scale * k
+    label_font = ImageFont.truetype(theme.WIDE_FILE, max(1, int(round(8 * s))))
+    # The number's size: the usual one while it is no wider than a usual version, else the smaller one.
+    number_font = ImageFont.truetype(theme.WIDE_FILE, max(1, int(round(VERSION_POINTS * s))))
+    room = number_font.getlength("v0.10.12")
+    if number_font.getlength(version) > room:
+        number_font = ImageFont.truetype(theme.WIDE_FILE, max(1, int(round(VERSION_POINTS_LONG * s))))
+    # The label's letters spaced out a fifth of their size, as OPEN is in the mark.
+    spacing = 0.2 * 8 * s
+    label_w = sum(label_font.getlength(ch) + spacing for ch in label) - spacing
+    number_w = number_font.getlength(version)
+    # The line's room, then the words: the label's capitals (0.688 of its size) over the number's, 5 px apart.
+    line_room = 12 * s
+    label_cap, number_cap = 0.688 * 8 * s, 0.688 * VERSION_POINTS * s
+    gap = 5 * s
+    height = int(math.ceil(label_cap + gap + number_cap + 4 * s))
+    width = int(math.ceil(line_room + max(label_w, number_w) + 2 * s))
+    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    # The line: 2 px thick, from the top to the foot, leaning as the plates do (its top further right).
+    thick, foot = 2 * s, height - 1 * s
+    lean = LEAN * foot
+    draw.polygon([(lean, 0), (lean + thick, 0), (thick, foot), (0, foot)], fill=_rgb(accent) + (255,))
+    # The label in the text's grey, letter by letter; its capitals stand at the top.
+    x = line_room
+    for ch in label:
+        draw.text((x, label_cap), ch, font=label_font, fill=_rgb(theme.MUTED) + (255,), anchor="ls")
+        x += label_font.getlength(ch) + spacing
+    # The number white under it, on the block's foot less the room the line keeps under it.
+    draw.text((line_room, label_cap + gap + number_cap), version, font=number_font, fill=_rgb(theme.TEXT) + (255,),
+              anchor="ls")
+    return img.resize((max(1, width // k), max(1, height // k)), Image.LANCZOS)
+
+
+def brand(scale=1.0, version="", label="LAUNCHER", mark_width=BAR_MARK, accent=theme.BLUE_HI):
+    """The bar's left end, as the family's launchers have it: the mark (logo() without a label, OPEN over DMT3 with the
+    TECHNIKA 3 logo's blue 3) and the version block beside it (version_block: LAUNCHER over the version), the block's
+    foot on DMT3's foot. The mark is the same picture whatever the version. Returns an RGBA picture."""
+    mark = logo(int(round(mark_width * scale)), scale, label="", accent=accent)
+    # The mark's own room round its letters (chrome_text's pad) stays out: the picture starts at its first pixel.
+    mark = mark.crop(mark.getbbox())
+    if not version:
+        return mark
+    block = version_block(label, "v" + version, scale, accent)
+    gap = int(round(14 * scale))
+    width = mark.width + gap + block.width
+    height = max(mark.height, block.height)
+    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    img.alpha_composite(mark, (0, height - mark.height))
+    # The block stands on the mark's foot (DMT3's foot is the picture's).
+    img.alpha_composite(block, (mark.width + gap, height - block.height))
+    return img
+
+
+def numeral(text, colour, scale=1.0, size=28):
+    """A step's number, upright in the wide face in one colour, as the guide's steps across the top set it (OpenDMTQ's
+    lean, TECHNIKA 3's stand). Returns an RGBA picture just as tall as the figure."""
+    k = SS
+    t = size * scale * k
+    font = ImageFont.truetype(theme.WIDE_FILE, max(1, int(round(t))))
+    # The figure's own height (the face's capitals, 0.688 of its size) and a pixel of room round it.
+    cap = 0.688 * t
+    width = int(math.ceil(font.getlength(text) + 2 * k))
+    height = int(math.ceil(cap + 2 * k))
+    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    ImageDraw.Draw(img).text((k, k + cap), text, font=font, fill=_rgb(colour) + (255,), anchor="ls")
+    return img.resize((max(1, width // k), max(1, height // k)), Image.LANCZOS)
+
+
+def corner(size, inside, outside, seam=None):
+    """A card's top-right corner, cut as the family's panels are (both sites' and OpenDMTQ's launcher's): what covers
+    the card's square corner, the page's colour beyond the cut and the card's seam along it."""
+    k = SS
+    s = size * k
+    img = Image.new("RGB", (s, s), _rgb(inside))
+    beyond = Image.new("L", (s, s), 0)
+    ImageDraw.Draw(beyond).polygon([(0, 0), (s, 0), (s, s)], fill=255)
+    img.paste(_rgb(outside), (0, 0), beyond)
+    if seam:
+        # The seam goes on along the cut, as thick as the card's own (a pixel).
+        line = Image.new("L", (s, s), 0)
+        ImageDraw.Draw(line).line([(0, 0), (s, s)], fill=255, width=k)
+        img.paste(_rgb(seam), (0, 0), line)
+    return img.resize((size, size), Image.LANCZOS)
+
 
 def _slanted(size, slant, cut_left=True):
     """A parallelogram's points in a box: the game's plates lean, their ends cut on the same slope."""
@@ -338,7 +439,8 @@ def striped_plate(width, height, fill, light, edge, rim=True, cut_left=True):
 
 
 def plain_plate(width, height, fill, top=None, cut_left=True):
-    """A leaning slab of one colour (a hovered menu entry, a section's name plate), with a faint light top edge."""
+    """A leaning slab of one colour (a choice under the pointer, a section's name plate), with a faint light top
+    edge."""
     w, h = width * SS, height * SS
     slant = int(h * LEAN)
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -350,33 +452,6 @@ def plain_plate(width, height, fill, top=None, cut_left=True):
         ImageDraw.Draw(shape).polygon(_slanted((w, h), slant, cut_left), fill=255)
         img.paste(Image.new("RGBA", (w, h), _rgb(top) + (255,)), (0, 0), Image.composite(line, Image.new("L", (w, h), 0), shape))
     return img.resize((width, height), Image.LANCZOS)
-
-
-def menu_entry(text, width, height, state, colours, scale=1.0):
-    """One entry of the menu column as the game's mode select sets its choices: the chosen one ("on") on a striped
-    plate in its section's colour with dark (or, on blue, white) words, a hovered one on a dark plate, the rest in
-    grey words on the column; "done" (a step of the guide already taken) in white words. Latin in the wide face's
-    capitals, Hangul in Pretendard Bold."""
-    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    if state == "on":
-        plate = striped_plate(width, height, colours["fill"], colours["accent"], colours["deep"])
-        img.alpha_composite(plate)
-        colour = colours["ink"]
-    elif state == "hover":
-        img.alpha_composite(plain_plate(width, height, theme.PANEL_HI, top=theme.LINE))
-        colour = theme.TEXT
-    else:
-        colour = theme.TEXT if state == "done" else theme.MUTED
-    hangul = any("가" <= ch <= "힣" for ch in text)
-    size = int(round((14 if hangul else 12.5) * scale))
-    font = ImageFont.truetype(theme.HANGUL_TITLE_FILE if hangul else theme.WIDE_FILE, size)
-    # The words from where the plate's leaning edge leaves room, centred on the plate's height.
-    x = int(height * LEAN) + int(12 * scale)
-    while font.getlength(text) > width - x - int(8 * scale) and size > 8:
-        size -= 1
-        font = ImageFont.truetype(theme.HANGUL_TITLE_FILE if hangul else theme.WIDE_FILE, size)
-    ImageDraw.Draw(img).text((x, height / 2), text, font=font, fill=_rgb(colour) + (255,), anchor="lm")
-    return img
 
 
 def name_plate(text, scale=1.0, fill=None, colour=None):
@@ -452,7 +527,7 @@ def lamp(colour, lit=True, scale=1.0):
 
 def choice_row(texts, chosen, hover, colours, scale=1.0):
     """A row of choices of which one is on, set as the game sets its plates side by side: every choice a leaning
-    slab, the chosen one striped in the section's colour (like the menu's chosen entry and PLAY), the others quiet
+    slab, the chosen one striped in the section's colour (like PLAY), the others quiet
     metal with grey words, lighter under the pointer.
 
     texts: the words; chosen, hover: indexes (hover may be None). Returns (an RGBA picture, each choice's left and

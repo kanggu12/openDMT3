@@ -1,17 +1,19 @@
-"""Launcher: the language, playing without this window, updates, the first-start guide."""
+"""LAUNCHER: the language, playing without this window, updates, the first-start guide and what openDMT3 is, each on a
+card as OpenDMTQ's LAUNCHER page has them."""
 
 import os
 import threading
 import tkinter as tk
 
 from opendmt3.client import playing, theme, updates, updating, widgets
+from opendmt3.client.pages.common import card, main_button
 
 
 def _play_without_window(app, parent):
-    """A desktop shortcut that plays at once, and playing when Windows starts (client/shortcuts.py)."""
+    """A desktop shortcut that plays at once, and playing when Windows starts (client/shortcuts.py), on their card."""
     from opendmt3.client import shortcuts
     ui, w = app.ui, app.words
-    widgets.section(parent, ui, w("about.quick")).pack(fill="x", pady=(0, ui.px(14)))
+    quick = card(parent, ui, w("about.quick"))
 
     def make():
         try:
@@ -21,9 +23,9 @@ def _play_without_window(app, parent):
             return
         app.set_status(w("about.shortcut.done", name=os.path.basename(path)), "ok")
 
-    widgets.setting_row(parent, ui, w("about.shortcut"),
+    widgets.setting_row(quick.body, ui, w("about.shortcut"),
                         lambda p: widgets.Button(p, ui, w("about.shortcut.make"), make),
-                        w("about.shortcut.hint")).pack(fill="x", pady=(0, ui.px(14)))
+                        w("about.shortcut.hint")).pack(fill="x")
     try:
         on = shortcuts.autostart()
     except Exception:  # noqa: BLE001  (not on Windows: shown off, and the switch says why when used)
@@ -38,8 +40,9 @@ def _play_without_window(app, parent):
             return
         app.set_status(w("about.autostart.on" if value else "about.autostart.off"), "ok")
 
-    widgets.setting_row(parent, ui, w("about.autostart"), lambda p: widgets.Toggle(p, ui, on, flip),
-                        w("about.autostart.hint")).pack(fill="x", pady=(0, ui.px(18)))
+    widgets.divider(quick.body, ui)
+    widgets.setting_row(quick.body, ui, w("about.autostart"), lambda p: widgets.Toggle(p, ui, on, flip),
+                        w("about.autostart.hint")).pack(fill="x")
 
 
 def language_options(app):
@@ -49,21 +52,21 @@ def language_options(app):
 
 def build_about(app, parent):
     ui, w = app.ui, app.words
-    widgets.section(parent, ui, w("about.general")).pack(fill="x", pady=(0, ui.px(14)))
-    widgets.setting_row(parent, ui, w("about.language"),
+    general = card(parent, ui, w("about.general"))
+    widgets.setting_row(general.body, ui, w("about.language"),
                         lambda p: widgets.Segmented(p, ui, language_options(app),
                                                     app.state.picked_language or "system", app.set_language)).pack(
-        fill="x", pady=(0, ui.px(18)))
+        fill="x")
     _play_without_window(app, parent)
-    widgets.section(parent, ui, w("about.updates")).pack(fill="x", pady=(0, ui.px(14)))
+    updates_card = card(parent, ui, w("about.updates"))
     version = updates.shown_version()
-    box = tk.Frame(parent, bg=theme.BG)
+    box = tk.Frame(updates_card.body, bg=theme.PANEL)
     box.pack(fill="x")
     widgets.label(box, ui, w("about.version", v=version), font=ui.fonts.body_bold).pack(side="left")
     # What the look for updates found, and the button that puts an update in: right under the version, and no
     # room taken while there is nothing to say.
-    found = tk.Frame(parent, bg=theme.BG)
-    found.pack(fill="x", pady=(0, ui.px(18)))
+    found = tk.Frame(updates_card.body, bg=theme.PANEL)
+    found.pack(fill="x")
 
     def say(text, fg=theme.MUTED, result=None):
         """Show `text` under the version; with a `result` that has an update, its button below."""
@@ -71,8 +74,9 @@ def build_about(app, parent):
             child.destroy()
         widgets.label(found, ui, text, fg=fg, wrap_margin=0).pack(fill="x", pady=(ui.px(10), 0))
         if result is not None:
-            widgets.Button(found, ui, w("about.update_now", v=result.version), lambda: update(result),
-                           kind="primary").pack(anchor="w", pady=(ui.px(10), 0))
+            # The update is the page's main action: lit while PLAY waits, quiet beside a lit PLAY.
+            main_button(app, found, w("about.update_now", v=result.version), lambda: update(result)).pack(
+                anchor="w", pady=(ui.px(10), 0))
         # In a small window the words (and the button) may land under the bottom bar: bring them into view.
         app.body.show(found, ui.px(14))
 
@@ -109,14 +113,16 @@ def build_about(app, parent):
         updating.run(app, result)
 
     widgets.Button(box, ui, w("about.check"), check).pack(side="left", padx=(ui.px(16), 0))
-    widgets.section(parent, ui, w("about.guide")).pack(fill="x", pady=(0, ui.px(14)))
+    guide = card(parent, ui, w("about.guide"))
 
     def rerun():
         app.state.guide_done = False
         app.state.save()
         app.show()
 
-    widgets.Button(parent, ui, w("about.guide.run"), rerun).pack(anchor="w", pady=(0, ui.px(18)))
-    widgets.section(parent, ui, w("about.legal")).pack(fill="x", pady=(0, ui.px(12)))
-    for key in ("about.license", "about.notice"):
-        widgets.label(parent, ui, w(key), fg=theme.MUTED, wrap_margin=0).pack(fill="x", pady=(0, ui.px(8)))
+    widgets.Button(guide.body, ui, w("about.guide.run"), rerun).pack(anchor="w")
+    legal = card(parent, ui, w("about.legal"), last=True)
+    for i, key in enumerate(("about.license", "about.notice")):
+        if i:
+            widgets.divider(legal.body, ui, pady=9)
+        widgets.label(legal.body, ui, w(key), fg=theme.MUTED, wrap_margin=0).pack(fill="x")

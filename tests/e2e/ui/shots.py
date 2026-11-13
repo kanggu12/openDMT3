@@ -344,8 +344,9 @@ def scrolls_to(area, w):
     if (first > 0 or last < 1) and not area.bar.winfo_ismapped():
         # More content than the area shows, and nothing on screen to say so or to scroll with.
         return False
-    # The content frame sits at the canvas's origin, so its own pixels are the region's.
-    top = w.winfo_rooty() - area.inner.winfo_rooty()
+    # The content frame sits under the page's head on the canvas (widgets.ScrollArea.set_head): its own pixels are the
+    # region's below that.
+    top = area.canvas.coords(area._window)[1] + w.winfo_rooty() - area.inner.winfo_rooty()
     bottom = top + w.winfo_height()
     # A pixel either way: Tk rounds the region's edges to whole pixels.
     return float(region[1]) - 1 <= top and bottom <= float(region[3]) + 1
@@ -1757,17 +1758,17 @@ def play_states_check(app, out, tag, made, problems):
                     remote={"game": "192.168.0.10:4725", "version": "0.3.0"})
         held("server-signed-out", said, w("play.who.signin"), w("check.remote"), w("play.go.online") + " \u203a",
              status=w("status.sign_in_first"))
-        # A guest has no records: the Records page says so, with the way to the Play page where a player is chosen.
+        # A guest has no records: the RECORDS page says so, with the way to the PLAY page where a player is chosen,
+        # named as the menu names it (the link HELP's lines have too).
         app.state.game_folder, app.state.mode, app.state.player = made["root"], "this_pc", None
         app.state.server_url, app.state.remote = None, None
         app.go("records")
         settle(app, 10)
         shot(app, out, "%s_records-guest" % tag)
         measure(app, "%s_records-guest" % tag, problems)
-        try:
-            button(app, w("nav.play"))
-        except AssertionError:
-            problems.append("%s_records-guest: no way to the Play page for a guest" % tag)
+        from opendmt3.client import pages
+        if pages.TITLES["play"] + " \u203a" not in labels(app):
+            problems.append("%s_records-guest: no way to the PLAY page for a guest" % tag)
     finally:
         app.state.game_folder, app.state.mode, app.state.player, app.state.server_url, app.state.remote = kept
         app.discs = None
@@ -1878,13 +1879,17 @@ def planted_check(app, out, tag, problems):
     # The same page with its scroll region cut to the area that shows: the bar goes, and the lines below with it. The
     # content's own region comes back whenever the content frame changes size (the bar leaving widens it), so the
     # area forgets that while the cut is measured, and takes it back after.
-    regrow = area.inner.bind("<Configure>")
+    # The page's head is drawn again for a new width and sets the region too (widgets.ScrollArea.set_head): the area
+    # draws none while the cut is measured either.
+    regrow, redraw = area.inner.bind("<Configure>"), area.on_width
     area.inner.unbind("<Configure>")
+    area.on_width = None
     try:
         area.canvas.configure(scrollregion=(0, 0, area.canvas.winfo_width(), area.canvas.winfo_height()))
         stuck = found("%s_planted-cannot-scroll" % tag)
     finally:
         area.inner.bind("<Configure>", regrow)
+        area.on_width = redraw
     if not any("hidden below with no way to scroll to it" in p for p in stuck):
         problems.append("%s: the check for hidden content missed a page that cannot scroll (%d said)"
                         % (tag, len(stuck)))
