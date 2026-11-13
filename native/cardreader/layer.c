@@ -196,7 +196,8 @@ static int animations(void)
         /* Said in the log when it is first read and whenever it changes. */
         if (on != said) {
             said = on;
-            ingame_log("layer: Windows' animation effects %s", on ? "on: the parts slide" : "off: the parts come and go at once");
+            ingame_log("layer: Windows' animation effects %s",
+                       on ? "on: the parts slide" : "off: the parts come and go at once");
         }
     }
     return on;

@@ -145,7 +145,7 @@ on the CPU, where the frame times say little about a player's PC, so the numbers
 **Offline from `openDMT3-cmd.exe`, with the picture defaults (FSR 1 at 50, no anti-aliasing) and pacing locked to the
 music.**
 
-- The frame rate chip in the bottom right corner above FREE PLAY, at most one frame queued, the chosen sound device
+- The frame rate chip in the bottom right corner beside FREE PLAY, at most one frame queued, the chosen sound device
   opened, and what came of asking for the sound engine's shortest period on it (Wine keeps its own: `unchanged`, the
   stream let go), in the launcher's log too once the game closes.
 - What the layer adds to the frames, judged fairly (`ingame/pace.py`): each of its parts (the chip, the bar, the

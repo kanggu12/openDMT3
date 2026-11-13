@@ -56,8 +56,8 @@ SHARPNESS_DEFAULT = 50
 ANTIALIASING_DEFAULT = "off"
 
 # The frame rate chip's corner while it is on, in the layer's order (CORNER_* in native/cardreader/logic.h). The bottom
-# right is the default: there, above the game's FREE PLAY label, the chip covers none of the game's own labels or
-# buttons on any of its screens (measured), where the very edge of every corner holds some.
+# right is the default: there the chip is one line beside the game's FREE PLAY label, on its line below the notes, where
+# it covers none of the game's own labels or buttons on any of its screens (measured).
 FPS_POSITIONS = ("top_left", "top_right", "bottom_left", "bottom_right")
 FPS_POSITION_DEFAULT = "bottom_right"
 

@@ -68,16 +68,13 @@ def main(out):
                    for b in later for dy in (-1, 0, 1)):
                 still.add((x, y))
     # The screen's pixels over still game pixels, every 2nd, away from where the in-game layer may draw (its bar, toast
-    # and panels in the top fifth, its frame rate chip in the bottom right corner: native/cardreader/logic.c fps_box,
-    # 150 x 40 game pixels with room, 12 from the right and 6 from the foot).
+    # and panels in the top fifth, its frame rate chip in the game's bottom band: native/cardreader/logic.c fps_box,
+    # from line 742 of 768, so every row from line 736 down is left out).
     screen = bmp(out + "/screen-e2e.bmp")
-    u = h / GAME_H
-    chip_x, chip_y = w - (12 + 150 + 4) * u, h - (6 + 40 + 4) * u
+    band_y = h * 736 // GAME_H
     points = []
-    for y in range(h // 5, h, 2):
+    for y in range(h // 5, band_y, 2):
         for x in range(0, w, 2):
-            if x >= chip_x and y >= chip_y:
-                continue
             gx, gy = int((x + 0.5) * GAME_W / w), int((y + 0.5) * GAME_H / h)
             if (gx, gy) in still:
                 points.append((x, y))

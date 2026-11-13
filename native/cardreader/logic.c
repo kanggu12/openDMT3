@@ -1070,22 +1070,40 @@ Box toast_box(int area_w, int area_h, float text_w)
     return b;
 }
 
-/* The chip's foot at the bottom corners: 41 lines over the game's foot, 6 above ID CARD and NET at the left (from line
- * 733 of 768) and 15 above FREE PLAY at the right (from line 742), measured on the game's screens. */
-#define FPS_FOOT 41.0f
+/* The chip: one line, 118 x 13 game pixels (the frames a second, FPS and the frame's mean length, three digits and
+ * all). The game's notes come right up to the sides, and a note of its third lower row (its centre on line 693 of 768,
+ * measured in a song) has the foot of its ring on line 748, the line of the game's own labels at its foot (FREE PLAY's
+ * capitals on lines 743 to 752): so at the foot the chip sits on that line, beside the labels, where at most the foot of
+ * a note's ring passes (above FREE PLAY half such a note came under it): from line 742, at the right its right end 8
+ * game pixels left of FREE PLAY (from x 1131), at the left 8 right of the game's badges (ID CARD, NET and PATCH, to x
+ * 193). Those places are the game's own pixels: across, they follow the picture's own width, which a filled picture
+ * stretches. At the top it is 6 down and 12 in from its side, in the game's top band, where no note comes. */
+#define FPS_W 118.0f
+#define FPS_H 13.0f
+#define FPS_BAND 742.0f
+#define FREE_PLAY_X 1131.0f
+#define BADGES_END 193.0f
+#define LABEL_GAP 8.0f
 
 Box fps_box(int area_w, int area_h, int corner)
 {
     float u = ui_unit(area_h);
+    /* The game's own pixels to the area's, across and down (a filled picture stretches the game across). */
+    float sx = (float)area_w / (float)GAME_W, sy = (float)area_h / (float)GAME_H;
     Box b;
-    /* 84 x 40: the frames a second over the frame's mean length. */
-    b.w = 84 * u;
-    b.h = 40 * u;
+    b.w = FPS_W * u;
+    b.h = FPS_H * u;
     int right = corner == CORNER_TOP_RIGHT || corner == CORNER_BOTTOM_RIGHT;
     int foot = corner == CORNER_BOTTOM_LEFT || corner == CORNER_BOTTOM_RIGHT;
-    /* 12 in from its side; at the top 6 down, at the foot above the game's labels. */
-    b.x = right ? (float)area_w - EDGE * u - b.w : EDGE * u;
-    b.y = foot ? (float)area_h - (FPS_FOOT + 40) * u : 6 * u;
+    if (foot) {
+        /* In the bottom band, beside the game's labels on their line. */
+        b.x = right ? (FREE_PLAY_X - LABEL_GAP) * sx - b.w : (BADGES_END + LABEL_GAP) * sx;
+        b.y = FPS_BAND * sy;
+    } else {
+        /* In the top band, 12 in from its side, 6 down. */
+        b.x = right ? (float)area_w - EDGE * u - b.w : EDGE * u;
+        b.y = 6 * u;
+    }
     return b;
 }
 

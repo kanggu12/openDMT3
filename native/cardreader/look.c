@@ -493,15 +493,13 @@ void look_toast(Sprite *s, float u, const char *words, TextFn text, void *ctx)
 
 /* ------------------------------------------------------------------------------------------- the frame rate chip */
 
-/* The chip's sizes, in game pixels: the number, and FPS and the frame's length. */
-#define FPS_BIG 18.0f
+/* The chip's sizes, in game pixels: the number, and FPS and the frame's length (one line, as tall as the game's own
+ * FREE PLAY beside it: their capitals 9 and 7 tall, FREE PLAY's 9). */
+#define FPS_BIG 12.0f
 #define FPS_SMALL 10.0f
-
-/* The chip's two lines (logic.h fps_box's 84 x 40): the number's capitals' middle 15 game pixels from its top, the
- * frame's length's 9 from its foot, both from 9 in. */
-#define FPS_LEFT 9.0f
-#define FPS_LINE1 15.0f
-#define FPS_LINE2 9.0f
+/* Its words 6 in from each end: the number and FPS from its left, the frame's length to its right end (so neither moves
+ * when the number gains a digit). */
+#define FPS_PAD 6.0f
 
 void look_fps_base(Sprite *s, float u)
 {
@@ -509,10 +507,9 @@ void look_fps_base(Sprite *s, float u)
     canvas_clear(s->mask);
     float o = s->room;
     float w = (float)s->content->w - 2 * o, h = (float)s->content->h - 2 * o;
-    /* The game's own badges beside it in the bottom band (ID CARD, NET) are rounded boxes: the chip is one too, its
-     * corners of 5 as the game's glossy buttons'. */
+    /* The game's own badges in the same bottom band (ID CARD, NET, PATCH) are rounded boxes: the chip is one too. */
     Pt q[28];
-    int n = round_rect(o, o, w, h, 5 * u, q);
+    int n = round_rect(o, o, w, h, 4 * u, q);
     /* The bar's glass, faint (FPS_ALPHA: the game shows through it), its words over it whole. */
     Paint faint = paint_solid(0xffffff, FPS_ALPHA);
     paint_polygon(s->mask, q, n, &faint);
@@ -545,19 +542,19 @@ void look_fps(Sprite *s, const Sprite *base, float u, double fps, int mask_too, 
         look_fps_base(s, u);
     }
     float o = s->room;
-    float h = (float)s->content->h - 2 * o;
-    /* The number large in white, in the wide face; FPS beside it in the game's light blue, as OpenDMTQ's counter has
-     * its FPS in its game's lime and the number in white; the frame's mean length under it, quieter (what a player
-     * reads: the chain's own time goes to the log). Every piece kept, so no GDI work here. */
+    float w = (float)s->content->w - 2 * o, h = (float)s->content->h - 2 * o;
+    /* One line, its capitals' middle in the chip's: the number in white, in the wide face, with FPS after it in the
+     * game's light blue (lighter, as small words on faint glass need), as OpenDMTQ's counter has its FPS in its game's
+     * lime and the number in white; the frame's mean length at the right end, quieter (what a player reads: the
+     * chain's own time goes to the log). Every piece kept, so no GDI work here. */
     char number[16], ms[16];
     double shown = fps < 0 ? 0.0 : fps > 999 ? 999.0 : fps;
     snprintf(number, sizeof number, "%.0f", shown);
     snprintf(ms, sizeof ms, "%.1f ms", shown > 0 ? 1000.0 / shown : 0.0);
-    float big = FPS_BIG * u, small = FPS_SMALL * u;
-    float x = o + FPS_LEFT * u, y1 = o + FPS_LINE1 * u, y2 = o + h - FPS_LINE2 * u;
-    float wn = text(ctx, s->content, number, big, x, y1, RGB_WORDS, TEXT_WIDE | TEXT_LEFT | TEXT_GLYPHS);
-    text(ctx, s->content, "FPS", small, x + wn + 4 * u, y1 + 2 * u, RGB_ACCENT, TEXT_LEFT | TEXT_GLYPHS);
-    text(ctx, s->content, ms, small, x, y2, RGB_QUIET, TEXT_REGULAR | TEXT_LEFT | TEXT_GLYPHS);
+    float big = FPS_BIG * u, small = FPS_SMALL * u, mid = o + h / 2;
+    float wn = text(ctx, s->content, number, big, o + FPS_PAD * u, mid, RGB_WORDS, TEXT_WIDE | TEXT_LEFT | TEXT_GLYPHS);
+    text(ctx, s->content, "FPS", small, o + FPS_PAD * u + wn + 3 * u, mid, RGB_ACCENT_SMALL, TEXT_LEFT | TEXT_GLYPHS);
+    text(ctx, s->content, ms, small, o + w - FPS_PAD * u, mid, RGB_QUIET, TEXT_REGULAR | TEXT_RIGHT | TEXT_GLYPHS);
 }
 
 void look_cursor(Canvas *c, int pressed, int *hot_x, int *hot_y)

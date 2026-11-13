@@ -13,7 +13,7 @@ OPENDMT3_PICTURE_SHAPE=fill in this script's environment), each with room for it
             left edge to the X's right edge)
   toast     the toast, hanging from the top edge in the middle
   mark      the bar's handle at the top centre: a rail along the top edge and a small tab under it
-  chip      the frame rate chip in the bottom right corner, above the game's FREE PLAY
+  chip      the frame rate chip in the bottom right corner, beside the game's FREE PLAY in its bottom band
   middle    the middle half of the game, where the notes come
 ZONE: the zones that must hold drawn pixels, "!ZONE" for one that must hold none, or "none" (nothing drawn at all).
 Passes when the layer drew nothing in the middle half, in every zone named, nowhere outside the zones named, and in
@@ -53,8 +53,10 @@ def zones(w, h, fill=False):
         "toast": (px + pw * 0.15, py, px + pw * 0.85, py + (40 + 12) * u),
         # The rail 72 wide along the top edge, the tab 12 deep lit, with a little room.
         "mark": (px + pw / 2 - 38 * u, py, px + pw / 2 + 38 * u, py + 14 * u),
-        # 84 x 40, 12 from the right edge, its foot 41 lines over the game's (above FREE PLAY), with room.
-        "chip": (px + pw - (12 + 84 + 6) * u, py + ph - (41 + 40 + 6) * u, px + pw, py + ph - (41 - 6) * u),
+        # One line, 118 x 13, from line 742 of 768, its right end 8 game pixels left of FREE PLAY (from x 1131), the
+        # game's own pixels across (a filled picture stretches them), with room.
+        "chip": (px + (1131 - 8) * pw / GAME_W - (118 + 6) * u, py + (742 - 6) * ph / GAME_H,
+                 px + (1131 - 8) * pw / GAME_W + 6 * u, py + (742 + 13 + 6) * ph / GAME_H),
         "middle": (px + pw / 4, py + ph / 4, px + 3 * pw / 4, py + 3 * ph / 4),
     }
 

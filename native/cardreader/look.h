@@ -96,8 +96,10 @@ void look_cursor(Canvas *c, int pressed, int *hot_x, int *hot_y);
 #define FPS_TINT_ALPHA 0.92f
 
 /* The game's colours the layer uses, measured on its own screens. */
-#define RGB_ACCENT 0x7cc4f2u      /* the light blue of its glossy buttons' upper half: the chip's FPS, the keys' ring,
-                                   * the handle under the pointer */
+#define RGB_ACCENT 0x7cc4f2u      /* the light blue of its glossy buttons' upper half: the keys' ring, the handle under
+                                   * the pointer */
+#define RGB_ACCENT_SMALL 0xa8dbfau /* the same blue lighter, for the chip's small FPS on its faint glass: 4.5:1 over the
+                                    * game's brightest screens, where the full blue came to 4.2:1 */
 #define RGB_WORDS 0xf2f5f7u       /* words on glass */
 #define RGB_QUIET 0xb9c2cau       /* a quieter line on glass */
 #define RGB_DANGER 0xff9aa4u      /* the words of the row that quits: a light red that keeps 5.2:1 on the glass */

@@ -414,19 +414,30 @@ static void test_layout(void)
           "reveal: only the very top edge brings the bar (its two top lines of 768)");
     check(ui_swipe_down(2, 40, 1080) && !ui_swipe_down(2, 20, 1080) && !ui_swipe_down(30, 90, 1080),
           "reveal: a finger drawn down from the top edge, not a short one or one from lower down");
-    /* The chip at the bottom: above the game's labels there (ID CARD and NET from line 733 of 768, FREE PLAY from
-     * line 742), at any size; at the top, 6 lines down; 12 in from its side. */
-    int clear_labels = 1;
-    for (int k = 0; k < 5; k++) {
-        int w = sizes[k][0], h = sizes[k][1];
-        float u = ui_unit(h);
+    /* The chip at the foot: one line on the line of the game's labels, below the notes (a note of the third lower row
+     * has its centre on line 693 of 768 and the foot of its ring on line 748), beside the labels: left of FREE PLAY (x
+     * 1131 to 1215, lines 743 to 752) at the right, after ID CARD, NET and PATCH (to x 193, lines 732 to 762) at the
+     * left; across in the game's own pixels (a filled picture stretches them), at seven sizes and shapes, kept and
+     * filled. At the top, 6 lines down and 12 in from its side. */
+    static const int shapes[7][2] = {{1280, 768}, {1800, 1080}, {1920, 1080}, {2560, 1080}, {1920, 1152}, {1280, 1024},
+                                     {3600, 2160}};
+    int band = 1;
+    for (int k = 0; k < 7; k++) {
+        int w = shapes[k][0], h = shapes[k][1];
+        float sx = (float)w / 1280.0f, sy = (float)h / 768.0f;
         Box br = fps_box(w, h, CORNER_BOTTOM_RIGHT), bl = fps_box(w, h, CORNER_BOTTOM_LEFT);
-        clear_labels &= br.y + br.h <= 733 * u - 6 * u + 0.01f && bl.y + bl.h <= 733 * u - 6 * u + 0.01f &&
-                        fabsf(br.x + br.w - (w - 12 * u)) < 0.01f && fabsf(bl.x - 12 * u) < 0.01f;
+        Box free_play = {1131 * sx, 743 * sy, 84 * sx, 9 * sy}, badges = {7 * sx, 732 * sy, 186 * sx, 30 * sy};
+        /* Under the notes, within the picture, its words' middle on FREE PLAY's within a game line. */
+        band &= br.y >= 741 * sy && br.y + br.h <= (float)h && bl.y >= 741 * sy && bl.y + bl.h <= (float)h &&
+                fabsf(br.y + br.h / 2 - 747.5f * sy) <= 1.0f * sy;
+        /* Beside the game's labels, never on them. */
+        band &= !overlap(br, free_play) && br.x + br.w <= free_play.x - 7.9f * sx && !overlap(bl, badges) &&
+                bl.x >= badges.x + badges.w + 7.9f * sx && br.x > bl.x + bl.w;
     }
     Box tl = fps_box(1920, 1080, CORNER_TOP_LEFT), tr = fps_box(1920, 1080, CORNER_TOP_RIGHT);
-    check(clear_labels && fabsf(tl.y - 6 * 1.40625f) < 0.01f && fabsf(tr.x + tr.w - (1920 - 12 * 1.40625f)) < 0.01f,
-          "layout: the frame rate chip in its corner, at the foot above the game's own labels");
+    check(band && fabsf(tl.y - 6 * 1.40625f) < 0.01f && fabsf(tr.x + tr.w - (1920 - 12 * 1.40625f)) < 0.01f &&
+              tl.y + tl.h <= 69 * 1.40625f,
+          "layout: the frame rate chip on the line of the game's labels below its notes, beside them, or in its top band");
     /* The handle: at the top centre, deeper lit, on the groove meter's chrome rim (the game's top 12 lines) whatever the
      * shape; resting near it counts, the game's top band elsewhere not. */
     Box m0 = ui_mark_box(1920, 1080, 0), m1 = ui_mark_box(1920, 1080, 1);

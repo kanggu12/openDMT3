@@ -109,41 +109,42 @@ tab, metal frame and glossy buttons), in the launcher's language. Nothing of it 
 the notes come, and no key of the keyboard brings it:
 
 <p align="center">
-  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs under its button: BACK TO THE GAME, SHOW FPS, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter in the bottom right corner above the game's FREE PLAY, 60 FPS over 16.7 ms" width="100%">
+  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs under its button: BACK TO THE GAME, SHOW FPS, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.7 ms on one line" width="100%">
 </p>
 
 - **The overlay bar.** Let the pointer rest at the very top edge of the game, or on the handle at its top center (a
-  short line along the edge with a small tab and an arrow pointing down, blue under the pointer), with its button up
-  (or draw a finger down from the top edge): the bar comes down over the game's own top bar, with openDMT3's mark at
-  its left and, at its right, the menu, **minimize**, **full screen** (or back to a window) and the **X**.
+  short line along the edge with a small tab and an arrow pointing down, blue under the pointer), with its button up (or
+  draw a finger down from the top edge): the bar comes down over the game's own top bar, with openDMT3's mark at its
+  left and, at its right, the menu, **minimize**, **full screen** (or back to a window) and the **X**.
 - **When the bar comes and goes.** It comes only after the game has had no click or touch for 1.5 s, so a click or a
   held note at the top of a song never brings it. It also comes down by itself for 3 s when the game's first screen
-  shows and after each switch between a window and full screen, so you see where it is. It slides down out of the
-  game's top edge, its foot first, in about a fifth of a second, and back up into it; a pointer that comes back while
-  it goes up turns it back from where it is, and with Windows' animation effects off it comes and goes at once. It
-  stays 0.6 s after the pointer leaves it; a click on the game takes it away at once.
-- **The quit question.** The X asks first, in a sheet that comes out from under the bar below the X: **Quit the
-  game?**, with **KEEP PLAYING** first and **QUIT THE GAME** beside it, red once the pointer or the keys are on it,
-  and during a song one more line, **A play in progress is not kept.** (the game sends a play's results when the play
-  ends). The window's own close (the taskbar's) asks the same, so a click by mistake ends
-  nothing. **QUIT THE GAME** ends the game the way its own close does, and the launcher sees it end. Esc and Alt+F4
-  do nothing: the game's own Esc would end it at once, so the game never sees it.
+  shows and after each switch between a window and full screen, so you see where it is. It slides down out of the game's
+  top edge, its foot first, in about a fifth of a second, and back up into it; a pointer that comes back while it goes
+  up turns it back from where it is, and with Windows' animation effects off it comes and goes at once. It stays 0.6 s
+  after the pointer leaves it; a click on the game takes it away at once.
+- **The quit question.** The X asks first, in a sheet that comes out from under the bar below the X: **Quit the game?**,
+  with **KEEP PLAYING** first and **QUIT THE GAME** beside it, red once the pointer or the keys are on it, and during a
+  song one more line, **A play in progress is not kept.** (the game sends a play's results when the play ends). The
+  window's own close (the taskbar's) asks the same, so a click by mistake ends nothing. **QUIT THE GAME** ends the game
+  the way its own close does, and the launcher sees it end. Esc and Alt+F4 do nothing: the game's own Esc would end it
+  at once, so the game never sees it.
 - **In a window** the game keeps its title bar, to move it, and its borders, to size it, with no buttons on the title
   bar: the overlay bar's buttons minimize it, take it to full screen and back, and quit.
 - **The menu** comes out from under the bar below its button and the buttons beside it: **BACK TO THE GAME**, **SHOW
-  FPS** (the FPS counter on or off for this run) and **QUIT THE GAME**, and goes back up under it. The arrow keys and Enter choose, Esc closes; a click beside the menu or the question
-  closes it too.
+  FPS** (the FPS counter on or off for this run) and **QUIT THE GAME**, and goes back up under it. The arrow keys and
+  Enter choose, Esc closes; a click beside the menu or the question closes it too.
 - **The game holds still** while the menu or the question is open during a song, or while the game is minimized in
   one: the picture stops on the frame it showed, the music on the note it played, and both go on together when you
   go back to the game. The game sees none of the keys and clicks that answer them.
-- **The FPS counter** (**Screen**, **Show FPS**; off by default) shows the frames a second and the time of a frame,
-  small, on faint glass that its words read over on any screen, in the corner chosen under **Position** (the bottom
-  right by default, above the game's FREE PLAY, where it covers none of the game's own labels). In a top corner it
-  moves down with the bar. Clicks go through it to the game, and it hides while the game holds still.
-- **A notice** hangs from the top edge for a few seconds when openDMT3 has something to say: `Picture quality lowered
-  to keep 60 FPS`, with the step it took ([the safety net](#frame-pacing-the-picture-the-fps-counter-and-the-sound-device)).
-  It moves down with the bar, and one that comes during a song waits for the song's end, so nothing of the overlay
-  covers the game's groove meter while you play.
+- **The FPS counter** (**Screen**, **Show FPS**; off by default) shows the frames a second and the time of a frame, on
+  one line, on faint glass that its words read over on any screen, in the corner chosen under **Position** (the bottom
+  right by default, beside the game's FREE PLAY on its line, below the notes: it covers none of the game's own labels or
+  buttons, and no more of a note than the game's own FREE PLAY). In a top corner it moves down with the bar. Clicks go
+  through it to the game, and it hides while the game holds still.
+- **A notice** hangs from the top edge for a few seconds when openDMT3 has something to say: `Picture quality lowered to
+  keep 60 FPS`, with the step it took ([the safety
+  net](#frame-pacing-the-picture-the-fps-counter-and-the-sound-device)). It moves down with the bar, and one that comes
+  during a song waits for the song's end, so nothing of the overlay covers the game's groove meter while you play.
 - **The pointer** over the game is openDMT3's own: a dart with a chrome edge round a blue core, all blue and a little
   smaller while the button is down, sized for the display's scaling (32 pixels at 100 %). With **Controls** set to a
   touch screen the game hides it as before.
@@ -205,12 +206,12 @@ is read as late as the frame's own work allows.
 - **Anti-aliasing** (**Screen**): smooths the game's jagged edges before the picture is enlarged (with **Screen size**,
   in the picture the game draws): **Off** (the default), **FXAA**, **SMAA Low**, **SMAA Medium**, **SMAA High** or
   **SMAA Ultra**.
-- **Show FPS** (**Screen**, off by default): a small, faint counter over the game with the frames a second, large, and
-  the frame's length under it, updated twice a second. **SHOW FPS** in the in-game menu turns it on or off for that
-  run; the launcher's choice is how each run starts.
-- **Position** (**Screen**, shown while **Show FPS** is on): the counter's corner, **Bottom right** by default (above the
-  game's FREE PLAY, where it covers none of the game's own labels); **Top left**, **Top right** or **Bottom left** can
-  be chosen instead.
+- **Show FPS** (**Screen**, off by default): a small, faint counter over the game on one line, the frames a second and
+  the frame's length, updated twice a second. **SHOW FPS** in the in-game menu turns it on or off for that run; the
+  launcher's choice is how each run starts.
+- **Position** (**Screen**, shown while **Show FPS** is on): the counter's corner, **Bottom right** by default (beside
+  the game's FREE PLAY, below the notes, where it covers none of the game's own labels); **Top left**, **Top right** or
+  **Bottom left** can be chosen instead.
 - **Motion clarity** (**Screen**, shown when the main screen runs at a whole multiple of 60 Hz from 120 up, such as
   120, 180 or 240 Hz, off by default): each frame is shown over its refreshes as a CRT showed it. **CRT beam** lights
   the picture row by row from the top down, as a CRT's beam did, so its lower rows show later in the frame (the bottom
