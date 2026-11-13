@@ -312,7 +312,7 @@ first points) into the log, read from its memory in the PC build.
 ### The layer's parts and their input
 
 <p align="center">
-  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs under its button: BACK TO THE GAME, SHOW FPS, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.7 ms on one line" width="100%">
+  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question hanging from the bar under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.8 ms on one line" width="100%">
 </p>
 
 - **The bar** comes when the pointer, moved to the game's very top edge or onto the mark at its top centre (the player's

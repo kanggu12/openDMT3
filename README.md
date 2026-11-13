@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/showcase.webp" alt="openDMT3 in four screens, with made-up players, songs and folders: the launcher's PLAY page with who plays, the ready check and the last game; the site's rankings, each mode's DJs by total score; the game's own tutorial with openDMT3's overlay bar and its FPS counter at 60 FPS, 16.7 ms; and the admin pages' Players tab" width="100%">
+  <img src="docs/images/showcase.webp" alt="openDMT3 in four screens, with made-up players, songs and folders: the launcher's PLAY page with who plays, the ready check and the last game; the site's rankings, each mode's DJs by total score; the game's own tutorial with openDMT3's overlay bar and its FPS counter at 60 FPS, 16.8 ms; and the admin pages' Players tab" width="100%">
 </p>
 
 **DJMAX TECHNIKA 3** is a touch-screen arcade rhythm game of 2011. openDMT3 plays your own copy of it on a Windows
@@ -90,7 +90,7 @@ The overlay bar comes down from the game's top edge: the menu, minimise, window 
 the menu and the question hold the game still.
 
 <p align="center">
-  <img src="docs/images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs under its button: BACK TO THE GAME, SHOW FPS, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.7 ms on one line" width="100%">
+  <img src="docs/images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question hanging from the bar under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.8 ms on one line" width="100%">
 </p>
 
 ### Frames on time, and on the music
