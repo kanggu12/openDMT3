@@ -379,10 +379,19 @@ focus
 x "xdotool key Escape"; wait_s 0.5
 wait_more "layer: closed, back to the game" "$closed" 3 || fail "Esc did not close the menu"
 away
+# A toast as the safety net shows its note: hanging from the top edge, or, while a song plays (the song select's own
+# timer may have started one), held for the song's end with nothing at the top but the handle (no zone is checked in
+# this play after this one, so its showing when the song ends meets no check).
+toasts=$(seen "layer: toast (shown|waits)")
 echo "Picture quality lowered to keep 60 FPS (Smooth upscale)" > "$OUT/toast.now"
-wait_log "layer: toast shown" 10 || fail "the toast was not shown"
+wait_more "layer: toast (shown|waits)" "$toasts" 10 || fail "the toast was neither shown nor held for a song's end"
 wait_s 0.8; shot 06d-toast
-drew t1 toast || fail "the toast is not hanging from the top edge, or something is in the middle"
+if grep -E "layer: toast (shown|waits)" "$OUT/ingame.log" | tail -1 | grep -q "waits for the song's end"; then
+  echo "  a song plays: the notice waits for its end"
+  drew t1 mark || fail "a notice showed during a song, or something is in the middle"
+else
+  drew t1 toast || fail "the toast is not hanging from the top edge, or something is in the middle"
+fi
 game_alive || fail "the game ended while the layer was shown"
 wait_s 7
 
@@ -657,8 +666,8 @@ played=$(grep -c "^xdotool" "$OUT/player.sh")
 [ "$(seen "layer: bar on the screen")" = "$on" ] || fail "the bar came on the screen while the song was played ($(grep 'layer: bar shown (' "$OUT/ingame.log" | tail -1))"
 echo "  a minute of the song played ($played steps of the mouse, the top band and its edge included): the bar on the screen 0 s"
 # Then a call on purpose: 1.6 s of quiet, the pointer moved to the top edge and resting there: the bar, 1.5 s or more
-# after the last press; the pointer away after a second: gone about 0.8 s later (600 ms whole, looked for ten times a
-# second, then 170 ms sliding up).
+# after the last press; the pointer away after a second: gone 0.67 to 0.79 s later (whole 600 ms after the last of its
+# looks at the pointer, ten a second, then 170 ms sliding up).
 x "xdotool mousemove 960 700"; wait_s 1.6
 bars=$(seen "layer: bar shown \(")
 x "xdotool mousemove 1300 0"; wait_s 1.15; shot 11c-called
@@ -669,8 +678,8 @@ left=$(now_ms); x "xdotool mousemove 960 700"; wait_s 2
 gone=$(gone_after "$left" 5)
 slow=$(stall_s "$left" "$gone")
 echo "  called on purpose: the bar ${quiet:-?} s after the last press, gone $(python3 -c "print('%.2f' % ((${gone:-0} - $left) / 1000.0))") s after the pointer left it (the game's frames over 100 ms then: $slow s)"
-python3 -c "import sys; d = (${gone:-0} - $left) / 1000.0; sys.exit(0 if 0.7 <= d <= 1.3 + $slow else 1)" \
-  || fail "the bar did not go 0.8 s after the pointer left it"
+python3 -c "import sys; d = (${gone:-0} - $left) / 1000.0; sys.exit(0 if 0.55 <= d <= 1.3 + $slow else 1)" \
+  || fail "the bar did not go about 0.7 s after the pointer left it"
 # The chip in its corner checked after the song (the song needs its time first: the tutorial lasts four minutes).
 echo "== the chip in the corner: the menu's Show FPS"
 # The pointer off the bar (it rested on minimise): the bar gone, the mark and the chip alone.

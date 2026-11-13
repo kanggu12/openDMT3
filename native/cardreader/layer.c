@@ -120,6 +120,9 @@ static double g_fps_value;
 static int g_tw, g_th;
 /* The layout for that target, with the card as it is now. */
 static UiLayout g_lay;
+/* The layout the mouse's handlers judge a point against: g_lay without its panel once the panel is closed (one sliding
+ * back up under the bar takes no press, as refresh_hover reads it from the card as it is). */
+static UiLayout g_hit;
 
 /* The pointer over the layer: what it is on and what was pressed (ui_hit's codes), where a press began, whether the
  * button is down over the game. */
@@ -542,6 +545,11 @@ int layer_parts(LayerPart *out, int max, int w, int h)
     if (open)
         g_shown = g_card;
     ui_layout(&g_shown, w, h, &g_lay);
+    g_hit = g_lay;
+    if (!open) {
+        g_hit.panel.w = 0;
+        g_hit.count = 0;
+    }
     float u = g_lay.u;
     /* Where everything stands now. The bar's top, out of sight above the top edge at place 0, and its foot below the
      * top edge, which everything at the top hangs from; the room its shadow takes under it travels with it. */
@@ -1051,7 +1059,7 @@ static void pointer_moved(int cx, int cy, float x, float y, int held)
         g_press_y = -1;
     }
     /* What the pointer is on, while something of the layer can be (the bar showing, or a panel open). */
-    g_hover = bar_shown() || g_card.open != CARD_NONE ? ui_hit_moved(&g_lay, x, y, g_bar_dy, g_panel_dy) : HIT_NONE;
+    g_hover = bar_shown() || g_card.open != CARD_NONE ? ui_hit_moved(&g_hit, x, y, g_bar_dy, g_panel_dy) : HIT_NONE;
     /* On the bar: whole 600 ms more from now (not over a finger's own time). */
     if (g_hover != HIT_NONE && bar_shown())
         bar_clock_rest(&g_bar_clock, now_ms());
@@ -1070,7 +1078,7 @@ static int pointer_pressed(float x, float y)
     /* Judged where the bar and the panel stand on the screen now, and kept for the release (logic.h ui_hit_moved). */
     g_press_bar_dy = g_bar_dy;
     g_press_panel_dy = g_panel_dy;
-    int hit = bar_shown() || g_card.open != CARD_NONE ? ui_hit_moved(&g_lay, x, y, g_bar_dy, g_panel_dy) : HIT_NONE;
+    int hit = bar_shown() || g_card.open != CARD_NONE ? ui_hit_moved(&g_hit, x, y, g_bar_dy, g_panel_dy) : HIT_NONE;
     if (hit != HIT_NONE) {
         /* On the layer: held there until the button comes up (a click counts where it began and ended). */
         g_pressed = hit;
@@ -1103,7 +1111,7 @@ static int pointer_released(float x, float y)
     }
     ReleaseCapture();
     /* Counted only where it began (slide off to change your mind). */
-    if (ui_hit_moved(&g_lay, x, y, g_press_bar_dy, g_press_panel_dy) != was)
+    if (ui_hit_moved(&g_hit, x, y, g_press_bar_dy, g_press_panel_dy) != was)
         return 1;
     if (was == HIT_MENU)
         /* The menu's chip opens the menu, or closes it when it is open. */

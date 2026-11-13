@@ -141,10 +141,11 @@ the notes come, and no key of the keyboard brings it:
   right by default, beside the game's FREE PLAY on its line, below the notes: it covers none of the game's own labels or
   buttons, and no more of a note than the game's own FREE PLAY). In a top corner it moves down with the bar. Clicks go
   through it to the game, and it hides while the game holds still.
-- **A notice** hangs from the top edge for a few seconds when openDMT3 has something to say: `Picture quality lowered to
-  keep 60 FPS`, with the step it took ([the safety
-  net](#frame-pacing-the-picture-the-fps-counter-and-the-sound-device)). It moves down with the bar, and one that comes
-  during a song waits for the song's end, so nothing of the overlay covers the game's groove meter while you play.
+- **A notice** hangs from the top edge for a few seconds when openDMT3 has something to say: `Picture quality lowered
+  to keep 60 FPS`, with the step it took
+  ([the safety net](#frame-pacing-the-picture-the-fps-counter-and-the-sound-device)). It moves down with the bar, and
+  one that comes during a song waits for the song's end, so nothing of the overlay covers the game's groove meter while
+  you play.
 - **The pointer** over the game is openDMT3's own: a dart with a chrome edge round a blue core, all blue and a little
   smaller while the button is down, sized for the display's scaling (32 pixels at 100 %). With **Controls** set to a
   touch screen the game hides it as before.

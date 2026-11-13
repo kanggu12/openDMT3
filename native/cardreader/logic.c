@@ -1392,6 +1392,10 @@ float slide_top(float place, float rows, float h, float shade)
 
 int ui_hit_moved(const UiLayout *l, float x, float y, float bar_dy, float panel_dy)
 {
+    /* Nothing of the layer above the game's top edge: a part on its way out of it is cut there (post.c part_quad), and
+     * above a kept picture is the window's bar, where a press is the game's as ever. */
+    if (y < 0.0f)
+        return HIT_NONE;
     /* The bar first: it lies over the panel while the panel slides out from under it. Its chips, then the rest of it,
      * where they stand now. */
     UiLayout bar = *l;

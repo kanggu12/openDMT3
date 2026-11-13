@@ -427,9 +427,10 @@ static void test_layout(void)
         float sx = (float)w / 1280.0f, sy = (float)h / 768.0f;
         Box br = fps_box(w, h, CORNER_BOTTOM_RIGHT), bl = fps_box(w, h, CORNER_BOTTOM_LEFT);
         Box free_play = {1131 * sx, 743 * sy, 84 * sx, 9 * sy}, badges = {7 * sx, 732 * sy, 186 * sx, 30 * sy};
-        /* Under the notes, within the picture, its words' middle on FREE PLAY's within a game line. */
+        /* Under the notes, within the picture, its words' middle on FREE PLAY's (its rows 743 to 752 whole: their
+         * middle on line 748) within a game line. */
         band &= br.y >= 741 * sy && br.y + br.h <= (float)h && bl.y >= 741 * sy && bl.y + bl.h <= (float)h &&
-                fabsf(br.y + br.h / 2 - 747.5f * sy) <= 1.0f * sy;
+                fabsf(br.y + br.h / 2 - 748.0f * sy) <= 1.0f * sy;
         /* Beside the game's labels, never on them. */
         band &= !overlap(br, free_play) && br.x + br.w <= free_play.x - 7.9f * sx && !overlap(bl, badges) &&
                 bl.x >= badges.x + badges.w + 7.9f * sx && br.x > bl.x + bl.w;
@@ -616,6 +617,13 @@ static void test_places(void)
     check(ui_hit_moved(&l, ax, ay, 0, pdy) == 0 && ui_hit_moved(&l, l.panel.x + 5, l.bar.h - 5, 0, pdy) == HIT_BAR &&
               ui_hit_moved(&l, ax, ay - pdy, 0, 0) == 0,
           "places: the bar lies over a panel coming out from under it; an answer is hit where it is drawn");
+    /* A panel still mostly above the game's top edge (out of sight there, cut by the picture), the bar on its way:
+     * nothing of the layer's above the edge, where a kept picture leaves the window's bar and its presses the game's. */
+    float high = -(l.panel.h + 8 * l.u);
+    check(ui_hit_moved(&l, l.panel.x + 5, -5, -60, high) == HIT_NONE &&
+              ui_hit_moved(&l, l.panel.x + 5, -30, -60, high) == HIT_NONE &&
+              ui_hit_moved(&l, l.chip[CHIP_X].x + 10, -2, -l.bar.h, 0) == HIT_NONE,
+          "places: nothing of the layer is hit above the game's top edge");
 }
 
 /* When a rest at the top edge or on the mark may bring the bar: never while a button is held or within 1.5 s of a

@@ -600,8 +600,9 @@ float slide_top(float place, float rows, float h, float shade);
 
 /* What a point of the game area is on (ui_hit's codes) while the bar and the panel slide: the bar and its chips
  * `bar_dy` from their places (negative: higher), the menu or the question `panel_dy` from theirs. The bar lies over the
- * panel (the panel slides out from under it), so on the bar a point is the bar's. A press counts against the places
- * the parts stood at when it was pressed, so a chip pressed while the bar still comes down acts too. */
+ * panel (the panel slides out from under it), so on the bar a point is the bar's; above the game's top edge nothing of
+ * the layer's. A press counts against the places the parts stood at when it was pressed, so a chip pressed while the
+ * bar still comes down acts too. */
 int ui_hit_moved(const UiLayout *l, float x, float y, float bar_dy, float panel_dy);
 
 #endif

@@ -123,10 +123,10 @@ on the CPU, where the frame times say little about a player's PC, so the numbers
 
 **The first play, on this PC: the layer's parts.**
 
-- The bar by itself at the game's first screen, 3.0 to 3.8 s on the screen (its 3 s and its fade; on a busy machine
-  longer by the game's frames of over 100 ms in that time, as its frame counter says).
+- The bar by itself at the game's first screen, 3.0 to 3.8 s on the screen (its 3 s and its slide back up; on a busy
+  machine longer by the game's frames of over 100 ms in that time, as its frame counter says).
 - The pointer read through XFixes: openDMT3's dart, up and pressed.
-- The pointer in the top quarter brings nothing but the mark at the top centre.
+- The pointer in the top quarter brings nothing but the handle (the mark) at the top centre.
 - A click on the game and the pointer on the mark: no bar for 1.5 s after the click, then the bar. The very top edge
   brings it too.
 - The X's question drops down under it (no line on the game's menus); Keep playing, and the game is still open 15
@@ -166,8 +166,8 @@ music.**
   held, and played again from where it stopped with a fade in. Keep playing lets it go on; Esc does nothing.
 - A minute of the song played all over the screen by a script (`ingame/player.py`: taps and held notes, the top band
   and its edge included, the pointer resting at the top edge between notes a little under the 1.5 s of quiet) never
-  brings the bar on the screen; a call on purpose after 1.6 s of quiet brings it, gone 0.9 s after the pointer leaves
-  it.
+  brings the bar on the screen; a call on purpose after 1.6 s of quiet brings it, gone about 0.7 s after the pointer
+  leaves it (its 600 ms whole, then its slide up).
 - Minimised, the song is held, and goes on when restored.
 
 **Offline again, with FSR 1 at 80 and SMAA High, the Mixer on OpenAL Soft.**
