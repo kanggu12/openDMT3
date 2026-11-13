@@ -22,7 +22,6 @@
   <a href="#quick-start">Quick start</a> &nbsp;|&nbsp;
   <a href="#what-it-does">What it does</a> &nbsp;|&nbsp;
   <a href="#how-it-works">How it works</a> &nbsp;|&nbsp;
-  <a href="#for-contributors">For contributors</a> &nbsp;|&nbsp;
   <a href="#guides">Guides</a>
 </p>
 
@@ -199,54 +198,6 @@ A server takes one thing from the client data: the song list, which holds the ja
 ([what a server takes](docs/client-data.md#what-a-server-takes)). [Running a server](docs/server.md) has each way step
 by step.
 
-## For contributors
-
-openDMT3 is MIT licensed and built in the open: its own launcher, game server, site, card reader library and in-game
-layer, with every change checked by the tests in this repository. **None of the game's files are needed to work on
-it:** the tests make stand-ins of their own.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/system-dark.svg">
-    <img alt="openDMT3's server and its clients. On the player's Windows PC the launcher (opendmt3/client) only reads the client data and starts the game, the player's own PC client, with openDMT3's card reader library and in-game layer in its process (native/cardreader). A server is one process (opendmt3/server, in Docker or with Python): the site and its API on port 4730 (web/), the game server on port 4725, their services and one SQLite file (services/, db/), and the song list read once from the client data. The launcher signs in over the HTTP API and asks for the player's card at each PLAY; the game logs in by card and sends its results over the game's own protocol. Browsers on phones and PCs use the site, programs the API with a token, and other players' PCs the same two links. The releases hold the installer and its signed updates, which a server can hand out. opendmt3/core is shared by both parts, packaging/ builds them and tests/ checks them" src="docs/images/system-light.svg" width="100%">
-  </picture>
-</p>
-
-Inside the game's process, openDMT3's card reader library answers a few of the game's calls in their place: that is
-where the frame pacing, the picture's passes, the in-game layer, the sound device and the card come from.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/inside-game-dark.svg">
-    <img alt="What openDMT3's card reader library does inside the game's process, and the files in native/cardreader that do it. At Direct3D 9's Present: frames held to 60.0 a second, locked to the song's music; the picture's passes, anti-aliasing, the upscale filter and the safety net; and the in-game layer, the bar, the menu, the question, a toast and the FPS chip, to the graphics card and the screen. DirectSound: the output chosen, held and faded while a panel is open. GetKeyboardState and GetCursorPos: the in-game layer's keys kept from the game, the pointer on its pixel. CreateFileA/W and GetModuleFileNameA/W: openDMT3's files in place of the few it changes, the client data only read. The card reader's own ten calls: the number the launcher wrote, so that player logs in" src="docs/images/inside-game-light.svg" width="100%">
-  </picture>
-</p>
-
-| Path | What it is |
-| :--- | :--- |
-| `opendmt3/core/` | What the other two share: the client data and its formats, the steps PLAY makes, the error words, signing |
-| `opendmt3/server/` | The game server, its services, its database (`db/`) and its site, admin pages and API (`web/`) |
-| `opendmt3/client/` | The Windows launcher: its window, its pages, its jobs on the command line, the installer's dialogs |
-| `native/cardreader/` | The card reader library with the in-game layer, 32-bit C built with MinGW |
-| `dmt3`, `packaging/` | The server with Docker Compose and its wizard; the server's image, the Windows build, the Wine image |
-| `tests/` | Each part's unit tests, and the suites: the launcher's and the site's screens, the real client under Wine, the load test |
-
-The parts depend in one direction (`client` on `server` and `core`, `server` on `core`), and a test fails any import
-that runs the other way. To start, on Linux or in WSL 2 with Python 3.10 or newer:
-
-```sh
-git clone https://github.com/kanggu12/openDMT3.git && cd openDMT3
-./dmt3 test        # the unit tests, the boundary test and pyflakes
-```
-
-[CONTRIBUTING.md](CONTRIBUTING.md) has the whole map of the code, how to run each part and its tests, and how a
-change goes in; [Architecture](docs/architecture.md) and [Testing](docs/testing.md) go deeper.
-
-- **Report a bug or ask for a feature** in [Issues](https://github.com/kanggu12/openDMT3/issues/new/choose).
-- **See what changed** in [CHANGELOG.md](CHANGELOG.md), and report security problems through
-  [SECURITY.md](.github/SECURITY.md). The [code of conduct](.github/CODE_OF_CONDUCT.md) applies in the issues and the
-  pull requests.
-
 ## What it runs on
 
 | | Minimum | Recommended |
@@ -276,12 +227,9 @@ WSL's Direct3D 12 and on Mesa's software renderer; not yet on an AMD or Intel gr
 | [Running a server](docs/server.md) | The server owner's guide: in the launcher, with Docker or with Python, the song list, players, the site and the admin pages, backups, updates, the internet, without internet |
 | [The API](docs/api.md) | Everything the site shows and does, as JSON |
 
-### For contributors
-
-| Guide | What it covers |
-| :--- | :--- |
-| [Architecture](docs/architecture.md), [Protocol](docs/protocol.md), [Testing](docs/testing.md) | How it is built and checked, and what the game and its server say to each other |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Where the code is, running it and its tests, how a change goes in |
+Working on openDMT3: [CONTRIBUTING.md](CONTRIBUTING.md), [Architecture](docs/architecture.md), [Protocol](docs/protocol.md) and
+[Testing](docs/testing.md). Bugs and requests go to [Issues](https://github.com/kanggu12/openDMT3/issues/new/choose); what changed is in
+[CHANGELOG.md](CHANGELOG.md).
 
 [License and notice](docs/notice.md) says what the project is, its license and the third-party parts, for everyone.
 
