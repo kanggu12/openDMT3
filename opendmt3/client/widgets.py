@@ -157,7 +157,7 @@ class Header(tk.Canvas):
     # The bar's height, the room at its left end (the page's own margin, so the mark lines up with the cards under it),
     # the room either side of a name, the gap after the mark, and the height of the guide's steps under the bar (logical
     # pixels).
-    HEIGHT, EDGE, NAME_PAD, AFTER_MARK, STEPS_H = 64, 32, 13, 26, 70
+    HEIGHT, EDGE, NAME_PAD, AFTER_MARK, STEPS_H = 64, 32, 13, 26, 60
 
     def __init__(self, parent, ui, brand, nav=(), on_nav=None, steps=()):
         self.ui = ui
@@ -239,7 +239,7 @@ class Header(tk.Canvas):
         both; the step on show and the steps taken in the guide's blue, the steps to come grey."""
         px, scale = self.ui.px, self.ui.scale
         left, right = px(self.EDGE), width - px(self.EDGE)
-        top = px(self.HEIGHT) + px(14)
+        top = px(self.HEIGHT) + px(12)
         gap = px(10)
         cell = (right - left - (len(self.steps) - 1) * gap) / float(len(self.steps))
         # Each number's picture, kept while it shows (Tk drops a picture the moment Python forgets it).
@@ -260,7 +260,7 @@ class Header(tk.Canvas):
                              fill=theme.TEXT if now else (theme.MUTED if done else theme.FAINT), tags=("step",))
             # The rule under the step: thicker for the one on show.
             thick = px(3) if now else px(2)
-            y = top + picture.height + px(9)
+            y = top + picture.height + px(8)
             self.create_rectangle(x, y, x + cell, y + thick, width=0,
                                   fill=theme.BLUE_HI if (done or now) else theme.LINE)
             self._picture.paste(art._rgb(theme.BLUE_HI if (done or now) else theme.LINE),

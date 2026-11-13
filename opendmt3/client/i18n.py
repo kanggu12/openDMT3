@@ -662,8 +662,9 @@ TEXT = {
     "guide.2.title": ("Where is the game?", "게임은 어디 있나요?"),
     "guide.2.searching": ("Looking in Desktop, Downloads, Documents and the top of each drive...",
                           "바탕 화면, 다운로드, 문서, 드라이브 맨 위에서 찾는 중..."),
-    "guide.2.text": ("Your own TECHNIKA 3 client data, in a folder or an archive: found on this PC, or chosen below.",
-                     "직접 가진 TECHNIKA 3 클라이언트 데이터(폴더나 압축 파일)입니다. 이 PC에서 찾은 것을 쓰거나 아래에서 고르면 됩니다."),
+    # The cards under it say which form each is in (a folder, an archive): the line says what to look for.
+    "guide.2.text": ("Your own TECHNIKA 3 client data: found on this PC, or chosen below.",
+                     "직접 가진 TECHNIKA 3 클라이언트 데이터입니다. 이 PC에서 찾은 것을 쓰거나 아래에서 고르면 됩니다."),
     "guide.2.found": ("Found on this PC", "이 PC에서 찾은 것"),
     "guide.2.stop": ("Stop looking", "그만 찾기"),
     "guide.2.none": ("No client data in the usual places. Choose its folder or archive below.",

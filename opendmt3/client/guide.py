@@ -127,7 +127,7 @@ class Guide:
     def _draw_header(self):
         """The step's head, as a page's: its name in chrome over the blue shards, its question and its few words in the
         line under it (OpenDMTQ's guide sets them so)."""
-        from opendmt3.client.app import HEAD, SUB_AT, TITLE_AT
+        from opendmt3.client.app import SUB_AT, TITLE_AT
         self._header_job = None
         w, px = self.app.words, self.app.ui.px
         if not self.body.winfo_exists():
@@ -140,9 +140,11 @@ class Guide:
         question, lead = w("guide.%s.title" % key), LEADS.get(key)
         if lead:
             question += (" " if question.endswith(("?", ".", "!")) else ". ") + w(lead)
-        picture = art.header(width, px(HEAD), (), seed=SEEDS[key], title=w("guide.%s.name" % key), scale=self.app.scale,
-                             title_at=TITLE_AT)
-        self.body.set_head(picture, question, (px(SUB_AT[0]), px(SUB_AT[1])), max(px(300), int(width * 0.52)))
+        # The line under the title, as wide as the brightest shards leave it; the head as tall as its words (a page's).
+        sub_width = max(px(300), int(width * 0.52))
+        picture = art.header(width, self.app.head_height(question, sub_width), (), seed=SEEDS[key],
+                             title=w("guide.%s.name" % key), scale=self.app.scale, title_at=TITLE_AT)
+        self.body.set_head(picture, question, (px(SUB_AT[0]), px(SUB_AT[1])), sub_width)
 
     # ------------------------------------------------------------------------------------- steps
 
@@ -154,7 +156,8 @@ class Guide:
         for child in self.body.inner.winfo_children():
             child.destroy()
         content = tk.Frame(self.body.inner, bg=theme.BG)
-        content.pack(fill="both", expand=True, padx=px(32), pady=(px(4), px(28)))
+        from opendmt3.client.app import FOOT
+        content.pack(fill="both", expand=True, padx=px(32), pady=(px(4), px(FOOT)))
         [self._welcome, self._folder, self._screen, self._login, self._ready][index](content)
         # One column for the names of the step's settings, as a page has (common.ROWS_THAT_COME names the guide's own
         # as "guide:<step>", apart from the pages').
@@ -265,11 +268,10 @@ class Guide:
 
     def _folder(self, parent):
         """Where the game is (the question and its few words are the step's head): what the search finds on this PC
-        and what the player chooses, as the client data's cards (client/found_list.py) on the step's card, with
-        Choose a folder... and Choose an archive... under them."""
-        ui = self.app.ui
-        found = card(parent, ui, last=True)
-        self.found.build(found.body)
+        and what the player chooses, each on a card of its own (client/found_list.py: the GAME page's card), with
+        Choose a folder... and Choose an archive... under them. The list stands on the page itself: a card round its
+        cards would only frame them again, and push Choose... under the foot of the window the launcher opens at."""
+        self.found.build(parent)
 
     def _chosen_usable(self):
         """DISC CHECK goes on with client data that plays: the chosen one, ready."""

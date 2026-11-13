@@ -24,9 +24,16 @@ log = logging.getLogger("opendmt3.launcher")
 
 # The menu, left to right.
 NAV = ("play", "screen", "sound", "controls", "game", "online", "records", "help", "about")
-# The page head's height (logical pixels): the title and the line under it over the section's shards (PLAY's discs at
-# its right), scrolling with the page under the bar as a page of the site does under its own.
-HEAD = 128
+# The page head (logical pixels): the title and the line under it over the section's shards (PLAY's discs at its right),
+# scrolling with the page under the bar as a page of the site does under its own. As tall as its words need, as the
+# site's own heads are, never less than the title's room: a line under the title of one line leaves the cards that much
+# higher (PLAY after a session of two cleared stages shows whole in a window of the game's 5:3 shape at the launcher's
+# width, 1180x708, with Windows' fonts, as the README's first picture shows it).
+HEAD_LEAST = 96
+# The room under the line of words, to the head's foot.
+HEAD_FOOT = 16
+# The room under a page's last card (logical pixels), once the page is scrolled to its foot.
+FOOT = 20
 # Where the title stands in the head and where the line under it starts (left edge and baseline, left edge and top).
 TITLE_AT, SUB_AT = (32, 60), (32, 78)
 # The strip along the foot: its least height inside its padding (PLAY's slab and its keyboard ring), the same on every
@@ -479,7 +486,7 @@ class LauncherApp:
         for child in self.body.inner.winfo_children():
             child.destroy()
         content = tk.Frame(self.body.inner, bg=theme.BG)
-        content.pack(fill="both", expand=True, padx=self.ui.px(32), pady=(self.ui.px(4), self.ui.px(28)))
+        content.pack(fill="both", expand=True, padx=self.ui.px(32), pady=(self.ui.px(4), self.ui.px(FOOT)))
         pages.BUILDERS[page](self, content)
         # One column for the names of the page's settings, as wide as the widest in either language and of the rows a
         # choice brings, so the controls stand on one line as rows come and go (OpenDMTQ's pages do the same).
@@ -519,11 +526,21 @@ class LauncherApp:
         discs = self.discs if (self.page == "play" and self.discs) else ()
         title, sub = pages.HEADERS[self.page](self)
         colours = theme.section_colours(self.page)
-        # The title is part of the picture: chrome letters, the TECHNIKA 3 logo's blue 3 on PLAY.
-        picture = art.header(width, px(HEAD), discs, seed=SEEDS.get(self.page, 7), colours=colours, title=title,
-                             title_tail="3" if title.endswith(" 3") else None, scale=self.scale, title_at=TITLE_AT)
         # The line under the title, as wide as the room the discs and the brightest shards leave it.
-        self.body.set_head(picture, sub, (px(SUB_AT[0]), px(SUB_AT[1])), max(px(300), int(width * 0.52)))
+        sub_width = max(px(300), int(width * 0.52))
+        # The title is part of the picture: chrome letters, the TECHNIKA 3 logo's blue 3 on PLAY.
+        picture = art.header(width, self.head_height(sub, sub_width), discs, seed=SEEDS.get(self.page, 7),
+                             colours=colours, title=title, title_tail="3" if title.endswith(" 3") else None,
+                             scale=self.scale, title_at=TITLE_AT)
+        self.body.set_head(picture, sub, (px(SUB_AT[0]), px(SUB_AT[1])), sub_width)
+
+    def head_height(self, sub, sub_width):
+        """A page head's height in pixels: the title's room, and the line under it as many lines as it wraps to at
+        `sub_width` (as the canvas wraps it), with the room under it; never less than the title's own room."""
+        from opendmt3.client import snapshot
+        px = self.ui.px
+        lines = len(snapshot.wrap(self.fonts.body, sub, sub_width)) if sub else 0
+        return max(px(HEAD_LEAST), px(SUB_AT[1]) + lines * self.fonts.body.metrics("linespace") + px(HEAD_FOOT))
 
     # ------------------------------------------------------------------------------ background
 
