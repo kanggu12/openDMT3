@@ -8,7 +8,8 @@
 #   tests/e2e/windows/remote_play.sh GAME_PARENT RELEASES_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]
 #
 # GAME_PARENT is a folder with a test copy of the game folder inside it (up to four levels down); the copy's
-# archives may be links into LINK_SOURCE (read-only).
+# archives may be links into LINK_SOURCE (read-only). OPENDMT3_E2E_NAME starts the names of the network and the two
+# containers (odt3-e2e by default: odt3-e2e-net, odt3-e2e-server, odt3-e2e-pc), so two runs at once each name their own.
 set -u
 PARENT=$(realpath "${1:?usage: remote_play.sh GAME_PARENT RELEASES_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]}")
 REL=$(realpath "${2:?}")
@@ -16,9 +17,9 @@ OUT=$(realpath -m "${3:?}")
 LINKS=${4:-}
 DLLS=${5:-}
 NAME=$(basename "$PARENT")
-NET=odt3-e2e-net
-SRV=odt3-e2e-server
-PC=odt3-e2e-pc
+NET=${OPENDMT3_E2E_NAME:-odt3-e2e}-net
+SRV=${OPENDMT3_E2E_NAME:-odt3-e2e}-server
+PC=${OPENDMT3_E2E_NAME:-odt3-e2e}-pc
 mkdir -p "$OUT"
 cleanup() { docker rm -f "$SRV" "$PC" >/dev/null 2>&1; docker network rm "$NET" >/dev/null 2>&1; }
 cleanup
@@ -33,7 +34,9 @@ echo "== server"
 REPO=$(cd "$(dirname "$0")/../../.." && pwd)
 docker build -q -f "$REPO/packaging/docker/Dockerfile" -t opendmt3-server:local "$REPO" >/dev/null \
   || { echo "FAIL: the server image did not build"; cleanup; exit 1; }
-WANT=$(ls "$REL"/openDMT3-*-full.nupkg 2>/dev/null | sed -n 's/.*openDMT3-\(.*\)-full\.nupkg$/\1/p' | head -1)
+# The newest whole package's version: a release's folder keeps the one before too (its delta is made from it), and
+# openDMT3-win-Setup.exe installs the newest.
+WANT=$(ls "$REL"/openDMT3-*-full.nupkg 2>/dev/null | sed -n 's/.*openDMT3-\(.*\)-full\.nupkg$/\1/p' | sort -V | tail -1)
 GOT=$(docker run --rm --network none --entrypoint python opendmt3-server:local -c "import opendmt3; print(opendmt3.__version__)")
 [ -n "$WANT" ] && [ "$GOT" = "$WANT" ] \
   || { echo "FAIL: the server image is ${GOT:-?}, the launcher under test ${WANT:-?}"; cleanup; exit 1; }
@@ -97,6 +100,10 @@ click_from_corner() {
   docker exec -e DISPLAY=:99 "$PC" xdotool mousemove $((x + w - $1)) $((y + h - $2)) sleep 0.15 click 1
 }
 keys() { local win; win=$(windows | grep "|openDMT3|" | head -1 | cut -d'|' -f1); docker exec -e DISPLAY=:99 "$PC" sh -c "xdotool windowfocus --sync $win; $1"; }
+# The guide's walk, each Next followed until its step shows, and where its buttons are (guide.sh, which reads the
+# screen of the container C: the PC's).
+C=$PC
+. "$(cd "$(dirname "$0")" && pwd)/guide.sh"
 end=$((SECONDS + 180)); until [ -f "$OUT/.pc-ready" ] || [ $SECONDS -gt $end ]; do wait_s 1; done
 [ -f "$OUT/.pc-ready" ] || fail "the PC did not get the launcher from the server's site"
 # The installer's own window asks first; Enter presses its Install.
@@ -106,16 +113,20 @@ docker exec -e DISPLAY=:99 "$PC" sh -c 'xdotool search --name "openDMT3 Setup" w
 wait_for "\|openDMT3\|" 120 || fail "the launcher did not open after the installer"
 wait_s 4; shot 01-guide
 echo "== guide"
-click_from_corner 72 33; wait_s 25; shot 02-folder
-click_from_corner 72 33; wait_s 3
-click_from_corner 72 33; wait_s 4; shot 03-login
+next_to 2 30 || fail "the guide did not go to its game folder step"
+wait_s 20; shot 02-folder
+next_to 3 150 || fail "the guide's game folder step did not let it go on"
+next_to 4 30 || fail "the guide did not go to its LOG IN step"
+wait_s 2; shot 03-login
 # The address is filled in and has the focus: Enter connects. Then the ID has the focus.
 keys "xdotool key Return"; wait_s 6; shot 04-connected
 keys "xdotool type --delay 60 NOVA; xdotool key Tab; xdotool type --delay 60 pass1234; xdotool key Return"
 wait_s 6; shot 05-signed-in
-click_from_corner 72 33; wait_s 6; shot 06-ready
+next_to 5 30 || fail "the guide did not go to its last step"
+wait_s 3; shot 06-ready
 echo "== PLAY"
-click_from_corner 72 33
+# The last step's PLAY, where Next stood (guide.sh).
+click_play
 wait_for "\|ClientApp\|" 120 || fail "the game's window did not open"
 end=$((SECONDS + 120)); until docker logs "$SRV" 2>&1 | grep -q "online: client" || [ $SECONDS -gt $end ]; do wait_s 2; done
 docker logs "$SRV" 2>&1 | grep -q "online: client" || fail "the game did not get online with the server"

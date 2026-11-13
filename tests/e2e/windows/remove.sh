@@ -17,7 +17,8 @@
 #
 # GAME_ROOT is a game folder PLAY has set up (its backup\ holds openDMT3.json); it is copied, links as links
 # (never followed), and never written. BUILD_DIR is the output folder of packaging/windows/build.sh. OUT_DIR must
-# be new or empty: the copies, screenshots and logs go there.
+# be new or empty: the copies, screenshots and logs go there. OPENDMT3_E2E_NAME names the container (two runs at once
+# each name their own).
 set -u
 GAME=$(realpath "${1:?usage: remove.sh GAME_ROOT BUILD_DIR OUT_DIR}")
 BUILD=$(realpath "${2:?}")
@@ -46,7 +47,8 @@ for copy in a b c; do
   # openDMT3's list as it was before removing (removing takes it away).
   cp "$OUT/games/$copy/backup/openDMT3.json" "$OUT/$copy-list.json"
 done
-C=opendmt3-remove
+# The container's name: opendmt3-remove as the other tests name theirs, or the one OPENDMT3_E2E_NAME gives.
+C=${OPENDMT3_E2E_NAME:-opendmt3-remove}
 docker rm -f "$C" >/dev/null 2>&1
 docker run -d --name "$C" --network none -v "$BUILD/setup/velopack-setup.exe:/setup/Setup.exe:ro" -v "$OUT:/out" \
   opendmt3-wine:local bash -c '
@@ -104,8 +106,8 @@ removed() {   # removed STEP: wait for the uninstall to end, then what goes in e
   echo "  $1: install folder, app list line, shortcut, Run value: gone"
 }
 
-window_geometry() {   # x y of the launcher window's top-left corner
-  windows | grep "|openDMT3|" | head -1 | sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\1 \2/'
+window_geometry() {   # x y w of the launcher window: its top-left corner and its width
+  windows | grep "|openDMT3|" | head -1 | sed -E 's/.*Position: ([0-9]+),([0-9]+).*Geometry: ([0-9]+)x.*/\1 \2 \3/'
 }
 
 colour_centre() {   # colour_centre SHOT COLOUR: the centre "x y" of the pixels of that colour on the screenshot
@@ -115,21 +117,27 @@ w, h, x, y = map(int, m.groups()) if m else (0, 0, 0, 0)
 print("%d %d" % (x + w // 2, y + h // 2) if w > 1 and h > 1 else "")'
 }
 
-menu_entry() {   # menu_entry SHOT X Y N: the middle y of the menu's Nth entry from its end in the window at X,Y
-  # Each row of the menu column, averaged to one grey value: the rows with words stand out of the dark column.
-  in_c "convert /out/$1.png -crop 160x700+$(($2 + 20))+$(($3 + 100)) +repage -colorspace Gray -scale 1x700! -depth 8 txt:-" \
+menu_entry() {   # menu_entry SHOT X Y W N: the middle x of the menu's Nth name from its end, in the window at X,Y, W wide
+  # The menu's names stand in a line across the bar at the window's top (64 pixels tall at 100 %, the names in its
+  # middle), after openDMT3's mark. Each column of that line, averaged to one grey value: the columns with letters stand
+  # out of the dark bar, and letters less than 10 pixels apart are one name (the names stand 26 apart).
+  in_c "convert /out/$1.png -crop ${4}x20+$2+$(($3 + 22)) +repage -colorspace Gray -scale ${4}x1! -depth 8 txt:-" \
     | python3 -c 'import re, sys
-rows = [(int(m.group(1)), int(m.group(2))) for m in (re.match(r"0,(\d+): \((\d+)", l) for l in sys.stdin) if m]
-base = sorted(v for _, v in rows)[len(rows) // 2]
-bands, start = [], None
-for y, v in rows:
-    if v > base + 6 and start is None:
-        start = y
-    elif v <= base + 6 and start is not None:
-        bands.append((start + y - 1) // 2)
-        start = None
+cols = [(int(m.group(1)), int(m.group(2))) for m in (re.match(r"(\d+),0: \((\d+)", l) for l in sys.stdin) if m]
+base = sorted(v for _, v in cols)[len(cols) // 2]
+names, start, last = [], None, None
+for x, v in cols:
+    if v > base + 6:
+        if start is not None and x - last > 10:
+            names.append((start + last) // 2)
+            start = None
+        if start is None:
+            start = x
+        last = x
+if start is not None:
+    names.append((start + last) // 2)
 n = int(sys.argv[2])
-print(bands[-n] + int(sys.argv[1]) + 100 if len(bands) >= n else "")' "$3" "$4"
+print(names[-n] + int(sys.argv[1]) if len(names) >= n else "")' "$2" "$5"
 }
 
 lowest_colour() {   # lowest_colour SHOT COLOUR: the centre "x y" of the lowest words on the screenshot in that colour
@@ -165,13 +173,13 @@ in_c "cd $APP/current && wine openDMT3.exe > /dev/null 2>&1 &"
 end=$((SECONDS + 120)); until windows | grep -q "|openDMT3|" || [ $SECONDS -gt $end ]; do wait_s 2; done
 windows | grep -q "|openDMT3|" || fail "the launcher did not open"
 wait_s 4
-read -r X Y <<<"$(window_geometry)"
+read -r X Y W <<<"$(window_geometry)"
 shot 1-00-launcher
-# HELP, the menu's last entry but one (LAUNCHER is last), found on the screenshot (the words' height differs between
-# systems).
-MY=$(menu_entry 1-00-launcher "$X" "$Y" 2)
-[ -n "$MY" ] || fail "no menu on the launcher"
-in_c "xdotool mousemove $((X + 77)) $MY sleep 0.2 click 1"
+# HELP, the menu's last name but one (LAUNCHER is last), found on the screenshot (the words' width differs between
+# systems), in the middle of the bar's height.
+MX=$(menu_entry 1-00-launcher "$X" "$Y" "$W" 2)
+[ -n "$MX" ] || fail "no menu on the launcher"
+in_c "xdotool mousemove $MX $((Y + 32)) sleep 0.2 click 1"
 wait_s 2; shot 1-01-help-page
 # Down to the end of the page with the mouse wheel, as a person scrolls.
 in_c "xdotool mousemove $((X + 700)) $((Y + 400)) sleep 0.2 click --repeat 25 --delay 60 5"

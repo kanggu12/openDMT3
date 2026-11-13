@@ -16,7 +16,8 @@
 # WINE_DLLS is a folder of 32-bit system DLLs Windows has and Wine lacks (the game needs mfc42.dll); they go
 # into the prefix's SysWOW64, where Windows keeps them.
 # OPENDMT3_WINE_GPU=1 draws on this PC's graphics card through WSL instead of the CPU (gpu.sh); the run then also
-# fails when the game's process does not draw through WSL's D3D12.
+# fails when the game's process does not draw through WSL's D3D12. OPENDMT3_E2E_NAME names the container (two runs at
+# once each name their own).
 set -u
 PARENT=$(realpath "${1:?usage: install_and_play.sh GAME_PARENT RELEASES_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]}")
 REL=$(realpath "${2:?}")
@@ -27,7 +28,8 @@ NAME=$(basename "$PARENT")
 mkdir -p "$OUT"
 # The renderer: the CPU image by default, the GPU image with OPENDMT3_WINE_GPU=1 (gpu.sh).
 . "$(cd "$(dirname "$0")" && pwd)/gpu.sh"
-C=$(wine_name opendmt3-e2e)
+# The container's name: opendmt3-e2e as the other tests name theirs, or the one OPENDMT3_E2E_NAME gives.
+C=$(wine_name "${OPENDMT3_E2E_NAME:-opendmt3-e2e}")
 docker rm -f "$C" >/dev/null 2>&1
 # Read only: PLAY only reads the game folder, so nothing of it may be written.
 mounts=(-v "$PARENT:/root/Desktop/$NAME:ro" -v "$REL:/rel:ro" -v "$OUT:/out")
@@ -66,7 +68,7 @@ click_from_corner() {
   w=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\1/' <<<"$geo"); h=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\2/' <<<"$geo")
   docker exec -e DISPLAY=:99 "$C" xdotool mousemove $((x + w - $1)) $((y + h - $2)) sleep 0.15 click 1
 }
-# The guide's walk, each Next followed until its step shows (guide.sh).
+# The guide's walk, each Next followed until its step shows, and where its buttons are (guide.sh).
 . "$(cd "$(dirname "$0")" && pwd)/guide.sh"
 echo "== installer"
 end=$((SECONDS + 120)); until [ -f "$OUT/.prefix-ready" ] || [ $SECONDS -gt $end ]; do wait_s 1; done
@@ -82,7 +84,7 @@ wait_s 4; shot 02-guide-1
 docker exec "$C" sh -c 'ls /w/drive_c/users/root/AppData/Local/openDMT3/current; find /w/drive_c/users -iname "openDMT3*.lnk"' > "$OUT/installed.txt"
 grep -q "openDMT3.exe" "$OUT/installed.txt" || fail "the launcher is not in %LocalAppData%\\openDMT3\\current"
 echo "== guide"
-# Next sits about 70 px from the right and 33 px from the bottom of the window.
+# Next is in the strip along the window's foot, at its right end (guide.sh's click_next).
 next_to 2 30 || fail "the guide did not go to its game folder step"
 wait_s 20; shot 03-guide-2-folder
 next_to 3 150 || fail "the guide's game folder step did not let it go on"
@@ -96,7 +98,8 @@ wait_s 3; shot 06-guide-4-player
 next_to 5 30 || fail "the guide did not go to its last step"
 wait_s 3; shot 07-guide-5-ready
 echo "== PLAY"
-click_from_corner 72 33
+# The last step's PLAY, where Next stood (guide.sh).
+click_play
 wait_for "\|ClientApp\|" 120 || fail "the game's window did not open"
 windows | grep "|ClientApp|" | grep -q "Geometry: 1920x1080" || fail "the game's window does not cover the screen"
 LOG=/w/drive_c/users/root/AppData/Roaming/openDMT3/logs/launcher.log

@@ -183,7 +183,7 @@ click_from_corner() {
   w=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\1/' <<<"$geo"); h=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\2/' <<<"$geo")
   x "xdotool mousemove $((px + w - $1)) $((py + h - $2)) sleep 0.15 click 1"
 }
-# The guide's walk, each Next followed until its step shows (guide.sh).
+# The guide's walk, each Next followed until its step shows, and where its buttons are (guide.sh).
 . "$(cd "$(dirname "$0")" && pwd)/guide.sh"
 # A program still running under Wine (an ended one may stay as a zombie of the shell that started it: not counted).
 running() { x "ps -eo stat=,args= | grep -v '^Z' | grep -q '$1'"; }
@@ -263,7 +263,8 @@ x "xdotool windowfocus --sync $win; xdotool type --delay 60 NOVA; xdotool key Ta
 wait_s 3
 next_to 5 30 || fail "the guide did not go to its last step"
 wait_s 3; shot 01-ready
-click_from_corner 72 33
+# The last step's PLAY, where Next stood (guide.sh).
+click_play
 wait_for "\|ClientApp\|" 120 || fail "the game's window did not open"
 end=$((SECONDS + 120)); until x "grep -q 'online: client' $LOG" 2>/dev/null || [ $SECONDS -gt $end ]; do wait_s 2; done
 wait_log "layer: attached" 60 || fail "the in-game layer did not attach to the game's window"

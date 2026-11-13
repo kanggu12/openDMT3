@@ -13,7 +13,8 @@
 # only reads it), its archives may be links into LINK_SOURCE (read-only), and WINE_DLLS holds the 32-bit DLLs the
 # game needs that Wine lacks.
 # OPENDMT3_WINE_GPU=1 draws on this PC's graphics card through WSL instead of the CPU (gpu.sh); the run then also
-# fails when the game's process does not draw through WSL's D3D12.
+# fails when the game's process does not draw through WSL's D3D12. OPENDMT3_E2E_NAME names the container (two runs at
+# once each name their own).
 set -u
 PARENT=$(realpath "${1:?usage: offline_play.sh GAME_PARENT RELEASES_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]}")
 REL=$(realpath "${2:?}")
@@ -24,7 +25,8 @@ NAME=$(basename "$PARENT")
 mkdir -p "$OUT"
 # The renderer: the CPU image by default, the GPU image with OPENDMT3_WINE_GPU=1 (gpu.sh).
 . "$(cd "$(dirname "$0")" && pwd)/gpu.sh"
-C=$(wine_name opendmt3-offline)
+# The container's name: opendmt3-offline as the other tests name theirs, or the one OPENDMT3_E2E_NAME gives.
+C=$(wine_name "${OPENDMT3_E2E_NAME:-opendmt3-offline}")
 docker rm -f "$C" >/dev/null 2>&1
 # Read only: PLAY only reads the game folder, so nothing of it may be written.
 mounts=(-v "$PARENT:/root/Desktop/$NAME:ro" -v "$REL:/rel:ro" -v "$OUT:/out")
@@ -67,13 +69,13 @@ click_from_corner() {
   read -r x y w h <<<"$(geometry)"
   docker exec -e DISPLAY=:99 "$C" xdotool mousemove $((x + w - $1)) $((y + h - $2)) sleep 0.15 click 1
 }
-# The guide's walk, each Next followed until its step shows (guide.sh).
+# The guide's walk, each Next followed until its step shows, and where its buttons are (guide.sh).
 . "$(cd "$(dirname "$0")" && pwd)/guide.sh"
-# A point of the launcher window, given as an offset from its top-left corner (at 100 % scaling, 1180x760).
-click_at() {
-  local x y w h
-  read -r x y w h <<<"$(geometry)"
-  docker exec -e DISPLAY=:99 "$C" xdotool mousemove $((x + $1)) $((y + $2)) sleep 0.15 click 1
+# Keys pressed in the launcher window, which is given the keyboard first.
+keys() {
+  local win
+  win=$(windows | grep "|openDMT3|" | head -1 | cut -d'|' -f1)
+  docker exec -e DISPLAY=:99 "$C" sh -c "xdotool windowfocus --sync $win; $1"
 }
 LOG=/w/drive_c/users/root/AppData/Roaming/openDMT3/logs/launcher.log
 SETTINGS=/w/drive_c/users/root/AppData/Roaming/openDMT3/launcher.json
@@ -93,22 +95,27 @@ wait_for "\|openDMT3\|" 120 || fail "the launcher did not open after the install
 wait_s 6; shot 01-guide-1
 
 echo "== guide, Offline on LOG IN"
-# Next sits about 70 px from the right and 33 px from the bottom of the window.
+# Next is in the strip along the window's foot, at its right end (guide.sh's click_next).
 next_to 2 30 || fail "the guide did not go to its game folder step"
 wait_s 20; shot 02-guide-2-folder
 next_to 3 150 || fail "the guide's game folder step did not let it go on"
 wait_s 2; shot 03-guide-3-screen
 next_to 4 30 || fail "the guide did not go to its LOG IN step"
 wait_s 2; shot 04-guide-4-login
-# LOG IN's choice of where logins and records are kept: Offline is the third of its three buttons.
-click_at 604 190; wait_s 2; shot 05-guide-4-offline
+# LOG IN's choice of where logins and records are kept (On this PC, Another server, Offline), made with the keyboard
+# as a person can: the ID field has the focus, Shift+Tab takes it back to the choice, and Right moves the choice one
+# along, to Another server. The step then shows that server's address field, which takes the focus: Shift+Tab and
+# Right once more, to Offline.
+keys "xdotool key shift+Tab; sleep 0.5; xdotool key Right"; wait_s 2
+keys "xdotool key shift+Tab; sleep 0.5; xdotool key Right"; wait_s 2; shot 05-guide-4-offline
 next_to 5 30 || fail "the guide did not go to its last step"
 wait_s 3; shot 06-guide-5-ready
 docker exec "$C" python3 -c 'import json, sys; sys.exit(0 if json.load(open(sys.argv[1])).get("mode") == "offline" else 1)' \
   "$SETTINGS" || fail "the guide did not keep Offline"
 
 echo "== PLAY"
-click_from_corner 72 33
+# The last step's PLAY, where Next stood (guide.sh).
+click_play
 wait_for "\|ClientApp\|" 120 || fail "the game's window did not open"
 windows | grep "|ClientApp|" | grep -q "Geometry: 1920x1080" || fail "the game's window does not cover the screen"
 # On the GPU: the game's own process draws through WSL's D3D12 (no quiet fall back to the CPU).

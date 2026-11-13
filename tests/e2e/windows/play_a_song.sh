@@ -71,7 +71,7 @@ click_from_corner() {
   w=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\1/' <<<"$geo"); h=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\2/' <<<"$geo")
   docker exec -e DISPLAY=:99 "$C" xdotool mousemove $((x + w - $1)) $((y + h - $2)) sleep 0.15 click 1
 }
-# The guide's walk, each Next followed until its step shows (guide.sh).
+# The guide's walk, each Next followed until its step shows, and where its buttons are (guide.sh).
 . "$(cd "$(dirname "$0")" && pwd)/guide.sh"
 echo "== installer"
 end=$((SECONDS + 120)); until [ -f "$OUT/.prefix-ready" ] || [ $SECONDS -gt $end ]; do wait_s 1; done
@@ -95,7 +95,7 @@ if [ -n "${UNPACK_FROM:-}" ]; then
     || fail "no game folder came out of the archive"
 fi
 echo "== guide"
-# Next sits about 70 px from the right and 33 px from the bottom of the window.
+# Next is in the strip along the window's foot, at its right end (guide.sh's click_next).
 next_to 2 30 || fail "the guide did not go to its game folder step"
 wait_s 20; shot 03-guide-2-folder
 next_to 3 150 || fail "the guide's game folder step did not let it go on"
@@ -109,7 +109,8 @@ wait_s 3; shot 06-guide-4-player
 next_to 5 30 || fail "the guide did not go to its last step"
 wait_s 3; shot 07-guide-5-ready
 echo "== PLAY"
-click_from_corner 72 33
+# The last step's PLAY, where Next stood (guide.sh).
+click_play
 wait_for "\|ClientApp\|" 120 || fail "the game's window did not open"
 if [ "${MODIFIED:-}" = 1 ]; then
   # A modified client is played without the screen fit: its window keeps the game's own size.
