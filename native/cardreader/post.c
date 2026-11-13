@@ -2090,6 +2090,20 @@ static int dump_source(IDirect3DDevice9 *dev, const char *label)
     return ok;
 }
 
+int post_dump_at(long frame)
+{
+    /* No dump folder: nothing is dumped at any frame. */
+    if (!g_dump_dir[0])
+        return 0;
+    /* The frame numbers named, a comma between, as dump reads them. */
+    char at[256];
+    DWORD got = GetEnvironmentVariableA("OPENDMT3_POSTFX_DUMP_AT", at, sizeof at);
+    for (char *p = got && got < sizeof at ? at : NULL; p && *p; p = strchr(p, ',') ? strchr(p, ',') + 1 : NULL)
+        if (strtol(p, NULL, 10) == frame)
+            return 1;
+    return 0;
+}
+
 /* While dump.now is in the dump folder: this frame's game picture and output written there; with "all" in it, every
  * filter and anti-aliasing pass on this same frame. The file's first word names the files. */
 static void dump(IDirect3DDevice9 *dev, int w, int h)

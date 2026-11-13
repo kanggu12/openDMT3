@@ -172,7 +172,7 @@ game faster), so a song's notes move with its frames and its music with the soun
 
 | Choice | What it does |
 | :--- | :--- |
-| **Locked to the music** (the default) | Every frame 16.67 ms by openDMT3's clock and, while a song plays, frame k at k/60 s of its music: after a stall the frames catch up a little at a time, so the notes stay on the music |
+| **Locked to the music** (the default) | Every frame 16.67 ms by openDMT3's clock and, while a song plays, frame k at k/60 s of its music: after a stall the frames catch up a little at a time, so the notes stay on the music (on a 60 Hz display with VSync, which shows no frame sooner, by leaving a frame unshown now and then, at most one in six) |
 | **Even** | Every frame 16.67 ms, with no lock to the music |
 | **The game's own** | The client's own steps of 17, 17 and 16 ms |
 

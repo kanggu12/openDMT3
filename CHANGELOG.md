@@ -38,8 +38,14 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 ### Fixed
 
 - A switch between full screen and a window during a song, or any other reset of the game's graphics device, no
-  longer moves the music lock's target: the lock keeps the song's start through it, and wins the pause back where
-  the display can show frames faster than 60 a second.
+  longer moves the music lock's target: the lock keeps the song's start through it, and wins the pause back as it
+  does any stall.
+- Locked to the music on a 60 Hz display with VSync on, a song's notes catch up with its music after a stall, such
+  as the game's own load or a busy PC, and after a frame that missed its refresh: a frame is left unshown now and then,
+  at most one in six, until the notes are within a frame of the music. Before, such a display could not show frames
+  sooner, and each stall or missed refresh left the notes that much further behind the music for the rest of the
+  song; at 59.94 Hz they also fell a millisecond a second further behind. On a 50 Hz display, where the game's 60
+  frames a second do not fit, the notes now keep up with the music instead of falling further behind every second.
 
 ## [0.1.1] - 2026-11-13
 

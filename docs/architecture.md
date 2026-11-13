@@ -228,8 +228,9 @@ the real functions get ours, which call the real ones.
     place of the client's own limiter (a jump the PC build's patch section put over the first instruction of the
     game's per-frame function, which is put back as it was). Locked to the music
     ([below](#frame-pacing-and-the-music)), that clock follows a song's music while one plays; with VSync on, its
-    ticks are kept in the middle of a display refresh. The game's logic runs once a frame, so 60 a second is its
-    speed: its timers count frames.
+    ticks are kept in the middle of a display refresh, and on a display that shows no frame sooner than its refresh
+    (60 Hz) frames behind the music are left unshown now and then instead. The game's logic runs once a frame, so 60
+    a second is its speed: its timers count frames.
   - It keeps at most one frame queued: an event query after each present, waited for before the next.
   - The post-process chain's safety net reads each frame's length here.
   - While the menu or the question is open during a song, it holds the game still.
@@ -343,7 +344,9 @@ in-game layer is drawn in it:
   frames a second and the frame's length).
 - **The safety net**: a frame counts against the chain when it took longer than 16.67 ms with 1 ms to spare and would
   not have without the chain's own GPU time (its timestamp queries; the CPU's time where the device has none), so a
-  load or a stall of the game's own never counts, nor do the game's first 10 seconds (its loading).
+  load or a stall of the game's own never counts, nor do the game's first 10 seconds (its loading), nor the frame
+  after one left unshown to catch up with the music (it may go out late in its refresh, two frames' work done in
+  one).
   - Two windows of 60 frames in a row with 30 such frames each step the chain down for the rest of the run, one step
     each time: SMAA to FXAA (compiled with the chain, so a step never waits for the compiler), FXAA to none, then
     FSR 1 or NIS to bilinear.
@@ -505,7 +508,9 @@ frame late is a game slower than its music. Three pacings:
   drift, 4 ms a frame (a quarter of a frame) to win back a stall over 50 ms, so no frame is skipped or doubled and a
   correction is spread over many frames. The distance the game itself started the music at is kept, not corrected,
   for the whole song: a reset of the device during it (a switch between a window and full screen, a device lost)
-  starts the lock's readings again from the same start, so the reset's own stall is won back as any stall is.
+  starts the lock's readings again from the same start, so the reset's own stall is won back as any stall is. A
+  display that shows no frame sooner than its refresh takes the frames back in whole frames instead
+  ([below](#a-display-that-shows-no-frame-sooner)).
 
 **The audio offset** (**Sound**, 0 to 500 ms, 0 by default; `OPENDMT3_AUDIO_OFFSET`) moves the lock's target: a
 song's frames are held that many milliseconds further behind its music than the game's own start put them, so the
@@ -542,7 +547,8 @@ may still move the tick earlier, and only then gets control and reads its input.
   quarter of a frame at most; after 300 frames started late in a row done in time, it goes back a tenth of a
   millisecond a frame.
 - **What may move the tick earlier**: the music lock's step while a song plays (1 ms, 4 ms while it wins back a
-  stall) and the display lock's (a 64th of a refresh).
+  stall) and the display lock's (a 64th of a refresh); on a display that shows no frame sooner than its refresh, the
+  display lock's alone (the music lock takes nothing off a tick there).
 - **Before its tick**, once the two locks have set it, each frame's commands are flushed to the GPU and its picture
   waited for (an event query, until the tick at most), so the GPU draws it while it waits; one not done by its tick is
   the miss above.
@@ -551,7 +557,7 @@ may still move the tick earlier, and only then gets control and reads its input.
 - **At once**, as before: a frame whose work and spare leave no room before its tick (a present that came back late),
   the first 600 frames after the game's device is made or reset (its loading, while the work is learned), the frames
   while a glass panel shows (its pictures may be drawn again at a frame's start, which the wait before the tick takes
-  in), and the game's own pacing. Three frames started late in a row that miss their tick with the spare at its most
+  in), and the game's own pacing; and a frame to be left unshown to catch up with the music, and the one after it. Three frames started late in a row that miss their tick with the spare at its most
   (a GPU slower than any spare covers) start the next 300 at once too, after which the clock tries again.
 
 Measured under Wine on the GPU over a whole song, the same build with `OPENDMT3_JIT=off` and without in turns
@@ -597,7 +603,12 @@ from the read to the present, from the present to done), `OPENDMT3_JIT=off` star
 `OPENDMT3_PRESS_MARK=on` draws a white square at the picture's bottom left in every frame whose read sees the mouse's
 button down (a photodiode's target: a click to light is the game's own way from its input to the screen),
 `OPENDMT3_SAFETY=off` keeps the chosen chain, `OPENDMT3_REFRESH` gives a refresh rate to a virtual screen that reports
-none, and `OPENDMT3_STROBE_WATCH` reads motion clarity's sub-frames back, one frame in 120, and logs them.
+none, `OPENDMT3_STROBE_WATCH` reads motion clarity's sub-frames back, one frame in 120, and logs them,
+`OPENDMT3_CATCHUP=off` keeps the lock as before on a display that shows no frame sooner (every step taken, nothing left
+unshown), `OPENDMT3_VBLANK=wait` brings each present back at the display's next refresh by its raster position (with
+`OPENDMT3_REFRESH=60`, Wine's virtual screen, which shows every present at once, then shows no frame sooner, as a
+60 Hz display with VSync), and `OPENDMT3_STALL=MS[,MS...]` stalls a frame that many milliseconds in every song, the
+n-th n times 20 s into its music (four at most), as the game's own hiccups do.
 
 While the menu or the question is open during a song (the song's music buffer playing), the game is held still:
 
@@ -636,6 +647,75 @@ Measured on the real client under Wine (1920x1080, locked to the music, the outp
   the layer's 2 to 2.5 ms of GPU a frame took it to 46 to 53 frames a second while a part showed.
 
 The layer's log (`OPENDMT3_INGAME_LOG`) is for the Wine tests.
+
+### A display that shows no frame sooner
+
+With VSync on, a present waits for the display's next refresh, so a display under 64 Hz (60 Hz, the usual one, 59 for
+59.94, 50) shows a new frame at most a millisecond a frame sooner than the game's 60 a second (`logic.c`
+`catchup_display`). A tick the lock takes earlier never reaches the screen: frames behind the music after a stall (the
+game's own load, Windows busy) would stay behind for the rest of the song, and so would they after any frame that
+misses its refresh (it shows a refresh late, and with one frame queued so does every frame after it); at 59.94 Hz they
+would fall a millisecond a second further behind with no stall at all. There the lock takes nothing off a tick (a tick it holds
+back still shows, a refresh later, so that step stays), and frames are left unshown instead (`logic.c`
+`catchup_frame`, `hooks.c` `leave_unshown`):
+
+- **When**: at each frame shown, the lock's reading; when the median of the last five since the last frame left
+  unshown is more than a frame (16.7 ms) behind, the next frame is left unshown. So at most one frame in six, never two
+  in a row: 2.8 ms a frame (the lock's own pace elsewhere is 4 ms). Once that median is within a frame, the catch-up
+  is over.
+- **How**: the game runs the frame, and its present goes back to it at once, with no post-process chain, none of the
+  layer's drawing and no real present; the game's next frame takes the tick the frame left unshown had, so it shows a
+  refresh after the frame before, a whole frame further into the song. The frame to be left unshown starts at once rather than just
+  in time, so the one after it has the most of the time before that refresh.
+- **Only when it fits**: as the frame to be left unshown comes, the refresh it would have shown at is read from the
+  display's raster position, as the display lock reads it, up to the blank that ends it (`catchup_deadline`: the
+  raster's line runs over the visible lines only, so the rest of a refresh counts as 95 % of what the line says). It
+  is left unshown only when the next frame's work on the processor and then its chain's passes on the GPU (the
+  slowest 1 % of the last 120 frames' each, the GPU's by the chain's timestamps) end, and its tick comes, an eighth of
+  a refresh before that blank (`catchup_work`, `catchup_fits`); otherwise it is shown and the next try is six frames
+  on. The frame after one left unshown is waited for on the GPU until a sixteenth of a refresh before that blank at
+  most; going out later, or with its picture not done by then (the game's own GPU work is not timed), it may have
+  missed that refresh (the frame before shown twice, nothing won): none is left unshown for five seconds after it, nor
+  for the rest of the song after three, a reset in the song or not.
+- **Only there**: with the display lock running and the raster position read at the last frame (where it is not
+  read, the lock keeps its own steps, as before: VSync may not hold there), while a song's music leads, with no glass
+  panel up (the bar, the menu, the question, a toast: their motion would stutter), and not on a display from 64 Hz up
+  or with VSync off, where the lock's own steps reach the screen. Motion clarity's sub-frames (from 120 Hz) and the
+  flip model's judgement of a display that follows the frames (from two refreshes a frame) never meet it. A frame
+  the measuring dump names (`OPENDMT3_POSTFX_DUMP_AT`) is always shown.
+- **What counts it**: the game's frame number, the sound's frame and the trace count the frame left unshown, so a
+  song's place is still the game's; the counter's line, the frame series and the FPS chip count the frames shown (60 a
+  second). The safety net does not judge the frame after one left unshown. With **Measure the picture's GPU time**,
+  the game's own frame is timed from the frame left unshown on, so its step holds one frame's work. A press the frame
+  left unshown read is timed with the next frame shown, which carries it.
+- **Its line**: each catch-up writes one line in the log: how far behind the music it began, the frames left unshown
+  over how long, how far behind after, and frames too late or not left unshown after all, when there were any (`pacing:
+  caught up with the music: ...`); one cut short by the song's end or a reset says so.
+
+Simulated as `hooks.c` runs it (`test_native.c`: each present back at the next refresh, or at once with Direct3D's
+queue of one frame; the music 0.05 % fast, read in the sound card's 10 ms steps; the game's work 2.5 to 3.5 ms a
+frame): at 60 Hz with VSync a stall of 100 ms 20 s into a song was won back to within a frame in 0.47 s (six frames
+left unshown) and one of 400 ms at 60 s in 1.97 s, never two in a row, none too late, no frame shown twice, and between
+the catch-ups the frames kept 0 to 18 ms behind (a frame, and the little a median of the cursor's 10 ms steps misses);
+before this, the frames stayed 500 ms behind to the song's end. At 59.94 Hz two minutes with no stall stayed 0 to
+19 ms behind (120 ms behind before). With an audio offset of 80 ms the stalls were won back the same. At 120, 144 and 240 Hz and
+with VSync off nothing was left unshown and the lock won both stalls back itself. With 6 ms of work a frame, two
+frames still fit in a refresh and both stalls were won back; at 9 ms none fit and nothing was left unshown. With the
+chain at 6 ms a frame on the GPU (timed) after 2 ms of the game's own draws, both were won back; with the game's own
+draws at 6 ms (not timed), the first three frames after a skip were judged too late and nothing more was left
+unshown in the song, none shown twice. At 50 Hz the game's 60 frames a second leave one frame in six unshown by
+themselves: the frames stayed within 100 ms of the music for 90 s, where they ended 18 s behind before, but a stall's
+distance is not won back there.
+
+Measured under Wine on the GPU over a whole song and the tutorial before it, the virtual screen made a 60 Hz display
+with VSync by `OPENDMT3_REFRESH=60` and `OPENDMT3_VBLANK=wait`, stalls of 100 and 400 ms in each
+([Testing](testing.md#a-song-after-stalls-on-a-60-hz-display-before-and-after)): at the music's stop, music and frames
+agreed within 3.3 ms in the song and 16.0 ms in the tutorial, and no frame after a skip was too late. With
+`OPENDMT3_CATCHUP=off` they ended 1985 ms apart: far more than the stalls, since each present that missed its refresh
+(4 to 8 % of them on that busy machine) took every frame after it a refresh later. Caught up, each of those was won
+back by a frame left unshown a few frames later. There the chain's GPU time, read under WSL's D3D12, now and then ran
+long in the next frame's estimate, and the tutorial's 100 ms took 4.2 s to win back, where a build counting the
+processor's part alone took 0.58 s.
 
 ### Motion clarity
 

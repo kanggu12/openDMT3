@@ -5,6 +5,7 @@
  */
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "logic.h"
@@ -1097,6 +1098,408 @@ static void test_jit(void)
           "jit: a GPU slower than the spare: the clock rests instead of holding frames that miss");
 }
 
+/* A song on a display, simulated as hooks.c runs it: our_present (the frame's work, at most one frame queued, the
+ * music lock and its catch-up in lock_to_music, the display lock, the picture waited for until the tick, the pacer),
+ * leave_unshown for a frame planned to be left unshown, and jit_rest. The game's work on the processor is `cpu` to
+ * `cpu + spread` ticks a frame, the chain's 0.2 ms after it; on the GPU, once a frame's draws are handed over and the
+ * frames before are done there, the game's own draws take `gpu_game` ticks (a frame left unshown has them too) and the
+ * chain's passes `gpu_chain`, which the chain's timestamps time; a present shows only once its picture is done; a stall
+ * adds
+ * `stall_ms[i]` to the frame `stall_s[i]` seconds into the song (0: none). The music starts 10 s in (the frames before
+ * it are the game's menus: no lock) and plays 0.05 % fast, read in the sound card's 10 ms steps. The display
+ * refreshes every `refresh` ticks (Windows says `hz`; refresh 0: VSync off, every present shown at once); with VSync
+ * a present shows at the first refresh after it and after the frame before's, and returns at that refresh (`queue` 0:
+ * the present waits, the worst for the frame after a skip) or at once, the next frame then waiting for it before its
+ * own present (`queue` 1: Direct3D's queue of one frame). `fixed_on` 0 runs the layer as before this catch-up (the
+ * lock's steps all taken, nothing left unshown); `offset` is the audio offset (ms). What the screen shows is judged:
+ * the music at the refresh that shows a frame against the frame's place in the song, from the song's first frame's
+ * and the offset. */
+typedef struct {
+    int shown, skips, late, unfit;
+    int repeats;           /* frames shown more than a refresh after the frame before, but for the stalls' own */
+    int in_a_row;          /* the most frames left unshown in a row */
+    int closest;           /* the fewest frames from one left unshown to the next (0: fewer than two) */
+    int outside;           /* frames left unshown before the first stall (the menus, the song's start) */
+    int lines;             /* catch-ups ended within a frame (a line each in the layer's log) */
+    int shown_steady;      /* frames shown in the steady stretches below */
+    double caught[2];      /* each stall: seconds from it to the first frame shown within a frame of the music (-1:
+                            * never) */
+    double worst_steady;   /* the most a frame shown was off the music before the first stall and from 6 s after each */
+    double low, high;      /* there, the least and the most it was behind (ms; negative: ahead) */
+    double end_behind;     /* how far behind the music the song's last frame shown was (ms) */
+    double first_from;     /* how far behind the first catch-up began (ms), and its frames left unshown */
+    int first_skips;
+} CatchSong;
+
+static CatchSong catch_song(int hz, int64_t refresh, int queue, int64_t cpu, int64_t spread, int64_t gpu_game,
+                            int64_t gpu_chain, const double stall_s[2], const double stall_ms[2], int fixed_on,
+                            int seconds, double offset)
+{
+    const int64_t f = 10000000, ms = f / 1000;
+    const double frame = 1000.0 / GAME_FPS;
+    const long lead_in = 600;
+    CatchSong s;
+    memset(&s, 0, sizeof s);
+    s.caught[0] = s.caught[1] = -1;
+    Pacer p;
+    MusicLock m;
+    JitClock j, w, wgpu;
+    CatchUp c;
+    pacer_start(&p, f, GAME_FPS);
+    music_lock_start(&m);
+    jit_start(&j, f, GAME_FPS);
+    jit_start(&w, f, GAME_FPS);
+    jit_start(&wgpu, f, GAME_FPS);
+    catchup_start(&c);
+    int vsync = refresh > 0;
+    /* The display takes no frame sooner: the lock takes nothing off a tick, and frames may be left unshown. */
+    int fixed = fixed_on && catchup_display(vsync, hz);
+    /* The refreshes: at v0 + n * refresh, v0 a little way into the first. */
+    int64_t v0 = refresh * 37 / 100, last_shown = -1, now = 0, start = 0, frame_start = 0, prev_done = 0, gpu_free = 0;
+    int64_t stall_at[2] = {0, 0}, stalled_shown[2] = {-1, -1};
+    double base = 0, true_base = 0;
+    int primed = 0, true_primed = 0, skip_next = 0, after_skip = 0, started_late = 0, row = 0;
+    int64_t skip_deadline = 0;
+    long last_skip = -1, music_from = 0;
+    int64_t music_t0 = 0;
+    for (int i = 0; i < 2; i++)
+        stall_at[i] = stall_ms[i] > 0 ? lead_in + (long)(stall_s[i] * GAME_FPS) : 0;
+    for (long k = 1; k <= lead_in + (long)seconds * GAME_FPS; k++) {
+        /* The game's frame: its input read at `start`, its own work, a stall where one is. */
+        int64_t work = cpu + (k * 7919 % (spread + 1));
+        for (int i = 0; i < 2; i++)
+            if (k == stall_at[i])
+                work += (int64_t)(stall_ms[i] * (double)ms);
+        int64_t arrival = start + work;
+        /* The music starts in the frame after the menus (the game's Play), its time 0 there. */
+        if (k == lead_in + 1)
+            music_t0 = start, music_from = lead_in;
+        int song = k > lead_in;
+        if (skip_next) {
+            /* leave_unshown: the frame planned is left unshown when the next one can go out before the refresh it
+             * would have been shown at. */
+            skip_next = 0;
+            /* The refresh the frame would have been shown at, by the display's phase as the frame came; the next
+             * frame's time to its picture done, the GPU's part too. */
+            double phase = vsync ? (double)((arrival - v0) % refresh + refresh) / (double)refresh : -1.0;
+            int64_t deadline = catchup_deadline(arrival, p.next, refresh, vsync ? phase - floor(phase) : -1.0);
+            if (catchup_fits(arrival, p.next, deadline, catchup_work(jit_work(&w), jit_work(&wgpu)), refresh)) {
+                catchup_skipped(&c);
+                s.skips++;
+                if (k < (stall_at[0] ? stall_at[0] : k + 1))
+                    s.outside++;
+                if (last_skip > 0 && (s.closest == 0 || k - last_skip < s.closest))
+                    s.closest = (int)(k - last_skip);
+                last_skip = k;
+                if (++row > s.in_a_row)
+                    s.in_a_row = row;
+                /* Its own picture still drawn on the GPU (the game's draws were handed over). The next frame starts at
+                 * once, its work counted from here, its present judged against that refresh. */
+                gpu_free = (gpu_free > arrival ? gpu_free : arrival) + gpu_game;
+                start = arrival + 200;
+                frame_start = start;
+                after_skip = 1;
+                skip_deadline = deadline;
+                started_late = 0;
+                continue;
+            }
+            catchup_unfit(&c);
+            s.unfit++;
+        }
+        row = 0;
+        /* The chain's work, then the frame before done on the GPU (at most one queued: with a queue, its refresh). */
+        int64_t t0 = arrival + 2000;
+        if (queue && prev_done > t0)
+            t0 = prev_done;
+        /* The recent frames' work for the catch-up, as for the clock, and the chain's time on the GPU. */
+        if (frame_start)
+            jit_frame(&w, t0 - frame_start, 1, 0);
+        jit_frame(&wgpu, gpu_chain, 1, 0);
+        if (song) {
+            /* lock_to_music: the music now in the cursor's steps, at the tick, against the frame's place. */
+            double music = (double)(t0 - music_t0) / f * 1000.0 * 1.0005;
+            music = (double)(int64_t)(music / 10.0) * 10.0;
+            double until = (double)(p.next - t0) / ms;
+            double ahead = music + (until > 0 ? until : 0) - (double)(k - music_from) * frame;
+            if (!primed) {
+                base = ahead;
+                primed = 1;
+            }
+            double off = ahead - base - offset;
+            int64_t step = music_lock_step(&m, off, p.period);
+            if (fixed && step > 0)
+                step = 0;
+            p.next -= step;
+            if (fixed_on) {
+                skip_next = catchup_frame(&c, off, fixed);
+                if (c.done) {
+                    if (!s.lines)
+                        s.first_skips = c.skips;
+                    s.lines++;
+                    c.done = 0;
+                }
+                if (s.first_from == 0 && c.running)
+                    s.first_from = c.from_ms;
+            }
+        }
+        /* The display lock: the tick's phase in its refresh. */
+        if (vsync) {
+            int64_t at = p.next > t0 ? p.next : t0;
+            double phase = (double)((at - v0) % refresh + refresh) / (double)refresh;
+            p.next += display_lock_step(phase - floor(phase), refresh);
+        }
+        /* The picture on the GPU after the frames before it, waited for until the tick at most. */
+        int64_t done = (gpu_free > t0 ? gpu_free : t0) + gpu_game + gpu_chain;
+        gpu_free = done;
+        int in_time = done <= p.next;
+        if (frame_start)
+            jit_frame(&j, t0 - frame_start, in_time, started_late);
+        now = in_time ? (done > t0 ? done : t0) : (p.next > t0 ? p.next : t0);
+        /* The frame after a skip: its picture waited for until the latest it may go out. */
+        int64_t limit = after_skip ? skip_deadline - refresh / 16 : 0;
+        int skip_ready = !after_skip || done <= limit;
+        if (after_skip && done > now)
+            now = done < limit ? done : (limit > now ? limit : now);
+        int64_t tp = now + pacer_wait(&p, now);
+        if (after_skip) {
+            after_skip = 0;
+            int in = skip_ready && tp <= limit;
+            catchup_after(&c, in);
+            s.late += !in;
+        }
+        /* The present: shown at the first refresh after it, with its picture done, and after the frame before's (with
+         * VSync off, as soon as its picture is done). */
+        int64_t shown = done > tp ? done : tp;
+        if (vsync) {
+            int64_t ready_at = done > tp ? done : tp;
+            shown = v0 + ((ready_at - v0) / refresh + 1) * refresh;
+            if (last_shown >= 0 && shown <= last_shown)
+                shown = last_shown + refresh;
+        }
+        /* A refresh with no new frame where no stall was: the frame before shown twice. */
+        if (vsync && last_shown >= 0 && shown - last_shown > refresh * 3 / 2 && k != stall_at[0] && k != stall_at[1])
+            s.repeats++;
+        last_shown = shown;
+        int64_t back = queue || !vsync ? tp + 500 : shown;
+        prev_done = vsync ? shown : (done > tp ? done : tp);
+        s.shown++;
+        if (song) {
+            /* What the screen shows: the music then against the frame's place, from the song's first frame's. */
+            double behind = (double)(shown - music_t0) / f * 1000.0 * 1.0005 - (double)(k - music_from) * frame;
+            if (!true_primed) {
+                true_base = behind;
+                true_primed = 1;
+            }
+            behind -= true_base + offset;
+            s.end_behind = behind;
+            double off = behind < 0 ? -behind : behind;
+            for (int i = 0; i < 2; i++) {
+                if (stall_at[i] && k >= stall_at[i] && stalled_shown[i] < 0)
+                    stalled_shown[i] = shown;
+                if (stalled_shown[i] >= 0 && s.caught[i] < 0 && k > stall_at[i] && off < frame &&
+                    (i == 1 || !stall_at[1] || k < stall_at[1]))
+                    s.caught[i] = (double)(shown - stalled_shown[i]) / f;
+            }
+            /* Steady: before the first stall, and from 6 s after each. */
+            int steady = !stall_at[0] || k < stall_at[0];
+            for (int i = 0; i < 2; i++)
+                if (stall_at[i] && k > stall_at[i] + 6 * GAME_FPS && (i == 1 || !stall_at[1] || k < stall_at[1]))
+                    steady = 1;
+            if (steady && off > s.worst_steady)
+                s.worst_steady = off;
+            if (steady && (s.low > behind || !s.shown_steady))
+                s.low = behind;
+            if (steady && (s.high < behind || !s.shown_steady))
+                s.high = behind;
+            s.shown_steady += steady;
+        }
+        /* jit_rest: the frame to be left unshown starts at once; any other is held to just before its tick. */
+        started_late = 0;
+        start = back;
+        if (!skip_next) {
+            int64_t slack = (song && !fixed ? (int64_t)(music_lock_most(&m) * (double)ms) : 0) + (vsync ? refresh / 64 : 0);
+            int64_t lead = jit_lead(&j, slack);
+            if (lead > 0 && p.next - lead > back) {
+                start = p.next - lead;
+                started_late = 1;
+            }
+        }
+        frame_start = start;
+    }
+    return s;
+}
+
+static void test_catchup(void)
+{
+    const int64_t f = 10000000, ms = f / 1000;
+    /* The displays that take no frame sooner: VSync on and under 64 Hz. */
+    check(catchup_display(1, 60) && catchup_display(1, 59) && catchup_display(1, 61) && catchup_display(1, 50) &&
+              catchup_display(1, 63), "catch-up: 60 Hz with VSync takes no frame sooner (and 59, 61, 63, 50)");
+    check(!catchup_display(1, 64) && !catchup_display(1, 75) && !catchup_display(1, 120) && !catchup_display(1, 144) &&
+              !catchup_display(1, 240) && !catchup_display(0, 60) && !catchup_display(1, 0),
+          "catch-up: 64 Hz up, VSync off or no rate known take frames sooner (or are not known)");
+    /* The decision: five readings over a frame, then a frame to leave unshown; none while not allowed. */
+    CatchUp c;
+    catchup_start(&c);
+    int plans = 0;
+    for (int i = 0; i < 4; i++)
+        plans += catchup_frame(&c, 40.0, 1);
+    check(!plans && catchup_frame(&c, 40.0, 1) && c.running && c.from_ms == 40.0,
+          "catch-up: a frame left unshown after five readings over a frame");
+    catchup_skipped(&c);
+    plans = 0;
+    for (int i = 0; i < 4; i++)
+        plans += catchup_frame(&c, 23.0, 1);
+    check(!plans && catchup_frame(&c, 23.0, 1), "catch-up: the next one five frames shown later, never two in a row");
+    catchup_skipped(&c);
+    plans = 0;
+    for (int i = 0; i < 5; i++)
+        plans += catchup_frame(&c, 6.0, 1);
+    check(!plans && c.done && !c.running && c.skips == 2 && c.frames == 2 + 10 && c.to_ms == 6.0,
+          "catch-up: within a frame it is over, with its numbers for its line");
+    catchup_start(&c);
+    plans = 0;
+    for (int i = 0; i < 20; i++)
+        plans += catchup_frame(&c, 16.0, 1) + catchup_frame(&c, 200.0, 0);
+    check(!plans && !c.running, "catch-up: none within a frame, nor while not allowed (a panel, no refresh known)");
+    /* A median of five: one reading over a frame among four within is no catch-up. */
+    catchup_start(&c);
+    plans = catchup_frame(&c, 5.0, 1) + catchup_frame(&c, 90.0, 1) + catchup_frame(&c, 4.0, 1) +
+            catchup_frame(&c, 6.0, 1) + catchup_frame(&c, 5.0, 1);
+    check(!plans, "catch-up: one reading over a frame among five is not a stall");
+    /* A frame after a skip too late: five seconds of none, and none for the song after three. */
+    catchup_start(&c);
+    for (int i = 0; i < 5; i++)
+        catchup_frame(&c, 60.0, 1);
+    catchup_skipped(&c);
+    catchup_after(&c, 0);
+    plans = 0;
+    for (int i = 0; i < CATCHUP_REST - 1; i++)
+        plans += catchup_frame(&c, 60.0, 1);
+    check(!plans && catchup_frame(&c, 60.0, 1), "catch-up: a frame after a skip too late rests it five seconds");
+    catchup_after(&c, 0);
+    catchup_after(&c, 0);
+    plans = 0;
+    for (int i = 0; i < 2 * CATCHUP_REST; i++)
+        plans += catchup_frame(&c, 60.0, 1);
+    check(!plans && c.late_song == CATCHUP_LATE, "catch-up: three too late in a song, none for the rest of it");
+    /* A reset of the device in the song: the readings start again, the song's frames too late kept (it goes on). */
+    catchup_pause(&c);
+    plans = 0;
+    for (int i = 0; i < 2 * CATCHUP_REST; i++)
+        plans += catchup_frame(&c, 60.0, 1);
+    check(!plans && c.late_song == CATCHUP_LATE && c.n == CATCHUP_READINGS,
+          "catch-up: a reset in the song keeps its three too late (none left unshown after it either)");
+    /* The refresh the skipped frame would have had: the first after its tick by the display's phase now; with no
+     * phase, three eighths of a refresh after the tick. The next frame's work must end an eighth of one before it. */
+    const int64_t r60 = f / 60;
+    check(llabs(catchup_deadline(0, 4 * ms, r60, 0.26) - (4 * ms + (int64_t)(0.5 * CATCHUP_VISIBLE * r60))) <= 2,
+          "catch-up: the refresh after the tick by the display's phase now");
+    check(llabs(catchup_deadline(10 * ms, 4 * ms, r60, 0.5) - (10 * ms + (int64_t)(0.5 * CATCHUP_VISIBLE * r60))) <= 2 &&
+              catchup_deadline(0, 4 * ms, r60, -1.0) == 4 * ms + r60 * 3 / 8,
+          "catch-up: after now when the frame came past its tick; three eighths with no phase");
+    check(catchup_work(6 * ms, 2 * ms) == 8 * ms && catchup_work(6 * ms, 0) == 6 * ms && catchup_work(-1, -1) == 0,
+          "catch-up: the next frame's work, then its chain on the GPU when timed");
+    check(catchup_fits(0, 0, 10 * ms, 10 * ms - r60 / 8, r60) && !catchup_fits(0, 0, 10 * ms, 10 * ms - r60 / 8 + 1, r60) &&
+              !catchup_fits(0, 0, 10 * ms, ms, 0), "catch-up: the next frame's work must end an eighth of a refresh before");
+    check(!catchup_fits(0, 10 * ms - r60 / 8 + 1, 10 * ms, ms, r60),
+          "catch-up: nor may the tick it takes over be later (a tick the display lock could not keep mid-refresh)");
+    /* Songs on displays, a stall of 100 ms 20 s in and one of 400 ms 60 s in: the game's work 2.5 to 3.5 ms. */
+    const double at[2] = {20.0, 60.0}, stalls[2] = {100.0, 400.0}, none[2] = {0.0, 0.0};
+    /* As before, at 60 Hz with VSync: the frames shown stay behind the music after the first stall. */
+    CatchSong before = catch_song(60, f / 60, 0, 25000, 10000, 2500, 2500, at, stalls, 0, 90, 0);
+    check(before.skips == 0 && before.caught[0] < 0 && before.end_behind > 450.0,
+          "catch-up: as before, at 60 Hz with VSync the frames stay 500 ms behind the music after the two stalls");
+    CatchSong s60 = catch_song(60, f / 60, 0, 25000, 10000, 2500, 2500, at, stalls, 1, 90, 0);
+    printf("catch-up 60 Hz: caught %.2f s and %.2f s, %d left unshown (%d late, %d not fitting), closest %d, in a row "
+           "%d, %d shown twice, between them %.1f to %.1f ms, end %.1f ms, %d lines, the first from %.1f ms in %d\n",
+           s60.caught[0], s60.caught[1], s60.skips, s60.late, s60.unfit, s60.closest, s60.in_a_row, s60.repeats,
+           s60.low, s60.high, s60.end_behind, s60.lines, s60.first_from, s60.first_skips);
+    check(s60.caught[0] >= 0 && s60.caught[0] < 1.5 && s60.caught[1] >= 0 && s60.caught[1] < 4.0,
+          "catch-up: at 60 Hz with VSync, 100 ms won back within 1.5 s and 400 ms within 4 s");
+    check(s60.in_a_row == 1 && s60.closest >= CATCHUP_SPACING && s60.late == 0 && s60.outside == 0,
+          "catch-up: never two frames unshown in a row, five shown between, none late, none before the first stall");
+    /* Outside a song's music lock: a stall of 400 ms on the menus, 5 s before the music starts, leaves nothing unshown
+     * (the song's lock starts on its own music, after it). */
+    const double menus_at[2] = {-5.0, 0.0}, menus_ms[2] = {400.0, 0.0};
+    CatchSong menus = catch_song(60, f / 60, 0, 25000, 10000, 2500, 2500, menus_at, menus_ms, 1, 30, 0);
+    check(menus.skips == 0 && menus.end_behind > -10.0 && menus.end_behind < 1000.0 / 60.0 + 10.0,
+          "catch-up: none outside a song's music lock (a stall on the menus before the song)");
+    /* Between catch-ups (before the first stall and from 6 s after each): a band one frame wide and the few ms the
+     * median reads of the sound card's 10 ms steps, never a step past a frame behind nor a step ahead (the lock's
+     * reading of the song's start is one step's too). */
+    const double frame = 1000.0 / 60.0;
+    check(s60.high - s60.low < frame + 5.0 && s60.low > -10.0 && s60.high < frame + 10.0 && s60.lines >= 2 &&
+              s60.repeats == 0, "catch-up: between catch-ups within a frame's band of the music, no frame shown twice, "
+                                "a line for each");
+    CatchSong q60 = catch_song(60, f / 60, 1, 25000, 10000, 2500, 2500, at, stalls, 1, 90, 0);
+    printf("catch-up 60 Hz queued: caught %.2f s and %.2f s, %d left unshown (%d late), %d shown twice, between them "
+           "%.1f to %.1f ms\n", q60.caught[0], q60.caught[1], q60.skips, q60.late, q60.repeats, q60.low, q60.high);
+    check(q60.caught[0] >= 0 && q60.caught[0] < 1.5 && q60.caught[1] >= 0 && q60.caught[1] < 4.0 && q60.late == 0 &&
+              q60.in_a_row == 1 && q60.high - q60.low < frame + 5.0 && q60.repeats == 0,
+          "catch-up: the same with Direct3D's queue of one frame");
+    /* With an audio offset (the lock's target 80 ms behind the music): reached as before, the stalls won back the same. */
+    CatchSong o60 = catch_song(60, f / 60, 0, 25000, 10000, 2500, 2500, at, stalls, 1, 90, 80.0);
+    printf("catch-up 60 Hz, 80 ms offset: caught %.2f s and %.2f s, %d left unshown (%d late), end %.1f ms past it\n",
+           o60.caught[0], o60.caught[1], o60.skips, o60.late, o60.end_behind);
+    check(o60.caught[0] >= 0 && o60.caught[0] < 1.5 && o60.caught[1] >= 0 && o60.caught[1] < 4.0 && o60.late == 0 &&
+              o60.end_behind > -10.0 && o60.end_behind < frame + 10.0,
+          "catch-up: with an audio offset of 80 ms, its target, the stalls won back the same");
+    /* 59.94 Hz (Windows says 59): the frames fall a millisecond a second behind with no stall at all. */
+    CatchSong s59 = catch_song(59, f * 1001 / 60000, 0, 25000, 10000, 2500, 2500, at, none, 1, 120, 0);
+    printf("catch-up 59.94 Hz: %d left unshown, %d shown twice, %.1f to %.1f ms, end %.1f ms\n", s59.skips,
+           s59.repeats, s59.low, s59.high, s59.end_behind);
+    CatchSong old59 = catch_song(59, f * 1001 / 60000, 0, 25000, 10000, 2500, 2500, at, none, 0, 120, 0);
+    check(s59.skips >= 5 && s59.high - s59.low < frame + 5.0 && s59.high < frame + 10.0 && s59.repeats == 0 &&
+              old59.end_behind > 100.0,
+          "catch-up: at 59.94 Hz the frames kept within a frame's band for two minutes (120 ms behind before)");
+    /* Displays that take frames sooner: nothing left unshown, the lock's own steps win the stalls back. */
+    static const int rates[3] = {120, 144, 240};
+    int none_left = 1, won = 1;
+    for (int i = 0; i < 3; i++) {
+        CatchSong r = catch_song(rates[i], f / rates[i], 0, 25000, 10000, 2500, 2500, at, stalls, 1, 90, 0);
+        none_left &= r.skips == 0;
+        won &= r.caught[0] >= 0 && r.caught[0] < 4.0 && r.caught[1] >= 0 && r.caught[1] < 6.0;
+        printf("catch-up %d Hz: caught %.2f s and %.2f s, end %.1f ms\n", rates[i], r.caught[0], r.caught[1],
+               r.end_behind);
+    }
+    CatchSong off = catch_song(60, 0, 0, 25000, 10000, 2500, 2500, at, stalls, 1, 90, 0);
+    printf("catch-up VSync off: caught %.2f s and %.2f s, end %.1f ms\n", off.caught[0], off.caught[1], off.end_behind);
+    check(none_left && off.skips == 0, "catch-up: nothing left unshown at 120, 144 and 240 Hz, nor with VSync off");
+    check(won && off.caught[0] >= 0 && off.caught[1] >= 0, "catch-up: there the lock's own steps win both stalls back");
+    /* Slower PCs, the present waiting for its refresh: 6 ms of work a frame still wins both back; at 9 ms two frames'
+     * work does not fit before a refresh, and nothing is left unshown that would miss it. */
+    CatchSong six = catch_song(60, f / 60, 0, 55000, 5000, 2500, 2500, at, stalls, 1, 90, 0);
+    CatchSong slow = catch_song(60, f / 60, 0, 90000, 5000, 2500, 2500, at, stalls, 1, 90, 0);
+    printf("catch-up 60 Hz, 6 ms of work: caught %.2f s and %.2f s, %d late; 9 ms: %d left unshown, %d late, %d not "
+           "fitting, end %.1f ms\n", six.caught[0], six.caught[1], six.late, slow.skips, slow.late, slow.unfit,
+           slow.end_behind);
+    check(six.caught[0] >= 0 && six.caught[0] < 1.5 && six.caught[1] >= 0 && six.caught[1] < 4.0 && six.late == 0,
+          "catch-up: 6 ms of work a frame still wins both stalls back");
+    check(slow.late == 0 && slow.repeats == 0,
+          "catch-up: a frame's work too long for two in a refresh: no frame left unshown to miss it, none shown twice");
+    /* A heavy GPU: the chain's 6 ms a frame, which its timestamps time, after 2 ms of the game's own draws: both stalls
+     * still won back. The game's own draws at 6 ms a frame, which nothing times: the frames after the first skips have
+     * their pictures too late for their refresh, and after three of them none is left unshown in the song. */
+    CatchSong chain = catch_song(60, f / 60, 0, 25000, 10000, 20000, 60000, at, stalls, 1, 90, 0);
+    CatchSong game = catch_song(60, f / 60, 0, 25000, 10000, 60000, 10000, at, stalls, 1, 90, 0);
+    printf("catch-up 60 Hz, the chain's 6 ms on the GPU: caught %.2f s and %.2f s, %d late; the game's own 6 ms: %d left "
+           "unshown, %d late, %d shown twice\n", chain.caught[0], chain.caught[1], chain.late, game.skips, game.late,
+           game.repeats);
+    check(chain.caught[0] >= 0 && chain.caught[0] < 1.5 && chain.caught[1] >= 0 && chain.caught[1] < 4.0 &&
+              chain.late == 0 && chain.repeats == 0, "catch-up: the chain's 6 ms on the GPU, timed: both stalls won back");
+    check(game.late <= CATCHUP_LATE && game.skips <= CATCHUP_LATE && game.repeats == 0,
+          "catch-up: the game's own 6 ms on the GPU, untimed: three frames too late, then none left unshown in the song");
+    /* 50 Hz: the 60 frames a second of the game on 50 refreshes take one frame in six left unshown by themselves. The
+     * frames are kept from falling behind (as before, 167 ms a second), but a stall's distance stays. */
+    CatchSong s50 = catch_song(50, f / 50, 0, 25000, 10000, 2500, 2500, at, none, 1, 90, 0);
+    CatchSong old50 = catch_song(50, f / 50, 0, 25000, 10000, 2500, 2500, at, none, 0, 90, 0);
+    printf("catch-up 50 Hz: %d left unshown, %.1f ms behind at the end (%.0f ms before), %d late, %d in a row at most\n",
+           s50.skips, s50.end_behind, old50.end_behind, s50.late, s50.in_a_row);
+    check(s50.end_behind < 100.0 && s50.high < 100.0 && old50.end_behind > 10000.0 && s50.late == 0 &&
+              s50.in_a_row == 1, "catch-up: at 50 Hz the frames kept within 100 ms of the music (18 s behind before)");
+}
+
 /* The display lock: a tick late in its refresh moves earlier, early moves later, the middle stays. */
 static void test_display_lock(void)
 {
@@ -1384,6 +1787,7 @@ int main(void)
     test_pacer();
     test_music_lock();
     test_jit();
+    test_catchup();
     test_audio_offset();
     test_display_choices();
     test_display_lock();

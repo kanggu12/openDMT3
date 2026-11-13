@@ -30,6 +30,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 Settings g_settings;
 HMODULE g_module;
@@ -295,9 +296,21 @@ static int g_own_clock;
 /* The music lock over the game's songs: the song it follows (the frame its music started at), that song's own start
  * kept through resets, and the lock's readings (logic.c SongLock; at first as song_lock_start leaves it: no song). */
 static SongLock g_song = {-1, 0.0, 1, 0, {0.0, 0}};
-/* The display's refresh in counter ticks (VSync on; 0: not known), for the display lock. */
+/* Catching up with the music where the display takes no frame sooner than its refresh (logic.h CatchUp): the song's
+ * catch-up, which goes on through a reset with the song (its frames too late kept); the recent frames' work on the
+ * processor and their chain's time on the GPU, each kept as the just-in-time clock keeps its own work (jit_frame,
+ * jit_work) whether or not frames start just in time; the next frame to be left unshown, as the lock's reading planned
+ * it; while the frame after one left unshown is on its way, the refresh it must go out before (logic.c
+ * catchup_deadline), and the event query its picture is waited for by. */
+static CatchUp g_catch;
+static JitClock g_work, g_work_gpu;
+static int g_skip_next, g_after_skip;
+static LONGLONG g_skip_deadline;
+static IDirect3DQuery9 *g_skip_done;
+/* The display's refresh in counter ticks (VSync on; 0: not known), for the display lock; whether the display lock's last
+ * reading of the raster position came (GetRasterStatus answered). */
 static LONGLONG g_refresh_ticks;
-static int g_refresh_hz, g_display_h;
+static int g_refresh_hz, g_display_h, g_phase_ok;
 /* Where in their refresh the ticks fell over the counter's two seconds (the display lock's own reading, for its line). */
 static double g_phase_min = 2, g_phase_max = -1;
 /* At most one frame queued: an event query after each present, waited for before the next (OPENDMT3_QUEUE=deep,
@@ -346,6 +359,59 @@ static int take_out_limiter(void)
     return 1;
 }
 
+/* Whether frames behind a song's music may catch up by frames left unshown: OPENDMT3_CATCHUP=off (measuring only, to
+ * compare) keeps the lock as before, every step taken and nothing left unshown. */
+static int g_catchup_off = -1;
+static int catchup_wanted(void)
+{
+    if (g_catchup_off < 0) {
+        /* Read once; a value too long for the buffer (GetEnvironmentVariableA then writes nothing) is not "off". */
+        char v[8] = "";
+        DWORD got = GetEnvironmentVariableA("OPENDMT3_CATCHUP", v, sizeof v);
+        g_catchup_off = got > 0 && got < sizeof v && !lstrcmpiA(v, "off");
+        if (g_catchup_off)
+            ingame_log("pacing: frames behind the music never left unshown, every step of the lock taken (measuring)");
+    }
+    return !g_catchup_off;
+}
+
+/* Whether the display shows no frame sooner than its refresh (logic.h catchup_display, from the present parameters and
+ * the display's mode) and its ticks are kept to its refresh: the display lock running, the raster position read at the
+ * last frame. Only then is the lock's step off a tick dropped and a frame left unshown instead; a display whose raster
+ * position is not read keeps the lock's steps, as before (VSync may not hold there). */
+static int fixed_display(void)
+{
+    return catchup_wanted() && catchup_display(g_vsync, g_refresh_hz) && g_refresh_ticks && g_phase_ok;
+}
+
+/* The catch-up's line, one a catch-up (`what` it came to): how far behind the music it began, the frames left unshown
+ * and over how long in the game's frames, how far behind after; the frames after them that went out too late for their
+ * refresh, and the frames planned that were shown after all, when there were any. */
+static void catch_up_line(const char *what)
+{
+    char more[192] = "";
+    if (g_catch.late)
+        snprintf(more, sizeof more, "; %d of the frames after them too late for their refresh", g_catch.late);
+    if (g_catch.unfit)
+        snprintf(more + strlen(more), sizeof more - strlen(more), "; %d frames shown after all (the next would not "
+                 "have been ready before their refresh)", g_catch.unfit);
+    ingame_log("pacing: %s: %.1f ms behind the music, %d frames left unshown over %.2f s, %.1f ms behind after%s", what,
+               g_catch.from_ms, g_catch.skips, (double)g_catch.frames / GAME_FPS, g_catch.to_ms, more);
+}
+
+/* The song's music stopped: a catch-up still running is cut short, said in its line, and nothing more is planned to be
+ * left unshown. Its frames too late are kept: should the same song go on after the gap, it leaves none unshown again
+ * once it had too many (a new song starts its catch-up afresh, lock_to_music). */
+static void catch_up_over(const char *why)
+{
+    if (g_catch.running)
+        catch_up_line(why);
+    int late = g_catch.late_song;
+    catchup_start(&g_catch);
+    g_catch.late_song = late;
+    g_skip_next = 0;
+}
+
 /* Read the present parameters the game asked for: whether it waits for the display. */
 static void take_parameters(const D3DPRESENT_PARAMETERS *pp)
 {
@@ -356,12 +422,19 @@ static void take_parameters(const D3DPRESENT_PARAMETERS *pp)
     pacer_start(&g_pacer, g_frequency.QuadPart, g_own_clock ? GAME_FPS : 0);
     /* Frames started just in time against that clock (none without it), its loading counted again after a reset. */
     jit_start(&g_jit, g_frequency.QuadPart, g_own_clock ? GAME_FPS : 0);
+    /* The frames' work and their chain's GPU time for the catch-up, learned again with the device's. */
+    jit_start(&g_work, g_frequency.QuadPart, g_own_clock ? GAME_FPS : 0);
+    jit_start(&g_work_gpu, g_frequency.QuadPart, g_own_clock ? GAME_FPS : 0);
     g_frame_start = 0;
     g_started_late = 0;
     /* After a reset the lock's readings start again at the next song frame; the song it follows keeps its own start,
      * so a song going on after the reset is held where it was (the reset's stall won back, the audio offset counted
      * once), and only a new song takes a new one. */
     song_lock_pause(&g_song);
+    /* Its catch-up goes on with the song (a reset's stall is won back as any is), its readings started again, its
+     * frames too late kept; nothing planned or judged across the reset. */
+    catchup_pause(&g_catch);
+    g_skip_next = g_after_skip = 0;
     ingame_log("picture: vsync %s, pacing %s", g_vsync ? "on" : "off",
                !g_own_clock ? "the client's own"
                : g_settings.music_lock ? "even (openDMT3's clock), locked to a song's music while one plays"
@@ -394,7 +467,11 @@ static void take_refresh(IDirect3DDevice9 *dev)
 static void take_refresh_rate(IDirect3DDevice9 *dev)
 {
     D3DDISPLAYMODE mode;
+    /* Not known until read (a rate from a mode before is no rate of this one's: the catch-up asks for it), nor its
+     * raster position. */
     g_refresh_ticks = 0;
+    g_refresh_hz = 0;
+    g_phase_ok = 0;
     if (!g_vsync || !g_own_clock || FAILED(IDirect3DDevice9_GetDisplayMode(dev, 0, &mode)))
         return;
     /* Measuring only (OPENDMT3_REFRESH): a rate for a display that reports none (a virtual screen under Wine). */
@@ -412,6 +489,11 @@ static void take_refresh_rate(IDirect3DDevice9 *dev)
      * the frames then alternate between two counts as they must. */
     ingame_log("picture: display at %d Hz, %.2f refreshes a frame: ticks kept mid-refresh", g_refresh_hz,
                g_refresh_hz / 60.0);
+    /* Locked to the music on a display that shows no frame sooner than its refresh: said once a mode, since a stall's
+     * distance is won back there by frames left unshown (logic.h catchup_display). */
+    if (g_settings.music_lock && catchup_wanted() && catchup_display(g_vsync, g_refresh_hz))
+        ingame_log("pacing: at %d Hz with VSync no frame shows sooner than its refresh: a song's frames behind its "
+                   "music catch up by frames left unshown, one in %d at most", g_refresh_hz, CATCHUP_SPACING);
 }
 
 /* Where in its refresh the display is now (0 its start, 1 its end; the blank at the end counts as the end), or -1. */
@@ -434,8 +516,12 @@ static void lock_to_music(LONGLONG now)
     long started;
     if (!g_settings.music_lock || !g_own_clock || g_pacer.period <= 0 || !g_pacer.next ||
         !sound_music_position(&ms, &started)) {
-        /* No song plays: the frame clock alone (the readings start again with the next song frame). */
+        /* No song plays: the frame clock alone (the readings start again with the next song frame), and nothing left
+         * unshown; a catch-up running is cut short, said in its line. */
+        if (g_song.playing)
+            catch_up_over("catching up cut short (the song's music stopped)");
         song_lock_pause(&g_song);
+        g_skip_next = 0;
         return;
     }
     /* This frame is the song's frame (frames since its music started, this one included); due at the pacer's tick. */
@@ -447,10 +533,37 @@ static void lock_to_music(LONGLONG now)
      * seen and judged meets the music as a sound device that plays late lets it be heard. */
     int began;
     double off;
-    g_pacer.next -= song_lock_frame(&g_song, started, ahead, g_settings.audio_offset, g_pacer.period, &began, &off);
-    if (began)
+    long was = g_song.song;
+    LONGLONG step = song_lock_frame(&g_song, started, ahead, g_settings.audio_offset, g_pacer.period, &began, &off);
+    if (began) {
+        /* A new song's catch-up starts with nothing read (one of a song before it, with no frame between, is over). */
+        if (was >= 0 && g_catch.running)
+            catch_up_line("catching up cut short (a new song's music started)");
+        catchup_start(&g_catch);
+        g_skip_next = 0;
         ingame_log("pacing: locked to the music started at frame %ld (%.1f ms from its frames; the frames kept %d ms "
                    "behind it for the sound device)", started, ahead, g_settings.audio_offset);
+    }
+    /* A display that shows no frame sooner than its refresh (VSync on, under 64 Hz, its ticks kept to its refresh):
+     * nothing is taken off a tick, which would never reach the screen and only push the tick out of the middle of its
+     * refresh; frames behind the music win it back by whole frames below. A tick held back does show, a refresh later,
+     * so that step stays. */
+    int fixed = fixed_display();
+    if (fixed && step > 0)
+        step = 0;
+    g_pacer.next -= step;
+    /* Catching up there: the reading as it is (catchup_frame takes the median of those since the last frame left
+     * unshown), a frame left unshown only with the ticks kept to the display's refresh (the display lock running) and
+     * no glass panel up (the bar, the menu, the question, a toast: their motion would stutter). */
+    LONGLONG layer_cpu;
+    int parts, panels;
+    post_layer_cost(&layer_cpu, &parts, &panels);
+    g_skip_next = catchup_frame(&g_catch, off, fixed && !panels && !layer_holds_input());
+    if (g_catch.done) {
+        /* Within a frame of the music again: the catch-up's line. */
+        catch_up_line("caught up with the music");
+        g_catch.done = 0;
+    }
     /* Measuring (OPENDMT3_SOUND_WATCH): the song's first 10 s, every sixth frame, how far the frames are from the
      * lock's target (how a new offset settles). */
     static int watch = -1;
@@ -740,6 +853,10 @@ static void jit_rest(void)
     g_started_late = 0;
     if (!jit_wanted() || !g_pacer.next)
         return;
+    /* The next frame is to be left unshown (catching up with the music): it starts at once, so the frame after it has
+     * the most of the time before the refresh it takes over. */
+    if (g_skip_next)
+        return;
     /* A glass panel on the screen (the bar, a menu or the question, a toast): the next frame may draw its pictures
      * again (milliseconds of GDI at a frame's start), which the wait before the tick absorbs. It starts at once. */
     LONGLONG layer_cpu;
@@ -747,9 +864,10 @@ static void jit_rest(void)
     post_layer_cost(&layer_cpu, &parts, &panels);
     if (panels > 0)
         return;
-    /* What may move the tick earlier before the next frame leaves: the music lock's step while a song's music leads,
-     * and the display lock's (a 64th of a refresh). */
-    double slack_ms = g_settings.music_lock && g_song.playing ? music_lock_most(&g_song.lock) : 0.0;
+    /* What may move the tick earlier before the next frame leaves: the music lock's step while a song's music leads
+     * (none on a display that shows no frame sooner than its refresh: the lock takes nothing off a tick there), and
+     * the display lock's (a 64th of a refresh). */
+    double slack_ms = g_settings.music_lock && g_song.playing && !fixed_display() ? music_lock_most(&g_song.lock) : 0.0;
     LONGLONG slack = (LONGLONG)(slack_ms * (double)g_frequency.QuadPart / 1000.0);
     if (g_refresh_ticks)
         slack += g_refresh_ticks / 64;
@@ -939,7 +1057,9 @@ static void count_present(LONGLONG now, int game)
         /* The series and the safety net follow the game's frames only. */
         if (g_series && game)
             fprintf(g_series, "%.4f\n", (double)gap * 1000.0 / (double)g_frequency.QuadPart);
-        if (game)
+        /* The frame after one left unshown is not judged: it may go out late in its refresh, two frames' work done for
+         * it in one, the catch-up's doing, never the chain's. */
+        if (game && !g_after_skip)
             safety((double)gap * 1000.0 / (double)g_frequency.QuadPart);
     }
     g_last_frame = now;
@@ -1180,10 +1300,159 @@ static void hold_still(IDirect3DDevice9 *dev, HWND window, const RECT *dst, cons
 
 static HRESULT STDMETHODCALLTYPE our_reset(IDirect3DDevice9 *dev, D3DPRESENT_PARAMETERS *pp);
 
+/* Measuring only (OPENDMT3_VBLANK=wait, with OPENDMT3_REFRESH on a virtual screen that shows each present at once):
+ * the present of each of the game's frames comes back at the start of the display's next refresh after it was asked
+ * for, by the raster position as the display lock reads it, as a present with VSync on a real display does, so a
+ * display that shows no frame sooner than its refresh can be measured where there is none. Whether it is on (-1: not
+ * read yet). */
+static int g_vblank_wait = -1;
+
+/* Before the present: when the refresh after it begins (0: none waited for). */
+static LONGLONG vblank_due(IDirect3DDevice9 *dev, LONGLONG now)
+{
+    if (g_vblank_wait < 0) {
+        char v[8] = "";
+        DWORD got = GetEnvironmentVariableA("OPENDMT3_VBLANK", v, sizeof v);
+        g_vblank_wait = got > 0 && got < sizeof v && !lstrcmpiA(v, "wait");
+        if (g_vblank_wait)
+            ingame_log("picture: each present comes back at the display's next refresh (measuring)");
+    }
+    double phase = g_vblank_wait > 0 && g_vsync && g_refresh_ticks ? refresh_phase(dev) : -1.0;
+    if (phase < 0)
+        return 0;
+    /* The rest of this refresh from now. */
+    return now + (LONGLONG)((1.0 - phase) * (double)g_refresh_ticks);
+}
+
+/* Measuring only (OPENDMT3_STALL=MS[,MS...], four at most): in every song, a stall of each many milliseconds before a
+ * frame's present, the n-th n times 20 s into its music, as the game's own hiccups make (a load, Windows busy). How
+ * many (-1: not read yet), and each one's milliseconds. */
+static int g_stalls = -1, g_stall_ms[4];
+
+static void stall_for_measuring(void)
+{
+    if (g_stalls < 0) {
+        char v[64] = "";
+        DWORD got = GetEnvironmentVariableA("OPENDMT3_STALL", v, sizeof v);
+        g_stalls = 0;
+        /* Whole milliseconds, a comma between, each up to 10 s; the list stops at anything else. */
+        for (char *p = got > 0 && got < sizeof v ? v : NULL; p && *p && g_stalls < 4;) {
+            char *end = NULL;
+            long ms = strtol(p, &end, 10);
+            if (end == p || ms <= 0 || ms > 10000)
+                break;
+            g_stall_ms[g_stalls++] = (int)ms;
+            p = *end == ',' ? end + 1 : NULL;
+        }
+        if (g_stalls)
+            ingame_log("pacing: %d stalls in each song, the first of %d ms 20 s into its music (measuring)", g_stalls,
+                       g_stall_ms[0]);
+    }
+    if (!g_stalls || !g_song.playing)
+        return;
+    /* The song's frame this present is for, as the lock counts it. */
+    long frame = ingame_frame() + 1 - g_song.song;
+    for (int i = 0; i < g_stalls; i++) {
+        if (frame == (long)(i + 1) * 20 * GAME_FPS) {
+            ingame_log("pacing: a stall of %d ms at the song's frame %ld (measuring)", g_stall_ms[i], frame);
+            Sleep((DWORD)g_stall_ms[i]);
+        }
+    }
+}
+
+/* The frame after one left unshown: its picture done on the GPU by `limit` (an event query after its draws, asked again
+ * after a sleep as wait_ready asks, until then at most); 1 when it was, or when that cannot be known (no query, a lost
+ * device): its present's time alone then says. */
+static int picture_by(IDirect3DDevice9 *dev, LONGLONG limit)
+{
+    if (!g_skip_done && FAILED(IDirect3DDevice9_CreateQuery(dev, D3DQUERYTYPE_EVENT, &g_skip_done)))
+        g_skip_done = NULL;
+    if (!g_skip_done || FAILED(IDirect3DQuery9_Issue(g_skip_done, D3DISSUE_END)))
+        return 1;
+    LARGE_INTEGER now;
+    for (;;) {
+        /* With the commands flushed, as the frame's own wait asks: draws not yet handed over would never answer. */
+        HRESULT hr = IDirect3DQuery9_GetData(g_skip_done, NULL, 0, D3DGETDATA_FLUSH);
+        if (hr != S_FALSE)
+            return 1;
+        QueryPerformanceCounter(&now);
+        /* Not done by the latest the frame may go out: it is presented as it is, and judged too late. */
+        if (now.QuadPart >= limit)
+            return 0;
+        /* A millisecond's sleep while more than 2 ms are left, else only the rest of this thread's turn. */
+        if (limit - now.QuadPart > g_frequency.QuadPart / 500)
+            Sleep(1);
+        else
+            SwitchToThread();
+    }
+}
+
+/* A frame planned to be left unshown (lock_to_music, logic.c catchup_frame), at its present: left unshown while a
+ * song's music still leads, no glass panel is up, the raster position is read and the device is not lost, when the next
+ * frame, started at once, can go out with its picture done before the refresh this one would have been shown at
+ * (logic.c catchup_deadline, catchup_work, catchup_fits); 1 when it was.
+ * The game ran it all the same: its frame number, the sound's frame and the trace count it, as a present would; the
+ * chain, the layer's drawing and the real present are not made, nor counted as a frame shown. */
+static int leave_unshown(IDirect3DDevice9 *dev)
+{
+    LARGE_INTEGER t0, t1;
+    QueryPerformanceCounter(&t0);
+    LONGLONG layer_cpu;
+    int parts, panels;
+    post_layer_cost(&layer_cpu, &parts, &panels);
+    /* Where the display is now: with no raster position read there is no refresh to be sure of. */
+    double phase = g_refresh_ticks ? refresh_phase(dev) : -1.0;
+    if (!g_song.playing || !sound_song_playing() || panels > 0 || layer_holds_input() || phase < 0 ||
+        !g_pacer.next || post_dump_at(g_presented) || IDirect3DDevice9_TestCooperativeLevel(dev) != D3D_OK) {
+        /* Shown after all (a frame the measuring dump names is shown for it: its chain reads the frame number before
+         * the frame is counted): the readings start again, the next try a window of frames on. */
+        catchup_unfit(&g_catch);
+        return 0;
+    }
+    /* The refresh it would have been shown at: the first after its tick, by where the display is now; the next frame's
+     * time to its picture done, the GPU's part too (logic.c catchup_work). */
+    LONGLONG deadline = catchup_deadline(t0.QuadPart, g_pacer.next, g_refresh_ticks, phase);
+    LONGLONG work = catchup_work(jit_work(&g_work), jit_work(&g_work_gpu));
+    if (!catchup_fits(t0.QuadPart, g_pacer.next, deadline, work, g_refresh_ticks)) {
+        catchup_unfit(&g_catch);
+        return 0;
+    }
+    catchup_skipped(&g_catch);
+    /* A frame of the game's: its number and the sound's frame as count_present counts a game frame, and the trace's
+     * (the game's present ends a frame of its calls). Its tick is the next frame's: the pacer is not moved. */
+    g_presented++;
+    sound_frame();
+    trace_frame();
+    /* Measuring: a press this frame read shows with the next frame, which the latency watch then times. */
+    if (g_press_frame == g_presented)
+        g_press_frame++;
+    /* By pass: the game's own next frame begins here (this frame's GPU work falls in no step). */
+    post_after_present(dev);
+    /* The next frame starts at once (this returns now, no hold), its work counted from here; it must go out before
+     * that refresh, judged at its present. */
+    g_skip_deadline = deadline;
+    g_after_skip = 1;
+    g_started_late = 0;
+    QueryPerformanceCounter(&t1);
+    g_frame_start = t1.QuadPart;
+    /* The time this took counts with the next frame shown, as openDMT3's own. */
+    g_layer_frame += t1.QuadPart - t0.QuadPart;
+    return 1;
+}
+
 static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *src, const RECT *dst, HWND window,
                                              const RGNDATA *dirty)
 {
     LARGE_INTEGER t0, now;
+    /* Measuring only: a stall of the game's own, where one is asked for. */
+    stall_for_measuring();
+    /* Catching up with the music where the display shows no frame sooner than its refresh: a frame planned to be left
+     * unshown goes back to the game at once, unpresented, and the game's next frame takes its tick. */
+    if (g_skip_next) {
+        g_skip_next = 0;
+        if (leave_unshown(dev))
+            return D3D_OK;
+    }
     /* Flipped, the whole back buffer is shown in the window: when the window changed size (to a window, or back to
      * full screen), a reset gives the back buffer its new size first, as the game's own reset would (this frame's
      * picture is lost with it: one frame of the bars' colour). */
@@ -1214,12 +1483,25 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
     wait_previous_frame(dev);
     /* The frame's work on the processor ends here; the locks set its tick from now. */
     QueryPerformanceCounter(&t0);
+    /* The recent frames' work, for a frame left unshown (whether or not frames start just in time): from the game's
+     * control back to now, as the clock counts it; and the chain's time on the GPU, where its timestamps time it (the
+     * reading four frames old, as the safety net reads it). */
+    if (g_frame_start)
+        jit_frame(&g_work, t0.QuadPart - g_frame_start, 1, 0);
+    LONGLONG chain_cpu;
+    double chain_us;
+    int chain_passes;
+    post_cost(&chain_cpu, &chain_us, &chain_passes);
+    if (chain_us >= 0)
+        jit_frame(&g_work_gpu, (LONGLONG)(chain_us * (double)g_frequency.QuadPart / 1e6), 1, 0);
     /* Locked to the music while a song plays: the next tick moved towards the music's clock. */
     lock_to_music(t0.QuadPart);
     /* VSync on: the tick kept in the middle of a refresh, read where the display is now against how long until the
      * tick (the display's phase at the tick is now's phase plus that time). */
     if (g_refresh_ticks && g_pacer.next) {
         double phase = refresh_phase(dev);
+        /* Whether the raster position was read: the catch-up keeps to the display only with it (fixed_display). */
+        g_phase_ok = phase >= 0;
         if (phase >= 0) {
             double until = (double)(g_pacer.next - t0.QuadPart) / (double)g_refresh_ticks;
             double at_tick = phase + (until > 0 ? until : 0);
@@ -1236,6 +1518,15 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
     LARGE_INTEGER locked, ready;
     QueryPerformanceCounter(&locked);
     jit_measure(dev, t0.QuadPart);
+    /* The frame after one left unshown: the latest it may go out to take over that refresh (a sixteenth of one, 1 ms at
+     * 60 Hz, before its turn), and whether its picture is done on the GPU by then (waited for until then at most: its
+     * GPU work and the skipped frame's went into one refresh). */
+    LONGLONG skip_limit = 0;
+    int skip_ready = 1;
+    if (g_after_skip && g_song.playing) {
+        skip_limit = g_skip_deadline - (g_refresh_ticks ? g_refresh_ticks : g_pacer.period) / 16;
+        skip_ready = picture_by(dev, skip_limit);
+    }
     QueryPerformanceCounter(&ready);
     /* Even pacing: each frame leaves on its tick of 60 a second, waited for from now (the picture's wait above may
      * have taken part of it, or all). */
@@ -1243,7 +1534,18 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
     if (wait > 0)
         wait_ticks(wait);
     QueryPerformanceCounter(&now);
+    /* The frame after one left unshown: it took over that refresh only if it goes out by then with its picture done;
+     * later, the skip may have won nothing (logic.c catchup_after). */
+    if (skip_limit) {
+        int in_time = skip_ready && now.QuadPart <= skip_limit;
+        catchup_after(&g_catch, in_time);
+        if (!in_time && g_catch.late_song == CATCHUP_LATE)
+            ingame_log("pacing: %d frames after one left unshown too late for their refresh in this song: none left "
+                       "unshown in the rest of it", CATCHUP_LATE);
+    }
     count_present(now.QuadPart, 1);
+    /* Counted (and not judged by the safety net): the next is a frame as any. */
+    g_after_skip = 0;
     trace_frame();
     /* The cost of this frame's own work (the waits for the picture and for the frame's tick are not work), kept for the
      * counter's line: with no wait for the tick, the locks' time and the time from the picture's wait to now too. */
@@ -1255,7 +1557,15 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
     if (g_layer_frame > g_layer_max)
         g_layer_max = g_layer_frame;
     g_layer_frame = 0;
+    /* Measuring only: the refresh after the present asked for, to come back at (OPENDMT3_VBLANK=wait). */
+    LONGLONG vblank = vblank_due(dev, now.QuadPart);
     HRESULT hr = present_now(dev, src, dst, window, dirty, 1);
+    if (vblank) {
+        /* Back at that refresh, not sooner (a present that took longer comes back when it does). */
+        QueryPerformanceCounter(&t1);
+        if (vblank > t1.QuadPart)
+            wait_ticks(vblank - t1.QuadPart);
+    }
     /* Motion clarity: the frame's other sub-frames, each in the next refresh. */
     if (SUCCEEDED(hr) && subs > 1)
         present_subframes(dev, now.QuadPart, subs, src, dst, window, dirty);
@@ -1264,9 +1574,15 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
     /* By pass (OPENDMT3_PASS_TIMES=on): the game's own next frame begins here. */
     post_after_present(dev);
     press_done(dev, now.QuadPart);
-    /* The menu or the question open during a song: the game held still here until it closes. */
-    if (SUCCEEDED(hr) && layer_hold_wanted())
+    /* The menu or the question open during a song: the game held still here until it closes. A frame planned to be left
+     * unshown is shown after it (the readings start again). */
+    if (SUCCEEDED(hr) && layer_hold_wanted()) {
+        if (g_skip_next) {
+            g_skip_next = 0;
+            catchup_unfit(&g_catch);
+        }
         hold_still(dev, window, dst, dirty);
+    }
     /* The game's next frame held back until just before its tick, so the input it reads first is that much newer; its
      * start is where its work is counted from. */
     jit_rest();
@@ -1305,6 +1621,10 @@ static HRESULT STDMETHODCALLTYPE our_reset(IDirect3DDevice9 *dev, D3DPRESENT_PAR
     if (g_ready) {
         IDirect3DQuery9_Release(g_ready);
         g_ready = NULL;
+    }
+    if (g_skip_done) {
+        IDirect3DQuery9_Release(g_skip_done);
+        g_skip_done = NULL;
     }
     /* The layer's own state block (drawn without the chain) goes too, and motion clarity's kept pictures. */
     post_layer_before_reset();

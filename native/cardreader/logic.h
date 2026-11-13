@@ -139,6 +139,80 @@ int64_t song_lock_frame(SongLock *s, long started, double ahead, int offset, int
  * returns the ticks to move the next tick by (at most a 64th of a refresh a frame). */
 int64_t display_lock_step(double phase, int64_t refresh_ticks);
 
+/* Catching up with the music on a display that takes no frame sooner than its refresh. With VSync on, a present waits
+ * for the display's next refresh, so a display under CATCHUP_HZ (60 Hz, the usual one, 59 for 59.94, or slower) shows
+ * a new frame at most a millisecond a frame sooner than the game's 60 a second: the music lock's step taken off a tick
+ * never reaches the screen, and frames behind the music after a stall would stay behind for the rest of the song. On
+ * such a display the lock takes nothing off a tick (it still holds frames back, which a later refresh shows), and a
+ * frame is left unshown instead: the game runs it, its present is not made, and the next frame goes out on its tick,
+ * a whole frame (16.7 ms) further into the song. A display from CATCHUP_HZ up (75, 120, 144, 240 Hz), or VSync off,
+ * takes the lock's own steps: nothing is left unshown there. */
+#define CATCHUP_HZ 64
+/* Whether a display takes no frame sooner than its refresh: VSync on and a refresh rate (Hz, as Windows gives it;
+ * 0: not known) above 0 and under CATCHUP_HZ. */
+int catchup_display(int vsync, int hz);
+/* The frames' distance behind the music (the lock's reading at each frame shown, ms past its target; positive: behind)
+ * is read over the frames shown since the last frame left unshown: when the median of the last CATCHUP_READINGS is
+ * more than a frame, the next frame is left unshown, so at most one frame in CATCHUP_SPACING (one left out, five
+ * shown) and never two in a row; once that median is within a frame, the catch-up is over. A frame is left unshown
+ * only when the next one's work, the GPU's too, can be done before the refresh the skipped frame would have been shown
+ * at; a frame after a skip that goes out, or has its picture done, later than a sixteenth of a refresh before it may
+ * have missed it (the frame before shown twice, nothing won): no frame is left unshown for CATCHUP_REST frames after
+ * it, nor for the rest of the song after CATCHUP_LATE of them. */
+#define CATCHUP_READINGS 5
+#define CATCHUP_SPACING (CATCHUP_READINGS + 1)
+#define CATCHUP_REST 300
+#define CATCHUP_LATE 3
+typedef struct {
+    double read[CATCHUP_READINGS]; /* the readings since the last frame left unshown, ms behind the music */
+    int n, at;             /* how many of them (the oldest replaced past CATCHUP_READINGS), and where the next goes */
+    int rest;              /* frames shown before one may be left unshown again (after one too late) */
+    int late_song;         /* frames after a skip too late this song */
+    int running;           /* a catch-up runs: it began with a frame to leave unshown and is not within a frame yet */
+    int skips, late, unfit;    /* in it: frames left unshown, frames after them too late, frames not left unshown after
+                                * all (the next one would not have been ready before the refresh, or a panel came) */
+    long frames;           /* in it: the game's frames since it began, shown and not */
+    double from_ms, to_ms; /* how far behind the music it began, and is now (ms) */
+    int done;              /* a catch-up just ended within a frame (its numbers above, for its line): the caller
+                            * clears it */
+} CatchUp;
+/* A new song's catch-up, nothing read yet. */
+void catchup_start(CatchUp *c);
+/* One frame shown while a song's music leads: the lock's reading `behind_ms`, and whether a frame may be left
+ * unshown now (`may`: a display that takes no frame sooner, its ticks kept to its refresh, no glass panel up). 1 when
+ * the next frame is to be left unshown (the caller then calls catchup_skipped or catchup_unfit for it). */
+int catchup_frame(CatchUp *c, double behind_ms, int may);
+/* For the frame to be left unshown, at `now` (its present asked for), due at the frame clock's `tick`, with the
+ * display's `phase` now (0 the start of its refresh, 1 its end; negative: not known), every time a counter's: when the
+ * blank begins that ends the refresh it would have been shown in, the first after its tick (after now, when it came
+ * past its tick). The phase runs over the visible lines only (the raster's line over the mode's height), so the rest
+ * of a refresh is taken as CATCHUP_VISIBLE of what it says: the blank after the visible lines is a few hundredths of a
+ * refresh at the usual timings (45 lines of 1125 at 1080p). With no phase known, the earliest the display lock leaves
+ * it: three eighths of a refresh after the tick. */
+#define CATCHUP_VISIBLE 0.95
+int64_t catchup_deadline(int64_t now, int64_t tick, int64_t refresh, double phase);
+/* The least the next frame takes from the skipped frame's present to its picture done on the GPU: its work on the
+ * processor (`cpu`: the slowest of the recent frames', from the game's control back to the frame ready to present),
+ * then the post-process chain's passes on the GPU (`chain`: the slowest of the recent frames' chain on the GPU, timed
+ * by its timestamps; 0: not timed), which start only once the processor's part hands them over. The game's own GPU
+ * work is not timed: a frame after a skip whose picture comes too late for its refresh says so (catchup_after). */
+int64_t catchup_work(int64_t cpu, int64_t chain);
+/* Whether the next frame, started at once at `now`, goes out with its picture done an eighth of a `refresh` before
+ * that `deadline` at the latest: done by its `work` (catchup_work), and not before the skipped frame's `tick`, which it
+ * takes over. It then takes the refresh the skipped frame would have had. */
+int catchup_fits(int64_t now, int64_t tick, int64_t deadline, int64_t work, int64_t refresh);
+/* A reset of the device in the song: the readings start again at the song's next frame shown, the catch-up running and
+ * its numbers kept, and the song's frames too late with them (the song goes on from its own start, as the lock does). */
+void catchup_pause(CatchUp *c);
+/* The planned frame was left unshown. */
+void catchup_skipped(CatchUp *c);
+/* The planned frame was shown after all (its next would not have been ready, or a panel came): the readings start
+ * again, so the next try is CATCHUP_SPACING frames on. */
+void catchup_unfit(CatchUp *c);
+/* The frame after a skip went out: `in_time` whether it left, its picture done on the GPU, a sixteenth of a refresh
+ * before the deadline at least. */
+void catchup_after(CatchUp *c, int in_time);
+
 /* Starting each frame just in time: the game reads its input at the start of its frame (GetKeyboardState, as soon as a
  * present hands control back), so a frame that waits for its tick at its end shows input a whole period old. With this
  * clock, the wait moves to before the frame instead: after a present, the game's next frame is held until its tick less

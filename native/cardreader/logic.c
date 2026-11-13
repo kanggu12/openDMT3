@@ -5,6 +5,7 @@
 #include "postmath.h"
 
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -330,6 +331,149 @@ int64_t display_lock_step(double phase, int64_t refresh_ticks)
     if (move < -1.0 / 64.0)
         move = -1.0 / 64.0;
     return (int64_t)(-move * (double)refresh_ticks);
+}
+
+int catchup_display(int vsync, int hz)
+{
+    /* VSync on and a known refresh under CATCHUP_HZ: its refreshes are at most a millisecond a frame shorter than a
+     * frame (1000/64 = 15.6 ms), so frames sooner than that never show. VSync off, or no rate known: frames go out as
+     * the lock's ticks say. */
+    return vsync && hz > 0 && hz < CATCHUP_HZ;
+}
+
+void catchup_start(CatchUp *c)
+{
+    memset(c, 0, sizeof *c);
+}
+
+/* The median of the readings kept (CATCHUP_READINGS of them, odd: the middle one in order). */
+static double catchup_median(const CatchUp *c)
+{
+    double v[CATCHUP_READINGS];
+    memcpy(v, c->read, sizeof v);
+    /* Insertion sort: five numbers. */
+    for (int i = 1; i < CATCHUP_READINGS; i++) {
+        double x = v[i];
+        int k = i - 1;
+        for (; k >= 0 && v[k] > x; k--)
+            v[k + 1] = v[k];
+        v[k + 1] = x;
+    }
+    return v[CATCHUP_READINGS / 2];
+}
+
+int catchup_frame(CatchUp *c, double behind_ms, int may)
+{
+    /* The frame shown is the catch-up's too while one runs. */
+    if (c->running)
+        c->frames++;
+    /* After a frame too late: the rest counts down with each frame shown. */
+    if (c->rest > 0)
+        c->rest--;
+    /* The reading kept, the oldest out once the window is full. */
+    c->read[c->at] = behind_ms;
+    c->at = (c->at + 1) % CATCHUP_READINGS;
+    if (c->n < CATCHUP_READINGS)
+        c->n++;
+    /* A window's worth since the last frame left unshown (or tried), or no decision yet: that spaces the skips. */
+    if (c->n < CATCHUP_READINGS)
+        return 0;
+    double behind = catchup_median(c);
+    const double frame = 1000.0 / GAME_FPS;
+    if (behind <= frame) {
+        /* Within a frame: nothing to win back by a whole frame (and a catch-up running is over). */
+        if (c->running) {
+            c->running = 0;
+            c->to_ms = behind;
+            c->done = 1;
+        }
+        return 0;
+    }
+    /* More than a frame behind, but not now: a panel up, the display or its refresh not known, a rest after a frame
+     * too late, or too many of those this song. The readings go on. */
+    if (!may || c->rest > 0 || c->late_song >= CATCHUP_LATE)
+        return 0;
+    if (!c->running) {
+        /* A catch-up begins: its numbers from here. */
+        c->running = 1;
+        c->skips = c->late = c->unfit = 0;
+        c->frames = 0;
+        c->from_ms = behind;
+    }
+    c->to_ms = behind;
+    return 1;
+}
+
+int64_t catchup_deadline(int64_t now, int64_t tick, int64_t refresh, double phase)
+{
+    /* The skipped frame would have gone out at its tick, or now when it came after it. */
+    int64_t at = tick > now ? tick : now;
+    if (refresh <= 0)
+        return at;
+    /* No phase read: the display lock keeps the tick within an eighth of the middle of its refresh, so the next
+     * refresh begins three eighths of one after it at the earliest. */
+    if (phase < 0)
+        return at + refresh * 3 / 8;
+    /* The display's phase then: now's and the time to it (as the display lock reads the tick's), within its refresh. */
+    double then = phase + (double)(at - now) / (double)refresh;
+    then -= floor(then);
+    /* The rest of that refresh's visible lines: where its blank, the next refresh's turn, begins. */
+    return at + (int64_t)((1.0 - then) * CATCHUP_VISIBLE * (double)refresh);
+}
+
+int64_t catchup_work(int64_t cpu, int64_t chain)
+{
+    /* The processor's part, then the chain's on the GPU after it (none counted when not timed, or a reading below 0). */
+    return (cpu > 0 ? cpu : 0) + (chain > 0 ? chain : 0);
+}
+
+int catchup_fits(int64_t now, int64_t tick, int64_t deadline, int64_t work, int64_t refresh)
+{
+    /* No refresh known: no place in it to make sure of. */
+    if (refresh <= 0)
+        return 0;
+    /* The next frame goes out when its work from now is done, its picture's on the GPU too, and not before the tick it
+     * takes over. */
+    int64_t out = now + (work > 0 ? work : 0);
+    if (out < tick)
+        out = tick;
+    /* An eighth of a refresh (2 ms at 60 Hz) before that refresh's turn: room for the estimate's own error and the
+     * present to be taken. */
+    return out <= deadline - refresh / 8;
+}
+
+void catchup_pause(CatchUp *c)
+{
+    /* The readings from before the reset are no reading of after it: a window's worth again before the next decision. */
+    c->n = c->at = 0;
+}
+
+void catchup_skipped(CatchUp *c)
+{
+    c->skips++;
+    /* The frame left unshown is a frame of the game's all the same. */
+    c->frames++;
+    /* The readings from before it are a frame behind what the next will say: read again from the next frame. */
+    c->n = c->at = 0;
+}
+
+void catchup_unfit(CatchUp *c)
+{
+    if (c->running)
+        c->unfit++;
+    /* Read again: the next try a window's worth of frames on, not at once. */
+    c->n = c->at = 0;
+}
+
+void catchup_after(CatchUp *c, int in_time)
+{
+    if (in_time)
+        return;
+    /* The frame after a skip too late: the skip may have won nothing and the frame before shown twice. A rest first,
+     * and none in the rest of the song after CATCHUP_LATE of them. */
+    c->late++;
+    c->late_song++;
+    c->rest = CATCHUP_REST;
 }
 
 void jit_start(JitClock *j, int64_t frequency, int fps)

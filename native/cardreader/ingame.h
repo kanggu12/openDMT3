@@ -67,6 +67,9 @@ const RECT *post_present(struct IDirect3DDevice9 *dev);
  * and the game's own next frame begun (post.c); every two seconds, the medians into the in-game log and, every ten,
  * into the launcher's note beside this DLL. */
 void post_after_present(struct IDirect3DDevice9 *dev);
+/* Measuring only: whether the frame numbered `frame` is one OPENDMT3_POSTFX_DUMP_AT names for a dump (with the dump
+ * folder set): such a frame is never left unshown, so its dump is made. */
+int post_dump_at(long frame);
 void post_pass_times_line(void);
 /* This frame's cost of the passes: CPU in counter ticks, the GPU's in microseconds (-1: not known), how many. */
 void post_cost(LONGLONG *cpu_ticks, double *gpu_us, int *passes);

@@ -581,6 +581,32 @@ from the read to done is the same. The frames' spread follows the machine's load
 these at 1920x1080, before and after, under a load of 12 and 18, fell to 57.2 and 56.1 frames a second (15 and 29 %
 over 20 ms) and are left out.
 
+#### A song after stalls on a 60 Hz display, before and after
+
+On 2026-11-13, the same card and `gpu/song.sh` at 1280x768 with no presses, the layer at a player's defaults. Two
+measuring switches make Wine's virtual screen a 60 Hz display with VSync: `OPENDMT3_REFRESH=60` gives it the rate,
+and `OPENDMT3_VBLANK=wait` brings each present back at its next refresh, read from the raster position, which Wine
+keeps on a 60 Hz clock. `OPENDMT3_STALL=100,400` stalls each play of the music 100 ms at 20 s and 400 ms at 40 s. Three
+runs one after the other: the release's build; a build of the same change before the next frame's GPU time was
+counted in its estimate; that build with `OPENDMT3_CATCHUP=off` (the lock as before). "Music at the stop" is the
+music played less the frames counted at 60 a second, for the song and for the tutorial before it.
+
+| Run | Music at the stop (ms): song, tutorial | After the stalls (the tutorial's) | Frames left unshown in the song | Presents a second, over 20 ms | Load |
+|---|---|---|---|---|---|
+| Caught up, the release's build | -3.3, -16.0 | 100 ms: 7 frames left unshown over 4.20 s (42 shown after all); 400 ms: 23 over 2.30 s; none too late | 15 | 58.0, 14.9 % | 6 |
+| Caught up, before the GPU's part | +14.7, +1.3 | 100 ms: 5 over 0.58 s; 400 ms: 24 over 2.65 s; none too late | 157 | 58.7, 3.7 % | 7 |
+| As before | +1984.7, +1132.3 | - | none | 59.1, 5.7 % | 4 |
+
+As before, the frames ended far more than the stalls' 500 ms behind. On a display that shows a frame a refresh, a
+present that misses its refresh shows a refresh late, and so does every frame after it: 4 to 8 % of them missed here,
+where the virtual screen's read back and the machine's load make presents late. The lock's steps off the ticks never
+reached the screen. Caught up, each was won back by a frame left unshown a few frames later. The release's build
+counts the chain's GPU time, read from its timestamps, in the next frame's estimate. Under WSL's D3D12 those
+readings run long now and then, so the next frame was judged not ready more often: 251 frames planned in the
+tutorial were shown after all, and its 100 ms took 4.2 s to win back. In that run's song the music's own cursor
+twice stood still, for 1.7 and 1.9 s. The lock held the frames back for it (48 frames a second for some seconds: the
+14.9 % over 20 ms), and both stalls fell into those stretches, so it needed only 15 frames left unshown.
+
 ## Before a release
 
 1. `./dmt3 test` (the unit tests, the boundary test, pyflakes), `native/cardreader/test.sh`, then the launcher's and
