@@ -131,7 +131,9 @@ TEXT = {
     "screen.fps.position.top_right": ("Top right", "오른쪽 위"),
     "screen.fps.position.bottom_left": ("Bottom left", "왼쪽 아래"),
     "screen.fps.position.bottom_right": ("Bottom right", "오른쪽 아래"),
-    "screen.fps.position.hint": ("Bottom right is above the game's FREE PLAY.", "오른쪽 아래는 게임의 FREE PLAY 위입니다."),
+    # Where the in-game overlay sets the counter in that corner: in the game's bottom band, beside FREE PLAY.
+    "screen.fps.position.hint": ("Bottom right is beside the game's FREE PLAY, below the notes.",
+                                 "오른쪽 아래는 게임의 FREE PLAY 옆, 노트 아래입니다."),
     "screen.shape": ("Picture shape", "화면 비율"),
     "screen.shape.keep": ("Keep", "비율 유지"),
     "screen.shape.fill": ("Fill", "채우기"),

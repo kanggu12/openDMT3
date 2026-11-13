@@ -1700,8 +1700,9 @@ class LauncherTest(FolderCase):
             for language in ("en", "ko"):
                 self.assertNotIn("F12", i18n.Words(language)(key))
         self.assertEqual(i18n.Words("en")("screen.fps.hint.off"), "Shows the frames a second over the game.")
-        self.assertEqual(i18n.Words("en")("screen.fps.position.hint"), "Bottom right is above the game's FREE PLAY.")
-        self.assertEqual(i18n.Words("ko")("screen.fps.position.hint"), "오른쪽 아래는 게임의 FREE PLAY 위입니다.")
+        self.assertEqual(i18n.Words("en")("screen.fps.position.hint"),
+                         "Bottom right is beside the game's FREE PLAY, below the notes.")
+        self.assertEqual(i18n.Words("ko")("screen.fps.position.hint"), "오른쪽 아래는 게임의 FREE PLAY 옆, 노트 아래입니다.")
         # The pacing named plainly, the music lock first (the default).
         self.assertEqual(i18n.Words("en")("screen.pacing.music"), "Locked to the music")
         self.assertEqual(i18n.Words("ko")("screen.pacing.music"), "음악에 맞춤")
