@@ -232,7 +232,7 @@ the real ones.
 ### The layer's parts and their input
 
 <p align="center">
-  <img src="images/ingame.png" alt="The in-game layer's parts as its own code draws them, over a made-up stage of lanes and notes, none of it the game's: the bar with openDMT3's mark, the menu, minimise, back to a window and the X; the menu under its chip; the question under the X with its line during a song; the safety net's toast; the FPS chip in the bottom right corner" width="100%">
+  <img src="images/ingame.png" alt="openDMT3's in-game overlay over the game's own tutorial, in frames captured under Wine: the overlay bar at the game's top edge with openDMT3's mark at its left and, at its right, the menu (open, with Back to the game, Show FPS and Quit the game), minimise, window and quit; under it the quit question, a notice that the picture stepped down to keep 60 FPS, and the FPS counter in its corner" width="100%">
 </p>
 
 - **The bar** comes when the pointer, moved to the game's very top edge or onto the mark at its top centre with no

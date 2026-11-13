@@ -109,7 +109,7 @@ and metal frame, its glossy buttons) on an opaque frosted glass, and in the laun
 the middle of the game, where the notes come, and no key of the keyboard brings any of them:
 
 <p align="center">
-  <img src="images/ingame.png" alt="openDMT3's own parts over a song, drawn by openDMT3's code over a made-up stage of lanes and notes, none of it the game's. The bar across the top: openDMT3's mark at its left, and at its right the menu, minimise, back to a window, and the X. The menu hangs under its chip: BACK TO THE GAME, SHOW FPS with ON, QUIT THE GAME in red. Under it, three pieces: the question under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a toast hanging from the top edge, Picture quality lowered to keep 60 FPS (FXAA); and the FPS chip in the bottom right corner, 60 FPS over 16.7 ms" width="100%">
+  <img src="images/ingame.png" alt="openDMT3's in-game overlay over the game's own tutorial, in frames captured under Wine: the overlay bar at the game's top edge with openDMT3's mark at its left and, at its right, the menu (open, with Back to the game, Show FPS and Quit the game), minimise, window and quit; under it the quit question, a notice that the picture stepped down to keep 60 FPS, and the FPS counter in its corner" width="100%">
 </p>
 
 - **The bar.** Move the pointer to the very top edge of the game, or onto the small tab at its top center, and let it
