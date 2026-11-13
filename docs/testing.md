@@ -69,11 +69,12 @@ skipped without it. The rest pass on Python 3.10, the oldest a server runs on.
 The launcher's check (`tests/e2e/ui/shots.py`) walks every widget of each screen and fails on text cut off, a wrapping
 label never told its width, a button squeezed, anything past the window's right edge, or anything hidden under the
 bottom bar or past the window's bottom edge with no way to scroll to it; **Play** must show whole at the size the
-launcher opens at. The site's check (`tests/e2e/web/shoot.js`, measuring with `measure.js`) fails on anything past a
-page's right edge, words cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone
-width, a word of the phone menu that does not fit, a button whose words are out of its middle, and a question asked
-first that does not fit. Both also count what they looked at, so a page that silently stops being visited fails the
-run.
+launcher opens at, and a page's scroll bar must leave the page its whole width. A run with no new screenshot for five
+minutes prints its stack and ends, failing: a window that never finishes drawing would hold it silent otherwise. The
+site's check (`tests/e2e/web/shoot.js`, measuring with `measure.js`) fails on anything past a page's right edge, words
+cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone width, a word of the phone
+menu that does not fit, a button whose words are out of its middle, and a question asked first that does not fit. Both
+also count what they looked at, so a page that silently stops being visited fails the run.
 
 Each check is tested itself: `OPENDMT3_REPO` points it at a copy of the tree, and `tests/e2e/web/selftest.sh OUT_DIR`
 plants five faults in a copy (a table that sticks out on a phone, words cut off in a box of a fixed height, a stacked

@@ -12,6 +12,7 @@ is a problem.
 """
 
 import argparse
+import faulthandler
 import io
 import math
 import os
@@ -456,6 +457,11 @@ def measure(app, name, problems):
 
 # Every screenshot taken, so the last line counts what was looked at instead of what was meant to be.
 SHOTS = []
+# A window that never finishes drawing holds update() for good: this long with no new screenshot (the longest stretch
+# without one, the resize check, takes about a minute here and three on CI's runners), and the stack of the run says
+# where it stood and the size ends, failing, instead of standing silent until the runner's time is up (it once stood
+# for 15 minutes at two sizes with not a word of where).
+STALL = 300
 # Every resize the resize check looked at (resize_check), counted the same way.
 RESIZES = []
 # The widest window the resize check draws (the virtual screen is 1920 wide), and the events one redraw may handle
@@ -473,6 +479,8 @@ FITS = []
 def shot(app, out, name, root=None):
     """Screenshot of the launcher window, through the X server (what a person would see)."""
     SHOTS.append(name)
+    # The run is moving: the watch for a window that stands still starts again from here.
+    faulthandler.dump_traceback_later(STALL, exit=True)
     root = root or app.root
     root.update()
     time.sleep(0.25)
@@ -641,6 +649,12 @@ def scroll_check(app, tag, problems):
     if not bar.winfo_ismapped():
         problems.append("%s: no scroll bar on a page taller than the window" % tag)
         return
+    # The bar lies over the page's margin: the page keeps the area's whole width while it shows. A bar that took its
+    # width from the page laid the page out again each time it came or went, and PLAY at 960 wide came and went with
+    # it for good (widgets.ScrollArea._bar_set).
+    if area.winfo_width() != app.body.winfo_width():
+        problems.append("%s: the scroll bar takes its width from the page (%d of %d)" % (
+            tag, area.winfo_width(), app.body.winfo_width()))
     # A press under the thumb turns a page.
     low = bar.winfo_height() - 2
     bar.event_generate("<ButtonPress-1>", x=4, y=low)
@@ -1959,6 +1973,8 @@ def main():
         from opendmt3.client import main as launcher_main
         launcher_main._dpi_aware()
     os.makedirs(args.out, exist_ok=True)
+    # Five minutes with no new screenshot: the stack is printed and the run ends (STALL).
+    faulthandler.dump_traceback_later(STALL, exit=True)
     rng = random.Random(7)
     table = bytes(rng.randrange(256) for _ in range(256))
     home = tempfile.mkdtemp()

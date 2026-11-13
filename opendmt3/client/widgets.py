@@ -405,11 +405,21 @@ class ScrollArea(tk.Frame):
         self.canvas.configure(scrollregion=(0, 0, width, self.head_height + self.inner.winfo_reqheight()))
 
     def _bar_set(self, first, last):
-        """Show the scroll bar only when the content is taller than the area."""
+        """Show the scroll bar only when the content is taller than the area.
+
+        The bar lies over the area's right edge, in the page's own margin where no card reaches (place), so its coming
+        and going leaves the page as wide as it was. Packed beside the page it took its 12 pixels from the page, and
+        the page was laid out again at each turn: PLAY at 960 pixels wide in English, within a line of the window's
+        height, came out a line taller without the bar and a line shorter with it (its two columns are sized from what
+        their labels asked for one layout before, and those follow the columns), so the bar came and went for good and
+        the window never finished drawing: on CI's runners of a few cores, and in most runs of a container held to
+        one core; on a fast PC almost never."""
         if float(first) <= 0.0 and float(last) >= 1.0:
-            self.bar.pack_forget()
+            self.bar.place_forget()
         elif not self.bar.winfo_ismapped():
-            self.bar.pack(side="right", fill="y")
+            # At the right edge, the area's whole height, over the page: the bar was made after the canvas, so it
+            # stands above it (a Canvas's own lift() raises its drawn items, not the widget).
+            self.bar.place(relx=1.0, y=0, relheight=1.0, anchor="ne")
         self.bar.set(first, last)
 
     def _on_resize(self, event):
