@@ -6,6 +6,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-13
+
 ### Added
 
 - **Low latency** on the Sound page, on by default: while the game runs, Windows mixes the sound of the game's output
@@ -82,6 +84,7 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - Updates inside the launcher, signed by the project, and an installer with repair and removal, in English and
   Korean.
 
-[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/kanggu12/openDMT3/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/kanggu12/openDMT3/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/kanggu12/openDMT3/releases/tag/v0.1.0
