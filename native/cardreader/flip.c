@@ -11,6 +11,7 @@
  * a dynamic one instead: lockable as a managed one is, and kept through a reset (on 9Ex a reset loses nothing).
  */
 #include "ingame.h"
+#include "methods.h"
 
 #include <d3d9.h>
 
@@ -145,6 +146,8 @@ static void turn_object(void *object, int index, void *ours, void **real)
     *real = table[index];
     table[index] = ours;
     VirtualProtect(&table[index], sizeof(void *), old, &old);
+    /* Watched every frame, put back if Direct3D fills its table in again (methods.c). */
+    methods_watch(&table[index], ours, "the flip model's", index);
 }
 
 /* The locks of a texture moved from the managed pool, and of its levels' surfaces, taken as a managed texture's. */

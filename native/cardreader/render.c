@@ -26,6 +26,7 @@
  * draws into, and the real method is always the one of the object's own table.
  */
 #include "ingame.h"
+#include "methods.h"
 
 #include <d3d9.h>
 #include <stddef.h>
@@ -212,6 +213,8 @@ static void swap(void *object, int index, void *ours, void **real)
     *real = table[index];
     table[index] = ours;
     VirtualProtect(&table[index], sizeof(void *), old, &old);
+    /* Watched every frame, put back if Direct3D fills its table in again (methods.c). */
+    methods_watch(&table[index], ours, "the larger picture's", index);
 }
 
 /* GetDesc replaced in the table of `object`'s kind, its real one kept for that table first (so no call ever finds ours

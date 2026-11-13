@@ -25,6 +25,7 @@
  * each written beside it, so they can be compared. A file toast.now there shows its words as the layer's toast.
  */
 #include "ingame.h"
+#include "methods.h"
 #include "passtimes.h"
 #include "postmath.h"
 
@@ -252,6 +253,8 @@ static void *swap_method(IDirect3DDevice9 *dev, int index, void *ours)
         return NULL;
     table[index] = ours;
     VirtualProtect(&table[index], sizeof(void *), old, &old);
+    /* Watched every frame, put back if Direct3D fills its table in again (methods.c). */
+    methods_watch(&table[index], ours, "the chain's", index);
     return was;
 }
 

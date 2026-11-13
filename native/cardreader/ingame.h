@@ -1,8 +1,9 @@
 /*
  * The in-game layer inside openDMT3's CRT_R1.dll: what its Windows parts share.
  *
- *   hooks.c  the game's imports turned to ours (DirectSound, Direct3D 9, the keyboard's state), the frame limit,
- *            the frame counter, holding the game still, and the log
+ *   hooks.c  the game's imports turned to ours (DirectSound, Direct3D 9, the keyboard's state, the pointer, the
+ *            frame's first call), the frame limit, the frame counter, holding the game still, and the log
+ *   methods.c  the methods put in Direct3D's tables, watched each frame and put back if Direct3D fills a table again
  *   layer.c  the bar, the menu, the question, the toast and the frame rate chip: their state, the mouse and the keys
  *            over the game's window, the cursor, quitting
  *   post.c   the post-process chain, which draws the layer's parts over the game at the window's size

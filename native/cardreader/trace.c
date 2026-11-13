@@ -6,6 +6,7 @@
  * unless that variable is set: a player's game never runs it.
  */
 #include "ingame.h"
+#include "methods.h"
 
 #include <d3d9.h>
 #include <stdio.h>
@@ -527,6 +528,8 @@ static void put(IDirect3DDevice9 *dev, int index, void *ours)
     if (VirtualProtect(&table[index], sizeof(void *), PAGE_READWRITE, &old)) {
         table[index] = ours;
         VirtualProtect(&table[index], sizeof(void *), old, &old);
+        /* Over openDMT3's own method in this entry: the trace's is the one a look puts back (methods.c). */
+        methods_watch(&table[index], ours, "the trace's", index);
     }
 }
 

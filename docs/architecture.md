@@ -182,7 +182,7 @@ PLAY starts the game with (`OPENDMT3_LANGUAGE`, `OPENDMT3_CURSOR`, `OPENDMT3_PAC
 `OPENDMT3_FPS_POSITION`, `OPENDMT3_SOUND_DEVICE`, `OPENDMT3_UPSCALE`, `OPENDMT3_SHARPNESS`, `OPENDMT3_ANTIALIASING`,
 `OPENDMT3_PICTURE_SHAPE`, `OPENDMT3_PASS_TIMES`, `OPENDMT3_LOW_LATENCY`, `OPENDMT3_SOUND_PATH`, `OPENDMT3_RENDER`,
 `OPENDMT3_AUDIO_OFFSET`, `OPENDMT3_MOTION_CLARITY`, `OPENDMT3_FLIP_MODEL`, from `core/cabinet/values.py`
-`layer_environment`) and turns four of the game's imports to its own: the slots of the game's import table that hold
+`layer_environment`) and turns five of the game's imports to its own: the slots of the game's import table that hold
 the real functions get ours, which call the real ones.
 
 <p align="center">
@@ -196,7 +196,8 @@ the real functions get ours, which call the real ones.
 | :--- | :--- |
 | `crt_r1.c` | The card reader's ten exports, and `DllMain`, which starts the rest |
 | `files.c`, `redirect.c` | The client's file calls turned to openDMT3's: the list beside the library read once (`redirect.c`, plain C the native tests run), each path the game opens matched against it without letter case, openDMT3's file opened in its place with the wide call; the client told it runs from the client data's folder. `OPENDMT3_FILES_TRACE` (measuring only) writes every call, and every read of one of the game's files with its place, into the in-game log |
-| `hooks.c` | The four imports turned to openDMT3's: `DirectSoundCreate8` (and `DirectSoundCreate`), `Direct3DCreate9`, `GetKeyboardState` and `GetCursorPos` ([the four hooks](#the-four-hooks)) |
+| `hooks.c` | The five imports turned to openDMT3's: `DirectSoundCreate8` (and `DirectSoundCreate`), `Direct3DCreate9`, `GetKeyboardState`, `GetCursorPos` and `GetActiveWindow` ([the five hooks](#the-five-hooks)) |
+| `methods.c` | The methods openDMT3 put in Direct3D's method tables, watched: each entry looked at once a frame and put back as openDMT3's when Direct3D filled its table in again ([the methods in the tables](#the-methods-in-the-tables)) |
 | `layer.c` | The layer's state and its input: the bar and its chips, the menu and the question, the toast, the mark and the frame rate chip ([the layer's parts and their input](#the-layers-parts-and-their-input)) |
 | `text.c` | The layer's words: GDI text in Pretendard Bold and Regular and DMT3 Wide, which the setup puts beside the DLL and the layer loads for the game's process only, kept once drawn so a panel drawn again costs no GDI work |
 | `post.c` | The post-process chain over the game's picture, and the layer drawn in it ([the picture's chain](#the-pictures-chain), [the layer in the chain](#the-layer-in-the-chain)) |
@@ -213,9 +214,9 @@ the real functions get ours, which call the real ones.
 | `look.c`, `paint.c`, `logic.c` | The pictures (anti-aliased polygons after the game's own panels: its dialogs' title tab and metal frame, its notice's glass, its glossy buttons; the bar's chips in the launcher's leaning button shape) and the decisions (the settings, the frame clock, the keys the game may see, the panels' answers and keys, the layout, when a rest may bring the bar), with no Windows calls |
 | `mark.py` | The product's mark for the bar, drawn by the launcher's own code (`opendmt3/client/art.py` logo) when the DLL is built and carried in it as a resource: the bar shows the launcher's picture of the mark, never letters set in its face |
 | `trace.c` | With `OPENDMT3_INGAME_TRACE` set, how the game draws (its device, its draws' vertex formats, transforms, render targets, copies), into the log; never set by the launcher |
-| `test_native.c`, `test.sh` | The tests of the files with no Windows calls, built with the same compiler and run under Wine |
+| `test_native.c`, `test.sh` | The tests of the files with no Windows calls, and of the methods' watch, built with the same compiler and run under Wine |
 
-### The four hooks
+### The five hooks
 
 - **`DirectSoundCreate8`** (and `DirectSoundCreate`): the chosen output device by its GUID, Windows' default when
   none is chosen or it does not open, through Windows' own DirectSound or, with the **Mixer** on OpenAL Soft, DSOAL's
@@ -239,6 +240,24 @@ the real functions get ours, which call the real ones.
 - **`GetCursorPos`**: the display fix's helper reads the pointer with it; the point it is handed is turned so that the
   game gets the pixel under the pointer in the picture as placed ([the picture's chain](#the-pictures-chain)), only
   when the fix's call sites are in the client.
+- **`GetActiveWindow`**: the game asks for it at the start of every frame, whether its window is the active one or
+  not (`GetKeyboardState` comes only while it is), so the methods openDMT3 put in Direct3D's tables are looked at
+  there ([below](#the-methods-in-the-tables)).
+
+### The methods in the tables
+
+openDMT3 turns methods in Direct3D's method tables once: the Direct3D object's `CreateDevice`, the device's `Present`
+and `Reset`, the chain's three, the larger picture's and the flip model's. In another build of the game, Direct3D 9
+was seen filling a device's method table in again about 22 frames after the device was made, which leaves the game's
+own methods there. With pacing locked to the music or even, the client's own limiter is taken out, so a `Present` no
+longer openDMT3's would run the game unpaced (four times its speed at 240 Hz). Every entry turned is watched
+(`methods.c`): at the start of every frame (`GetActiveWindow`) and at each read of the keys, the entries are read and
+any that no longer holds openDMT3's method gets it again, the real method openDMT3's calls left as it was kept (so no
+one else's method is ever called in its place: one another program put over openDMT3's is taken off, never called in a
+loop). The log says it the first time for each entry, then at its 10th, 100th... time. Only tables in a loaded
+module's image are watched: one that could go with its object is never read after it is freed. A device whose table
+was swapped for another, which no look at the entries can see, shows as 300 frames of the game with no present through
+openDMT3's, said once in the log.
 
 ### The layer's parts and their input
 

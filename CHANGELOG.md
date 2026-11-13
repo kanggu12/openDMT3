@@ -6,6 +6,11 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+### Changed
+
+- The methods openDMT3 puts in Direct3D's tables are looked at every frame and put back if Direct3D fills a table in
+  again, as it was seen to do in another build of the game, so the frames stay paced and the picture's passes stay on.
+
 ### Fixed
 
 - A cabinet's client of the China region is told apart, and said not to work here: the launcher took it for a modified

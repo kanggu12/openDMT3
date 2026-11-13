@@ -15,9 +15,12 @@
  *   - GetKeyboardState: the game reads every key and the mouse's buttons with it once a frame, so while the menu or
  *     the question is up it sees nothing pressed (logic.c hold_keys);
  *   - GetCursorPos: in the client with the display fix, the point it reads is turned so that the game pixel it finds is
- *     the one under the pointer in the picture as the chain placed it (the game's pointer, below).
+ *     the one under the pointer in the picture as the chain placed it (the game's pointer, below);
+ *   - GetActiveWindow: the game asks for it at the start of every frame, so the methods openDMT3 put in Direct3D's
+ *     tables are looked at there and put back if Direct3D filled a table in again (methods.c).
  */
 #include "ingame.h"
+#include "methods.h"
 #include "postmath.h"
 
 /* initguid.h first: this file then holds DSDEVID_DefaultPlayback itself, with no import library for it. */
@@ -135,8 +138,9 @@ int ingame_patch_imports(HMODULE module, void *real, void *ours)
     return changed;
 }
 
-/* Put `ours` in entry `index` of a COM object's method table; the method that was there. */
-static void *patch_method(void *object, int index, void *ours)
+/* Put `ours` in entry `index` of a COM object's method table; the method that was there. The entry is watched from
+ * then on (methods.c), under `name`. */
+static void *patch_method(void *object, int index, void *ours, const char *name)
 {
     void **table = *(void ***)object;
     void *was = table[index];
@@ -148,6 +152,8 @@ static void *patch_method(void *object, int index, void *ours)
         return NULL;
     table[index] = ours;
     VirtualProtect(&table[index], sizeof(void *), old, &old);
+    /* Looked at every frame, and put back if Direct3D fills its table in again. */
+    methods_watch(&table[index], ours, name, index);
     return was;
 }
 
@@ -1651,9 +1657,9 @@ static HRESULT STDMETHODCALLTYPE our_reset(IDirect3DDevice9 *dev, D3DPRESENT_PAR
 }
 
 /* Put a method of the device's table to ours, keeping the real one in *real (once: a second device shares it). */
-static void hook_method(IDirect3DDevice9 *dev, int index, void *ours, void **real)
+static void hook_method(IDirect3DDevice9 *dev, int index, void *ours, void **real, const char *name)
 {
-    void *was = patch_method(dev, index, ours);
+    void *was = patch_method(dev, index, ours, name);
     if (was)
         *real = was;
 }
@@ -1709,8 +1715,8 @@ static HRESULT STDMETHODCALLTYPE our_create_device(IDirect3D9 *d3d, UINT adapter
     take_refresh(*out);
     guard_start(&g_guard);
     /* Present (17) and Reset (16) in IDirect3DDevice9's table. */
-    hook_method(*out, 17, (void *)our_present, (void **)&real_present);
-    hook_method(*out, 16, (void *)our_reset, (void **)&real_reset);
+    hook_method(*out, 17, (void *)our_present, (void **)&real_present, "Present");
+    hook_method(*out, 16, (void *)our_reset, (void **)&real_reset, "Reset");
     /* The chain's objects and its turning of the game's back buffer; if they cannot be made, the device goes back to
      * the game's own parameters (nothing of the game's is on it yet). */
     if (chain && !post_attach(*out)) {
@@ -1733,11 +1739,65 @@ static IDirect3D9 *WINAPI our_d3d(UINT version)
         flip_attach_d3d();
     if (d3d) {
         /* CreateDevice is entry 16 of IDirect3D9's table. */
-        void *was = patch_method(d3d, 16, (void *)our_create_device);
+        void *was = patch_method(d3d, 16, (void *)our_create_device, "CreateDevice");
         if (was)
             real_create_device = (CreateDeviceFn)was;
     }
     return d3d;
+}
+
+/* ----------------------------------------------------------------------------------- the methods in the tables */
+
+/* The methods openDMT3 put in Direct3D's tables, looked at (methods.c): every one Direct3D filled in again put back
+ * as openDMT3's, said in the log the first time for each entry (and its 10th, 100th...). */
+static void look_at_methods(void)
+{
+    MethodBack back[8];
+    int noted = 0;
+    if (!methods_check(back, 8, &noted))
+        return;
+    for (int i = 0; i < noted; i++)
+        ingame_log("picture: Direct3D's table entry %d (%s) was filled in again by frame %ld, holding %p: openDMT3's "
+                   "put back (%ld time%s)", back[i].index, back[i].name, ingame_frame(), back[i].held, back[i].times,
+                   back[i].times == 1 ? "" : "s");
+}
+
+/* The game's frames that reached no present of openDMT3's: a device whose method table was swapped for another (which
+ * no look of the entries can see) leaves the game's frames unpaced; said once, after five seconds of them. */
+static LONG g_presents_seen;
+static int g_frames_unpresented, g_said_unpresented;
+static void presents_watched(void)
+{
+    LONG now = g_presented;
+    if (now != g_presents_seen) {
+        g_presents_seen = now;
+        g_frames_unpresented = 0;
+        return;
+    }
+    /* Before the first present (the game's start) the frames have nothing to reach. */
+    if (now > 0 && ++g_frames_unpresented == 300 && !g_said_unpresented) {
+        g_said_unpresented = 1;
+        ingame_log("picture: 300 frames of the game's with no present through openDMT3's after frame %ld (its device "
+                   "lost, or its method table swapped)", now);
+    }
+}
+
+/* The game's GetActiveWindow: asked once at the start of every frame, whether its window is the active one or not
+ * (GetKeyboardState only while it is: its FUN_0070f390). */
+typedef HWND(WINAPI *ActiveGet)(void);
+static ActiveGet real_active;
+
+static HWND WINAPI our_active(void)
+{
+    LARGE_INTEGER t0, t1;
+    QueryPerformanceCounter(&t0);
+    /* Direct3D's tables first, before the frame's own draws and its present. */
+    look_at_methods();
+    presents_watched();
+    QueryPerformanceCounter(&t1);
+    /* Its time counts with the frame's openDMT3 time (once a frame). */
+    ingame_cost(t1.QuadPart - t0.QuadPart);
+    return real_active();
 }
 
 /* --------------------------------------------------------------------------------------------- the keyboard */
@@ -1756,6 +1816,9 @@ static BOOL WINAPI our_keys(PBYTE keys)
     /* The press mark follows the button as the game reads it this frame (measuring only). */
     if (ok && keys)
         g_mark_down = (keys[VK_LBUTTON] & 0x80) != 0;
+    /* A second look at the methods in Direct3D's tables (the frame's first, GetActiveWindow's, may be a client's that
+     * calls it elsewhere). */
+    look_at_methods();
     QueryPerformanceCounter(&t1);
     /* Its cost counts with the frame's (the game reads the keys once a frame). */
     ingame_cost(t1.QuadPart - t0.QuadPart);
@@ -1857,12 +1920,14 @@ static int hook_all(void)
     real_d3d = d3d9 ? (D3dCreate)(void *)GetProcAddress(d3d9, "Direct3DCreate9") : NULL;
     real_keys = user32 ? (KeysGet)(void *)GetProcAddress(user32, "GetKeyboardState") : NULL;
     real_cursor = user32 ? (CursorGet)(void *)GetProcAddress(user32, "GetCursorPos") : NULL;
+    real_active = user32 ? (ActiveGet)(void *)GetProcAddress(user32, "GetActiveWindow") : NULL;
     int sound = ingame_patch_imports(game, (void *)real_ds8, (void *)our_ds8) + ingame_patch_imports(game, (void *)real_ds, (void *)our_ds);
     int picture = ingame_patch_imports(game, (void *)real_d3d, (void *)our_d3d);
     int keys = ingame_patch_imports(game, (void *)real_keys, (void *)our_keys);
     int pointer = ingame_patch_imports(game, (void *)real_cursor, (void *)our_cursor);
-    ingame_log("hooks: sound %d, picture %d, keys %d, pointer %d", sound, picture, keys, pointer);
-    return sound + picture + keys + pointer;
+    int frame = ingame_patch_imports(game, (void *)real_active, (void *)our_active);
+    ingame_log("hooks: sound %d, picture %d, keys %d, pointer %d, frame %d", sound, picture, keys, pointer, frame);
+    return sound + picture + keys + pointer + frame;
 }
 
 /* The measurement of whether the game's speed follows its frame rate: the client's limiter out and no clock of ours

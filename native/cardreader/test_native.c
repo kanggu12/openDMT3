@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "logic.h"
+#include "methods.h"
 #include "passtimes.h"
 #include "postmath.h"
 #include "redirect.h"
@@ -1909,6 +1910,76 @@ static void test_picture(void)
     check(!outside_in, "picture: a bar's pixel left of the picture lands left of the game's picture");
 }
 
+/* --------------------------------------------------------------------------------- the methods in the tables */
+
+/* A method table as a library keeps one: read-only data of this program's own image (as Direct3D's is in its
+ * library's), its methods two made-up functions. */
+static int method_real(void) { return 1; }
+static int method_ours(void) { return 2; }
+static int method_trace(void) { return 3; }
+typedef int (*MethodFn)(void);
+static MethodFn const g_method_table[20] = {method_real, method_real, method_real, method_real, method_real,
+                                            method_real, method_real, method_real, method_real, method_real,
+                                            method_real, method_real, method_real, method_real, method_real,
+                                            method_real, method_real, method_real, method_real, method_real};
+
+/* An entry of the table as it is now: its address through a pointer kept volatile, so the compiler cannot answer the read
+ * from the const table's first values (it did, with the entry's own address cast volatile). */
+static void *method_now(int i)
+{
+    void *const *volatile table = (void *const *)(void *)g_method_table;
+    return table[i];
+}
+
+static void test_methods(void)
+{
+    void **present = (void **)(void *)&g_method_table[17], **reset = (void **)(void *)&g_method_table[16];
+    /* openDMT3's methods put in, as hooks.c's patch does it, and watched. */
+    int written = methods_write(present, (void *)method_ours) && methods_write(reset, (void *)method_ours);
+    int watched = methods_watch(present, (void *)method_ours, "Present", 17) &&
+                  methods_watch(reset, (void *)method_ours, "Reset", 16);
+    MethodBack back[4];
+    int noted = -1;
+    int quiet = methods_check(back, 4, &noted) == 0 && noted == 0;
+    check(written && watched && quiet && method_now(17) == (void *)method_ours,
+          "methods: entries openDMT3 turned in a library's table are watched, and a look with them as they are does "
+          "nothing");
+    /* Direct3D fills its table in again: the real methods back in both entries. */
+    methods_write(present, (void *)method_real);
+    methods_write(reset, (void *)method_real);
+    int n = methods_check(back, 4, &noted);
+    /* Each said, the entries beside them left as they are. */
+    check(n == 2 && noted == 2 && method_now(17) == (void *)method_ours && method_now(16) == (void *)method_ours &&
+              back[0].held == (void *)method_real && back[0].times == 1 && !strcmp(back[0].name, "Present") &&
+              back[0].index == 17 && method_now(15) == (void *)method_real,
+          "methods: entries Direct3D filled in again are put back as openDMT3's at the next look");
+    /* Filled in again and again (every frame): put back each time, said again only at the 10th. */
+    int said = 0, every = 1;
+    for (int k = 2; k <= 12; k++) {
+        methods_write(present, (void *)method_real);
+        every &= methods_check(back, 4, &noted) == 1 && method_now(17) == (void *)method_ours;
+        said += noted;
+    }
+    check(every && said == 1, "methods: an entry filled in at every frame is put back every frame, said again only at "
+                              "its 10th time");
+    /* The trace's method over openDMT3's in the same entry: the newer one is the one kept. */
+    methods_write(present, (void *)method_trace);
+    int over = methods_watch(present, (void *)method_trace, "the trace's", 17);
+    int left = methods_check(back, 4, &noted) == 0;
+    methods_write(present, (void *)method_real);
+    methods_check(back, 4, &noted);
+    check(over && left && method_now(17) == (void *)method_trace,
+          "methods: a method of openDMT3's over another in the same entry is the one put back");
+    /* A table in the heap (it could go with its object): not watched, so never read after it is freed. */
+    void **heap = calloc(20, sizeof(void *));
+    check(heap && !methods_watch(&heap[3], (void *)method_ours, "heap", 3),
+          "methods: a table outside every module's image is not watched");
+    free(heap);
+    /* Put back as it was for the rest of the run (no other check reads it). */
+    methods_write(present, (void *)method_real);
+    methods_write(reset, (void *)method_real);
+}
+
 /* The slot index against a plain list of the same keys: random puts and deletions over a small pool of addresses (so
  * keys come back after they went, and clusters form), every key's slot read back after each step. */
 static void test_slot_index(void)
@@ -1967,6 +2038,7 @@ int main(void)
     test_bar_clock();
     test_slides();
     test_slot_index();
+    test_methods();
     test_sharp();
     test_picture();
     test_card();
