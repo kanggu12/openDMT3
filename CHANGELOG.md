@@ -6,6 +6,11 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+### Fixed
+
+- A cabinet's client of the China region is told apart, and said not to work here: the launcher took it for a modified
+  PC client and made it ready, and the game then stopped at the cabinet's USB lock.
+
 ## [0.2.0] - 2026-11-13
 
 ### Added

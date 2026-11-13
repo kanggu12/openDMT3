@@ -35,12 +35,38 @@ CLIENT_BUILDS = {
     PC_BUILD_DISPLAY_FIX_EARLIER: "PC build with an earlier openDMT3 display fix (PLAY updates it)",
     CABINET_BUILD: "cabinet build (needs the cabinet's security keys; not supported)",
 }
+# Builds known by the start of their fingerprint, its first 16 hex digits (64 bits, which no other program shares by
+# chance), where no more of it is known. A cabinet's client of the China region holds the table that opens the game's
+# files where a modified PC client does, so it would be taken for one; on a PC it stops at its USB lock's error.
+PREFIX = 16
+CHINA_CABINET_BUILD = "dfeece61bf511bbf"
+CLIENT_BUILD_PREFIXES = {
+    CHINA_CABINET_BUILD: "China-region cabinet build (needs the cabinet's USB lock; not supported)",
+}
+# The cabinets' clients, known whole or by their start: they need the cabinet's own parts and do not work on a PC.
+CABINET_BUILDS = {CABINET_BUILD}
+CABINET_BUILD_PREFIXES = {CHINA_CABINET_BUILD}
 # What a client is (Game.client): the PC client as released, the PC client openDMT3 fixed, a modified PC client (its
 # table found in another build), the cabinet's client.
 ORIGINAL, FIXED, MODIFIED, CABINET = "original", "fixed", "modified", "cabinet"
 # Programs smaller than this are no client (the client is about 12 MB; a game folder also holds a 6 KB error reporter):
 # their read-only data is not searched for the table, which takes seconds for each.
 CLIENT_LEAST = 1 << 20
+
+
+def build_name(digest):
+    """What a client is by its fingerprint (a hex digest, lower case): a build known by the whole of it, else one known
+    by its start, else "unknown build"."""
+    if digest in CLIENT_BUILDS:
+        return CLIENT_BUILDS[digest]
+    return CLIENT_BUILD_PREFIXES.get((digest or "")[:PREFIX], "unknown build")
+
+
+def is_cabinet_build(digest):
+    """Whether a fingerprint is one of a cabinet's clients, known whole or by its start: they need the cabinet's own
+    parts (its security keys, its USB lock), so none is ever tried for the table."""
+    return digest in CABINET_BUILDS or (digest or "")[:PREFIX] in CABINET_BUILD_PREFIXES
+
 
 # Names inside the game folder that the setup reads or writes.
 CLIENT_EXE = "Client.exe"
@@ -400,7 +426,7 @@ class Game:
         if not os.path.isfile(p):
             return None, None
         digest = known_sha256(p)
-        return digest, CLIENT_BUILDS.get(digest, "unknown build")
+        return digest, build_name(digest)
 
     def programs(self):
         """Every program (.exe) right in the folder, by name without letter case: [path]."""
@@ -455,8 +481,9 @@ class Game:
         for p, digest in digests.items():
             if any(p == t for t, _ in tried):
                 continue
-            if digest == CABINET_BUILD:
-                # Its table is behind the cabinet's protection, and it needs the cabinet's security keys anyway.
+            if is_cabinet_build(digest):
+                # A cabinet's client: its table behind the cabinet's protection, or seen but of no use, as the client
+                # needs the cabinet's own parts (its security keys, its USB lock) either way. Never tried.
                 cabinet = True
             elif digest in (PC_BUILD_DISPLAY_FIX, PC_BUILD_DISPLAY_FIX_EARLIER):
                 # A fixed copy under another name.

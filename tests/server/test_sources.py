@@ -260,6 +260,12 @@ class FormsTest(GameCase):
         self.assertEqual((found["ready"], found["key"]), (False, "error.game.cabinet_client"))
         self.assertEqual(found["line"], "The cabinet's client: does not work here, the PC client is needed.")
 
+    def test_the_china_region_cabinets_client_does_not_work_here_though_it_holds_the_table(self):
+        self.clients(g.CHINA_CABINET_BUILD + "0123456789abcdef" * 3, holds=True)
+        found = sources.look(self.tmp)
+        self.assertEqual((found["ready"], found["key"]), (False, "error.game.cabinet_client"))
+        self.assertEqual(found["line"], "The cabinet's client: does not work here, the PC client is needed.")
+
     def test_a_client_without_the_table_is_said_so(self):
         self.clients("another build", holds=False)
         found = sources.look(self.tmp)

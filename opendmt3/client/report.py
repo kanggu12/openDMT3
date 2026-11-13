@@ -111,6 +111,5 @@ def make(state, folder, now=None):
                 z.writestr("openDMT3/" + rel, _scrub(text, names, private))
         if os.path.isfile(own.client()):
             digest = g.sha256_file(own.client())
-            z.writestr("openDMT3/client.txt", "client copy: %s (%s)\n" % (g.CLIENT_BUILDS.get(digest, "unknown build"),
-                                                                        digest))
+            z.writestr("openDMT3/client.txt", "client copy: %s (%s)\n" % (g.build_name(digest), digest))
     return path

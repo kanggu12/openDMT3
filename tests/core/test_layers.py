@@ -215,6 +215,33 @@ class ClientKindsTest(FolderCase):
         self.assertEqual(caught.exception.key, "error.game.cabinet_client")
         self.assertEqual(str(caught.exception), "The cabinet's client: does not work here, the PC client is needed.")
 
+    def test_the_china_region_cabinets_client_is_no_modified_pc_client(self):
+        # Known by the start of its fingerprint; its read-only data holds the table, as a modified PC client's does.
+        china = g.CHINA_CABINET_BUILD + "0123456789abcdef" * 3
+        self.program("Client.exe", digest=china, holds=True)
+        with self.assertRaises(g.GameError) as caught:
+            g.Game(self.root).table()
+        self.assertEqual(caught.exception.key, "error.game.cabinet_client")
+        self.assertEqual(g.Game(self.root).client_build("Client.exe"),
+                         (china, "China-region cabinet build (needs the cabinet's USB lock; not supported)"))
+        # Beside the PC client, the PC client is played.
+        self.program("Other.exe", digest=g.PC_BUILD, holds=True)
+        game = g.Game(self.root)
+        game.table()
+        self.assertEqual(game.client, (os.path.join(self.root, "Other.exe"), g.ORIGINAL))
+
+    def test_a_fingerprint_is_known_by_its_whole_start_only(self):
+        # One digit of the 16 off is another build: a modified PC client when it holds the table.
+        other = g.CHINA_CABINET_BUILD[:15] + "0" + "0123456789abcdef" * 3
+        self.assertFalse(g.is_cabinet_build(other))
+        self.assertEqual(g.build_name(other), "unknown build")
+        self.assertTrue(g.is_cabinet_build(g.CABINET_BUILD) and not g.is_cabinet_build(g.PC_BUILD))
+        self.assertFalse(g.is_cabinet_build(None) or g.is_cabinet_build(""))
+        self.program("Client.exe", digest=other, holds=True)
+        game = g.Game(self.root)
+        game.table()
+        self.assertEqual(game.client[1], g.MODIFIED)
+
     def test_a_client_without_the_table_cannot_open_the_games_files(self):
         self.program("Client.exe")
         with self.assertRaises(g.GameError) as caught:
