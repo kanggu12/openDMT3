@@ -22,7 +22,8 @@
   <a href="#quick-start">Quick start</a> &nbsp;|&nbsp;
   <a href="#what-it-does">What it does</a> &nbsp;|&nbsp;
   <a href="#how-it-works">How it works</a> &nbsp;|&nbsp;
-  <a href="#guides">Guides</a>
+  <a href="#guides">Guides</a> &nbsp;|&nbsp;
+  <a href="#contributing">Contributing</a>
 </p>
 
 <p align="center">
@@ -227,11 +228,15 @@ WSL's Direct3D 12 and on Mesa's software renderer; not yet on an AMD or Intel gr
 | [Running a server](docs/server.md) | The server owner's guide: in the launcher, with Docker or with Python, the song list, players, the site and the admin pages, backups, updates, the internet, without internet |
 | [The API](docs/api.md) | Everything the site shows and does, as JSON |
 
-Working on openDMT3: [CONTRIBUTING.md](CONTRIBUTING.md), [Architecture](docs/architecture.md), [Protocol](docs/protocol.md) and
-[Testing](docs/testing.md). Bugs and requests go to [Issues](https://github.com/kanggu12/openDMT3/issues/new/choose); what changed is in
-[CHANGELOG.md](CHANGELOG.md).
-
 [License and notice](docs/notice.md) says what the project is, its license and the third-party parts, for everyone.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome: [Issues](https://github.com/kanggu12/openDMT3/issues/new/choose).
+[CONTRIBUTING.md](CONTRIBUTING.md) is the contributors' guide: where the code is, how to run each part and its
+tests with no game files, and how a change goes in. [Architecture](docs/architecture.md),
+[Protocol](docs/protocol.md) and [Testing](docs/testing.md) go deeper; [CHANGELOG.md](CHANGELOG.md) says what
+changed.
 
 ## Credits and license
 
