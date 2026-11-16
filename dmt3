@@ -25,8 +25,13 @@ ROOT = os.path.dirname(os.path.realpath(__file__))
 COMPOSE_FILE = os.path.join(ROOT, "compose.yaml")
 # The Compose project's name, as compose.yaml sets it (name:): its data volume is PROJECT_data.
 PROJECT = "opendmt3"
-# The server image compose.yaml builds and names.
+# The server image ./dmt3 up --build makes from this clone (OPENDMT3_IMAGE in .env then names it).
 IMAGE = "opendmt3-server:local"
+# Where each release's server image is published (for amd64 and arm64, by .github/workflows/release.yml): the one a
+# clone uses unless --build is asked for, at the version the clone carries.
+REGISTRY_IMAGE = "ghcr.io/kanggu12/opendmt3-server"
+# The variable that names the image compose.yaml runs: kept in .env once --build or --published chose it.
+IMAGE_ENV = "OPENDMT3_IMAGE"
 # The one service in compose.yaml.
 SERVICE = "server"
 # The ports inside the container: the game's, then the site's (opendmt3/server/__main__.py).
@@ -86,6 +91,26 @@ def die(text, code=1):
 
 # ------------------------------------------------------------------------------------------------ commands built
 
+def version():
+    """The version this clone carries (opendmt3/__init__.py), read as text: the front door imports nothing of it."""
+    with open(os.path.join(ROOT, "opendmt3", "__init__.py"), encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("__version__ = "):
+                return line.split("=", 1)[1].strip().strip('"')
+    return "0"
+
+
+def published_image():
+    """The published server image of this clone's version (ghcr.io/kanggu12/opendmt3-server:0.3.0)."""
+    return "%s:%s" % (REGISTRY_IMAGE, version())
+
+
+def chosen_image():
+    """The image the server runs: the one .env names (./dmt3 up --build or --published chose it), else the published
+    one of this version. An OPENDMT3_IMAGE given in the environment wins, as Compose itself reads it."""
+    return os.environ.get(IMAGE_ENV) or read_env().get(IMAGE_ENV) or published_image()
+
+
 def compose(*args):
     """A docker compose command on this clone's compose.yaml."""
     return ["docker", "compose", "-f", COMPOSE_FILE] + list(args)
@@ -128,7 +153,8 @@ def count_accounts():
 def setup_plan(args, accounts):
     """The commands of a first run, in order, each as (key, what it does, command); the wizard shows each key's line.
     accounts: how many there are already."""
-    steps = [("image", "the server image", compose("build", SERVICE)),
+    # The image first (./dmt3 image: the published one of this version, or this clone's own built with --build).
+    steps = [("image", "the server image", image_command(getattr(args, "build", False))),
              # The data volume and its downloads folder, made by the image's own user, who owns /data.
              ("data", "the data folder", compose("run", "--rm", "-T", "--no-deps", "--entrypoint", "mkdir", SERVICE,
                                                  "-p", "/data/downloads"))]
@@ -155,6 +181,12 @@ def setup_plan(args, accounts):
         # Last, the server itself.
         steps.append(("server", "the server", compose("up", "-d", SERVICE)))
     return steps
+
+
+def image_command(build=False, published=False):
+    """./dmt3 image, run as a step of its own (the setup's first): the same Python, this same file."""
+    return [sys.executable, os.path.join(ROOT, "dmt3"), "image"] + (["--build"] if build else []) + (
+        ["--published"] if published else [])
 
 
 def setup_steps(args, accounts):
@@ -440,8 +472,9 @@ def simple_command(args, running):
     """The one command a plain subcommand runs, or None for the ones that do more (setup, check, doctor, test)."""
     name = args.command
     if name == "up":
-        # --no-build: start from an image loaded from a file (docs/server.md, "Without internet").
-        return compose("up", "-d") + ([] if args.no_build else ["--build"])
+        # The image is there by now (cmd_up gets it first, unless --no-build): Compose neither builds nor pulls, so
+        # it starts the image ./dmt3 image chose, or one loaded from a file (docs/closed-network.md).
+        return compose("up", "-d", "--no-build", "--pull", "never")
     if name == "down":
         return compose("down")
     if name == "restart":
@@ -635,6 +668,56 @@ def docker_ready():
     return bool(shutil.which("docker")) and run(["docker", "compose", "version"], capture=True)[0] == 0
 
 
+def has_image(name):
+    """True when Docker has this image here."""
+    return run(["docker", "image", "inspect", name], capture=True)[0] == 0
+
+
+def build_image():
+    """This clone's image, built and kept as the one the server runs (OPENDMT3_IMAGE in .env). 0 when built."""
+    write_env({IMAGE_ENV: IMAGE})
+    os.environ[IMAGE_ENV] = IMAGE
+    say("building the server image %s from this clone" % IMAGE)
+    return run(compose("build", SERVICE))[0]
+
+
+def cmd_image(args):
+    """./dmt3 image: the server image the server runs, made ready. --build builds this clone's and keeps it;
+    --published goes back to the published one of this version. Without either, the image already chosen: pulled
+    when it is the published one and not here yet, built when that cannot be (no network, or a version not
+    published, as a clone past its release is)."""
+    if args.build:
+        return build_image()
+    if args.published:
+        # Back to the published image: .env names none, so Compose and ./dmt3 take this version's.
+        write_env({IMAGE_ENV: None})
+        os.environ.pop(IMAGE_ENV, None)
+    image = chosen_image()
+    if has_image(image):
+        say("the server image: %s" % image)
+        return 0
+    if image != published_image():
+        # The clone's own image (or one named in .env) is missing: only a build makes it.
+        return build_image()
+    say("pulling the server image %s" % image)
+    if run(["docker", "pull", image])[0] == 0:
+        return 0
+    if args.published:
+        # Asked for by name: no build stands in for it.
+        return 1
+    say("the published image %s could not be pulled: building it from this clone instead" % image)
+    return build_image()
+
+
+def cmd_up(args):
+    """./dmt3 up: the image first (./dmt3 image, unless --no-build), then the server from it."""
+    if not args.no_build:
+        code = cmd_image(args)
+        if code:
+            return code
+    return run(simple_command(args, False))[0]
+
+
 def cmd_check(args):
     """The running server answers /health on the site's port, and its game port takes a connection."""
     failed = 0
@@ -710,12 +793,13 @@ def doctor_checks():
         return out + [("compose", False, "docker compose is missing",
                        "install the Docker Compose plugin (docker-compose-plugin)")]
     out.append(("compose", True, "docker compose is installed", None))
-    built = run(["docker", "image", "inspect", IMAGE], capture=True)[0] == 0
+    image = chosen_image()
+    built = run(["docker", "image", "inspect", image], capture=True)[0] == 0
     if built:
-        out.append(("image", True, "the server image %s is built" % IMAGE, None))
+        out.append(("image", True, "the server image %s is here" % image, None))
     else:
-        out.append(("image", False, "the server image %s is not built" % IMAGE,
-                    "./dmt3 up (it builds the image first)"))
+        out.append(("image", False, "the server image %s is not here yet" % image,
+                    "./dmt3 up (it gets the image first: the published one, or --build builds this clone's)"))
     running = is_running()
     for port in (GAME_PORT, WEB_PORT):
         if running:
@@ -859,7 +943,7 @@ class FrontDoor:
         """How many accounts the database has: 0 without a data volume, None when it cannot be told yet."""
         if run(["docker", "volume", "inspect", "%s_data" % PROJECT], capture=True)[0] != 0:
             return 0
-        if run(["docker", "image", "inspect", IMAGE], capture=True)[0] != 0:
+        if run(["docker", "image", "inspect", chosen_image()], capture=True)[0] != 0:
             # Counted in the image, which is not built yet; the setup counts again before it makes one.
             return None
         code, out = run(count_accounts(), capture=True)
@@ -902,7 +986,8 @@ class FrontDoor:
         return {"size": os.path.getsize(path), "version": downloads.version(path)}
 
     def build_command(self):
-        return compose("build", SERVICE)
+        # The image step of the setup: the published image, or this clone's when it cannot be pulled.
+        return image_command()
 
     def plan(self, a):
         """The front door's steps for the wizard's answers (an archive's password, when one was typed, goes to the
@@ -1004,7 +1089,8 @@ COMMANDS = [
               "account, the song list, the installer, then up"),
     ("catalog", "import the song list (with its jackets and the DJ cards) from your client data, in a folder or an "
                 "archive, or from a song list the launcher saved; --save FILE saves one"),
-    ("up", "start the server (building the image first)"),
+    ("image", "get the server image: the published one of this version, or --build builds this clone's"),
+    ("up", "start the server (getting the image first)"),
     ("down", "stop the server"),
     ("restart", "restart the server"),
     ("status", "the server's container and its health"),
@@ -1059,7 +1145,16 @@ def parser():
     p["catalog"].add_argument("--save", metavar="FILE",
                               help="save the song list into FILE (or a folder: openDMT3-song-list.zip in it) instead of "
                                    "importing it, for a server elsewhere")
-    p["up"].add_argument("--no-build", action="store_true", help="start from the image as it is")
+    p["up"].add_argument("--no-build", action="store_true",
+                         help="start from the image as it is (one loaded from a file): neither pulled nor built")
+    for name in ("image", "up", "setup"):
+        # The same two choices wherever the image is got.
+        choice = p[name].add_mutually_exclusive_group()
+        choice.add_argument("--build", action="store_true",
+                            help="build the image from this clone (and keep using it) instead of the published one")
+        if name != "setup":
+            choice.add_argument("--published", action="store_true",
+                                help="go back to the published image of this version")
     p["logs"].add_argument("-f", "--follow", action="store_true", help="keep showing new lines")
     p["logs"].add_argument("-n", "--tail", type=int, default=200, help="how many of the last lines (200)")
     p["restore"].add_argument("name", help="a backup's name, as ./dmt3 backups lists it")
@@ -1092,6 +1187,9 @@ def asked_nothing(argv):
 
 def main(argv=None):
     args = parser().parse_args(argv)
+    # Every Compose command runs the chosen image (.env, else the published one of this version): compose.yaml's own
+    # default is for docker compose run by hand.
+    os.environ.setdefault(IMAGE_ENV, chosen_image())
     if not args.command:
         # ./dmt3 alone lists what it does.
         say(usage())
@@ -1107,7 +1205,7 @@ def main(argv=None):
             "folder holds the server alone." % args.command)
         return 2
     special = {"setup": cmd_setup, "catalog": cmd_catalog, "check": cmd_check, "doctor": cmd_doctor,
-               "test": cmd_test}
+               "test": cmd_test, "image": cmd_image, "up": cmd_up}
     if args.command in special:
         return special[args.command](args)
     # Only the commands that reach the database need to know whether the container is up.

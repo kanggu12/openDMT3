@@ -75,7 +75,7 @@ class ArgumentsTest(unittest.TestCase):
 
     def test_the_commands_are_the_ones_the_guides_name(self):
         self.assertEqual([n for n, _ in dmt3.COMMANDS],
-                         ["setup", "catalog", "up", "down", "restart", "status", "logs", "backup", "backups",
+                         ["setup", "catalog", "image", "up", "down", "restart", "status", "logs", "backup", "backups",
                           "restore", "add-player", "check", "doctor", "build", "test"])
 
     def test_restore_needs_a_name_and_an_unknown_command_is_refused(self):
@@ -93,8 +93,9 @@ class ArgumentsTest(unittest.TestCase):
 
 class CommandsTest(unittest.TestCase):
     def test_up_down_restart_status_and_logs(self):
-        self.assertEqual(dmt3.simple_command(args_of("up"), False), COMPOSE + ["up", "-d", "--build"])
-        self.assertEqual(dmt3.simple_command(args_of("up", "--no-build"), False), COMPOSE + ["up", "-d"])
+        # The image is got before (cmd_up): Compose then neither builds nor pulls.
+        self.assertEqual(dmt3.simple_command(args_of("up"), False),
+                         COMPOSE + ["up", "-d", "--no-build", "--pull", "never"])
         self.assertEqual(dmt3.simple_command(args_of("down"), False), COMPOSE + ["down"])
         self.assertEqual(dmt3.simple_command(args_of("restart"), False), COMPOSE + ["restart", "server"])
         self.assertEqual(dmt3.simple_command(args_of("status"), False), COMPOSE + ["ps", "server"])
@@ -155,6 +156,67 @@ class CommandsTest(unittest.TestCase):
         # The package, the tests, the front door, and the scripts that build and release it (the wizard among them).
         self.assertEqual(commands["pyflakes"][-5:], ["opendmt3", "tests", "dmt3", "packaging", ".github"])
         self.assertTrue(dmt3.WIZARD.startswith("packaging"))
+
+
+class ImageTest(unittest.TestCase):
+    """./dmt3 image: the published image of this version unless --build, built when it cannot be pulled."""
+
+    def setUp(self):
+        # Nothing here runs Docker or writes .env: every command and every write is recorded instead.
+        self.ran, self.env, self.here = [], {}, set()
+        patches = [mock.patch.object(dmt3, "run", side_effect=self.fake_run),
+                   mock.patch.object(dmt3, "write_env", side_effect=self.env.update),
+                   mock.patch.object(dmt3, "read_env", side_effect=lambda: {k: v for k, v in self.env.items() if v}),
+                   mock.patch.object(dmt3, "has_image", side_effect=lambda name: name in self.here),
+                   mock.patch.object(dmt3, "say"), mock.patch.dict(os.environ, {}, clear=False)]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        # The variable from the test's own environment would choose for it.
+        os.environ.pop(dmt3.IMAGE_ENV, None)
+        self.pull_works = True
+
+    def fake_run(self, cmd, capture=False):
+        self.ran.append(cmd)
+        if cmd[:2] == ["docker", "pull"]:
+            return (0 if self.pull_works else 1), ""
+        return 0, ""
+
+    def test_the_published_image_is_pulled_when_it_is_not_here(self):
+        self.assertEqual(dmt3.cmd_image(args_of("image")), 0)
+        self.assertEqual(self.ran, [["docker", "pull", dmt3.published_image()]])
+        # Nothing is kept: .env names no image, so the next version's is the next one pulled.
+        self.assertNotIn(dmt3.IMAGE, self.env.values())
+
+    def test_an_image_already_here_is_neither_pulled_nor_built(self):
+        self.here.add(dmt3.published_image())
+        self.assertEqual(dmt3.cmd_image(args_of("image")), 0)
+        self.assertEqual(self.ran, [])
+
+    def test_no_published_image_builds_this_clone_and_keeps_it(self):
+        self.pull_works = False
+        self.assertEqual(dmt3.cmd_image(args_of("image")), 0)
+        self.assertEqual(self.ran[-1], COMPOSE + ["build", "server"])
+        self.assertEqual(self.env[dmt3.IMAGE_ENV], dmt3.IMAGE)
+
+    def test_build_builds_and_published_goes_back(self):
+        dmt3.cmd_image(args_of("image", "--build"))
+        self.assertEqual(self.ran, [COMPOSE + ["build", "server"]])
+        self.assertEqual(dmt3.chosen_image(), dmt3.IMAGE)
+        self.ran.clear()
+        dmt3.cmd_image(args_of("image", "--published"))
+        self.assertEqual(self.ran, [["docker", "pull", dmt3.published_image()]])
+        self.assertEqual(dmt3.chosen_image(), dmt3.published_image())
+
+    def test_published_asked_for_by_name_is_never_built_instead(self):
+        self.pull_works = False
+        self.assertEqual(dmt3.cmd_image(args_of("image", "--published")), 1)
+        self.assertNotIn(COMPOSE + ["build", "server"], self.ran)
+
+    def test_the_setup_gets_the_image_with_this_same_file(self):
+        step = dmt3.setup_plan(args_of("setup", "--build"), accounts=1)[0]
+        self.assertEqual(step[0], "image")
+        self.assertEqual(step[2][1:], [os.path.join(ROOT, "dmt3"), "image", "--build"])
 
 
 class SetupTest(unittest.TestCase):
@@ -504,7 +566,10 @@ class PiecesTest(unittest.TestCase):
         # The project's name gives the data volume its name (doctor looks for PROJECT_data).
         self.assertRegex(text, r"(?m)^name: %s$" % dmt3.PROJECT)
         self.assertRegex(text, r"(?m)^  %s:$" % dmt3.SERVICE)
-        self.assertIn("image: %s" % dmt3.IMAGE, text)
+        # The image by its variable, the published one of this version by default (the release's, moved with it).
+        self.assertIn("image: ${%s:-%s}" % (dmt3.IMAGE_ENV, dmt3.published_image()), text)
+        from opendmt3 import __version__
+        self.assertEqual(dmt3.published_image(), "ghcr.io/kanggu12/opendmt3-server:" + __version__)
         for port in (dmt3.GAME_PORT, dmt3.WEB_PORT):
             self.assertIn('"%d:%d"' % (port, port), text)
         # The game folder kept mounted: read-only, at its own path, and told to the server.

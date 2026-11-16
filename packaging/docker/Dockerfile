@@ -5,19 +5,30 @@
 # The first account is made with --add-player (see compose.yaml): the first-run page is for visits from the
 # server PC itself, and through Docker's network no visit is.
 FROM python:3.12-slim-bookworm
+# Where the image comes from, for the registry's page and for tools that look for the source of an image.
+LABEL org.opencontainers.image.source="https://github.com/kanggu12/openDMT3" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.title="openDMT3 server"
 # Exact versions, so every image runs the same site.
 # Pillow keeps the jackets and the DJ cards' pictures in one form when the song list is imported (the launcher bundles
 # the same version).
 RUN pip install --no-cache-dir starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0 python-multipart==0.0.20 pillow==11.3.0
 # The official 7-Zip, which opens an archive holding the game (.zip, .7z, .rar, split ones; the distribution's p7zip
-# cannot open RAR5): the release OpenDMTQ's tools pin, checked against the hash of the copy that was tested. Its
-# licence stays in the image with it.
+# cannot open RAR5): the release OpenDMTQ's tools pin, for the image's own processor (the release image is made for
+# amd64 and arm64), each checked against the hash of the copy that was tested. Its licence stays in the image with it.
+# TARGETARCH is set by Docker's builder (BuildKit) to the architecture the image is built for; a default here would
+# take its place, and an arm64 image would carry the amd64 program.
+ARG TARGETARCH
 ADD --chmod=0644 --checksum=sha256:4ca3b7c6f2f67866b92622818b58233dc70367be2f36b498eb0bdeaaa44b53f4 \
-    https://www.7-zip.org/a/7z2501-linux-x64.tar.xz /tmp/7z.tar.xz
-# Unpacked with Python's own reader (the slim image has no xz program): the program, then its licence and readme.
-RUN python -c "import tarfile; t = tarfile.open('/tmp/7z.tar.xz'); t.extract('7zz', '/usr/local/bin', filter='data'); \
-[t.extract(n, '/usr/local/share/doc/7-zip', filter='data') for n in ('License.txt', 'readme.txt')]" \
-    && chmod 0755 /usr/local/bin/7zz && rm /tmp/7z.tar.xz
+    https://www.7-zip.org/a/7z2501-linux-x64.tar.xz /tmp/7z-amd64.tar.xz
+ADD --chmod=0644 --checksum=sha256:39c5140f02ce4436599303c59a149f654cb1bbc47cdc105a942120d747ae040d \
+    https://www.7-zip.org/a/7z2501-linux-arm64.tar.xz /tmp/7z-arm64.tar.xz
+# Unpacked with Python's own reader (the slim image has no xz program): the program for this architecture, then its
+# licence and readme; an architecture with no 7-Zip of its own stops the build here, not the first archive later.
+RUN python -c "import tarfile; t = tarfile.open('/tmp/7z-${TARGETARCH}.tar.xz'); t.extract('7zz', '/usr/local/bin', \
+filter='data'); [t.extract(n, '/usr/local/share/doc/7-zip', filter='data') for n in ('License.txt', 'readme.txt')]" \
+    && chmod 0755 /usr/local/bin/7zz && rm /tmp/7z-*.tar.xz \
+    && /usr/local/bin/7zz i >/dev/null
 # The server runs as its own user, not root.
 RUN useradd --create-home --uid 4725 opendmt3 && mkdir /data && chown opendmt3 /data
 COPY --chown=opendmt3 opendmt3 /app/opendmt3

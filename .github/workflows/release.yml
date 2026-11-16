@@ -1,9 +1,10 @@
 name: release
 
 # A tag like v1.2.3: all of CI again on the tag's commit, and the tag, __version__ and CHANGELOG.md naming one version
-# with notes for it. No release is built or published here: a release's update packages carry the project's signature,
-# made with a key that never leaves the release machine, so the release is built, signed and published there
-# (packaging/release.sh, CONTRIBUTING.md). These checks need no key, and a tag that fails them shows it on GitHub.
+# with notes for it; then the server's image for amd64 and arm64, published on GitHub's container registry. The release
+# itself is not made here: a release's update packages carry the project's signature, made with a key that never leaves
+# the release machine, so the release is built, signed and published there (packaging/release.sh, CONTRIBUTING.md).
+# The checks and the image need no key, and a tag that fails them shows it on GitHub.
 on:
   push:
     tags: ["v*"]
@@ -26,3 +27,75 @@ jobs:
       # The script the release machine runs before it builds (packaging/release.sh), with the runner's own Python.
       - name: The tag, __version__ and CHANGELOG.md name one version
         run: python3 .github/release_notes.py "$GITHUB_REF_NAME"
+
+  # The server's image for amd64 and arm64, published on GitHub's container registry as
+  # ghcr.io/<owner>/opendmt3-server:<version> and :latest, once CI and the version check have passed on the tag's
+  # commit: ./dmt3 and the Helm chart run that image by default. It carries no key and no game file, so it is made
+  # here rather than on the release machine. arm64 is built under QEMU on the amd64 runner.
+  image:
+    needs: [ci, version]
+    runs-on: ubuntu-24.04
+    # Two architectures, one under emulation: a few minutes each; several times that is a stalled job.
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      # To push the image to this repository's packages.
+      packages: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      # The version without the tag's v, and the registry's name in lower case, as image names must be.
+      - name: The image's names
+        id: names
+        run: |
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/opendmt3-server" >> "$GITHUB_OUTPUT"
+
+      # The arm64 build's RUN steps run under QEMU on this amd64 runner.
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+
+      # BuildKit with a builder that makes both architectures into one image index.
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: The server image (amd64, arm64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: packaging/docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.names.outputs.image }}:${{ steps.names.outputs.version }}
+            ${{ steps.names.outputs.image }}:latest
+          # The registry links the package to this repository by this label (the Dockerfile names it too).
+          labels: org.opencontainers.image.version=${{ steps.names.outputs.version }}
+
+      # Each architecture of the published image started, answering /health with the tag's version, as CI's server
+      # job checks the image it builds (arm64 under QEMU).
+      - name: Each architecture answers /health with the tag's version
+        env:
+          IMAGE: ${{ steps.names.outputs.image }}:${{ steps.names.outputs.version }}
+          VERSION: ${{ steps.names.outputs.version }}
+        run: |
+          for arch in amd64 arm64; do
+            docker run -d --name "odt3-release-$arch" --platform "linux/$arch" -p 127.0.0.1:14730:4730 "$IMAGE" >/dev/null
+            code=000
+            for _ in $(seq 1 120); do
+              code=$(curl -s -o health.json -w '%{http_code}' http://127.0.0.1:14730/health || true)
+              [ "$code" = 200 ] && break
+              sleep 1
+            done
+            echo "$arch: $(cat health.json)"
+            test "$code" = 200
+            grep -q "\"version\":\"$VERSION\"" health.json
+            test "$(docker exec "odt3-release-$arch" uname -m)" = "$([ "$arch" = amd64 ] && echo x86_64 || echo aarch64)"
+            docker rm -f "odt3-release-$arch" >/dev/null
+          done
