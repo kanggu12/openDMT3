@@ -39,10 +39,22 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - The account page is one area in three parts: the profile (a picture of the player's own and the DJ card with a
   preview drawn as the game draws it), the account, and its security. Each control has its API call.
 
+
+### Changed
+
+- The launcher's menu moves to a column down the window's left, as OpenDMTQ's launcher has it now: openDMT3's mark and
+  version at its top, the pages' names one under another (the page on show on a raised slab with a rule in its
+  section's colour), and at its foot the status line, **Save a report** and **PLAY** as wide as the column. The
+  first-start guide's steps stand down the same column, with **Skip**, **Back** and **Next** (and the last step's
+  **PLAY**) at its foot. The names stand closer in a short window, and a card's buttons go on a second row where the
+  page beside the column has no room for them in one.
+
+
 ### Fixed
 
 - `.env` saved by Notepad (with a byte-order mark, CRLF or spaces around `=`) reads the same as any other.
 - The launcher connects to an `https://` address without a port on 443, as a browser does.
+
 
 ## [0.3.1] - 2026-11-17
 

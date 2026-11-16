@@ -72,9 +72,10 @@ skipped without it. The rest pass on Python 3.10, the oldest a server runs on.
 ## The layout checks
 
 The launcher's check (`tests/e2e/ui/shots.py`) walks every widget of each screen and fails on text cut off, a wrapping
-label never told its width, a button squeezed, anything past the window's right edge, or anything hidden under the
-bottom bar or past the window's bottom edge with no way to scroll to it; **Play** must show whole at the size the
-launcher opens at, and a page's scroll bar must leave the page its whole width. A run with no new screenshot for five
+label never told its width, a button squeezed, anything past the window's right edge, anything hidden past the window's
+bottom edge with no way to scroll to it, or a menu column whose names run under its foot (the status, **Save a report**
+and **PLAY**, or the guide's buttons); **Play** must show whole at the size the launcher opens at, and a page's scroll
+bar must leave the page its whole width. A run with no new screenshot for five
 minutes prints its stack and ends, failing: a window that never finishes drawing would hold it silent otherwise. The
 site's check (`tests/e2e/web/shoot.js`, measuring with `measure.js`) fails on anything past a page's right edge, words
 cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone width, a word of the phone
@@ -90,7 +91,7 @@ plants five faults in a copy (a table that sticks out on a phone, words cut off 
 cell with no label, a button's words out of its middle, the phone menu cut) and passes only when the check catches
 each. The launcher's check for hidden content tries itself at every run, at that run's fonts and scale, on a made-up
 page taller than the window: it must be said hidden where it cannot scroll (a scroll area with its region cut, a plain
-box) and not where it scrolls.
+box) and not where it scrolls; and its check of the menu column on names made taller than the column holds.
 
 ## Wine
 
