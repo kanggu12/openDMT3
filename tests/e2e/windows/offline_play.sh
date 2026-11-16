@@ -67,11 +67,12 @@ geometry() {
   geo=$(windows | grep "|openDMT3|" | head -1)
   sed -E 's/.*Position: ([0-9]+),([0-9]+).*Geometry: ([0-9]+)x([0-9]+).*/\1 \2 \3 \4/' <<<"$geo"
 }
-# A point of the launcher window, given as an offset from its bottom-right corner (where the guide's buttons are).
-click_from_corner() {
+# A point of the launcher window, given as an offset from its bottom-left corner: the menu column's foot, where the
+# guide's buttons are.
+click_from_foot() {
   local x y w h
   read -r x y w h <<<"$(geometry)"
-  docker exec -e DISPLAY=:99 "$C" xdotool mousemove $((x + w - $1)) $((y + h - $2)) sleep 0.15 click 1
+  docker exec -e DISPLAY=:99 "$C" xdotool mousemove $((x + $1)) $((y + h - $2)) sleep 0.15 click 1
 }
 # The guide's walk, each Next followed until its step shows, and where its buttons are (guide.sh).
 . "$(cd "$(dirname "$0")" && pwd)/guide.sh"
@@ -99,7 +100,7 @@ wait_for "\|openDMT3\|" 120 || fail "the launcher did not open after the install
 wait_s 6; shot 01-guide-1
 
 echo "== guide, Offline on LOG IN"
-# Next is in the strip along the window's foot, at its right end (guide.sh's click_next).
+# Next is at the menu column's foot, at the right end of its row of buttons (guide.sh's click_next).
 next_to 2 30 || fail "the guide did not go to its game folder step"
 wait_s 20; shot 02-guide-2-folder
 next_to 3 150 || fail "the guide's game folder step did not let it go on"

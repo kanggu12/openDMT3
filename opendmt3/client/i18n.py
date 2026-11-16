@@ -643,7 +643,6 @@ TEXT = {
     "guide.skip": ("Skip: I set it up myself", "건너뛰기(직접 설정)"),
     "guide.back": ("Back", "뒤로"),
     "guide.next": ("Next", "다음"),
-    "guide.step": ("Step {n} of {total}", "{total}단계 중 {n}단계"),
     "guide.1.name": ("POWER ON", "POWER ON"),
     "guide.1.title": ("Welcome to openDMT3", "openDMT3에 오신 것을 환영합니다"),
     "guide.1.text": ("A few steps to your first song.", "첫 곡까지 몇 단계면 됩니다."),

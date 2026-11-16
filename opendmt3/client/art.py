@@ -299,9 +299,9 @@ def logo(width, scale=1.0, label="LAUNCHER", accent=theme.BLUE_HI, version=None)
 # How far a leaning edge runs sideways for each pixel of its height: one slope for every plate, tab and button.
 LEAN = 0.36
 
-# The bar's mark: its width in logical pixels (DMT3 at the size the site's bar sets it, its capitals 19 px tall).
+# The menu column's mark: its width in logical pixels (DMT3 at the size the site's bar sets it, its capitals 19 px tall).
 BAR_MARK = 108
-# The version's number in the bar: this size (logical pixels) while it is as short as a usual version, a smaller one
+# The version's number beside the mark: this size (logical pixels) while it is as short as a usual version, a smaller one
 # for a longer one, and never smaller than that: the mark beside it keeps its size whatever the version.
 VERSION_POINTS, VERSION_POINTS_LONG = 15, 11
 
@@ -349,7 +349,7 @@ def version_block(label, version, scale=1.0, accent=theme.BLUE_HI):
 
 
 def brand(scale=1.0, version="", label="LAUNCHER", mark_width=BAR_MARK, accent=theme.BLUE_HI):
-    """The bar's left end, as the family's launchers have it: the mark (logo() without a label, OPEN over DMT3 with the
+    """The menu column's top, as the family's launchers have it: the mark (logo() without a label, OPEN over DMT3 with the
     TECHNIKA 3 logo's blue 3) and the version block beside it (version_block: LAUNCHER over the version), the block's
     foot on DMT3's foot. The mark is the same picture whatever the version. Returns an RGBA picture."""
     mark = logo(int(round(mark_width * scale)), scale, label="", accent=accent)
@@ -369,7 +369,7 @@ def brand(scale=1.0, version="", label="LAUNCHER", mark_width=BAR_MARK, accent=t
 
 
 def numeral(text, colour, scale=1.0, size=28):
-    """A step's number, upright in the wide face in one colour, as the guide's steps across the top set it (OpenDMTQ's
+    """A step's number, upright in the wide face in one colour, as the guide's steps down the menu column set it (OpenDMTQ's
     lean, TECHNIKA 3's stand). Returns an RGBA picture just as tall as the figure."""
     k = SS
     t = size * scale * k

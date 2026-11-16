@@ -2198,3 +2198,35 @@ class WindowBoxTest(unittest.TestCase):
         w, h, x, y = app.window_box((0, 0, 1920, 1008), 58, 1770, 1140)
         self.assertLessEqual(y + h + 58, 1008)
         self.assertEqual(w, 1766)
+
+
+@unittest.skipUnless(TK, "this Python has no Tk")
+class StatusWordsTest(unittest.TestCase):
+    """The menu column's status line is narrow, and Tk wraps a label only at spaces: a word wider than the line (an
+    address, a path) is broken in it, after a slash, a dot or a colon near the line's end where it has one."""
+
+    class Font:
+        # Every character 10 pixels wide: widths are counted, not measured on a screen.
+        def measure(self, text):
+            return 10 * len(text)
+
+    def test_long_words_break_after_their_parts(self):
+        from opendmt3.client import app
+        font = self.Font()
+        # An address of 25 characters in a line 20 wide: broken after its last dot within the line's last third.
+        said = app.break_long_words(font, "Cannot reach http://192.168.0.10:4730 now.", 200)
+        self.assertEqual(said, "Cannot reach http://192.168.0.10:\n4730 now.")
+        # Every piece fits, and nothing is lost or added but the breaks.
+        self.assertTrue(all(font.measure(line) <= 200 for word in said.split(" ") for line in word.split("\n")))
+        self.assertEqual(said.replace("\n", ""), "Cannot reach http://192.168.0.10:4730 now.")
+
+    def test_a_word_with_no_break_is_cut_where_the_line_is_full(self):
+        from opendmt3.client import app
+        self.assertEqual(app.break_long_words(self.Font(), "x" * 45, 200), "x" * 20 + "\n" + "x" * 20 + "\n" + "x" * 5)
+
+    def test_words_that_fit_stay_as_they_are(self):
+        from opendmt3.client import app
+        for text in ("Ready to play.", "", "two\nlines"):
+            self.assertEqual(app.break_long_words(self.Font(), text, 200), text)
+        # No width known yet: the words as they are.
+        self.assertEqual(app.break_long_words(self.Font(), "x" * 45, 0), "x" * 45)

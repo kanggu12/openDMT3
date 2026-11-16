@@ -141,159 +141,244 @@ class SlimBar(tk.Canvas):
         self.paint()
 
 
-class Header(tk.Canvas):
-    """The bar across the window's top, as both launchers and both sites have it: the mark with its version block
-    (art.brand) at its left end, then the menu, its names in the wide face in English in both languages (as both sites'
-    menus and the game's are): grey, white under the pointer, the page on show white with a rule in its section's colour
-    along the bar's foot, as the site's bar marks its page. Under the bar, for the first-start guide, the guide's steps
-    across (set_step): each step's number and name over a rule, the step on show and the steps taken in the guide's
-    blue, the steps to come grey.
+class Rail(tk.Frame):
+    """The column down the window's left side, as OpenDMTQ's launcher has it: the mark with its version block
+    (art.brand) at its top, then the menu (`nav`: the pages, one under another) or the first-start guide's steps
+    (`steps`), and at its foot what the window places there (the status and PLAY, or the guide's Skip, Back and Next,
+    LauncherApp.make_foot). Opaque, a step darker than the page, with a seam along its right edge where the page begins.
 
-    The menu takes the keyboard as OpenDMTQ's does: Tab reaches the bar (a cyan ring on the page on show), the arrow keys
-    and Tab move the ring along the names, Enter or Space opens the page with the ring, and Tab past the last name (or
-    Shift+Tab before the first) goes on to the page.
-    """
+    The names keep their font at every window height; when the column is short (a small window, a status line that
+    wraps to several lines over PLAY), the names stand closer together instead (fit), so the menu never runs under
+    its foot."""
 
-    # The bar's height, the room at its left end (the page's own margin, so the mark lines up with the cards under it),
-    # the room either side of a name, the gap after the mark, and the height of the guide's steps under the bar (logical
-    # pixels).
-    HEIGHT, EDGE, NAME_PAD, AFTER_MARK, STEPS_H = 64, 32, 13, 26, 60
+    # The column's width, the room inside it either side, above the mark, and under it (logical pixels). The width
+    # holds the mark with its version at 100 % with the room either side, and PLAY's slab as wide as the column holds.
+    WIDTH, EDGE, TOP, UNDER_BRAND = 248, 18, 22, 26
+    # The least room between the menu's last name and the foot's top (logical pixels).
+    ABOVE_FOOT = 16
 
     def __init__(self, parent, ui, brand, nav=(), on_nav=None, steps=()):
-        self.ui = ui
         px = ui.px
-        height = px(self.HEIGHT) + (px(self.STEPS_H) if steps else 0)
-        # The keyboard reaches the bar only when it has a menu (the guide's has none).
-        super().__init__(parent, height=height, bg=theme.BAR, highlightthickness=0, bd=0,
-                         takefocus=1 if nav else 0)
-        # The mark (a picture), the menu as (key, words), what a name's press does, and the guide's step names.
-        self.brand_picture = brand
+        # The column's own colour, a step darker than the page (theme.BAR).
+        super().__init__(parent, bg=theme.BAR, width=px(self.WIDTH))
+        self.ui = ui
+        # Its own width whatever it holds (the brand and the list never widen it).
+        self.pack_propagate(False)
+        # The seam along its right edge: the page's field starts after it.
+        tk.Frame(self, bg=theme.LINE, width=max(1, px(1))).pack(side="right", fill="y")
+        image = ImageTk.PhotoImage(brand, master=self)
+        self.brand = tk.Label(self, image=image, bg=theme.BAR, bd=0)
+        # Kept on the label: Tk drops a picture the moment Python forgets it. A dialog draws the window from it.
+        self.brand.image, self.brand.opendmt3_picture = image, brand
+        self.brand.pack(side="top", anchor="w", padx=(px(self.EDGE), 0), pady=(px(self.TOP), px(self.UNDER_BRAND)))
+        # The menu or the guide's steps under the mark.
+        self.list = RailList(self, ui, nav=nav, on_nav=on_nav, steps=steps)
+        self.list.pack(side="top", fill="x")
+        # The foot the window places over the column's foot (set by LauncherApp.make_foot), measured by fit.
+        self.foot = None
+        # The column's height changes with the window's: the names find their room again.
+        self.bind("<Configure>", lambda e: self.fit(), add="+")
+
+    def inner_width(self):
+        """The width of what the column holds between its rooms either side (the foot's buttons, PLAY's slab)."""
+        return self.ui.px(self.WIDTH) - 2 * self.ui.px(self.EDGE) - max(1, self.ui.px(1))
+
+    def set_foot(self, foot):
+        """The foot placed over the column: its height (a status line that wraps, Next turning into PLAY) leaves the
+        menu its room."""
+        self.foot = foot
+        foot.bind("<Configure>", lambda e: self.fit(), add="+")
+        self.fit()
+
+    def fit(self):
+        """The menu's rows as tall as the room between the mark and the foot allows, up to their full height."""
+        if not self.winfo_exists():
+            return
+        px = self.ui.px
+        height = self.winfo_height()
+        if height <= 1:
+            # Not laid out yet: the first <Configure> comes back here.
+            return
+        # The list's top: under the mark and its room.
+        top = self.brand.winfo_reqheight() + px(self.TOP) + px(self.UNDER_BRAND)
+        # The foot's top, from the column's foot: its height and the room under it (placed by make_foot).
+        foot = 0
+        if self.foot is not None and self.foot.winfo_exists():
+            foot = self.foot.winfo_reqheight() + getattr(self.foot, "opendmt3_under", 0)
+        self.list.fit(height - top - foot - px(self.ABOVE_FOOT))
+
+    def set_current(self, key):
+        """The page on show, lit in the menu."""
+        self.list.set_current(key)
+
+    def set_step(self, index):
+        """The guide's step on show."""
+        self.list.set_step(index)
+
+
+class RailList(tk.Canvas):
+    """The column's list: the menu's pages, or the guide's steps, one under another.
+
+    The menu: each page's name in the wide face, in English in both languages (as both sites' menus and the game's
+    are); grey, white under the pointer on a quiet slab; the page on show white on a raised slab of the cards' colour,
+    its top-right corner cut as the cards' are, with a rule along its left edge in its section's colour (TECHNIKA 3's
+    blue for PLAY, STAR MIXING's lime for the cabinet's settings, POP MIXING's pink for playing online, amber for the
+    tools). The keyboard reaches it first, as OpenDMTQ's: Tab brings a cyan ring to the page on show, the arrow keys
+    and Tab move it along the names, Enter or Space opens the page with the ring, and Tab past the last name (or
+    Shift+Tab before the first) goes on to the page.
+
+    The guide's steps: each step's number upright in the wide face, its name beside it; the step on show on the
+    raised slab with the guide's blue rule, the numbers of the steps taken and on show in the guide's blue, the steps
+    to come grey. They take no keyboard (Back and Next move along them)."""
+
+    # A name's full height and the least it shrinks to in a short column, the gap between two, the room before a name
+    # inside its slab, the slab's cut corner and its rule, and a step's full and least height (logical pixels).
+    ITEM_H, ITEM_LEAST, ITEM_GAP, NAME_PAD, CUT, RULE, STEP_H, STEP_LEAST = 42, 30, 4, 16, 10, 3, 50, 36
+    # The room a step's number takes before its name (the names stand in one column whatever each number's width).
+    NUMBER_W = 34
+
+    def __init__(self, parent, ui, nav=(), on_nav=None, steps=()):
+        self.ui = ui
         self.nav, self.on_nav, self.steps = list(nav), on_nav, list(steps)
+        # Each row's height now: the full height until the column says it is short (fit).
+        self.row = ui.px(self.ITEM_H) if self.nav else ui.px(self.STEP_H)
+        # The keyboard reaches the list only when it is the menu (the guide's steps take none).
+        super().__init__(parent, height=self._height(), bg=theme.BAR, highlightthickness=0, bd=0,
+                         takefocus=1 if self.nav else 0)
         # The page on show, the name under the pointer, the name with the keyboard's ring, the guide's step on show.
         self.current, self.hover, self.ring, self.step = None, None, None, 0
+        # Each entry's box (x0, y0, x1, y1) once drawn: the pointer, the ring and the tests find the entries by it.
+        self.boxes = {}
         # A drawing waiting for a resize to settle.
         self._job = None
-        # Each name's box on the bar once it is drawn, for the rule under it and the keyboard's ring.
-        self.boxes = {}
         self.bind("<Configure>", lambda e: self._queue())
-        for key, move in (("<Tab>", 1), ("<Shift-Tab>", -1), ("<ISO_Left_Tab>", -1), ("<Right>", 1), ("<Left>", -1)):
-            self.bind(key, lambda e, m=move, k=key: self._move(m, k))
-        for key in ("<Return>", "<KP_Enter>", "<space>"):
-            self.bind(key, lambda e: self._press(self.ring))
-        self.bind("<FocusIn>", lambda e: self._focused(True))
-        self.bind("<FocusOut>", lambda e: self._focused(False))
+        if self.nav:
+            for key, move in (("<Tab>", 1), ("<Shift-Tab>", -1), ("<ISO_Left_Tab>", -1), ("<Down>", 1), ("<Up>", -1)):
+                self.bind(key, lambda e, m=move, k=key: self._move(m, k))
+            for key in ("<Return>", "<KP_Enter>", "<space>"):
+                self.bind(key, lambda e: self._press(self.ring))
+            self.bind("<FocusIn>", lambda e: self._focused(True))
+            self.bind("<FocusOut>", lambda e: self._focused(False))
+            # The pointer is followed over the whole list (the gaps between names too), so the slab under it shows.
+            self.bind("<Motion>", lambda e: self._hover(self._at(e.y)))
+            self.bind("<Leave>", lambda e: self._hover(None))
+            self.bind("<Button-1>", lambda e: self._press(self._at(e.y)))
+
+    def _count(self):
+        return len(self.nav) or len(self.steps)
+
+    def _height(self):
+        """The list's height at its rows' height now."""
+        count = self._count()
+        return count * self.row + max(0, count - 1) * self.ui.px(self.ITEM_GAP)
+
+    def fit(self, room):
+        """Rows as tall as `room` (pixels) holds for all of them, between their least and full heights."""
+        px, count = self.ui.px, self._count()
+        if not count:
+            return
+        full, least = (px(self.ITEM_H), px(self.ITEM_LEAST)) if self.nav else (px(self.STEP_H), px(self.STEP_LEAST))
+        row = max(least, min(full, (room - (count - 1) * px(self.ITEM_GAP)) // count))
+        if row != self.row:
+            self.row = row
+            # The new height brings a <Configure>, which draws the list again.
+            self.configure(height=self._height())
 
     def _queue(self):
         """Draw again once the size settles (a drag fires many resize events)."""
         if self._job is not None:
             self.after_cancel(self._job)
-        self._job = self.after(30, self.draw)
+        self._job = self.after(10, self.draw)
+
+    def _entries(self):
+        return [key for key, _ in self.nav]
+
+    def _at(self, y):
+        """The entry whose box holds height `y`, or None (the gap between two)."""
+        for key, (_x0, y0, _x1, y1) in self.boxes.items():
+            if y0 <= y < y1:
+                return key
+        return None
 
     def draw(self):
-        """The bar's picture (its colour, the line along its foot, the mark), the names over it as Tk's own text (as
-        crisp as every label), and the guide's steps under it."""
-        from PIL import Image
+        """The list's picture (the column's colour, the slab under the entry on show and the one under the pointer)
+        and its words over it as Tk's own text (as crisp as every label)."""
+        from PIL import Image, ImageDraw
         self._job = None
         if not self.winfo_exists():
             return
         px = self.ui.px
         width, height = max(1, self.winfo_width()), max(1, self.winfo_height())
-        bar_h = px(self.HEIGHT)
         self.delete("all")
+        # The slabs reach a little past the column's room either side, so the names line up with the mark above.
+        left, right = px(Rail.EDGE) - px(6), width - px(Rail.EDGE) + px(6)
         picture = Image.new("RGB", (width, height), art._rgb(theme.BAR))
-        # The line along the bar's foot, a pixel of seam, as the site's bar has it.
-        picture.paste(art._rgb(theme.LINE), (0, bar_h - 1, width, bar_h))
-        if self.steps:
-            # Under the bar the guide's steps stand on the page's own colour.
-            picture.paste(art._rgb(theme.BG), (0, bar_h, width, height))
-        brand = self.brand_picture
-        bx, by = px(self.EDGE), (bar_h - brand.height) // 2
-        picture.paste(brand, (bx, by), brand)
-        # A dialog draws the window behind it from the widgets (snapshot.py): the bar as it looks now (_paint puts the
-        # page's rule on a copy of it).
-        self._picture = picture
-        self.opendmt3_picture = picture
-        self._image = ImageTk.PhotoImage(picture, master=self)
-        self.create_image(0, 0, image=self._image, anchor="nw")
-        # The menu after the mark, a step smaller where the window is too narrow for it in one line.
-        x = bx + brand.width + px(self.AFTER_MARK)
-        font, pad = self.ui.fonts.nav, px(self.NAME_PAD)
-        need = sum(font.measure(words) + 2 * pad for _, words in self.nav)
-        if x + need + px(self.EDGE) > width:
-            font, pad = self.ui.fonts.nav_small, px(8)
+        draw = ImageDraw.Draw(picture)
+        keys = self._entries() if self.nav else list(range(len(self.steps)))
+        lit = self.current if self.nav else self.step
         self.boxes = {}
-        for key, words in self.nav:
-            w = font.measure(words) + 2 * pad
-            self.boxes[key] = (x, 0, x + w, bar_h)
-            self.create_text(x + w // 2, bar_h // 2, text=words, font=font, tags=("name", "n-" + key))
-            for event, handler in (("<Enter>", lambda e, k=key: self._hover(k)), ("<Leave>", lambda e: self._hover(None)),
-                                   ("<Button-1>", lambda e, k=key: self._press(k))):
-                self.tag_bind("n-" + key, event, handler)
-            x += w
-        if self.steps:
-            self._draw_steps(width)
-        self._paint()
-
-    def _draw_steps(self, width):
-        """The guide's steps across under the bar, as OpenDMTQ's: each step's number big beside its name, a rule under
-        both; the step on show and the steps taken in the guide's blue, the steps to come grey."""
-        px, scale = self.ui.px, self.ui.scale
-        left, right = px(self.EDGE), width - px(self.EDGE)
-        top = px(self.HEIGHT) + px(12)
-        gap = px(10)
-        cell = (right - left - (len(self.steps) - 1) * gap) / float(len(self.steps))
-        # Each number's picture, kept while it shows (Tk drops a picture the moment Python forgets it).
+        for i, key in enumerate(keys):
+            top = i * (self.row + px(self.ITEM_GAP))
+            self.boxes[key] = (left, top, right, top + self.row)
+            if key == lit or (self.nav and key == self.hover):
+                # The slab: the cards' colour under the entry on show, a quieter one under the pointer, its top-right
+                # corner cut as the cards' are.
+                cut, bottom = px(self.CUT), top + self.row - 1
+                fill = theme.PANEL if key == lit else theme.NAV_HOVER
+                draw.polygon([(left, top), (right - 1 - cut, top), (right - 1, top + cut), (right - 1, bottom),
+                              (left, bottom)], fill=art._rgb(fill))
+                if key == lit:
+                    # The rule along its left edge, where the window is: the page's section's colour, the guide's blue.
+                    colour = theme.section_colours(key)["accent"] if self.nav else theme.BLUE_HI
+                    draw.rectangle([left, top, left + px(self.RULE) - 1, bottom], fill=art._rgb(colour))
+        # The numbers' pictures, kept while they show (Tk drops a picture the moment Python forgets it).
         self._numerals = []
-        for i, name in enumerate(self.steps):
-            done, now = i < self.step, i == self.step
-            x = left + i * (cell + gap)
-            colour = theme.BLUE_HI if (done or now) else theme.STEP_TO_COME
-            picture = art.numeral(str(i + 1), colour, scale)
-            image = ImageTk.PhotoImage(picture, master=self)
-            self._numerals.append(image)
-            self.create_image(int(x), top, image=image, anchor="nw")
-            # The number on the bar's own picture too, for a dialog's view of the window (snapshot.py).
-            self._picture.paste(picture, (int(x), int(top)), picture)
-            # The name beside the number, standing on the number's foot.
-            self.create_text(x + picture.width + px(8), top + picture.height, text=name, anchor="sw",
-                             font=self.ui.fonts.step,
-                             fill=theme.TEXT if now else (theme.MUTED if done else theme.FAINT), tags=("step",))
-            # The rule under the step: thicker for the one on show.
-            thick = px(3) if now else px(2)
-            y = top + picture.height + px(8)
-            self.create_rectangle(x, y, x + cell, y + thick, width=0,
-                                  fill=theme.BLUE_HI if (done or now) else theme.LINE)
-            self._picture.paste(art._rgb(theme.BLUE_HI if (done or now) else theme.LINE),
-                                (int(x), int(y), int(x + cell), int(y + thick)))
+        if self.nav:
+            for key, words in self.nav:
+                x0, y0, _x1, y1 = self.boxes[key]
+                self.create_text(x0 + px(self.NAME_PAD), (y0 + y1) // 2, text=words, font=self.ui.fonts.nav,
+                                 anchor="w", tags=("name", "n-" + key))
+        else:
+            for i, name in enumerate(self.steps):
+                x0, y0, _x1, y1 = self.boxes[i]
+                done, now = i < self.step, i == self.step
+                # Taken and on show in the guide's blue, to come in grey.
+                numeral = art.numeral(str(i + 1), theme.BLUE_HI if (done or now) else theme.STEP_TO_COME,
+                                      self.ui.scale, size=24)
+                nx, ny = x0 + px(self.NAME_PAD), (y0 + y1 - numeral.height) // 2
+                # On the list's own picture: crisp, and in a dialog's view of the window too (snapshot.py).
+                picture.paste(numeral, (nx, ny), numeral)
+                self.create_text(nx + px(self.NUMBER_W), (y0 + y1) // 2, text=name, anchor="w",
+                                 font=self.ui.fonts.step, tags=("step",),
+                                 fill=theme.TEXT if now else (theme.MUTED if done else theme.FAINT))
+        self._picture = picture
+        self._image = ImageTk.PhotoImage(picture, master=self)
+        # A dialog draws the window from the widgets (snapshot.py): the list as it looks now.
+        self.opendmt3_picture = picture
+        # Under the words.
+        self.tag_lower(self.create_image(0, 0, image=self._image, anchor="nw"))
+        self._paint()
 
     def _paint(self):
-        """Each name's colour, the rule under the page on show (its section's colour), and the keyboard's ring."""
+        """Each name's colour and the keyboard's ring."""
         px = self.ui.px
-        self.delete("rule", "ring")
-        picture = getattr(self, "_picture", None)
-        if picture is not None:
-            # A dialog's view of the window (snapshot.py): the bar with the page's rule on it.
-            self.opendmt3_picture = picture.copy()
+        self.delete("ring")
         for key, _words in self.nav:
-            on = key == self.current
-            self.itemconfigure("n-" + key, fill=theme.TEXT if on or key == self.hover else theme.MUTED)
-            if on and key in self.boxes:
-                x0, _y0, x1, y1 = self.boxes[key]
-                rule = (x0 + px(8), y1 - px(3), x1 - px(8), y1)
-                self.create_rectangle(*rule, width=0, tags=("rule",), fill=theme.section_colours(key)["accent"])
-                if picture is not None:
-                    self.opendmt3_picture.paste(art._rgb(theme.section_colours(key)["accent"]), rule)
+            self.itemconfigure("n-" + key, fill=theme.TEXT if key in (self.current, self.hover) else theme.MUTED)
         if self.ring in self.boxes:
             x0, y0, x1, y1 = self.boxes[self.ring]
-            inset = px(12)
-            self.create_rectangle(x0 + px(2), y0 + inset, x1 - px(2), y1 - inset, outline=theme.CYAN,
-                                  width=max(1, px(2)), tags=("ring",))
+            thick = max(1, px(2))
+            # Inside the entry's box, so it never runs over the next name.
+            self.create_rectangle(x0 + thick // 2, y0 + thick // 2, x1 - (thick + 1) // 2, y1 - (thick + 1) // 2,
+                                  outline=theme.CYAN, width=thick, tags=("ring",))
 
     def _hover(self, key):
-        self.hover = key
-        # The hand over a name, the arrow elsewhere on the bar.
-        self.configure(cursor="hand2" if key else "")
-        self._paint()
+        if key != self.hover:
+            self.hover = key
+            # The hand over a name, the arrow over the gaps.
+            self.configure(cursor="hand2" if key else "")
+            # The slab under the pointer is part of the picture.
+            self.draw()
 
     def _press(self, key):
         if key is not None and self.on_nav:
@@ -301,33 +386,34 @@ class Header(tk.Canvas):
 
     def _focused(self, on):
         """The keyboard came: the ring on the page on show (or the first name); it went: the ring goes."""
-        keys = [key for key, _ in self.nav]
-        if on and keys:
-            if self.ring not in keys:
-                self.ring = self.current if self.current in keys else keys[0]
+        entries = self._entries()
+        if on and entries:
+            if self.ring not in entries:
+                self.ring = self.current if self.current in entries else entries[0]
         else:
             self.ring = None
         self._paint()
 
     def _move(self, by, key):
-        """The ring along the names; Tab past the last (Shift+Tab before the first) leaves the bar, as Tab does."""
-        keys = [k for k, _ in self.nav]
-        if not keys or self.ring not in keys:
+        """The ring along the names; Tab past the last (Shift+Tab before the first) leaves the list, as Tab does."""
+        entries = self._entries()
+        if not entries or self.ring not in entries:
             return None
-        i = keys.index(self.ring) + by
-        if 0 <= i < len(keys):
-            self.ring = keys[i]
+        i = entries.index(self.ring) + by
+        if 0 <= i < len(entries):
+            self.ring = entries[i]
             self._paint()
             return "break"
-        if key in ("<Left>", "<Right>"):
-            # The arrows stay on the bar at its ends.
+        if key in ("<Up>", "<Down>"):
+            # The arrows stay on the list at its ends.
             return "break"
         return None
 
     def set_current(self, key):
-        """The page on show: its name white, with its section's rule under it."""
-        self.current = key
-        self._paint()
+        """The page on show: its name lit on its slab."""
+        if key != self.current:
+            self.current = key
+            self.draw()
 
     def set_step(self, index):
         """The guide's step on show."""
@@ -939,6 +1025,38 @@ def fit_names(container, ui, more=()):
     for row in rows:
         row.columnconfigure(0, minsize=width)
     return width
+
+
+def flow(box, children, gap):
+    """Lay `children` (made in `box`) out left to right, `gap` pixels apart, starting a new row (`gap` under the last)
+    where the next would pass the box's width, as words flow in a line. The box takes the rows' height; it must get its
+    width from its own parent (pack fill="x"), never from the children, so a new layout changes only its height and
+    never its width (no layout that undoes itself)."""
+    # Placed children leave the box's size to it: the box sets its own height.
+    box.pack_propagate(False)
+    box.grid_propagate(False)
+
+    def lay(event=None):
+        width = box.winfo_width()
+        if width <= 1:
+            # Not laid out yet: one row as wide as they ask, until the box has a width.
+            width = sum(child.winfo_reqwidth() for child in children) + gap * len(children)
+        x = y = row_height = 0
+        for child in children:
+            w, h = child.winfo_reqwidth(), child.winfo_reqheight()
+            if x and x + w > width:
+                # The next row, under the tallest of the row before.
+                x, y, row_height = 0, y + row_height + gap, 0
+            child.place(x=x, y=y)
+            x += w + gap
+            row_height = max(row_height, h)
+        height = y + row_height
+        if int(box.cget("height")) != height:
+            # Only a change: a <Configure> for the same height would lay them out again for nothing.
+            box.configure(height=height)
+
+    box.bind("<Configure>", lay, add="+")
+    lay()
 
 
 def divider(parent, ui, pady=12):

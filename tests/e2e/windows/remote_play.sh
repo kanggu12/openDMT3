@@ -97,12 +97,12 @@ shot() { docker exec -e DISPLAY=:99 "$PC" sh -c "xwd -root -silent | convert xwd
 windows() { docker exec -e DISPLAY=:99 "$PC" sh -c 'for w in $(xdotool search --onlyvisible --name . 2>/dev/null); do echo "$w|$(xdotool getwindowname $w)|$(xdotool getwindowgeometry $w | tr "\n" " ")"; done'; }
 wait_for() { local end=$((SECONDS + $2)); while [ $SECONDS -lt $end ]; do windows | grep -qE "$1" && return 0; wait_s 1; done; return 1; }
 fail() { echo "FAIL: $*"; windows; shot 99-failure; docker logs "$SRV" > "$OUT/server.log" 2>&1; cleanup; exit 1; }
-click_from_corner() {
+click_from_foot() {
   local geo x y w h
   geo=$(windows | grep "|openDMT3|" | head -1)
   x=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\1/' <<<"$geo"); y=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\2/' <<<"$geo")
   w=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\1/' <<<"$geo"); h=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\2/' <<<"$geo")
-  docker exec -e DISPLAY=:99 "$PC" xdotool mousemove $((x + w - $1)) $((y + h - $2)) sleep 0.15 click 1
+  docker exec -e DISPLAY=:99 "$PC" xdotool mousemove $((x + $1)) $((y + h - $2)) sleep 0.15 click 1
 }
 keys() { local win; win=$(windows | grep "|openDMT3|" | head -1 | cut -d'|' -f1); docker exec -e DISPLAY=:99 "$PC" sh -c "xdotool windowfocus --sync $win; $1"; }
 # The guide's walk, each Next followed until its step shows, and where its buttons are (guide.sh, which reads the

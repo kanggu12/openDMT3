@@ -180,12 +180,12 @@ textures() {
   grep -q "textures made while the game plays" "$OUT/ingame.log" && fail "a part's textures were made while the game played ($1)"
   return 0
 }
-click_from_corner() {
+click_from_foot() {
   local geo px py w h
   geo=$(windows | grep "|openDMT3|" | head -1)
   px=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\1/' <<<"$geo"); py=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\2/' <<<"$geo")
   w=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\1/' <<<"$geo"); h=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\2/' <<<"$geo")
-  x "xdotool mousemove $((px + w - $1)) $((py + h - $2)) sleep 0.15 click 1"
+  x "xdotool mousemove $((px + $1)) $((py + h - $2)) sleep 0.15 click 1"
 }
 # The guide's walk, each Next followed until its step shows, and where its buttons are (guide.sh).
 . "$(cd "$(dirname "$0")" && pwd)/guide.sh"

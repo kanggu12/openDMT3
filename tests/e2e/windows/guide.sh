@@ -1,47 +1,50 @@
 # The first-start guide's walk for the Wine tests: sourced by install_and_play.sh, offline_play.sh, play_a_song.sh,
-# ingame.sh and remote_play.sh, which define C (the container), wait_s, windows and click_from_corner before.
+# ingame.sh and remote_play.sh, which define C (the container), wait_s, windows and click_from_foot before.
 #
 # Each Next is followed until the guide shows the step it leads to, read from the screen, instead of a fixed wait: the
 # game folder step keeps Next off while it searches for game folders, which took over 25 s on a busy machine.
 
-# The guide's buttons in the strip along the window's foot, each clicked in its middle, given as an offset from the
-# launcher window's bottom-right corner (click_from_corner) at 100 %: Next, and the PLAY slab that stands in Next's
-# place on the last step (STAGE START).
-click_next() { click_from_corner 60 39; }
-click_play() { click_from_corner 140 42; }
+# The guide's buttons at the menu column's foot (the column 248 pixels wide at 100 %, its room 18 pixels either side,
+# 211 between, the foot 20 pixels over the window's bottom edge: app.make_foot), each clicked inside it, given as an
+# offset from the launcher window's bottom-left corner (click_from_foot): Next at the right end of the row of Back and
+# Next (34 pixels tall), and the PLAY slab that stands under Back in Next's place on the last step (STAGE START), as
+# wide as the column holds and 54 pixels tall with its keyboard ring.
+click_next() { click_from_foot 209 37; }
+click_play() { click_from_foot 123 47; }
 
-# Which step of the guide is on show (1 to 5), read from the screen: the five steps stand across the window under its
-# bar (64 pixels tall at 100 %), each over a rule in the 60 pixels below the bar (widgets.Header._draw_steps). The rule
-# of the step on show is blue and 3 pixels thick, the steps taken keep a blue rule 2 pixels thick, the steps to come a
-# grey one; each rule is read near its right end, where neither the step's number nor its name reaches. 0 when the
-# rules are not those of the guide (no rule 3 pixels thick, or more than one).
+# Which step of the guide is on show (1 to 5), read from the screen: the five steps stand down the menu column under
+# its mark (the list's top 88 pixels under the window's top at 100 %: the room over the mark, the mark, the room under
+# it; each step 50 pixels tall, 4 apart: widgets.RailList). The step on show stands on a slab with a blue rule along
+# its left edge, 3 pixels wide, 12 pixels in from the window's left; the other steps have no slab there. The rule is
+# read down those 3 columns: its run of blue rows says which step it stands by. 0 when there is no such rule (not the
+# guide), or more than one.
 guide_step() {
-  local geo px py w
+  local geo px py
   geo=$(windows | grep "|openDMT3|" | head -1)
   [ -n "$geo" ] || { echo 0; return; }
   px=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\1/' <<<"$geo")
   py=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\2/' <<<"$geo")
-  w=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\1/' <<<"$geo")
-  # The band under the bar, the window's whole width, one text line a pixel.
-  docker exec -e DISPLAY=:99 "$C" sh -c "xwd -root -silent | convert xwd:- -crop ${w}x60+$px+$((py + 64)) -depth 8 txt:-" \
+  # The rule's three columns, from a little over the list's top down past its fifth step, one pixel a text line.
+  docker exec -e DISPLAY=:99 "$C" sh -c "xwd -root -silent | convert xwd:- -crop 3x300+$((px + 12))+$((py + 80)) -depth 8 txt:-" \
     2>/dev/null | python3 -c '
 import re, sys
-width = int(sys.argv[1])
-# Each pixel a line "X,Y: (R,G,B..."; a rule pixel of the guide is blue: its blue well over its red, and bright.
-blue = {}
+# Each pixel a line "X,Y: (R,G,B..."; a rule pixel is the guide'"'"'s blue: its blue well over its red, and bright.
+rows = {}
 for m in re.finditer(r"^(\d+),(\d+): \((\d+),(\d+),(\d+)", sys.stdin.read(), re.M):
     if int(m.group(5)) > int(m.group(3)) + 80 and int(m.group(5)) > 150:
-        blue[int(m.group(1))] = blue.get(int(m.group(1)), 0) + 1
-# The five steps share the width between the margins (32 pixels each side), 10 pixels apart.
-cell = (width - 2 * 32 - 4 * 10) / 5.0
-thick = []
-for i in range(5):
-    right = 32 + i * (cell + 10) + cell
-    # The 25 columns 5 to 30 pixels short of the right end of the rule: its thickness there, as most of them have it.
-    counts = sorted(blue.get(x, 0) for x in range(int(right) - 30, int(right) - 5))
-    thick.append(counts[len(counts) // 2])
-# One rule 3 thick, the others taken (2) or to come (0): the guide, on the step whose rule is the thick one.
-print(thick.index(3) + 1 if thick.count(3) == 1 and all(t in (0, 2, 3) for t in thick) else 0)' "$w"
+        rows[int(m.group(2))] = rows.get(int(m.group(2)), 0) + 1
+# The runs of rows blue across the three columns: the rule is one run as tall as a step (50 rows; 30 or more counts).
+runs, start = [], None
+for y in range(301):
+    if rows.get(y, 0) >= 2 and start is None:
+        start = y
+    elif rows.get(y, 0) < 2 and start is not None:
+        runs.append((start, y))
+        start = None
+runs = [r for r in runs if r[1] - r[0] >= 30]
+# The step whose row the rule starts in (the list 8 rows under the crop'"'"'s top, each row 50 tall and 4 apart; rounded,
+# so the mark'"'"'s few pixels more or less on another system move nothing).
+print(int(round((runs[0][0] - 8) / 54.0)) + 1 if len(runs) == 1 and runs[0][0] < 8 + 5 * 54 else 0)'
 }
 
 # Next, then until the guide shows step $1, at most $2 seconds; Next again while it still shows the step before (a

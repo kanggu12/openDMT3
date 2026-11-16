@@ -77,7 +77,7 @@ def build_about(app, parent):
             # The update is the page's main action: lit while PLAY waits, quiet beside a lit PLAY.
             main_button(app, found, w("about.update_now", v=result.version), lambda: update(result)).pack(
                 anchor="w", pady=(ui.px(10), 0))
-        # In a small window the words (and the button) may land under the bottom bar: bring them into view.
+        # In a small window the words (and the button) may land past the window's foot: bring them into view.
         app.body.show(found, ui.px(14))
 
     def check():

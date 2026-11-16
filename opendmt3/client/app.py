@@ -1,6 +1,6 @@
-"""The launcher window, laid out as OpenDMTQ's launcher and both sites are: the bar across the top with the mark, the
-version and the menu, the page under it (its head, the title over the section's shards, then its cards, scrolling
-together), and the strip along the foot with the status line and PLAY.
+"""The launcher window, laid out as OpenDMTQ's launcher is: the column down the left with the mark and the version, the
+menu, and at its foot the status line, Save a report and PLAY; beside it the page (its head, the title over the
+section's shards, then its cards, scrolling together).
 
 Slow work (checking the game folder, rewriting archives, reading song discs, update checks) runs on worker
 threads; they hand results back through a queue the window empties every 50 ms, because Tk may only be touched
@@ -22,10 +22,10 @@ from opendmt3.client.window_room import title_bar_height, window_box, work_area
 
 log = logging.getLogger("opendmt3.launcher")
 
-# The menu, left to right.
+# The menu, top to bottom.
 NAV = ("play", "screen", "sound", "controls", "game", "online", "records", "help", "about")
 # The page head (logical pixels): the title and the line under it over the section's shards (PLAY's discs at its right),
-# scrolling with the page under the bar as a page of the site does under its own. As tall as its words need, as the
+# at the window's top beside the menu column, scrolling with the page. As tall as its words need, as the
 # site's own heads are, never less than the title's room: a line under the title of one line leaves the cards that much
 # higher (PLAY after a session of two cleared stages shows whole in a window of the game's 5:3 shape at the launcher's
 # width, 1180x708, with Windows' fonts, as the README's first picture shows it).
@@ -36,12 +36,42 @@ HEAD_FOOT = 16
 FOOT = 20
 # Where the title stands in the head and where the line under it starts (left edge and baseline, left edge and top).
 TITLE_AT, SUB_AT = (32, 60), (32, 78)
-# The strip along the foot: its least height inside its padding (PLAY's slab and its keyboard ring), the same on every
-# page and every step of the guide, so the page above it never moves as Next turns into PLAY (OpenDMTQ's BAR_HEIGHT).
-BAR_HEIGHT = 54
+# The room under the column's foot (PLAY, the guide's buttons) to the window's edge, the gap over PLAY, and PLAY's
+# slab's height (logical pixels), as OpenDMTQ's column has them.
+FOOT_UNDER, OVER_PLAY, PLAY_HEIGHT = 20, 14, 50
 # Each page gets its own arrangement of shards, so moving between pages feels like moving.
 SEEDS = {"play": 7, "screen": 11, "sound": 23, "controls": 31, "game": 5, "online": 13, "records": 19, "help": 17,
          "about": 41}
+
+
+# Where a long word is best broken: after these (a path's or an address's parts).
+BREAK_AFTER = "/\\.:-_?&="
+
+
+def break_long_words(font, text, width):
+    """`text` with each word wider than `width` pixels (an address, a path) broken over lines, after a slash, a dot or
+    a colon where one is near the line's end, else where the line is full: Tk wraps a label only at spaces, and the
+    menu column's status line is narrow, so such a word would run past its edge, cut."""
+    if width <= 0:
+        return text
+    lines = []
+    for line in text.split("\n"):
+        words = []
+        for word in line.split(" "):
+            pieces = []
+            while font.measure(word) > width:
+                # The longest start of the word that fits (one character at the least, so it always moves on).
+                cut = 1
+                while cut < len(word) and font.measure(word[:cut + 1]) <= width:
+                    cut += 1
+                # Back to just after a break character in its last third, when there is one.
+                near = max((i + 1 for i in range(cut * 2 // 3, cut) if word[i] in BREAK_AFTER), default=cut)
+                pieces.append(word[:near])
+                word = word[near:]
+            pieces.append(word)
+            words.append("\n".join(pieces))
+        lines.append(" ".join(words))
+    return "\n".join(lines)
 
 
 class LauncherApp:
@@ -143,62 +173,88 @@ class LauncherApp:
     def _build_main(self):
         ui, px, w = self.ui, self.ui.px, self.words
         from opendmt3.client import pages
-        # ---- the bar across the top: the mark and the version, then the menu, as both sites' bars and OpenDMTQ's
-        # launcher's (each name as its page's title)
-        self.header = self.make_header(self.root, nav=[(key, pages.TITLES[key]) for key in NAV], on_nav=self.go)
-        # ---- the strip along the foot: what is going on at the left, a report and PLAY at the right
-        bottom = tk.Frame(self.root, bg=theme.PANEL)
-        bottom.pack(side="bottom", fill="x")
-        tk.Frame(bottom, bg=theme.LINE, height=1).pack(fill="x", side="top")
-        bar = tk.Frame(bottom, bg=theme.PANEL)
-        bar.pack(fill="x", padx=px(24), pady=px(12))
-        # As tall as PLAY with its keyboard ring at the least, on every page and every step of the guide; a status line
-        # long enough to wrap past that makes it taller rather than being cut (an error with a long path).
-        tk.Frame(bar, bg=theme.PANEL, width=1, height=px(BAR_HEIGHT)).pack(side="left")
-        self.play_button = self._make_play(bar)
-        self.play_button.pack(side="right")
-        widgets.Button(bar, ui, w("bottom.report"), self.save_report).pack(side="right", padx=(0, px(14)))
-        # The lamp before the line: an outline while there is nothing to say, lit in the colour of what happened.
-        self.status_lamp = widgets.Lamp(bar, ui, theme.MUTED, lit=False, bg=theme.PANEL)
-        self.status_lamp.pack(side="left")
-        self.status_label = tk.Label(bar, text="", font=self.fonts.body, fg=theme.MUTED, bg=theme.PANEL,
-                                     justify="left", anchor="w", wraplength=px(520))
-        self.status_label.pack(side="left", fill="x", expand=True, padx=(px(9), px(12)))
-        # The line wraps at the room the bar leaves it (a long error would be cut at a fixed width).
-        self.status_label.bind("<Configure>", self._wrap_status)
-        # ---- the page: its head and its cards, scrolling together under the bar
-        self.body = widgets.ScrollArea(self.root, ui)
-        self.body.pack(fill="both", expand=True)
+        # ---- the column down the left: the mark and the version, then the menu, as OpenDMTQ's launcher has it (each
+        # name as its page's title)
+        self.rail = self.make_rail(self.root, nav=[(key, pages.TITLES[key]) for key in NAV], on_nav=self.go)
+        # ---- the page beside it: its head and its cards, scrolling together
+        self.body = self.make_page(self.root)
         # The head is drawn again for a new width, once a drag settles (the first width draws it at once).
         self.body.on_width = lambda width: self._queue_header(now=self.body.canvas.head_picture is None)
-        # Tab goes as the window reads: the menu, the page, then the strip along the foot. Tk's Tab follows each
-        # parent's stacking order, the order its children were made in until one is raised. (Misc's own raise: a
-        # canvas's raise moves its items instead.)
-        tk.Misc.tkraise(bottom)
+        # ---- the column's foot, made after the page so that Tab goes the menu, the page, then the foot (Tk's Tab
+        # follows the order things were made in): what is going on, a report, then PLAY
+        foot = self.make_foot(self.rail)
+        status = tk.Frame(foot, bg=theme.BAR)
+        status.pack(side="top", fill="x")
+        # The lamp before the line: an outline while there is nothing to say, lit in the colour of what happened. It
+        # stands on the middle of the line's first row, however many rows the line wraps to.
+        self.status_lamp = widgets.Lamp(status, ui, theme.MUTED, lit=False, bg=theme.BAR)
+        drop = max(0, (self.fonts.small.metrics("linespace") - self.status_lamp.opendmt3_picture.height + 1) // 2)
+        self.status_lamp.pack(side="left", anchor="n", pady=(drop, 0))
+        # The line wraps at the column's room after the lamp: a long error (a path) takes more rows, never a cut, and
+        # the menu above makes room for it (widgets.Rail.fit).
+        wrap = self.rail.inner_width() - self.status_lamp.opendmt3_picture.width - px(8)
+        self.status_label = tk.Label(status, text="", font=self.fonts.small, fg=theme.MUTED, bg=theme.BAR,
+                                     justify="left", anchor="w", wraplength=wrap)
+        self.status_label.pack(side="left", fill="x", expand=True, padx=(px(8), 0))
+        # A report for whoever helps, a quiet link under the line, its words in the line's own column after the lamp
+        # (its keyboard ring's width in from there); the HELP page's Tools has it too, with its hint.
+        self.report_link = widgets.link(foot, ui, w("bottom.report"), self.save_report, fg=theme.MUTED, bg=theme.BAR,
+                                        chevron=False)
+        self.report_link.configure(font=self.fonts.small)
+        ring = int(self.report_link.cget("highlightthickness"))
+        self.report_link.pack(side="top", anchor="w", pady=(px(4), 0),
+                              padx=(self.status_lamp.opendmt3_picture.width + px(8) - ring, 0))
+        # PLAY under it all, as wide as the column holds.
+        self.play_button = self._make_play(foot)
+        self.play_button.pack(side="top", anchor="w", pady=(px(OVER_PLAY), 0))
         self._paint_status()
 
-    def make_header(self, parent, nav=(), on_nav=None, steps=()):
-        """The bar across the window's top (widgets.Header): the mark with LAUNCHER and the version beside it
-        (art.brand), then the menu; the guide's has its steps under the bar instead."""
-        header = widgets.Header(parent, self.ui, art.brand(self.scale, updates.shown_version()), nav=nav,
-                                on_nav=on_nav, steps=steps)
-        header.pack(side="top", fill="x")
-        return header
+    def make_rail(self, parent, nav=(), on_nav=None, steps=()):
+        """The column down the window's left (widgets.Rail): the mark with LAUNCHER and the version beside it
+        (art.brand), then the menu, or the guide's steps."""
+        rail = widgets.Rail(parent, self.ui, art.brand(self.scale, updates.shown_version()), nav=nav, on_nav=on_nav,
+                            steps=steps)
+        rail.pack(side="left", fill="y")
+        return rail
+
+    def make_page(self, parent):
+        """The page area beside the column: its head at the window's top, then its cards (widgets.ScrollArea)."""
+        page = widgets.ScrollArea(parent, self.ui)
+        page.pack(side="left", fill="both", expand=True)
+        return page
+
+    def make_foot(self, rail):
+        """The column's foot (the status, a report and PLAY, or the guide's Skip, Back and Next): a frame of the
+        window's own placed over the column's foot, so that Tab reaches it after the page (Tk's Tab follows the order
+        things were made in); the column's menu keeps clear of it (widgets.Rail.fit)."""
+        px = self.ui.px
+        foot = tk.Frame(self.root, bg=theme.BAR)
+        foot.place(in_=rail, x=px(widgets.Rail.EDGE), rely=1.0, y=-px(FOOT_UNDER), anchor="sw",
+                   width=rail.inner_width())
+        # The room under it, for the column's measure of what is left for the menu.
+        foot.opendmt3_under = px(FOOT_UNDER)
+        rail.set_foot(foot)
+        return foot
+
+    def play_size(self, rail):
+        """PLAY's slab (pixels): as wide as the column `rail` holds, less its keyboard ring either side."""
+        ring = max(1, self.ui.px(2))
+        return rail.inner_width() - 2 * ring, self.ui.px(PLAY_HEIGHT)
 
     # -------------------------------------------------------------------------------------- PLAY
 
     def _make_play(self, parent):
         """PLAY: the angular blue slab, its word in the game's wide letters."""
         px = self.ui.px
-        size = (px(212), px(50))
+        size = self.play_size(self.rail)
         self._play_pictures = {s: art.play_button(*size, state=s)
                                for s in ("normal", "hover", "pressed", "disabled", "playing")}
         self._play_images = {s: ImageTk.PhotoImage(p, master=self.root) for s, p in self._play_pictures.items()}
         # The keyboard reaches it too, as OpenDMTQ's PLAY: Tab brings a cyan ring round it, Enter or Space presses it.
         button = tk.Label(parent, image=self._play_images["normal"], text=self.words("bottom.play"),
-                          compound="center", font=self.fonts.display_big, fg=theme.TEXT, bg=theme.PANEL,
+                          compound="center", font=self.fonts.display_big, fg=theme.TEXT, bg=theme.BAR,
                           cursor="hand2", bd=0, takefocus=1, highlightthickness=max(1, px(2)),
-                          highlightbackground=theme.PANEL, highlightcolor=theme.CYAN)
+                          highlightbackground=theme.BAR, highlightcolor=theme.CYAN)
         button.bind("<Enter>", lambda e: self._paint_play("hover"))
         button.bind("<Leave>", lambda e: self._paint_play())
         button.bind("<Button-1>", lambda e: self._paint_play("pressed"))
@@ -210,7 +266,7 @@ class LauncherApp:
     def _paint_play(self, mouse=None):
         """The button's look follows the state first (busy, playing), then the mouse."""
         if not hasattr(self, "play_button") or not self.play_button.winfo_exists():
-            # The guide is on show: it has no PLAY bar.
+            # The guide is on show: its own foot has its PLAY.
             return
         if self.session is not None and self.session.running():
             look, text = "playing", self.words("bottom.playing")
@@ -475,12 +531,12 @@ class LauncherApp:
     # ----------------------------------------------------------------------------------- pages
 
     def go(self, page):
-        """Show a page: its name lit on the bar, its head (title and line) and its cards."""
+        """Show a page: its name lit in the menu, its head (title and line) and its cards."""
         from opendmt3.client import pages
         self.page = page
         # The page's widgets take its section's colour.
         self.ui.use_section(page)
-        self.header.set_current(page)
+        self.rail.set_current(page)
         # The page's main buttons are made again with it (pages.main_button).
         self.main_buttons = []
         for child in self.body.inner.winfo_children():
@@ -621,13 +677,6 @@ class LauncherApp:
 
     # ---------------------------------------------------------------------------------- status
 
-    def _wrap_status(self, event):
-        label = self.status_label
-        inside = 2 * sum(label.winfo_pixels(str(label.cget(o))) for o in ("padx", "bd", "highlightthickness"))
-        wrap = max(self.ui.px(120), event.width - inside)
-        if int(str(label.cget("wraplength"))) != wrap:
-            label.configure(wraplength=wrap)
-
     def set_status(self, text, tone="normal"):
         self.status_text, self.status_tone = text, tone
         self._paint_status()
@@ -637,7 +686,9 @@ class LauncherApp:
             return
         colour = {"normal": theme.MUTED, "ok": theme.LIME, "warn": theme.AMBER, "bad": theme.PINK}[self.status_tone]
         self.status_lamp.show(colour, lit=self.status_tone != "normal")
-        self.status_label.configure(text=self.status_text, fg=theme.TEXT if self.status_tone != "normal" else theme.MUTED)
+        # Tk wraps only at spaces: a word wider than the column's line (an address, a path) is broken in it first.
+        shown = break_long_words(self.fonts.small, self.status_text, int(str(self.status_label.cget("wraplength"))))
+        self.status_label.configure(text=shown, fg=theme.TEXT if self.status_tone != "normal" else theme.MUTED)
 
     # ------------------------------------------------------------------------------- changes
 

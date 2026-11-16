@@ -1,8 +1,8 @@
 """Colours, fonts and sizes of the launcher: the game's metal, and the game's colours where they mean something.
 
 The surfaces are neutral gunmetal (the same family as OpenDMTQ, openDMT3's sister project for TECHNIKA Q), never
-tinted by one brand colour, laid out as both launchers and both sites are: a bar across the top with the mark and the
-menu, the page's title under it, the page's parts on cards, PLAY at the foot. Colour comes from TECHNIKA 3's own screens and marks a section or a meaning: the title
+tinted by one brand colour, laid out as OpenDMTQ's launcher is: a column down the left with the mark, the menu and,
+at its foot, the status and PLAY; beside it the page, its title at the top and its parts on cards. Colour comes from TECHNIKA 3's own screens and marks a section or a meaning: the title
 screen's electric blue for PLAY, STAR MIXING's lime for the cabinet's settings, POP MIXING's pink for playing
 online, and amber for the tools. Lime, amber and pink also say "fine", "will change" and "problem" in checks.
 
@@ -19,8 +19,9 @@ FONT_DIR = os.path.join(ASSETS, "fonts")
 
 # Surfaces, darkest first: gunmetal, a step lighter for each layer that sits on another.
 BG = "#101317"          # the window behind everything
-BAR = "#0c0e11"         # the bar across the top with the mark and the menu, a step darker than the page
-PANEL = "#1a1f25"       # cards and the bottom bar
+BAR = "#0c0e11"         # the column down the left with the mark, the menu and PLAY, a step darker than the page
+NAV_HOVER = "#15191e"   # the quiet slab under the pointer in that column's menu, between it and a card
+PANEL = "#1a1f25"       # cards, and the menu's slab under the page on show
 PANEL_HI = "#232931"    # a hovered or chosen row, the top of a card
 RAIL = "#2b323b"        # quiet metal: buttons and tracks
 RAIL_UP = "#3a434e"     # the same under the pointer
@@ -45,7 +46,7 @@ PINK = "#ff4fa0"        # POP MIXING: a crash, an error, removing for good
 AMBER = "#ffb33d"       # something PLAY will change, a warning
 CYAN = "#5fd3ff"        # the keyboard's place (focus rings)
 
-# A section's colour lights its head's shards, its title's tail, the rule under its name on the bar and its main
+# A section's colour lights its head's shards, its title's tail, the rule beside its name in the menu and its main
 # buttons.
 SECTION_COLOURS = {
     "technika": {"accent": BLUE_HI, "light": "#2f6bff", "deep": BLUE_DEEP, "fill": BLUE, "ink": "#ffffff"},
@@ -105,7 +106,7 @@ class Fonts:
         # (13.3 px); a step smaller where the window is too narrow for the menu in one line at the full size.
         self.nav = tkfont.Font(root, family=DISPLAY, size=10)
         self.nav_small = tkfont.Font(root, family=DISPLAY, size=9)
-        # The first-start guide's step names under the bar, in the same face (English in both languages too).
+        # The first-start guide's step names down the menu column, in the same face (English in both languages too).
         self.step = tkfont.Font(root, family=DISPLAY, size=9)
         self.section = tkfont.Font(root, family=section[0], size=section[1])         # section headings
         self.display = tkfont.Font(root, family=DISPLAY, size=10)                    # Latin labels in the game's style

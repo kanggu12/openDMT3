@@ -117,27 +117,30 @@ w, h, x, y = map(int, m.groups()) if m else (0, 0, 0, 0)
 print("%d %d" % (x + w // 2, y + h // 2) if w > 1 and h > 1 else "")'
 }
 
-menu_entry() {   # menu_entry SHOT X Y W N: the middle x of the menu's Nth name from its end, in the window at X,Y, W wide
-  # The menu's names stand in a line across the bar at the window's top (64 pixels tall at 100 %, the names in its
-  # middle), after openDMT3's mark. Each column of that line, averaged to one grey value: the columns with letters stand
-  # out of the dark bar, and letters less than 10 pixels apart are one name (the names stand 26 apart).
-  in_c "convert /out/$1.png -crop ${4}x20+$2+$(($3 + 22)) +repage -colorspace Gray -scale ${4}x1! -depth 8 txt:-" \
+menu_entry() {   # menu_entry SHOT X Y N: the middle "x y" of the menu's Nth name from its end, in the window at X,Y
+  # The menu's names stand one under another down the column at the window's left (the list's top 88 pixels under the
+  # window's top at 100 %, each name in a row up to 42 pixels tall: widgets.RailList), from 28 pixels in. Each row of
+  # that stretch of the column, averaged to one grey value: the rows with letters stand out of the dark column, and
+  # rows less than 6 pixels apart are one name (the names stand 20 and more apart). Found on the screenshot, as rows
+  # shrink in a short window.
+  in_c "convert /out/$1.png -crop 150x440+$(($2 + 28))+$(($3 + 88)) +repage -colorspace Gray -scale 1x440! -depth 8 txt:-" \
     | python3 -c 'import re, sys
-cols = [(int(m.group(1)), int(m.group(2))) for m in (re.match(r"(\d+),0: \((\d+)", l) for l in sys.stdin) if m]
-base = sorted(v for _, v in cols)[len(cols) // 2]
+rows = [(int(m.group(1)), int(m.group(2))) for m in (re.match(r"0,(\d+): \((\d+)", l) for l in sys.stdin) if m]
+base = sorted(v for _, v in rows)[len(rows) // 2]
 names, start, last = [], None, None
-for x, v in cols:
+for y, v in rows:
     if v > base + 6:
-        if start is not None and x - last > 10:
+        if start is not None and y - last > 6:
             names.append((start + last) // 2)
             start = None
         if start is None:
-            start = x
-        last = x
+            start = y
+        last = y
 if start is not None:
     names.append((start + last) // 2)
-n = int(sys.argv[2])
-print(names[-n] + int(sys.argv[1]) if len(names) >= n else "")' "$2" "$5"
+n = int(sys.argv[3])
+# Nine names: anything else is not the menu (the guide, a dialog over it).
+print("%d %d" % (int(sys.argv[1]) + 28 + 40, int(sys.argv[2]) + 88 + names[-n]) if len(names) == 9 else "")' "$2" "$3" "$4"
 }
 
 lowest_colour() {   # lowest_colour SHOT COLOUR: the centre "x y" of the lowest words on the screenshot in that colour
@@ -175,11 +178,10 @@ windows | grep -q "|openDMT3|" || fail "the launcher did not open"
 wait_s 4
 read -r X Y W <<<"$(window_geometry)"
 shot 1-00-launcher
-# HELP, the menu's last name but one (LAUNCHER is last), found on the screenshot (the words' width differs between
-# systems), in the middle of the bar's height.
-MX=$(menu_entry 1-00-launcher "$X" "$Y" "$W" 2)
-[ -n "$MX" ] || fail "no menu on the launcher"
-in_c "xdotool mousemove $MX $((Y + 32)) sleep 0.2 click 1"
+# HELP, the menu's last name but one (LAUNCHER is last), found on the screenshot down the menu column.
+read -r MX MY <<<"$(menu_entry 1-00-launcher "$X" "$Y" 2)"
+[ -n "${MY:-}" ] || fail "no menu on the launcher"
+in_c "xdotool mousemove $MX $MY sleep 0.2 click 1"
 wait_s 2; shot 1-01-help-page
 # Down to the end of the page with the mouse wheel, as a person scrolls.
 in_c "xdotool mousemove $((X + 700)) $((Y + 400)) sleep 0.2 click --repeat 25 --delay 60 5"

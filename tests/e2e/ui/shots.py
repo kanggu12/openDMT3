@@ -354,7 +354,7 @@ def scrolls_to(area, w):
 
 
 def hidden(app, name, problems):
-    """Content hidden under the bottom bar or past the window's bottom edge with no way to scroll to it.
+    """Content hidden past the window's bottom edge, or under what lies over it, with no way to scroll to it.
 
     Three kinds: a widget whose box runs below what the boxes around it show (each box shows only what lies inside
     it), where no scroll area can bring it up; a widget its row had no room left for at all (pack and grid then
@@ -415,9 +415,32 @@ def hidden(app, name, problems):
     return looked
 
 
+def rail_problems(app, name, problems):
+    """The menu column (widgets.Rail): its list of names (or the guide's steps) ends above the foot placed over the
+    column (the status, a report and PLAY, or Skip, Back and Next), with the column's room between, at every window
+    height and however many rows the status line wraps to; and the foot stands under the mark. The foot is placed
+    (Tk's place), so the hidden check, which follows the boxes round each widget, never sees the two overlap."""
+    for rail in [w for w in widgets_of(app.root) if isinstance(w, widgets.Rail)]:
+        foot = rail.foot
+        if foot is None or not foot.winfo_ismapped() or not rail.winfo_ismapped():
+            continue
+        RAILS.append(name)
+        listed = rail.list.winfo_rooty() + rail.list.winfo_height()
+        top = foot.winfo_rooty()
+        if listed > top:
+            problems.append("%s: the menu column's names run %d px under its foot" % (name, listed - top))
+        if top < rail.brand.winfo_rooty() + rail.brand.winfo_height():
+            problems.append("%s: the menu column's foot reaches over its mark" % name)
+        # Each name's box inside the list as drawn (the pointer and the keyboard find the names by them).
+        for key, (_x0, _y0, _x1, y1) in rail.list.boxes.items():
+            if y1 > rail.list.winfo_height() + 1:
+                problems.append("%s: the menu's %s drawn past the list's foot" % (name, key))
+
+
 def measure(app, name, problems):
     """Text cut off (a label narrower than its text without wrapping), widgets past the window's right edge, and
-    content hidden under the bottom bar or past the window's bottom edge with no way to scroll to it (hidden)."""
+    content hidden past the window's bottom edge with no way to scroll to it (hidden), and a menu column whose names
+    run under its foot (rail_problems)."""
     import tkinter as tk
     root = app.root
     root.update()
@@ -426,6 +449,7 @@ def measure(app, name, problems):
         problems.append("%s: still working when it was shot: %s" % (name, UNSETTLED.pop(0)))
     # Below the visible area with no scroll to bring it up: counted, so a run that looked at nothing says so.
     HIDDEN_LOOKS.append(hidden(app, name, problems))
+    rail_problems(app, name, problems)
     right = root.winfo_rootx() + root.winfo_width()
     for w in widgets_of(root):
         if not w.winfo_ismapped():
@@ -474,6 +498,8 @@ UNSETTLED = []
 # pages held to the launcher's own size (play_fits_check): counted, so a check that met nothing never reads as a pass.
 HIDDEN_LOOKS = []
 FITS = []
+# Every screen whose menu column was measured against its foot (rail_problems), counted the same way.
+RAILS = []
 
 
 def shot(app, out, name, root=None):
@@ -1801,8 +1827,8 @@ def play_fits_check(app, out, tag, problems):
     at 100 %, never more than 92 % of the screen), in the states a player meets there: no session yet, after a
     session of three cleared stages (the most the page lists) with long titles, and after a crash.
 
-    After such a session the page ran 147 to 276 px under the bottom bar with Windows' fonts (100 to 200 %), and 152
-    to 170 in this Linux run: it scrolled, but a player saw My records cut by the bar and nothing under it. Where the
+    After such a session the page ran 147 to 276 px under 0.3.0's bottom bar with Windows' fonts (100 to 200 %), and
+    152 to 170 in this Linux run: it scrolled, but a player saw My records cut by the bar and nothing under it. Where the
     screen leaves the window less than the launcher's full size (150 % on a 1080-line screen), the page may scroll
     there: shot and measured as every page is, not held to fit."""
     back = app.root.geometry()
@@ -1835,7 +1861,7 @@ def play_fits_check(app, out, tag, problems):
                 FITS.append(label)
                 if over > 1:
                     problems.append("%s: PLAY does not show whole at the launcher's own size %dx%d: %d px under "
-                                    "the bottom bar" % (label, size[0], size[1], over))
+                                    "the window's foot" % (label, size[0], size[1], over))
     finally:
         app.state.mode, app.state.player, app.state.last_session = kept
         app.root.geometry(back)
@@ -1916,14 +1942,30 @@ def planted_check(app, out, tag, problems):
     if not any("no room left for it" in p or "cut at its foot" in p for p in boxed):
         problems.append("%s: the check for hidden content missed a page without a scroll area (%d said)"
                         % (tag, len(boxed)))
-    # The window as it was: the scroll area back after the bottom bar, as _build_main packs it, and PLAY in it with
+    # The window as it was: the scroll area back beside the menu column, as make_page packs it, and PLAY in it with
     # its scroll region the content's own again.
     plain.destroy()
-    area.pack(fill="both", expand=True)
+    area.pack(side="left", fill="both", expand=True)
     app.go("play")
     settle(app)
     area.canvas.configure(scrollregion=area.canvas.bbox("all"))
     app.root.update()
+    # The menu column's check (rail_problems) tried on names made taller than the column holds: they run under its
+    # foot, and it must say so (a check that missed it would pass a menu PLAY covers).
+    rail = app.rail
+    kept = rail.list.row
+    rail.list.row = app.ui.px(120)
+    rail.list.configure(height=rail.list._height())
+    app.root.update()
+    said = []
+    rail_problems(app, "%s_planted-rail" % tag, said)
+    # Back as the column fits it (the list's height alone changed: nothing told the column).
+    rail.list.row = kept
+    rail.list.configure(height=rail.list._height())
+    rail.fit()
+    app.root.update()
+    if not any("run" in p and "under its foot" in p for p in said):
+        problems.append("%s: the check of the menu column missed names under its foot (%d said)" % (tag, len(said)))
 
 
 def guide_states_check(app, out, tag, problems):
@@ -2301,6 +2343,9 @@ def main():
         problems.append("keyboard: Space did not flip the focused switch")
     switch.event_generate("<space>")
     wait_out(app, 0.2)
+    # A page with buttons (Screen has none; the column's foot has a link and PLAY): HELP's tools.
+    app.go("help")
+    settle(app)
     pressable = [x for x in widgets_of(app.root) if isinstance(x, widgets.Button) and x.winfo_ismapped()]
     pressable[-1].focus_force()
     wait_out(app, 0.2)
@@ -2334,6 +2379,9 @@ def main():
 
 def finish(out, tag, problems):
     """Write the problems down, say how many screens and problems there were, and end with 1 when there are any."""
+    if not RAILS and len(SHOTS) > 1:
+        # A run that met no menu column measured nothing of it (the line below says so too).
+        problems.append("%s: no menu column was measured against its foot" % tag)
     with open(os.path.join(out, "problems-%s.txt" % tag), "w", encoding="utf-8") as f:
         f.write("\n".join(problems) + ("\n" if problems else ""))
     if RESIZES:
@@ -2344,6 +2392,8 @@ def finish(out, tag, problems):
     # launcher's own size, counted the same way.
     print("%s: %d widgets looked at for hidden content over %d screens, %d PLAY pages held to the launcher's own size"
           % (tag, sum(HIDDEN_LOOKS), len(HIDDEN_LOOKS), len(FITS)))
+    # The screens whose menu column was measured against its foot: none would mean the check met no column at all.
+    print("%s: %d screens' menu columns measured against their foot" % (tag, len(RAILS)))
     # Counted, not worked out: a screen that was skipped must show in the number.
     print("%s: %d screens, %d problems" % (tag, len(SHOTS), len(problems)))
     for p in problems:

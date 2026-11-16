@@ -67,13 +67,14 @@ wait_for() {   # wait_for <title regex> <seconds>
   return 1
 }
 fail() { echo "FAIL: $*"; windows; shot 99-failure; docker rm -f "$C" >/dev/null; exit 1; }
-# A point of the launcher window, given as an offset from its bottom-right corner (where the guide's buttons are).
-click_from_corner() {
+# A point of the launcher window, given as an offset from its bottom-left corner: the menu column's foot, where the
+# guide's buttons are.
+click_from_foot() {
   local geo x y w h
   geo=$(windows | grep "|openDMT3|" | head -1)
   x=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\1/' <<<"$geo"); y=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\2/' <<<"$geo")
   w=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\1/' <<<"$geo"); h=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\2/' <<<"$geo")
-  docker exec -e DISPLAY=:99 "$C" xdotool mousemove $((x + w - $1)) $((y + h - $2)) sleep 0.15 click 1
+  docker exec -e DISPLAY=:99 "$C" xdotool mousemove $((x + $1)) $((y + h - $2)) sleep 0.15 click 1
 }
 # The guide's walk, each Next followed until its step shows, and where its buttons are (guide.sh).
 . "$(cd "$(dirname "$0")" && pwd)/guide.sh"
@@ -99,7 +100,7 @@ if [ -n "${UNPACK_FROM:-}" ]; then
     || fail "no game folder came out of the archive"
 fi
 echo "== guide"
-# Next is in the strip along the window's foot, at its right end (guide.sh's click_next).
+# Next is at the menu column's foot, at the right end of its row of buttons (guide.sh's click_next).
 next_to 2 30 || fail "the guide did not go to its game folder step"
 wait_s 20; shot 03-guide-2-folder
 next_to 3 150 || fail "the guide's game folder step did not let it go on"

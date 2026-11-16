@@ -112,9 +112,10 @@ class Card(tk.Frame):
         return made
 
     def _buttons(self, box, actions):
-        """The card's buttons side by side, the launcher's own leaning ones."""
-        for i, (words, command) in enumerate(actions):
-            widgets.Button(box, self.ui, words, command).pack(side="left", padx=(0 if i == 0 else self.ui.px(8), 0))
+        """The card's buttons side by side, the launcher's own leaning ones, on as many rows as the card's width needs
+        (widgets.flow): beside the menu column a small window's page has no room for four in a row."""
+        made = [widgets.Button(box, self.ui, words, command) for words, command in actions]
+        widgets.flow(box, made, self.ui.px(8))
 
     def _thumbs(self, box, thumbs, bg):
         """Three of the folder's own jackets: the player's game, at a glance."""
@@ -167,7 +168,8 @@ class Card(tk.Frame):
         if actions:
             # The buttons along the foot, left, where the eye ends after the line that says what to do.
             buttons = tk.Frame(inside, bg=bg)
-            buttons.pack(anchor="w", pady=(px(10), 0))
+            # The card's whole width, which the buttons flow over (as many rows as it takes).
+            buttons.pack(fill="x", pady=(px(10), 0))
             self._buttons(buttons, actions)
         # Every part but the buttons picks the folder.
         self.clickable = [body, inside] + made
