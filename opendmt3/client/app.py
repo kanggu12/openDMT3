@@ -193,8 +193,10 @@ class LauncherApp:
         # The line wraps at the column's room after the lamp: a long error (a path) takes more rows, never a cut, and
         # the menu above makes room for it (widgets.Rail.fit).
         wrap = self.rail.inner_width() - self.status_lamp.opendmt3_picture.width - px(8)
+        # No room of its own round the words (Tk's 1 px either side by default): a line as wide as the wrap fits the
+        # label's box exactly, never a pixel past it.
         self.status_label = tk.Label(status, text="", font=self.fonts.small, fg=theme.MUTED, bg=theme.BAR,
-                                     justify="left", anchor="w", wraplength=wrap)
+                                     justify="left", anchor="w", wraplength=wrap, padx=0, pady=0, bd=0)
         self.status_label.pack(side="left", fill="x", expand=True, padx=(px(8), 0))
         # A report for whoever helps, a quiet link under the line, its words in the line's own column after the lamp
         # (its keyboard ring's width in from there); the HELP page's Tools has it too, with its hint.

@@ -1882,18 +1882,18 @@ def at_smallest(app, out, name, problems):
 
 def planted_check(app, out, tag, problems):
     """The check for hidden content (hidden) tried on a page made up to need it, at this run's own fonts and scale:
-    forty made-up lines, taller than any window, where the page goes. In the page's scroll area they scroll, and
-    nothing may be said; in a scroll area that cannot scroll (its region cut to what shows, so no scroll bar) the
-    lines below must be said hidden; in a plain box where the scroll area stands (a page built without
-    widgets.ScrollArea) the lines its box has no room for must be said too. A check that missed either would pass a
-    page whose foot no player can reach."""
+    eighty made-up lines, taller than any window (forty fit the large size beside the menu column), where the page goes.
+    In the page's scroll area they scroll, and nothing may be said; in a scroll area that cannot scroll (its region cut
+    to what shows, so no scroll bar) the lines below must be said hidden; in a plain box where the scroll area stands (a
+    page built without widgets.ScrollArea) the lines its box has no room for must be said too. A check that missed
+    either would pass a page whose foot no player can reach."""
     import tkinter as tk
     from opendmt3.client import theme
     area = app.body
 
     def lines(parent):
         # The made-up page: plain lines in the page's text, one under another.
-        for i in range(40):
+        for i in range(80):
             tk.Label(parent, text="Made-up line %d of a page taller than the window" % (i + 1), font=app.fonts.body,
                      fg=theme.TEXT, bg=theme.BG, anchor="w").pack(fill="x")
 
