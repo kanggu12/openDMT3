@@ -1,0 +1,12 @@
+# One-node local cluster for trying the chart (deploy/kind/up.sh, docs/kubernetes.md). The two Services are
+# NodePorts in the test's values, mapped onto this PC's loopback only, on ports nothing else here uses by default.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: odt3-srv-kind
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # The game's port: the test connects to 127.0.0.1:14725 as a cabinet would.
+      - {containerPort: 30725, hostPort: 14725, listenAddress: "127.0.0.1", protocol: TCP}
+      # The site: http://127.0.0.1:14730/.
+      - {containerPort: 30730, hostPort: 14730, listenAddress: "127.0.0.1", protocol: TCP}

@@ -1,0 +1,37 @@
+{{- /* helm test: the site answers /health through its Service, as the Ingress and the launchers reach it. */}}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "opendmt3.fullname" . }}-test-health
+  labels:
+    {{- include "opendmt3.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    # A new run replaces the last one's pod, and a passed one goes.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsUser: 4725
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: health
+      # The server's own image: it has Python, so no other image is pulled for the test.
+      image: {{ include "opendmt3.image" . }}
+      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      command: ["python", "-c"]
+      args:
+        - |
+          import json, urllib.request
+          answer = json.load(urllib.request.urlopen("http://{{ include "opendmt3.fullname" . }}-site:{{ .Values.site.service.port }}/health", timeout=10))
+          # 200 with ok true, and the version the chart was made for.
+          print(answer)
+          assert answer.get("ok") is True, answer
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]

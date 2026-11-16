@@ -1,0 +1,32 @@
+apiVersion: v2
+name: opendmt3
+description: >-
+  The openDMT3 server for TECHNIKA 3 cabinets: the game server and the players' site with its admin pages and API, in
+  one pod with its database on one volume. No game files are inside: the song list is imported from the owner's own
+  client data.
+type: application
+# The chart's own version and the server's go together: a release packs the chart with both set to the release's
+# version (helm package --version V --app-version V), and tests/server/test_helm.py checks both against __version__.
+version: 0.3.0
+appVersion: "0.3.0"
+# Recreate deployments, Ingress v1 and the pod security fields the chart uses are all there from 1.25 on.
+kubeVersion: ">=1.25.0-0"
+keywords:
+  - technika
+  - rhythm-game
+  - game-server
+  - self-hosted
+home: https://github.com/kanggu12/openDMT3
+sources:
+  - https://github.com/kanggu12/openDMT3
+# The site's own mark, as the browser's tab shows it.
+icon: https://raw.githubusercontent.com/kanggu12/openDMT3/main/opendmt3/server/web/static/favicon.ico
+maintainers:
+  - name: J.-G. Kang
+    url: https://github.com/kanggu12
+annotations:
+  # What Artifact Hub shows beside the chart.
+  artifacthub.io/license: MIT
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://github.com/kanggu12/openDMT3/blob/main/docs/kubernetes.md

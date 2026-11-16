@@ -1,0 +1,26 @@
+openDMT3 {{ .Chart.AppVersion }} is installed as {{ include "opendmt3.fullname" . }} in {{ .Release.Namespace }}.
+
+The site:
+{{- if .Values.ingress.enabled }}
+  {{ if .Values.ingress.tls }}https{{ else }}http{{ end }}://{{ .Values.ingress.host | default "<the Ingress's address>" }}/
+{{- else }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "opendmt3.fullname" . }}-site 4730:{{ .Values.site.service.port }}
+  then open http://127.0.0.1:4730/
+{{- end }}
+
+The game's port, for the cabinets (the launcher's Online page takes this address):
+  kubectl -n {{ .Release.Namespace }} get svc {{ include "opendmt3.fullname" . }}-game
+{{- if .Values.admin.enabled }}
+
+The first account is {{ .Values.admin.id }}, with the admin pages, made when the database had none.
+{{- else }}
+
+The first account, with the admin pages:
+  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "opendmt3.fullname" . }} -- python -m opendmt3.server --data /data --add-player BOSS --admin
+{{- end }}
+
+The song list: on the site, Admin, Song list, upload the song list the launcher saved. Or copy it in and import it:
+  kubectl -n {{ .Release.Namespace }} cp openDMT3-song-list.zip <pod>:/data/openDMT3-song-list.zip
+  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "opendmt3.fullname" . }} -- python -m opendmt3.server --data /data --catalog /data/openDMT3-song-list.zip --setup-only
+
+Guide: https://github.com/kanggu12/openDMT3/blob/main/docs/kubernetes.md

@@ -1,0 +1,24 @@
+# The chart's values for the kind test (deploy/kind/up.sh): the image built from this tree and loaded onto the node,
+# both Services on the node ports cluster.yaml maps, and the first account made from the chart's Secret.
+image:
+  repository: opendmt3-server
+  tag: kind
+  # Loaded with kind load docker-image: there is no registry to pull it from.
+  pullPolicy: Never
+game:
+  service:
+    # kind has no load balancer.
+    type: NodePort
+    nodePort: 30725
+site:
+  service:
+    type: NodePort
+    nodePort: 30730
+admin:
+  enabled: true
+  id: BOSS
+  # A test's password, in a cluster that lives for the test alone.
+  password: kindtest1
+persistence:
+  # kind's own storage class (local-path) makes the volume on the node.
+  size: 256Mi

@@ -1,0 +1,185 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "opendmt3.fullname" . }}
+  labels:
+    {{- include "opendmt3.labels" . | nindent 4 }}
+spec:
+  # One server: its database is SQLite on one volume, which takes one writer.
+  replicas: 1
+  # The old pod goes before the new one starts, so two never hold the database at once (an update, a changed value).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "opendmt3.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- /* The owner's labels under the chart's own, which win: the Services find the pod by them. */}}
+        {{- toYaml (merge (include "opendmt3.labels" . | fromYaml) (.Values.podLabels | default dict)) | nindent 8 }}
+      annotations:
+        {{- if and .Values.admin.enabled (not .Values.admin.existingSecret) }}
+        # A new password in the values starts a new pod, whose init container then sees it (it makes the account only
+        # while there is none).
+        checksum/admin: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # The server never calls the Kubernetes API: no token in the pod.
+      automountServiceAccountToken: false
+      securityContext:
+        # The image's own user (packaging/docker/Dockerfile), never root.
+        runAsUser: 4725
+        runAsGroup: 4725
+        runAsNonRoot: true
+        # A new volume is made writable for that user's group, so the server can keep its database there.
+        fsGroup: 4725
+        # Only when the volume's owner differs: a large volume is not walked again at every start.
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if .Values.admin.enabled }}
+      initContainers:
+        # The first account, with the admin pages, when the database has none yet: on a cluster no visit comes from
+        # the server's own PC, so the site's first-run page never shows. With any account there it does nothing.
+        - name: first-account
+          image: {{ include "opendmt3.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # The image's Python, not its entry point (which would start the server).
+          command: ["python", "-c"]
+          args:
+            - |
+              # The same count ./dmt3 setup makes before it makes the first account.
+              import os, sqlite3, sys
+              from opendmt3.server.__main__ import main
+              path = "/data/openDMT3.sqlite"
+              count = 0
+              if os.path.exists(path):
+                  try:
+                      count = sqlite3.connect(path).execute("SELECT COUNT(*) FROM accounts").fetchone()[0]
+                  except sqlite3.OperationalError:
+                      # A database made before its tables (a start cut short): no account in it.
+                      count = 0
+              if count:
+                  print("%d accounts already; none made" % count)
+                  sys.exit(0)
+              # In this process, so the password is on no command line; refused (a bad password): the pod stops here.
+              sys.exit(main(["--data", "/data", "--add-player", os.environ["OPENDMT3_ADMIN_ID"], "--admin",
+                             "--password", os.environ["OPENDMT3_ADMIN_PASSWORD"]]))
+          env:
+            - name: OPENDMT3_ADMIN_ID
+              value: {{ .Values.admin.id | quote }}
+            # From the Secret, as a variable of this container alone.
+            - name: OPENDMT3_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "opendmt3.adminSecret" . }}
+                  key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      {{- end }}
+      containers:
+        - name: server
+          image: {{ include "opendmt3.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # After the image's entry point (python -m opendmt3.server --data /data --host 0.0.0.0).
+          args:
+            {{- with .Values.siteAddress }}
+            # The address players reach the site at, for the message the admin pages make for a new player.
+            - --site-address
+            - {{ . | quote }}
+            {{- end }}
+            {{- with .Values.proxy }}
+            # The Ingress controller's addresses: its forwarded headers are believed, from there only.
+            - --proxy
+            - {{ . | quote }}
+            {{- end }}
+            {{- with .Values.webhook }}
+            - --webhook
+            - {{ . | quote }}
+            {{- end }}
+            {{- range .Values.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          ports:
+            # The game's port, for the cabinets.
+            - name: game
+              containerPort: 4725
+              protocol: TCP
+            # The site and the launcher's API.
+            - name: site
+              containerPort: 4730
+              protocol: TCP
+          # /health answers 200 while the server and its database work (the image's own HEALTHCHECK asks the same).
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: site
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: site
+            # A minute without an answer before a restart: reading a song list keeps the server busy for a while.
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # The first start makes the database and the site's signing secret; a few seconds, a little more on a
+          # slow volume.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: site
+            periodSeconds: 2
+            failureThreshold: 60
+          securityContext:
+            allowPrivilegeEscalation: false
+            # The server writes into /data alone; the song list's unpacking works there too.
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            # The one other place written to: Python's and 7-Zip's scratch files.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "opendmt3.claim" . }}
+          {{- else }}
+          # No volume asked for: the data lasts as long as the pod.
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

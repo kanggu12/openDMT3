@@ -1,0 +1,110 @@
+# openDMT3's Helm values (docs/kubernetes.md). The defaults run the released image with its data on a volume of its own,
+# the game's port on a LoadBalancer and the site inside the cluster.
+
+image:
+  # The released image, for amd64 and arm64. A copy in a registry of your own, or your own build, goes here instead.
+  repository: ghcr.io/kanggu12/opendmt3-server
+  # Empty: the chart's appVersion, so a chart always runs the server it was released with.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Secrets for a private registry, by name: [{name: my-registry}].
+imagePullSecrets: []
+# Other names for the chart's objects (by default the release's name, with "-opendmt3" unless it already says it).
+nameOverride: ""
+fullnameOverride: ""
+
+# The site's address as players reach it (https://dmt.example.org/): the message the admin pages make for a new
+# player carries it. Empty: the address the admin's browser used.
+siteAddress: ""
+
+# The reverse proxy in front of the site, by the addresses its connections come from (several with commas, a network
+# as 10.244.0.0/16): its X-Forwarded-For and X-Forwarded-Proto are believed, so visitors are told apart and HTTPS
+# sign-ins get secure cookies. With the Ingress below, the pod network the Ingress controller's pods are on.
+proxy: ""
+
+# A Discord or Slack webhook told when someone takes a chart's first place from another player. Empty: none.
+webhook: ""
+
+# More arguments for the server, after the chart's own (python -m opendmt3.server --help lists them).
+extraArgs: []
+
+# The first account, with the admin pages, made before the server starts when the database has none yet. On a
+# cluster the site never sees a visit from the server's own PC, so its first-run page never shows: this is the way
+# in. Nothing is done once any account exists, so changing these later changes nothing.
+admin:
+  enabled: false
+  # The account's ID.
+  id: BOSS
+  # A Secret of yours with the password under the key "password". Empty: the chart makes one from password below.
+  existingSecret: ""
+  # The password, 6 to 16 letters and digits. Used only when existingSecret is empty; the release's values hold it.
+  password: ""
+
+game:
+  service:
+    # The game connects to TCP 4725 from each cabinet, so it needs an address outside the cluster: a LoadBalancer,
+    # or NodePort on a cluster without one.
+    type: LoadBalancer
+    port: 4725
+    # With type NodePort: the node's port (30000 to 32767). Empty: Kubernetes picks one.
+    nodePort: ""
+    # Extra annotations, for a cloud's load balancer (an internal one, a fixed address).
+    annotations: {}
+    # The address a LoadBalancer keeps, where the cloud takes one.
+    loadBalancerIP: ""
+    # Local: the server sees each cabinet's own address (it tells cabinets apart by it, and limits each address to
+    # 16). Cluster would show them all as a node's address.
+    externalTrafficPolicy: Local
+
+site:
+  service:
+    # The site and the launcher's API. ClusterIP: reached through the Ingress below (or kubectl port-forward).
+    type: ClusterIP
+    port: 4730
+    # With type NodePort: the node's port. Empty: Kubernetes picks one.
+    nodePort: ""
+    annotations: {}
+
+ingress:
+  # The site over HTTPS at a host name, through the cluster's Ingress controller.
+  enabled: false
+  # The controller's class (nginx, traefik). Empty: the cluster's default.
+  className: ""
+  # For cert-manager, say: cert-manager.io/cluster-issuer: letsencrypt. The site takes a song list of up to 64 MB and
+  # a backup of up to 256 MB: an nginx controller needs nginx.ingress.kubernetes.io/proxy-body-size: 300m for them.
+  annotations: {}
+  # The site's host name (dmt.example.org). Empty: every host.
+  host: ""
+  # [{secretName: opendmt3-tls, hosts: [dmt.example.org]}]: cert-manager fills the Secret when an issuer is named above.
+  tls: []
+
+persistence:
+  # The database, its daily backups, the song list and the installer to hand out. Without it they last as long as the
+  # pod.
+  enabled: true
+  # A claim of yours instead of the chart's.
+  existingClaim: ""
+  # Empty: the cluster's default storage class.
+  storageClass: ""
+  # One volume mounted read-write by one pod: SQLite takes one writer.
+  accessMode: ReadWriteOnce
+  # The song list with its jackets is about 13 MB; plays and backups add little. Room for an installer too.
+  size: 2Gi
+
+# The server's share of the node. It held about 100 MB with 64 cabinets and 20 visitors at once; reading a song list
+# takes more for a minute.
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+# Where the pod may go, as Kubernetes writes them.
+nodeSelector: {}
+tolerations: []
+affinity: {}
+# Annotations and labels for the pod (a scraper's, a policy's); the chart's own labels win.
+podAnnotations: {}
+podLabels: {}

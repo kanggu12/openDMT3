@@ -1,0 +1,22 @@
+{{- /* The data volume, unless the owner brings a claim (existingClaim) or wants none (persistence.enabled false). */}}
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "opendmt3.claim" . }}
+  labels:
+    {{- include "opendmt3.labels" . | nindent 4 }}
+  annotations:
+    # An uninstall leaves the players' accounts and plays where they are: helm install again finds them.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  {{- with .Values.persistence.storageClass }}
+  # The owner's storage class; without one the cluster's default.
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

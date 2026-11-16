@@ -1,0 +1,56 @@
+{{- /* Two Services: the game's port wants an address outside the cluster, the site's sits behind the Ingress. */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "opendmt3.fullname" . }}-game
+  labels:
+    {{- include "opendmt3.labels" . | nindent 4 }}
+  {{- with .Values.game.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.game.service.type }}
+  {{- if and (eq .Values.game.service.type "LoadBalancer") .Values.game.service.loadBalancerIP }}
+  # The fixed address the cabinets are set up with, where the cloud keeps one.
+  loadBalancerIP: {{ .Values.game.service.loadBalancerIP }}
+  {{- end }}
+  {{- if ne .Values.game.service.type "ClusterIP" }}
+  # Local keeps each cabinet's own address: the server tells cabinets apart by it.
+  externalTrafficPolicy: {{ .Values.game.service.externalTrafficPolicy }}
+  {{- end }}
+  selector:
+    {{- include "opendmt3.selectorLabels" . | nindent 4 }}
+  ports:
+    # The game's own protocol over TCP, passed on as it is.
+    - name: game
+      protocol: TCP
+      port: {{ .Values.game.service.port }}
+      targetPort: game
+      {{- if and (eq .Values.game.service.type "NodePort") .Values.game.service.nodePort }}
+      nodePort: {{ .Values.game.service.nodePort }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "opendmt3.fullname" . }}-site
+  labels:
+    {{- include "opendmt3.labels" . | nindent 4 }}
+  {{- with .Values.site.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.site.service.type }}
+  selector:
+    {{- include "opendmt3.selectorLabels" . | nindent 4 }}
+  ports:
+    # The site, the admin pages, the API and the launcher's updates: plain HTTP, HTTPS is the Ingress's.
+    - name: site
+      protocol: TCP
+      port: {{ .Values.site.service.port }}
+      targetPort: site
+      {{- if and (eq .Values.site.service.type "NodePort") .Values.site.service.nodePort }}
+      nodePort: {{ .Values.site.service.nodePort }}
+      {{- end }}
