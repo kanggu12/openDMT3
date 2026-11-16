@@ -427,6 +427,14 @@ TEXT = {
                             "next messages.",
                             "이 메시지에는 이 PC에서만 열리는 주소({address})가 들어 있습니다. 보내기 전에 이 PC의 네트워크 주소로 바꾸세요. ./dmt3 setup "
                             "--address로 정해 두면 다음 메시지부터 그 주소가 들어갑니다."),
+    "admin.invite": ("Invite players", "플레이어 초대"),
+    "admin.invite.text": ("Players open this address, or scan the code with a phone, to sign in and download the "
+                          "launcher.",
+                          "플레이어는 이 주소를 열거나 휴대폰으로 코드를 찍어 로그인하고 런처를 받습니다."),
+    "admin.invite.local": ("This address is this PC's own: other PCs do not reach it. The server's setup --address "
+                           "keeps the one they do.",
+                           "이 주소는 이 PC 자신의 주소라서 다른 PC에서는 열리지 않습니다. 서버의 setup --address로 다른 PC가 여는 주소를 "
+                           "정해 두세요."),
     "admin.newpass": ("New password", "새 비밀번호"),
     "admin.newpass.ask": ("Give {login_id} a new password?", "{login_id}의 비밀번호를 새로 만들까요?"),
     "admin.newpass.detail": ("Their sign-ins end. The new password is shown once.",

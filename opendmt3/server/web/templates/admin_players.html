@@ -28,6 +28,19 @@
       <button class="btn primary">{{ w("admin.make") }}</button>
     </form>
   </div>
+  {# The invite: the address players open, as text and as a QR code a phone scans from this screen (dark on white,
+     whatever the theme). #}
+  <div class="card invite">
+    <h3>{{ w("admin.invite") }}</h3>
+    <div class="invite-row">
+      <div class="invite-code">{{ invite.svg|safe }}</div>
+      <div>
+        <p>{{ w("admin.invite.text") }}</p>
+        <p><a href="{{ invite.address }}"><code>{{ invite.address }}</code></a></p>
+        {% if not invite.reached %}<p class="alert look">{{ w("admin.invite.local") }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
   <div class="card">
     <table class="table">
       <thead><tr><th>ID</th><th>{{ w("account.dj") }}</th><th></th><th>{{ w("admin.last") }}</th><th></th></tr></thead>

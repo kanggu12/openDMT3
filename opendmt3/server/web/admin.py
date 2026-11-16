@@ -27,7 +27,7 @@ from opendmt3.server.web.common import (LOG_DAYS, _accounts_call, _restore, _del
                                  _log_counts, _message, _new_password, _not_found, _plays_file, _plays_log, _plays_wanted,
                                  _redirect, _reset_plays, _set_maintenance, _set_notice, _status, _to_look_at,
                                  _upload_backup, not_found, _song_list_state, _import_song_list, _song_list_found,
-                                 _upload_song_list, _look_text, _message_local)
+                                 _upload_song_list, _look_text, _message_local, _invite)
 
 
 def routes(site):
@@ -115,7 +115,7 @@ def routes(site):
         # With a message whose address only this PC reaches, the page says which address to send in its place.
         return site.render(request, "admin_players.html", user=user, rows=rows, notice=notice, error=error,
                            message=message, message_local=_message_local(site, request) if message else None,
-                           dj_max=acc.DJ_NAME_MAX)
+                           dj_max=acc.DJ_NAME_MAX, invite=_invite(site, request))
 
     async def admin_cabinets(request):
         """The cabinets: every one seen (named by the admin, or by its address), and who plays on each now."""

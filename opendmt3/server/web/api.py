@@ -45,7 +45,7 @@ from opendmt3.server.web.common import (LICENCE_FACES, _accounts_call, _allowed,
                                  _upload_backup, _song_list_state, _import_song_list, _song_list_found,
                                  _upload_song_list, LICENCE_PARTS, _own_licence)
 # The Status page's lines to look at, in the page's words (a line of its own here: the list above is shared work).
-from opendmt3.server.web.common import _look_text
+from opendmt3.server.web.common import _invite, _look_text
 
 # What the launcher's update feed holds (GET /updates/{name}), by name: the feed for a channel, a package, or a
 # package's signature. Letters, digits, dots, dashes, underscores and plus signs, a letter or digit first: no folder,
@@ -725,6 +725,17 @@ def routes(site):
         look = [dict(item, text=_look_text(w, item)) for item in _to_look_at(site, row)]
         return JSONResponse(dict(_status(site), look=look, song_list=_song_list_state(site)))
 
+    def api_invite(request):
+        """The Players tab's invite (its twin): the site's address for players, whether another PC reaches it, and its
+        QR code as SVG; ?format=svg answers the picture itself (image/svg+xml)."""
+        row, refused = _caller(request, admin=True)
+        if refused:
+            return refused
+        invite = _invite(site, request)
+        if request.query_params.get("format") == "svg":
+            return Response(invite["svg"], media_type="image/svg+xml")
+        return JSONResponse(invite)
+
     async def api_song_list(request):
         """GET: the Song list tab (its twin): the song list's state as GET /api/v1/server gives it, the game's files
         found on the server PC with their lines, the places looked in, and whether this server shows its PC's other
@@ -998,6 +1009,7 @@ def routes(site):
         Route("/api/v1/cabinets/{id:int}/name", api_cabinet_name, methods=["POST"]),
         Route("/api/v1/server", api_server),
         Route("/api/v1/server/song_list", api_song_list, methods=["GET", "POST"]),
+        Route("/api/v1/server/invite", api_invite),
         Route("/api/v1/server/folders", api_folders),
         Route("/api/v1/notice", api_notice, methods=["GET", "POST", "DELETE"]),
         Route("/api/v1/maintenance", api_maintenance, methods=["GET", "POST", "DELETE"]),

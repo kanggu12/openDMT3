@@ -633,6 +633,40 @@ class HttpDetailsTest(ApiBase):
         self.assertEqual(self.client.get("/signin").headers["cache-control"], "private, no-store")
 
 
+@unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
+class InviteTwinTest(ApiBase):
+    """The Players tab's invite and its API twin: the players' address and its QR code."""
+
+    def setUp(self):
+        super().setUp()
+        self.admin()
+        self.boss = self.token("BOSS")
+
+    def test_the_invite_carries_the_players_address_and_its_code(self):
+        self.site.address = "http://192.168.0.5:4730/"
+        invite = self.call("GET", "/api/v1/server/invite", self.boss).json()
+        self.assertEqual(invite["address"], "http://192.168.0.5:4730/")
+        self.assertTrue(invite["reached"])
+        self.assertTrue(invite["svg"].startswith("<svg "))
+        picture = self.call("GET", "/api/v1/server/invite?format=svg", self.boss)
+        self.assertEqual(picture.headers["content-type"].split(";")[0], "image/svg+xml")
+        self.assertEqual(picture.text, invite["svg"])
+        # The page shows the same picture and address.
+        page = self.client.get("/admin/players").text
+        self.assertIn(invite["svg"], page)
+        self.assertIn("http://192.168.0.5:4730/", page)
+
+    def test_an_address_of_this_pc_only_is_said_to_be_so(self):
+        self.site.address = None
+        # No address given, and the site opened on the server PC itself: the one in the invite is that PC's own.
+        invite = self.call("GET", "/api/v1/server/invite", self.boss, headers={"Host": "127.0.0.1:4730"}).json()
+        self.assertEqual(invite["address"], "http://127.0.0.1:4730/")
+        self.assertFalse(invite["reached"])
+
+    def test_only_an_admin_gets_it(self):
+        self.refused(self.call("GET", "/api/v1/server/invite"), 401, "sign_in")
+
+
 def served_calls(app):
     """Every route the app serves under /api/v1/ as {(method, shape): (path as written, with converters)}."""
     from starlette.routing import Route
@@ -828,6 +862,7 @@ class RouteDocsTest(ApiBase):
             ("DELETE", "/api/v1/players/{login_id}", "/api/v1/players/NEW1", {}),
             ("POST", "/api/v1/cabinets/{id}/name", "/api/v1/cabinets/%d/name" % cabinet, {"json": {"name": "Left"}}),
             ("GET", "/api/v1/server", "/api/v1/server", {}),
+            ("GET", "/api/v1/server/invite", "/api/v1/server/invite", {}),
             ("GET", "/api/v1/server/song_list", "/api/v1/server/song_list", {}),
             ("POST", "/api/v1/server/song_list", "/api/v1/server/song_list", {}),
             ("GET", "/api/v1/server/folders", "/api/v1/server/folders", {}),

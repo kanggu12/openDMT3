@@ -106,7 +106,57 @@ def save_song_list(path, out):
     return 0
 
 
-def main(argv=None):
+async def serve(args, data, until=None):
+    """The game server and the site on args' addresses, until they are cancelled (Ctrl+C), or until `until` (a
+    coroutine function, when given) returns: the server's own command line for a PC of its own (standalone.py) stops
+    it that way when asked to from another window. Either way the site finishes the requests it has, and the game
+    server and the database are closed."""
+    # The folder the Download page hands the installer out from, there to put the file in.
+    os.makedirs(os.path.join(data, "downloads"), exist_ok=True)
+    connection = db.connect(os.path.join(data, "openDMT3.sqlite"))
+    game = await GameServer(args.host, args.port, accounts=accounts.Accounts(connection),
+                            records=records.Records(connection), activity=activity.Activity(connection),
+                            webhook=notify.Webhook(args.webhook, data) if args.webhook else None,
+                            data=data).start()
+    # One backup a day, the week's kept (backups.py); checked hourly while the server runs.
+    tasks = [asyncio.ensure_future(backups.keep_daily(os.path.join(data, "openDMT3.sqlite"), data))]
+    web = None
+    if args.web_port:
+        # The site needs its own libraries; the game server alone does not.
+        import uvicorn
+        from opendmt3.server.web.app import Site, create_app
+        # The game folder only when it is there: an empty mount point offers no button.
+        game_folder = args.game if args.game and os.path.isdir(args.game) else None
+        site = Site(data, game_server=game, game_port=game.port, game_folder=game_folder,
+                    address=args.site_address)
+        config = web_config(uvicorn, create_app(site), args)
+        web = uvicorn.Server(config)
+        tasks.append(asyncio.ensure_future(web.serve()))
+        # An address to open on this PC: a server on every address (0.0.0.0, ::) is on the loopback one too,
+        # the name the owner's first-run page asks for (web.common._local).
+        shown = {"0.0.0.0": "127.0.0.1", "::": "[::1]"}.get(web_host(args), web_host(args))
+        logging.getLogger("opendmt3.server").info("site on http://%s:%d/", shown, args.web_port)
+    try:
+        if until is None:
+            await asyncio.gather(*tasks)
+        else:
+            stopper = asyncio.ensure_future(until())
+            await asyncio.wait(tasks + [stopper], return_when=asyncio.FIRST_COMPLETED)
+            if web is not None:
+                # The site's own way to stop: it answers what it has started, then its task ends.
+                web.should_exit = True
+                await asyncio.wait([tasks[-1]], timeout=10)
+            for task in tasks + [stopper]:
+                task.cancel()
+            # Each cancelled task is let finish its cancellation before the database closes under it.
+            await asyncio.gather(*tasks, stopper, return_exceptions=True)
+    finally:
+        await game.close()
+        connection.close()
+
+
+def parser():
+    """The server's command line (standalone.py reads a run's settings with it too)."""
     p = argparse.ArgumentParser(prog="opendmt3.server", description="The openDMT3 server: game and site.")
     p.add_argument("--data", default=os.environ.get("OPENDMT3_DATA", "data"), help="folder for the database and files")
     p.add_argument("--host", default="127.0.0.1", help="address to listen on (0.0.0.0 for other PCs)")
@@ -151,6 +201,11 @@ def main(argv=None):
     p.add_argument("--restore", metavar="NAME", help="put the database back to a backup (the current one is backed up "
                                                     "first) and exit")
     p.add_argument("--setup-only", action="store_true", help="do --catalog and --add-player, then exit without serving")
+    return p
+
+
+def main(argv=None):
+    p = parser()
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
@@ -199,39 +254,8 @@ def main(argv=None):
         # An account made from the command line ends the run, like --setup-only: the server is started on its own.
         return 0
 
-    async def run():
-        # The folder the Download page hands the installer out from, there to put the file in.
-        os.makedirs(os.path.join(data, "downloads"), exist_ok=True)
-        connection = db.connect(os.path.join(data, "openDMT3.sqlite"))
-        game = await GameServer(args.host, args.port, accounts=accounts.Accounts(connection),
-                                records=records.Records(connection), activity=activity.Activity(connection),
-                                webhook=notify.Webhook(args.webhook, data) if args.webhook else None,
-                                data=data).start()
-        # One backup a day, the week's kept (backups.py); checked hourly while the server runs.
-        tasks = [asyncio.ensure_future(backups.keep_daily(os.path.join(data, "openDMT3.sqlite"), data))]
-        if args.web_port:
-            # The site needs its own libraries; the game server alone does not.
-            import uvicorn
-            from opendmt3.server.web.app import Site, create_app
-            # The game folder only when it is there: an empty mount point offers no button.
-            game_folder = args.game if args.game and os.path.isdir(args.game) else None
-            site = Site(data, game_server=game, game_port=game.port, game_folder=game_folder,
-                        address=args.site_address)
-            config = web_config(uvicorn, create_app(site), args)
-            web = uvicorn.Server(config)
-            tasks.append(asyncio.ensure_future(web.serve()))
-            # An address to open on this PC: a server on every address (0.0.0.0, ::) is on the loopback one too,
-            # the name the owner's first-run page asks for (web.common._local).
-            shown = {"0.0.0.0": "127.0.0.1", "::": "[::1]"}.get(web_host(args), web_host(args))
-            logging.getLogger("opendmt3.server").info("site on http://%s:%d/", shown, args.web_port)
-        try:
-            await asyncio.gather(*tasks) if tasks else await asyncio.Event().wait()
-        finally:
-            await game.close()
-            connection.close()
-
     try:
-        asyncio.run(run())
+        asyncio.run(serve(args, data))
     except KeyboardInterrupt:
         pass
     return 0

@@ -237,6 +237,12 @@ CALLS = [
                  "accounts": "object", "cabinets": "integer", "today": "object", "week": "object", "month": "object",
                  "database_bytes": "integer", "last_backup": "integer|null", "maintenance": "boolean",
                  "look": "array", "song_list": "object"}),
+    Call("GET", "/api/v1/server/invite", "admin", ADMIN,
+         "The Players tab's invite: the site's address for players, whether another PC reaches it, and its QR code "
+         "as an SVG picture.",
+         params=(query("format", "string", "svg: the QR code itself (image/svg+xml) in place of the JSON.",
+                       enum=("json", "svg")),),
+         answer={"address": "string", "reached": "boolean", "svg": "string"}),
     Call("GET", "/api/v1/server/song_list", "admin", ADMIN,
          "The Song list tab: the song list's state, the game's files found on the server PC with their lines, the "
          "places looked in, and whether the server shows its PC's other folders.",

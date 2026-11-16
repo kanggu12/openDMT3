@@ -28,7 +28,7 @@ from opendmt3.core.errors import Worded
 from opendmt3.server.services import activity as act
 from opendmt3.server.services import backups as bak
 from opendmt3.server.services import catalog as cat
-from opendmt3.server.services import cards, downloads, files, maintenance, notice, profile, songlist, sources
+from opendmt3.server.services import cards, downloads, files, maintenance, notice, profile, qr, songlist, sources
 from opendmt3.server.services import records as rec
 # The upload's own reading of a request's body, into a file in backups/ (the Backups tab and its API twin).
 # The worker threads a handler hands its work to, its processor time counted (work.py).
@@ -783,6 +783,14 @@ def _message(site, request, w, login_id, password):
     address = _players_address(site, request)[0]
     return w("admin.message.text", address=address, login_id=login_id, password=password,
              download=address + "download")
+
+
+def _invite(site, request):
+    """The invite players scan: the site's address for players (_players_address, as the message to send carries it),
+    whether another PC reaches it, and its QR code as an SVG picture (services/qr.py), for the Players tab and its
+    API twin (GET /api/v1/server/invite)."""
+    address, reached = _players_address(site, request)
+    return {"address": address, "reached": reached, "svg": qr.svg(address)}
 
 
 def _message_local(site, request):

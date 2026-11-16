@@ -443,6 +443,12 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
 textarea.message { display: block; width: 100%; padding: 10px 12px; resize: vertical; background: var(--well); color: var(--chalk);
                    border: 1px solid var(--seam); font: 14px/1.6 var(--text-face); }
 textarea.message:focus { outline: none; border-color: var(--cyan); }
+/* The invite on the Players tab: the QR code (white with its quiet zone, as a phone reads it in either theme) beside
+   the address, the address under it on a narrow screen. */
+.invite-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
+.invite-row > div:last-child { flex: 1 1 240px; min-width: 0; }
+.invite-row code { overflow-wrap: anywhere; }
+.invite-code svg { display: block; width: 176px; height: auto; border-radius: 6px; }
 
 /* Admin: a cabinet's name edited in its row; a game message without a handler shows its first bytes. */
 .inline-name { display: flex; gap: 6px; align-items: center; }
