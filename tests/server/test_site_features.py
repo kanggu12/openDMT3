@@ -1708,6 +1708,7 @@ class StatesTest(SiteBase):
             "backed up the database as a.sqlite": "데이터베이스를 백업했습니다: a.sqlite",
             "restored the database from a.sqlite": "데이터베이스를 복원했습니다: a.sqlite",
             "uploaded a backup as u.sqlite (4096 bytes)": "백업을 올렸습니다: u.sqlite(4096바이트)",
+            "stopped the server": "서버를 껐습니다",
             "imported the song list from /games/t3: 177 songs, nothing missing":
                 "곡 목록을 가져왔습니다: /games/t3, 곡 177개, 빠진 것 없음",
             "imported the song list from an uploaded song list (list.zip): 5 songs, jackets missing, cards missing":
@@ -1726,7 +1727,7 @@ class StatesTest(SiteBase):
                 if name.endswith(".py"):
                     with open(os.path.join(folder, name), encoding="utf-8") as f:
                         calls += len(re.findall(r"(?<!def )\b_log_change\(|self\._log\(", f.read()))
-        self.assertEqual(calls, 19, "a line was added to (or taken from) the change log: give it its words in "
+        self.assertEqual(calls, 20, "a line was added to (or taken from) the change log: give it its words in "
                                     "strings.py (log.change.*) and its line in this test")
 
     def test_home_puts_the_way_to_play_beside_the_dj(self):

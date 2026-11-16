@@ -85,6 +85,13 @@ LOGIN_ID = path("login_id", "string", "An account's ID, in any letter case.")
 BACKUP = path("name", "string", "A backup's file name, as GET /api/v1/backups lists it.")
 SONG = path("number", "integer", "A song's number.")
 # The plays log's filter, read by the log's page of plays and by its file.
+# The requests log's filter, read by the log's list and by its file.
+REQUESTS_FILTER = (query("q", "string", "Only requests whose path, address or account ID has this word."),
+                   query("kind", "string", "Only answers of this kind (ok, moved, refused or failed: 2xx, 3xx, 4xx or "
+                                           "5xx), or of this very status."))
+# Whether a long job's call waits for its end (the default) or answers 202 with the job at once (?wait=0).
+WAIT = query("wait", "integer", "0: answer 202 with the job at once, to follow at GET /api/v1/jobs/{id}.",
+             enum=(0, 1))
 LOG_FILTER = (query("player", "integer", "Only this account's plays (its number)."),
               query("days", "integer", "Only the last 1, 7 or 30 days.", enum=(1, 7, 30)),
               query("q", "string", "Only songs whose title has this word, or the song of this number."))
@@ -189,8 +196,16 @@ CALLS = [
          "The installer with this server's address on its end.", files="application/octet-stream",
          errors=((404, "no_installer"),)),
     # ------------------------------------------------------------------------------------ the admin's players
-    Call("GET", "/api/v1/players", "admin", PLAYERS, "Every account, with whether it is disabled and its last login.",
-         answer={"players": "array"}),
+    Call("GET", "/api/v1/players", "admin", PLAYERS,
+         "Every account, with whether it is disabled, its last login, its plays and last play, and its plays each day "
+         "of the last 14, sorted as the Players tab sorts them.",
+         params=(query("sort", "string", "The column to sort by (by ID when not given).",
+                       enum=("id", "dj", "last", "played", "days", "plays")),
+                 query("order", "string", "asc or desc (each column's own first order when not given).",
+                       enum=("asc", "desc"))),
+         answer={"players": "array", "sort": "string", "order": "string", "days_from": "integer"}),
+    Call("GET", "/api/v1/players/download", "admin", PLAYERS, "Every account as the Players tab's CSV file.",
+         files="text/csv"),
     Call("POST", "/api/v1/players", "admin", PLAYERS,
          "An account made, with its password (made by the server when none is sent) and the message to send.",
          params=(body("login_id", "string", "The new account's ID.", required=True),
@@ -236,13 +251,29 @@ CALLS = [
          answer={"version": "string", "game_port": "integer", "started": "integer|null", "connected": "integer",
                  "accounts": "object", "cabinets": "integer", "today": "object", "week": "object", "month": "object",
                  "database_bytes": "integer", "last_backup": "integer|null", "maintenance": "boolean",
-                 "look": "array", "song_list": "object"}),
+                 "look": "array", "song_list": "object", "hours": "object", "runner": "object"}),
     Call("GET", "/api/v1/server/invite", "admin", ADMIN,
          "The Players tab's invite: the site's address for players, whether another PC reaches it, and its QR code "
          "as an SVG picture.",
          params=(query("format", "string", "svg: the QR code itself (image/svg+xml) in place of the JSON.",
                        enum=("json", "svg")),),
          answer={"address": "string", "reached": "boolean", "svg": "string"}),
+    Call("GET", "/api/v1/status/machine", "admin", ADMIN,
+         "The Status page's Resources: the machine's processors, memory, disk and load now, the last day's points, "
+         "and what takes the data folder's disk.",
+         answer={"cores": "integer", "uptime": "integer|null", "cpu": "number|null", "memory": "object|null",
+                 "disk": "object|null", "load": "array|null", "since": "integer", "every": "integer",
+                 "points": "array", "disk_parts": "array"}),
+    Call("POST", "/api/v1/server/stop", "admin", ADMIN,
+         "Stop the server: the one that started it is asked to stop it.",
+         answer={"stopping": "boolean", "runner": "object"}, status=202, errors=((409, "not_here"),)),
+    Call("GET", "/api/v1/jobs", "admin", ADMIN, "The long jobs of the last hour (song list imports, restores), "
+                                                "newest first.", params=(LANG,), answer={"jobs": "array"}),
+    Call("GET", "/api/v1/jobs/{id}", "admin", ADMIN, "One job: the step it is on, how far it has come, how it ended.",
+         params=(path("id", "string", "The job's id, as the call that started it gave it."), LANG),
+         answer={"id": "string", "kind": "string", "state": "string", "step": "string|null", "steps": "array",
+                 "share": "number|null", "result": "object|null", "error": "object|null", "text": "string"},
+         errors=((404, "unknown_job"),)),
     Call("GET", "/api/v1/server/song_list", "admin", ADMIN,
          "The Song list tab: the song list's state, the game's files found on the server PC with their lines, the "
          "places looked in, and whether the server shows its PC's other folders.",
@@ -252,8 +283,8 @@ CALLS = [
          "body), from a path on the server PC (the client data in a folder or an archive, or a song list), or a song "
          "list as the body, up to 64 MB.",
          params=(body("path", "string", "The client data in a folder or an archive, or a song list, on the server "
-                                        "PC."),),
-         upload="application/zip", body_needed=False, answer={"song_list": "object", "lines": "array"},
+                                        "PC."), WAIT),
+         upload="application/zip", body_needed=False, answer={"song_list": "object", "lines": "array", "job": "string"},
          errors=((400, "bad_request"), (400, "refused"), (404, "no_game_folder"), (409, "busy"), (409, "not_read"),
                  (413, "too_large"))),
     Call("GET", "/api/v1/server/folders", "admin", ADMIN,
@@ -284,6 +315,14 @@ CALLS = [
          errors=((400, "bad_request"),)),
     Call("GET", "/api/v1/log/plays.csv", "admin", ADMIN, "Every play the filter leaves, all its pages, as CSV.",
          params=LOG_FILTER, files="text/csv", errors=((400, "bad_request"),)),
+    Call("GET", "/api/v1/log/requests", "admin", ADMIN,
+         "The requests log: the last day by half hours, and the newest requests the filter leaves.",
+         params=REQUESTS_FILTER,
+         answer={"chart": "array", "most": "integer", "day": "object", "requests": "array", "found": "integer",
+                 "kept": "integer", "bytes": "integer"}, errors=((400, "bad_request"),)),
+    Call("GET", "/api/v1/log/requests.csv", "admin", ADMIN, "Every request the log keeps that the filter leaves, as "
+                                                            "CSV.", params=REQUESTS_FILTER, files="text/csv",
+         errors=((400, "bad_request"),)),
     # ------------------------------------------------------------------------------------ the admin's backups
     Call("GET", "/api/v1/backups", "admin", BACKUPS, "Every backup, newest first, and how many of each kind stay.",
          answer={"backups": "array", "keep": "integer"}),
@@ -298,7 +337,7 @@ CALLS = [
     Call("DELETE", "/api/v1/backups/{name}", "admin", BACKUPS, "A backup deleted.", params=(BACKUP,),
          answer={"deleted": "string"}, errors=((404, "unknown_backup"),)),
     Call("POST", "/api/v1/backups/{name}/restore", "admin", BACKUPS,
-         "The database put back to a backup, the current one backed up first.", params=(BACKUP,),
+         "The database put back to a backup, the current one backed up first.", params=(BACKUP, WAIT),
          answer={"restored": "string", "kept_as": "string"}, errors=((400, "refused"), (404, "unknown_backup"))),
 ]
 

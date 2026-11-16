@@ -1,0 +1,13 @@
+{# A long job the page follows (a song list's import, a restore): its title, the steps it goes through with the one it
+   is on, and a bar of how far the whole job has come. site.js asks /admin/jobs/{id} every second and moves the bar
+   and the words; once the job ends it opens the page again, which then says how it ended. Without the script, the
+   link looks again. #}
+{% if job %}
+<div class="card job" data-job="{{ job.id }}">
+  <h3>{{ job.title }}</h3>
+  <div class="job-bar" role="progressbar" aria-label="{{ job.title }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ ((job.share or 0) * 100)|round|int }}"><i style="width: {{ ((job.share or 0) * 100)|round(1) }}%"></i></div>
+  <p class="job-step" role="status" aria-live="polite"><span class="job-text">{{ job.step_text }}</span> <span class="muted job-count">{{ job.count_text }}</span></p>
+  <ol class="job-steps">{% for step in job.all_steps %}<li class="{{ 'on' if step == job.step else ('done' if job.step in job.steps and step in job.steps and job.steps.index(step) < job.steps.index(job.step) else '') }}" data-step="{{ step }}"{% if step not in job.steps %} hidden{% endif %}>{{ w("job.step." + step) }}</li>{% endfor %}</ol>
+  <noscript><p><a class="btn small" href="{{ path }}?job={{ job.id }}">{{ w("job.again") }}</a></p></noscript>
+</div>
+{% endif %}

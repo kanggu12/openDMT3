@@ -41,7 +41,8 @@ from opendmt3.core import errors
 from opendmt3.core import game as g
 from opendmt3.core.formats import discstock
 from opendmt3.core.formats import pak as P
-from opendmt3.server.services import cards, files, pictures
+# How far a reading has come, for the admin page's job (nothing without one).
+from opendmt3.server.services import cards, files, pictures, progress
 
 FILE = "catalog.json"
 JACKETS = "jackets"
@@ -92,6 +93,8 @@ def read(game_folder, data_dir, now=None, traces=False):
 def read_game(game, data_dir, now=None, traces=False, source=None):
     """read() for a game folder already found (an archive's, taken out to a folder of its own: sources.py). source
     says where it came from, for the report: {"from": "folder" or "archive", "path": ...}."""
+    # The admin page's job follows the reading step by step (progress.py; nothing happens without one).
+    progress.step("songs")
     songs = _songs(game)
     os.makedirs(data_dir, exist_ok=True)
     staging = new_staging(data_dir)
@@ -106,6 +109,8 @@ def read_game(game, data_dir, now=None, traces=False, source=None):
             report["folder"] = None
         for part, reader in (("jackets", lambda: import_jackets(game, songs, staging)),
                              ("cards", lambda: _import_cards(game, staging))):
+            # Each part a step of its own; the jackets count their way through the songs (import_jackets).
+            progress.step(part, 0 if part == "jackets" else None, len(songs) if part == "jackets" else None)
             try:
                 report[part] = reader()
             except Exception as e:  # noqa: BLE001  (an optional part: the list is what matters, pages do without it)
@@ -113,6 +118,8 @@ def read_game(game, data_dir, now=None, traces=False, source=None):
                 # Nothing half read of it goes in: what an earlier reading left stays, as the report says.
                 for name in PLACES[part]:
                     remove(os.path.join(staging, name))
+        # The last step: everything read moves into place at once.
+        progress.step("swap")
         swap_in(staging, data_dir, report)
     finally:
         remove(staging)
@@ -219,6 +226,8 @@ def import_jackets(game, songs, data_dir):
                     f.write(data)
                 os.replace(path + ".new", path)
                 saved += 1
+                # How far through the songs, for the admin page's job (the songs left out count as gone by).
+                progress.step("jackets", min(len(songs), saved), len(songs))
     return saved
 
 

@@ -46,6 +46,59 @@
       <div class="stat"><span class="value small-value">{{ server.game_port }}</span><span class="label">{{ w("status.game_port") }}</span></div>
     </div>
   </div>
+  {# The machine now (a figure and a thin meter each) and over the last day (one chart each), what takes the disk, and
+     when players play. #}
+  {% from "_charts.html" import trend, heat %}
+  {% set f = machine.figures %}
+  <div class="card machine">
+    <h3>{{ w("machine.title") }}</h3>
+    <div class="stats">
+      {% for key, part in (("cpu", none), ("memory", f.memory), ("disk", f.disk)) %}
+      {% set pct = f.cpu if key == "cpu" else ((100 * part.used / part.total)|round(1) if part and part.total else none) %}
+      <div class="stat">
+        <span class="value">{{ "%.0f%%"|format(pct) if pct is not none else "-" }}</span>
+        <span class="label">{{ w("machine." + key) }} · {% if key == "cpu" %}{{ w("machine.cores", n=f.cores) if f.cpu is not none else w("machine.measuring") }}{% elif part %}{{ w("machine.of", used=part.used|size, total=part.total|size) }}{% else %}{{ w("machine.unknown") }}{% endif %}</span>
+        <span class="meter" aria-hidden="true"><i style="width: {{ pct if pct is not none else 0 }}%"></i></span>
+      </div>
+      {% endfor %}
+      <div class="stat">
+        <span class="value small-value">{{ (w("common.hours", h=f.uptime // 3600, m=(f.uptime % 3600) // 60) if f.uptime >= 3600 else w("common.minutes", m=f.uptime // 60)) if f.uptime is not none else "-" }}</span>
+        <span class="label">{{ w("machine.uptime") }}{% if f.load %} · {{ w("machine.load") }} {{ f.load|join(" ") }}{% endif %}</span>
+      </div>
+    </div>
+    {% for key in ("cpu", "memory", "disk") %}
+    <div class="trend-head"><span>{{ w("machine." + key) }}</span><span class="muted small">{{ w("machine.day") }}</span></div>
+    {{ trend(machine.charts[key], w("machine.chart." + key), w) }}
+    {% endfor %}
+    {% if machine.partial %}<p class="muted small">{{ w("machine.since", when=(machine.since|when)) }}</p>{% endif %}
+    <details class="as-table"><summary>{{ w("machine.table") }}</summary>
+      <table class="table"><thead><tr><th>{{ w("machine.hour") }}</th>{% for key in ("cpu", "memory", "disk") %}<th class="num">{{ w("machine." + key) }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for h in range(24) %}<tr><td>{{ machine.hours[h]|clock }}</td>{% for key in ("cpu", "memory", "disk") %}{% set v = machine.charts[key].hours[h][1] %}<td class="num" data-label="{{ w('machine.' + key) }}">{{ "%s%%"|format(v) if v is not none else "-" }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+    </details>
+  </div>
+  {# The data folder's disk: the server's own parts, then other files and what is free, as one bar and a table. #}
+  {% set disk = machine.disk %}
+  <div class="card">
+    <h3>{{ w("disk.title") }}</h3>
+    {% if disk.total %}<p class="muted small">{{ w("disk.sub", total=disk.total|size) }}</p>
+    <div class="partbar" aria-hidden="true">{% for p in disk.parts %}{% if p.bytes and p.bytes * 1000 >= disk.total %}<i class="p-{{ loop.index0 if p.part not in ('other', 'free') else p.part }}" style="flex-grow: {{ p.bytes }}"></i>{% endif %}{% endfor %}</div>
+    {% endif %}
+    <table class="table parts-table">
+      <thead><tr><th>{{ w("disk.part") }}</th><th class="num">{{ w("disk.size") }}</th></tr></thead>
+      <tbody>{% for p in disk.parts %}<tr><td><i class="swatch p-{{ loop.index0 if p.part not in ('other', 'free') else p.part }}" aria-hidden="true"></i>{{ w("disk.part." + p.part) }}</td><td class="num" data-label="{{ w('disk.size') }}">{{ p.bytes|size }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h3>{{ w("hours.title") }}</h3>
+    {% if not hours.most %}<p class="muted">{{ w("hours.none", days=hours.days) }}</p>{% else %}
+    <p class="muted small">{{ w("hours.sub", days=hours.days) }}</p>
+    {{ heat(hours, w) }}
+    <details class="as-table"><summary>{{ w("hours.table") }}</summary>
+      <table class="table"><thead><tr><th>{{ w("hours.day") }}</th><th class="num">{{ w("hours.all") }}</th><th class="num">{{ w("hours.busiest") }}</th></tr></thead>
+        <tbody>{% for row in hours.grid %}{% set top = row|max %}<tr><td>{{ w("day." ~ loop.index0) }}</td><td class="num" data-label="{{ w('hours.all') }}">{{ row|sum }}</td><td class="num" data-label="{{ w('hours.busiest') }}">{{ w("hours.at", hour=row.index(top), n=top) if top else "-" }}</td></tr>{% endfor %}</tbody></table>
+    </details>
+    {% endif %}
+  </div>
   {# The song list (it holds the jackets and the DJ cards): each part's count and when it was read, what is missing
      (amber: the site's colour for "look") with the last reading's reason, where it came from, and the tab that imports
      it. #}
@@ -103,6 +156,16 @@
       {% endif %}
     </form>
     <p class="muted small">{{ w("maintenance.hint") }}</p>
+  </div>
+  {# The server itself: what started it, and Stop, which asks that one to stop it (asked first in the site's own
+     dialog); a runner these pages cannot ask is named with how to stop it instead. #}
+  <div class="card">
+    <h3>{{ w("server.title") }}</h3>
+    <form method="post" action="/admin/status" class="form row server-stop"{% if runner.can_stop %} data-ask="{{ w('server.stop.ask') }}" data-ask-title="{{ w('server.stop') }}" data-ask-detail="{{ w('server.stop.detail', n=server.connected) }}" data-ask-yes="{{ w('server.stop.yes') }}"{% endif %}>
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="stop">
+      <p class="grow">{{ w("server.runner." + runner.kind, command=runner.command or "") }}</p>
+      {% if runner.can_stop %}<button class="btn danger"{% if runner.stopping %} disabled{% endif %}>{{ w("server.stop") }}</button>{% endif %}
+    </form>
   </div>
 </section>
 {% endblock %}

@@ -32,7 +32,8 @@ import zlib
 
 from opendmt3 import __version__
 from opendmt3.core.errors import Worded
-from opendmt3.server.services import cards, catalog, files, pictures
+# How far the work has come, for the admin page's job (nothing without one).
+from opendmt3.server.services import cards, catalog, files, pictures, progress
 
 # What a song list says it is, and the newest version of its form this openDMT3 writes and reads.
 FORMAT = "openDMT3 song list"
@@ -230,6 +231,8 @@ def take(path, data_dir, now=None, shown_as=None):
     says it came from a song list (shown_as: the name to keep for it, the file's own name by default)."""
     if not pictures.available():
         raise SongListError("This server cannot check pictures: it has no Pillow.", "error.songlist.no_pillow")
+    # Every check first, a step of its own for the admin page's job (progress.py).
+    progress.step("check")
     try:
         size = os.path.getsize(path)
     except OSError:
@@ -277,6 +280,8 @@ def take(path, data_dir, now=None, shown_as=None):
                   "songs": len(songs), "jackets": None if "jackets" in missing else len(jackets),
                   "cards": None if "cards" in missing else {kind: len(tables[kind]) for kind in cards.KINDS},
                   "missing": dict(missing), "reasons": dict(manifest["reasons"])}
+        # Then everything moves into place at once: the job's last step.
+        progress.step("swap")
         catalog.swap_in(staging, data_dir, report)
     finally:
         catalog.remove(staging)

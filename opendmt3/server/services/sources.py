@@ -36,7 +36,8 @@ import zlib
 from opendmt3.core import errors
 from opendmt3.core import game as g
 from opendmt3.core.errors import Worded
-from opendmt3.server.services import catalog, songlist
+# How far the work has come, for the admin page's job (nothing without one).
+from opendmt3.server.services import catalog, progress, songlist
 
 # The 7-Zip that opens archives: the one OPENDMT3_7ZIP names, else the official 7-Zip's 7zz (in the server's image), else
 # a 7z or 7za on PATH (a distribution's p7zip opens .7z and .zip; only the official 7-Zip opens RAR5).
@@ -921,6 +922,8 @@ def read(path, data_dir, now=None, traces=False, password=None):
         raise SourceError("Part %d of this split archive is missing. Put every part in one folder." % gap,
                           "error.source.missing_part", n=gap)
     os.makedirs(data_dir, exist_ok=True)
+    # Taking the archive's files out is a step of its own for the admin page's job (progress.py).
+    progress.step("unpack")
     with _Unpacked(path, data_dir, password) as unpacked:
         source = {"from": "archive", "path": os.path.abspath(path), "inside": unpacked.root}
         return catalog.read_game(unpacked.game, data_dir, now=now, traces=traces, source=source)

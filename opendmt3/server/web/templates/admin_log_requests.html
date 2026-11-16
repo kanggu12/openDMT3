@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ w("log.view.requests") }} · {{ w("admin.log") }} · {% endblock %}
+{% block main %}
+{% from "_charts.html" import requests_chart %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
+</section>
+<section class="page">
+  {% set tab = "log" %}{% include "_admin_tabs.html" %}
+  {% set view = "requests" %}{% include "_log_views.html" %}
+  {# The last day by half hours: what was answered, and what was refused or failed. #}
+  <div class="card">
+    <h3>{{ w("requests.chart") }}</h3>
+    <p class="muted small">{{ w("requests.day", ok="{:,}".format(log.day.ok), bad="{:,}".format(log.day.bad)) }}</p>
+    {{ requests_chart(log, w) }}
+    <details class="as-table"><summary>{{ w("requests.table") }}</summary>
+      <table class="table"><thead><tr><th>{{ w("requests.half") }}</th><th class="num">{{ w("requests.key.ok") }}</th><th class="num">{{ w("requests.key.bad") }}</th></tr></thead>
+        <tbody>{% for s in log.chart %}<tr><td>{{ s.at|clock }}</td><td class="num" data-label="{{ w('requests.key.ok') }}">{{ s.ok }}</td><td class="num" data-label="{{ w('requests.key.bad') }}">{{ s.bad }}</td></tr>{% endfor %}</tbody></table>
+    </details>
+  </div>
+  {# The filter: a word, a kind of answer; and all the log keeps as a file. #}
+  <div class="card">
+    <form class="form row" method="get" action="/admin/log/requests" role="search">
+      <label class="grow">{{ w("requests.word") }}<input name="q" value="{{ wanted.q }}" maxlength="64"></label>
+      <label>{{ w("requests.kind") }}<select name="kind"><option value="">{{ w("requests.kind.all") }}</option>{% for k in kinds %}<option value="{{ k }}"{{ " selected" if k == wanted.kind }}>{{ w("requests.kind." + k) }}</option>{% endfor %}</select></label>
+      <button class="btn primary">{{ w("log.plays.show") }}</button>
+    </form>
+    <p class="requests-file"><a class="btn small" href="{{ csv }}" download>{{ w("requests.csv") }}</a> <span class="muted small">{{ w("requests.kept", mb=log_mb, days=log_days, size=log.bytes|size) }}</span></p>
+  </div>
+  <div class="card">
+    {% if not log.requests %}<p class="muted">{{ w("requests.none") }}</p>{% else %}
+    <p class="muted small">{{ w("requests.found", n="{:,}".format(log.found), kept=log.kept, shown=log.requests|length) }}</p>
+    <table class="table requests">
+      <thead><tr><th>{{ w("requests.when") }}</th><th>{{ w("requests.request") }}</th><th class="num">{{ w("requests.status") }}</th><th class="num">{{ w("requests.ms") }}</th><th>{{ w("requests.address") }}</th><th>{{ w("requests.who") }}</th></tr></thead>
+      {# On a phone the row is a block and the headers are gone: each cell says what it is. #}
+      <tbody>{% for r in log.requests %}<tr>
+        <td class="muted when">{{ r.at|when }}</td>
+        <td class="path" data-label="{{ w('requests.request') }}"><code>{{ r.method }} {{ r.path }}</code></td>
+        <td class="num" data-label="{{ w('requests.status') }}">{% if r.status >= 400 %}<span class="tag bad">{{ r.status }}</span>{% else %}{{ r.status }}{% endif %}</td>
+        <td class="num" data-label="{{ w('requests.ms') }}">{{ "%.0f"|format(r.ms) }} ms</td>
+        <td data-label="{{ w('requests.address') }}"><a href="/admin/log/requests?q={{ r.address|urlencode }}">{{ r.address }}</a></td>
+        <td data-label="{{ w('requests.who') }}">{{ r.who or "-" }}</td>
+      </tr>{% endfor %}</tbody>
+    </table>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

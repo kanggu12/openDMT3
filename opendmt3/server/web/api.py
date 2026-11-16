@@ -40,12 +40,15 @@ from opendmt3.server.web.common import (LICENCE_FACES, _accounts_call, _allowed,
                                  _delete_backup, _dj, _dj_cards, _dj_places, _download, _installer, _known_cabinets,
                                  _licence_texts, _log, _log_change, _log_counts, _message, _mode_asked, _mode_name,
                                  _modes, _month_rankings, _new_password, _new_records, _plays_file, _plays_log,
-                                 _plays_wanted, _rankings, _recent, _reset_plays, _restore, _set_maintenance,
+                                 _plays_wanted, _rankings, _recent, _reset_plays, _set_maintenance,
                                  _set_notice, _song, _song_number, _songs, _songs_found, _status, _to_look_at,
-                                 _upload_backup, _song_list_state, _import_song_list, _song_list_found,
+                                 _upload_backup, _song_list_state, _song_list_found,
                                  _upload_song_list, LICENCE_PARTS, _own_licence)
 # The Status page's lines to look at, in the page's words (a line of its own here: the list above is shared work).
-from opendmt3.server.web.common import _invite, _look_text
+from opendmt3.server.web.common import _invite, _look_text, _import_outcome, _start_import
+# The machine, when people play, the requests log, the players' last two weeks, stopping the server and the long jobs,
+# as the admin pages show and do them (insights.py).
+from opendmt3.server.web import insights
 
 # What the launcher's update feed holds (GET /updates/{name}), by name: the feed for a channel, a package, or a
 # package's signature. Letters, digits, dots, dashes, underscores and plus signs, a letter or digit first: no folder,
@@ -577,16 +580,28 @@ def routes(site):
             status_code=201))
 
     def _players_listed(request):
-        """GET /api/v1/players on a worker thread: every account with its DJ card."""
+        """GET /api/v1/players on a worker thread: every account with its DJ card and its last two weeks, sorted as
+        the Players tab sorts them (?sort=, ?order=; by ID unless asked otherwise, as the API has always listed
+        them)."""
         row, refused = _caller(request, admin=True)
         if refused:
             return refused
-        rows = _accounts_call(site, "all")
+        rows, sort, order, start, _ = insights.players_rows(site, request.query_params.get("sort") or "id",
+                                                            request.query_params.get("order"))
         # Every player's DJ card at once: one query over the plays (kept until the plays change), the tables and the
         # song list read once.
         dj_cards = _dj_cards(site, rows)
         return JSONResponse({"players": [dict(_me(r, dj_cards[r["id"]]), disabled=bool(r["disabled"]),
-                                              last_login=r["last_login"]) for r in rows]})
+                                              last_login=r["last_login"], last_play=r["last_play"], plays=r["plays"],
+                                              days=list(r["days"])) for r in rows],
+                             "sort": sort, "order": order, "days_from": start})
+
+    def api_players_file(request):
+        """Every player as the Players tab's CSV file."""
+        _, refused = _caller(request, admin=True)
+        if refused:
+            return refused
+        return insights.players_file(site)
 
     def _player_named(request):
         """(the admin calling, the ID the path names, None) when an admin's token names an account that is there,
@@ -723,7 +738,57 @@ def routes(site):
         w = _words(request)
         # Each line with the words the page shows for it, beside its key and values.
         look = [dict(item, text=_look_text(w, item)) for item in _to_look_at(site, row)]
-        return JSONResponse(dict(_status(site), look=look, song_list=_song_list_state(site)))
+        # When people play (the Status tab's grid of hours) and who started the server (its Stop).
+        return JSONResponse(dict(_status(site), look=look, song_list=_song_list_state(site),
+                                 hours=insights.play_hours(site), runner=site.runner.view()))
+
+    def api_machine(request):
+        """The Status tab's Resources card: the machine now and over the last day, and what takes its disk."""
+        _, refused = _caller(request, admin=True)
+        if refused:
+            return refused
+        return JSONResponse(insights.machine_figures(site))
+
+    def api_stop(request):
+        """The Status tab's Stop: the server's runner asked to stop it (202), or 409 with how to stop it when the
+        server cannot ask the one that started it (Docker Compose, or a way it cannot tell)."""
+        row, refused = _caller(request, admin=True)
+        if refused:
+            return refused
+        if not site.runner.can_stop:
+            return JSONResponse({"error": {"code": "not_here",
+                                           "message": "this server is stopped by what started it (%s)%s" % (
+                                               site.runner.kind,
+                                               ": " + site.runner.command if site.runner.command else "")},
+                                 "runner": site.runner.view()}, status_code=409)
+        insights.stop_server(site, row["who"])
+        return JSONResponse({"stopping": True, "runner": site.runner.view()}, status_code=202)
+
+    def _wait_asked(request):
+        """False when a program asks not to wait for a long job (?wait=0): it is answered 202 with the job instead."""
+        return request.query_params.get("wait", "1").lower() not in ("0", "false", "no")
+
+    def _job_answer(request, job):
+        """202 with a job just started, to follow at GET /api/v1/jobs/{id}."""
+        return JSONResponse({"job": insights.job_words(_words(request), job)}, status_code=202)
+
+    def api_jobs(request):
+        """Every job kept (the last hour's), newest first."""
+        _, refused = _caller(request, admin=True)
+        if refused:
+            return refused
+        w = _words(request)
+        return JSONResponse({"jobs": [insights.job_words(w, job) for job in site.jobs.all()]})
+
+    def api_job(request):
+        """One job: the step it is on, how far, and how it ended."""
+        _, refused = _caller(request, admin=True)
+        if refused:
+            return refused
+        job = site.jobs.get(request.path_params["id"])
+        if job is None:
+            return _error(404, "unknown_job", "no such job (a job is kept for an hour after it ends)")
+        return JSONResponse(insights.job_words(_words(request), job))
 
     def api_invite(request):
         """The Players tab's invite (its twin): the site's address for players, whether another PC reaches it, and its
@@ -754,20 +819,26 @@ def routes(site):
             return await threaded(lambda: JSONResponse(dict(found, song_list=_song_list_state(site))))
         kind = request.headers.get("content-type", "").split(";")[0].strip().lower()
         try:
+            # The import is a job (jobs.py): followed here to its end, or handed back at once with ?wait=0.
             if kind == "application/json":
                 body = await _small_json(request)
                 if body is None or not isinstance(body.get("path"), str) or not body["path"].strip():
                     return _error(400, "bad_request", 'send JSON: {"path": a folder or file on the server PC}')
-                report, failed = await _import_song_list(site, row["who"], path=body["path"].strip())
+                job, failed = _start_import(site, row["who"], path=body["path"].strip())
             elif _has_body(request):
-                report, failed = await _upload_song_list(site, request, row["who"])
+                job, failed = await _upload_song_list(site, request, row["who"], wait=False)
             else:
                 if not site.game_folder:
                     # No folder to read: the tab offers the other ways.
                     return _error(404, "no_game_folder", "the server was not given client data to read (GAME_DIR, "
                                                          "--game); send a path or a song list, or run ./dmt3 catalog "
                                                          "PATH on the server PC")
-                report, failed = await _import_song_list(site, row["who"])
+                job, failed = _start_import(site, row["who"])
+            if job is not None:
+                if not _wait_asked(request):
+                    return _job_answer(request, job)
+                await job.finished
+                report, failed = _import_outcome(job)
         except songlist.SongListError as e:
             # Past the limit: 413, as HTTP says it; no file: 400 with the reason.
             if e.key == "error.songlist.too_large":
@@ -777,7 +848,8 @@ def routes(site):
             # busy (409), refused (400, the path's or the file's own line) or not_read (409).
             return _error(400 if failed[0] == "refused" else 409, failed[0], failed[1])
         return await threaded(lambda: JSONResponse({"song_list": _song_list_state(site),
-                                                             "lines": [text for _, text in cat.lines(report)]}))
+                                                             "lines": [text for _, text in cat.lines(report)],
+                                                             "job": job.id}))
 
     async def api_folders(request):
         """The Song list tab's folder browser: a folder of the server PC (?path=, the top when not given) and the
@@ -899,6 +971,33 @@ def routes(site):
             return refused
         return JSONResponse(dict(_plays_log(site, wanted), page=wanted["page"]))
 
+    def _requests_wanted(request):
+        """(the requests log's filter, None), or (None, the error) when its kind cannot be read."""
+        wanted = insights.requests_wanted(request.query_params)
+        if wanted["unread"]:
+            return None, _error(400, "bad_request", "kind is ok, moved, refused, failed or a status of three digits")
+        return wanted, None
+
+    def api_log_requests(request):
+        """The Logs tab's requests: the last day by half hours, and the newest requests the filter leaves."""
+        _, refused = _caller(request, admin=True)
+        if refused:
+            return refused
+        wanted, refused = _requests_wanted(request)
+        if refused:
+            return refused
+        return JSONResponse(insights.requests_log(site, wanted))
+
+    def api_log_requests_csv(request):
+        """Every request the log keeps that the filter leaves, as the Logs tab's CSV file."""
+        _, refused = _caller(request, admin=True)
+        if refused:
+            return refused
+        wanted, refused = _requests_wanted(request)
+        if refused:
+            return refused
+        return insights.requests_file(site, wanted)
+
     def api_log_plays_csv(request):
         """Every play the filter leaves, as the Logs tab's CSV file."""
         _, refused = _caller(request, admin=True)
@@ -966,21 +1065,24 @@ def routes(site):
 
     async def api_backup_restore(request):
         """POST .../restore: put the database back to the backup (the database as it is backed up first; the game
-        server's writes wait meanwhile: common._restore), on a thread of the long work's own."""
-        return await long(_backup_restored, request)
-
-    def _backup_restored(request):
-        """api_backup_restore on its thread."""
-        row, refused = _caller(request, admin=True)
+        server's writes wait meanwhile: common._restore), as a job (insights.start_restore) followed here to its end,
+        or handed back at once with ?wait=0."""
+        row, refused = await threaded(_caller, request, True)
         if refused:
             return refused
         name = request.path_params["name"]
         try:
-            safety = _restore(site, name)
+            job = insights.start_restore(site, row["who"], name)
         except bak.BackupError as e:
             return _backup_refused(e)
-        _log_change(site, row["who"], "restored the database from %s" % name)
-        return JSONResponse({"restored": name, "kept_as": safety})
+        if not _wait_asked(request):
+            return _job_answer(request, job)
+        await job.finished
+        if job.state == "failed":
+            if isinstance(job.exception, bak.BackupError):
+                return _backup_refused(job.exception)
+            raise job.exception
+        return JSONResponse(job.result)
 
     # The route table's last run before the static files, in its order: the launcher's status and update feed, then
     # the rest of the API (the new twins after the routes they join). Each path is one route, with every method it
@@ -1005,9 +1107,15 @@ def routes(site):
         Route("/api/v1/dj_cards", api_dj_cards),
         Route("/api/v1/dj_cards/{kind}/{number:int}.png", api_card_picture),
         Route("/api/v1/players", api_players, methods=["GET", "POST"]),
+        # Before a player's own address (DELETE /api/v1/players/{login_id}): a GET here is the file.
+        Route("/api/v1/players/download", api_players_file),
         Route("/api/v1/cabinets", api_cabinets),
         Route("/api/v1/cabinets/{id:int}/name", api_cabinet_name, methods=["POST"]),
         Route("/api/v1/server", api_server),
+        Route("/api/v1/server/stop", api_stop, methods=["POST"]),
+        Route("/api/v1/status/machine", api_machine),
+        Route("/api/v1/jobs", api_jobs),
+        Route("/api/v1/jobs/{id}", api_job),
         Route("/api/v1/server/song_list", api_song_list, methods=["GET", "POST"]),
         Route("/api/v1/server/invite", api_invite),
         Route("/api/v1/server/folders", api_folders),
@@ -1016,6 +1124,8 @@ def routes(site):
         Route("/api/v1/log", api_log),
         Route("/api/v1/log/plays", api_log_plays),
         Route("/api/v1/log/plays.csv", api_log_plays_csv),
+        Route("/api/v1/log/requests", api_log_requests),
+        Route("/api/v1/log/requests.csv", api_log_requests_csv),
         Route("/api/v1/plays", api_plays, methods=["GET", "DELETE"]),
         Route("/api/v1/rankings", api_rankings),
         Route("/api/v1/songs", api_songs),

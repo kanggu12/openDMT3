@@ -13,7 +13,7 @@ import hmac
 import os
 from urllib.parse import quote, urlencode
 
-from starlette.responses import FileResponse, PlainTextResponse
+from starlette.responses import FileResponse, JSONResponse, PlainTextResponse
 from starlette.routing import Route
 
 from opendmt3.server.services import accounts as acc
@@ -23,11 +23,15 @@ from opendmt3.server.services import maintenance, notice, songlist, sources
 from opendmt3.server.web.work import long, threaded
 from opendmt3.server.web import strings, upload
 # What the API's twins of these pages show and do too, the error page and a redirect (common.py).
-from opendmt3.server.web.common import (LOG_DAYS, _accounts_call, _restore, _delete_backup, _known_cabinets, _log, _log_change,
+from opendmt3.server.web.common import (LOG_DAYS, _accounts_call, _delete_backup, _known_cabinets, _log, _log_change,
                                  _log_counts, _message, _new_password, _not_found, _plays_file, _plays_log, _plays_wanted,
                                  _redirect, _reset_plays, _set_maintenance, _set_notice, _status, _to_look_at,
-                                 _upload_backup, not_found, _song_list_state, _import_song_list, _song_list_found,
-                                 _upload_song_list, _look_text, _message_local, _invite)
+                                 _upload_backup, not_found, _song_list_state, _song_list_found,
+                                 _upload_song_list, _look_text, _message_local, _start_import, _import_outcome,
+                                 _invite)
+# The use of the server the pages show beside those (the machine, when people play, the requests log, the players' last
+# two weeks), stopping the server, and the long jobs (insights.py).
+from opendmt3.server.web import insights
 
 
 def routes(site):
@@ -110,12 +114,24 @@ def routes(site):
             store.db.close()
 
     def _players_shown(request, user, notice, error, message):
-        """The Players page itself, on a worker thread."""
-        rows = _accounts_call(site, "all")
+        """The Players page itself, on a worker thread: every account sorted as ?sort= and ?order= ask (by last play
+        unless they ask otherwise), each with its last two weeks."""
+        rows, sort, order, start, most = insights.players_rows(site, request.query_params.get("sort", ""),
+                                                               request.query_params.get("order"))
+        # Each day of the row of cells, for their tips and the column's words.
+        days = [start + n * 86400 for n in range(insights.ACTIVITY_DAYS)]
         # With a message whose address only this PC reaches, the page says which address to send in its place.
         return site.render(request, "admin_players.html", user=user, rows=rows, notice=notice, error=error,
                            message=message, message_local=_message_local(site, request) if message else None,
-                           dj_max=acc.DJ_NAME_MAX, invite=_invite(site, request))
+                           dj_max=acc.DJ_NAME_MAX, sort=sort, order=order, days=days, most=most,
+                           sorts=insights.SORTS, invite=_invite(site, request))
+
+    def admin_players_file(request):
+        """Every player as a CSV file (insights.players_file, shared with the API's twin)."""
+        user = site.account(request)
+        if not user["is_admin"]:
+            return _not_found(site, request)
+        return insights.players_file(site)
 
     async def admin_cabinets(request):
         """The cabinets: every one seen (named by the admin, or by its address), and who plays on each now."""
@@ -162,6 +178,13 @@ def routes(site):
         if form is not None:
             if not hmac.compare_digest(form.get("csrf", ""), site.csrf(request)):
                 error = w("form.expired")
+            elif form.get("action") == "stop":
+                # The server's runner asked to stop it (runner.py), the page saying so first; a runner the page cannot
+                # ask leaves the page as it was, with how to stop it.
+                if insights.stop_server(site, user["login_id"]):
+                    done = w("server.stopping")
+                else:
+                    error = w("server.stop.not_here." + site.runner.kind, command=site.runner.command or "")
             elif form.get("action") in ("maintenance_on", "maintenance_off"):
                 # Maintenance on or off: the game server refuses card logins while it is on. Written and logged as the
                 # API's twin does it.
@@ -185,7 +208,8 @@ def routes(site):
         return site.render(request, "admin_status.html", user=user, server=_status(site),
                            look=look, notice=done, error=error, data=_song_list_state(site, w),
                            kept=notice.read(site.data_dir), notice_max=notice.MOST,
-                           maintenance=maintenance.read(site.data_dir))
+                           maintenance=maintenance.read(site.data_dir), machine=insights.machine_view(site),
+                           hours=insights.play_hours(site), runner=site.runner, here="/admin/status")
 
     async def admin_song_list(request):
         """The song list, in the shape of OpenDMTQ's setup page: what the server takes (the song list, with its jackets
@@ -203,15 +227,23 @@ def routes(site):
             if not hmac.compare_digest(form.get("csrf", ""), site.csrf(request)):
                 error = w("form.expired")
             elif form.get("action") == "import":
-                # A path from the list found, from the folder browser or typed (empty: the game folder given).
+                # A path from the list found, from the folder browser or typed (empty: the game folder given): a job,
+                # which the page follows at its own address (?job=) until it ends.
                 path = form.get("path", "").strip() or None
-                done, error = _imported(w, *(await _import_song_list(site, user["login_id"], path=path)))
+                job, refused = _start_import(site, user["login_id"], path=path)
+                if job is not None and not await site.jobs.settled(job):
+                    return _redirect("/admin/song_list?job=" + job.id)
+                done, error = _imported(w, *(_import_outcome(job) if job is not None else (None, refused)))
         return await _song_list_page(request, user, done, error)
 
     async def _song_list_page(request, user, done, error, status=200):
         """The Song list tab with the line a form left: what is found is looked for on a worker thread (each look is
         kept a little while: sources.found), and the browser's folder from ?browse= (outside Docker)."""
         w = strings.words(site.language(request))
+        # The job the page follows (?job=): its progress card while it runs, its line once it ended.
+        job = _followed(request, w)
+        if job is not None and job["state"] != "running" and not (done or error):
+            done, error = (job["text"], None) if job["state"] == "done" else (None, job["text"])
         found = await long(_song_list_found, site)
         for item in found["found"]:
             # Each one's line in the page's language.
@@ -231,7 +263,12 @@ def routes(site):
             request, "admin_song_list.html", status=status, here="/admin/song_list", user=user,
             data=_song_list_state(site, w), found=found, browsing=browsing, notice=done, error=error,
             upload_most=songlist.MOST, upload_mb=songlist.MOST >> 20, too_large=w.error(songlist.too_large()),
-            quote=quote, command="./dmt3 catalog PATH"))
+            quote=quote, command="./dmt3 catalog PATH", job=job if job and job["state"] == "running" else None))
+
+    def _followed(request, w):
+        """The job a page follows (?job= of the kind the page starts), in the page's words, or None."""
+        found = site.jobs.get(request.query_params.get("job", ""))
+        return insights.job_words(w, found) if found is not None else None
 
     def _crumbs(path):
         """A folder's path as steps from the top: [(name, the path up to it)], the top as "/"."""
@@ -260,7 +297,7 @@ def routes(site):
             return PlainTextResponse("Not Found", status_code=404)
         w = strings.words(site.language(request))
         try:
-            report, refused = await _upload_song_list(site, request, user["login_id"], form=True)
+            job, refused = await _upload_song_list(site, request, user["login_id"], form=True, wait=False)
         except upload.FormExpired:
             # No token, or another one, before the file: nothing was read of it.
             return await _song_list_page(request, user, None, w("form.expired"))
@@ -268,8 +305,22 @@ def routes(site):
             # Too large, or no file: in the admin's language; a body too large says so with its status too.
             return await _song_list_page(request, user, None, w.error(e),
                                          413 if e.key == "error.songlist.too_large" else 200)
-        done, error = _imported(w, report, refused)
+        if job is not None and not await site.jobs.settled(job):
+            # The import goes on as a job; the tab follows it at its own address.
+            return _redirect("/admin/song_list?job=" + job.id)
+        done, error = _imported(w, *(_import_outcome(job) if job is not None else (None, refused)))
         return await _song_list_page(request, user, done, error)
+
+    def admin_job(request):
+        """One job as the progress card follows it (site.js asks every second), in the page's words: JSON for the
+        admin's own browser (the API's twin is GET /api/v1/jobs/{id})."""
+        user = site.account(request)
+        if not user["is_admin"]:
+            return _not_found(site, request)
+        found = site.jobs.get(request.path_params["id"])
+        if found is None:
+            return JSONResponse({"error": {"code": "unknown_job", "message": "no such job"}}, status_code=404)
+        return JSONResponse(insights.job_words(strings.words(site.language(request)), found))
 
     def admin_log(request):
         user = site.account(request)
@@ -297,6 +348,27 @@ def routes(site):
         return site.render(request, "admin_log_plays.html", user=user, wanted=wanted, log=_plays_log(site, wanted),
                            days=LOG_DAYS, links=links)
 
+    def admin_log_requests(request):
+        """The log's requests: the last day by half hours, then the newest requests the filter leaves (a word, a kind
+        of answer), with a file of all the log keeps."""
+        user = site.account(request)
+        if not user["is_admin"]:
+            return _not_found(site, request)
+        wanted = insights.requests_wanted(request.query_params)
+        kept = {key: wanted[key] for key in ("q", "kind") if wanted[key]}
+        return site.render(request, "admin_log_requests.html", user=user, wanted=wanted,
+                           log=insights.requests_log(site, wanted), kinds=list(insights.requestlog.KINDS),
+                           csv="/admin/log/requests.csv" + ("?" + urlencode(kept) if kept else ""),
+                           log_mb=(insights.requestlog.MOST_BYTES * insights.requestlog.FILES) >> 20,
+                           log_days=insights.requestlog.DAYS)
+
+    def admin_log_requests_csv(request):
+        """Every request the log keeps that the filter leaves, as a CSV file (shared with the API's twin)."""
+        user = site.account(request)
+        if not user["is_admin"]:
+            return _not_found(site, request)
+        return insights.requests_file(site, insights.requests_wanted(request.query_params))
+
     def admin_log_plays_csv(request):
         """Every play the log's filter leaves, as a CSV file (common._plays_file, shared with the API's twin)."""
         user = site.account(request)
@@ -305,9 +377,14 @@ def routes(site):
         return _plays_file(site, _plays_wanted(request.query_params))
 
     async def admin_backups(request):
-        """Backups of the database: one a day while the server runs (the week's kept), one now, download, restore,
-        delete; an upload is posted to its own route (admin_backup_upload) and comes back to this page."""
+        """Backups of the database: one a day while the server runs (the week's kept), one now, download, restore (a
+        job the page follows at its own address, ?job=), delete; an upload is posted to its own route
+        (admin_backup_upload) and comes back to this page."""
         form = await request.form() if request.method == "POST" else None
+        if form is not None and form.get("action") == "restore":
+            started = await _restore_started(request, form)
+            if started is not None:
+                return started
         # A backup made or put back copies the whole database: on a thread of the long work's own.
         return await long(_backups_posted, request, form)
 
@@ -328,11 +405,9 @@ def routes(site):
                         _log_change(site, user["login_id"], "backed up the database as %s" % name)
                         notice = w("backups.made", name=name)
                     elif form.get("action") == "restore":
-                        name = form.get("name", "")
-                        # The game server's writes wait meanwhile (common._restore): none falls between the two.
-                        safety = _restore(site, name)
-                        _log_change(site, user["login_id"], "restored the database from %s" % name)
-                        notice = w("backups.restored", name=name, safety=safety)
+                        # Only reached when the restore could not start (admin_backups starts it as a job): the
+                        # backup's own refusal, in the admin's words.
+                        bak.path_of(site.data_dir, form.get("name", ""))
                     elif form.get("action") == "delete":
                         # Only a backup's own name (path_of refuses any other), asked first on the page; deleted and
                         # logged as the API's twin does it.
@@ -343,13 +418,37 @@ def routes(site):
                     error = w.error(e)
         return _backups_page(request, user, notice, error)
 
+    async def _restore_started(request, form):
+        """A restore posted: started as a job (insights.start_restore) and the page sent to follow it, or None when the
+        page answers it itself (not an admin, an expired form, no such backup: _backups_posted says so)."""
+        user = await threaded(site.account, request)
+        if not user["is_admin"] or not hmac.compare_digest(form.get("csrf", ""), site.csrf(request)):
+            return None
+        try:
+            job = insights.start_restore(site, user["login_id"], form.get("name", ""))
+        except bak.BackupError:
+            return None
+        if await site.jobs.settled(job):
+            # Done within a few seconds: the page says how at once.
+            w = strings.words(site.language(request))
+            said = insights.job_words(w, job)
+            ok = job.state == "done"
+            return await threaded(_backups_page, request, user, said["text"] if ok else None,
+                                  None if ok else said["text"])
+        return _redirect("/admin/backups?job=" + job.id)
+
     def _backups_page(request, user, notice, error, status=200):
         """The Backups tab with the line a form left (done or refused): the list, how many of each kind stay, and the
         upload's limit with what the page says when a chosen file passes it (site.js says it before sending). Shown at
         its own address whichever form was posted (an upload's goes elsewhere), so the language switch comes back
         here."""
         w = strings.words(site.language(request))
+        # The restore the page follows (?job=): its progress card while it runs, its line once it ended.
+        job = _followed(request, w)
+        if job is not None and job["state"] != "running" and not (notice or error):
+            notice, error = (job["text"], None) if job["state"] == "done" else (None, job["text"])
         return site.render(request, "admin_backups.html", status=status, here="/admin/backups", user=user,
+                           job=job if job and job["state"] == "running" else None,
                            backups=bak.all_backups(site.data_dir), keep=bak.KEEP, notice=notice, error=error,
                            upload_most=bak.UPLOAD_MOST, upload_mb=bak.UPLOAD_MOST >> 20,
                            too_large=w.error(bak.too_large()))
@@ -390,6 +489,7 @@ def routes(site):
     return [
         Route("/admin", lambda r: _redirect("/admin/players")),
         Route("/admin/players", admin_players, methods=["GET", "POST"]),
+        Route("/admin/players/download", admin_players_file),
         Route("/admin/cabinets", admin_cabinets, methods=["GET", "POST"]),
         Route("/admin/status", admin_status, methods=["GET", "POST"]),
         Route("/admin/song_list", admin_song_list, methods=["GET", "POST"]),
@@ -397,6 +497,9 @@ def routes(site):
         Route("/admin/log", admin_log),
         Route("/admin/log/plays", admin_log_plays),
         Route("/admin/log/plays.csv", admin_log_plays_csv),
+        Route("/admin/log/requests", admin_log_requests),
+        Route("/admin/log/requests.csv", admin_log_requests_csv),
+        Route("/admin/jobs/{id}", admin_job),
         Route("/admin/backups", admin_backups, methods=["GET", "POST"]),
         # Before a backup's own address: "upload" is no backup's name, and a POST goes here.
         Route("/admin/backups/upload", admin_backup_upload, methods=["POST"]),

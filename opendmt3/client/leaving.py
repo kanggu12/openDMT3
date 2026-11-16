@@ -58,11 +58,15 @@ LOG_NAME = re.compile(r"^launcher\.log(\.\d+)?$")
 # code gives a file is here (tests/client/test_launcher.py checks it).
 SERVER_NAME = re.compile(r"^(openDMT3\.sqlite(-wal|-shm|-journal|\.v\d+-\d{8}-\d{6}\.bak)?"
                          r"|(catalog|catalog-read|cards|maintenance|notice)\.json(\.new)?|web\.secret(\.new)?"
+                         # The machine's last day for the admin's Status tab (server/services/machine.py).
+                         r"|machine\.json(\.part)?"
                          r"|catalog\.log(\.1)?|\.song-list\.lock|\.song-list-[^\\/]+)$")
 # Its folders: the database's backups (server/services/backups.py, with a copy cut short), the song discs and the DJ
 # card's pictures read from the game (server/services/catalog.py, server/services/cards.py: one folder for each kind).
 BACKUP_NAME = re.compile(r"^openDMT3-\d{8}-\d{6}-(daily|manual|restore)\.sqlite(\.part)?$")
 PICTURE_NAME = re.compile(r"^\d+\.png(\.new)?$")
+# The site's requests log and the copies it turns over into (server/services/requestlog.py), in the server's logs/.
+REQUESTS_NAME = re.compile(r"^requests\.log(\.\d+)?$")
 # Folders the server makes for files people put there (installers to hand out, updates): only taken when empty.
 SERVER_EMPTY = ("downloads", "updates")
 
@@ -320,6 +324,7 @@ def _launchers_files(folder):
     yield from _named_in(os.path.join(folder, "logs"), LOG_NAME.match)
     server = os.path.join(folder, "server")
     yield from _named_in(os.path.join(server, "backups"), BACKUP_NAME.match)
+    yield from _named_in(os.path.join(server, "logs"), REQUESTS_NAME.match)
     yield from _named_in(os.path.join(server, catalog.JACKETS), PICTURE_NAME.match)
     pictures = os.path.join(server, cards.FOLDER)
     for kind in _names(pictures):
@@ -378,7 +383,7 @@ def delete_data(folder):
     for top in list(_staging(server)):
         for inside, _, _ in os.walk(top, topdown=False):
             _remove_if_empty(inside)
-    for name in (cards.FOLDER, catalog.JACKETS, "backups") + SERVER_EMPTY:
+    for name in (cards.FOLDER, catalog.JACKETS, "backups", "logs") + SERVER_EMPTY:
         _remove_if_empty(os.path.join(server, name))
     for path in (server, os.path.join(folder, "logs"), folder):
         _remove_if_empty(path)

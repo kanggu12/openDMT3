@@ -10,6 +10,7 @@
   {% set tab = "backups" %}{% include "_admin_tabs.html" %}
   {% if notice %}<p class="alert ok">{{ notice }}</p>{% endif %}
   {% if error %}<p class="alert bad">{{ error }}</p>{% endif %}
+  {% include "_job.html" %}
   {# Every form names this page: the page also shows at the upload's own address, after an upload. #}
   <div class="card">
     <form method="post" action="/admin/backups" class="form row">

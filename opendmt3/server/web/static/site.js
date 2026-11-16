@@ -172,3 +172,46 @@
     }
   });
 }());
+
+// A long job's progress card (templates/_job.html: a song list's import, a restore): the job asked for every second
+// (/admin/jobs/{id}, in the page's language), its bar, step and count moved as it goes, the step it is on marked in the
+// list; once it ends the page opens again at its own address, which then says how it ended. A failed ask tries again
+// at the next second; the card's link does the same without the script.
+(function () {
+  "use strict";
+  var card = document.querySelector(".card.job[data-job]");
+  if (!card || typeof window.fetch !== "function") { return; }
+  var bar = card.querySelector(".job-bar"), fill = bar.querySelector("i");
+  var text = card.querySelector(".job-text"), count = card.querySelector(".job-count");
+  var steps = card.querySelector(".job-steps");
+  function show(job) {
+    var pct = Math.round((job.share || 0) * 1000) / 10;
+    fill.style.width = pct + "%";
+    bar.setAttribute("aria-valuenow", String(Math.round(pct)));
+    // Words from the server, as text (never markup).
+    text.textContent = job.step_text || "";
+    count.textContent = job.count_text || "";
+    // The steps as the job now knows them (an import's are known once it started), the one it is on marked.
+    var known = job.steps || [], at = known.indexOf(job.step);
+    var items = steps.querySelectorAll("li");
+    for (var i = 0; i < items.length; i += 1) {
+      var place = known.indexOf(items[i].dataset.step);
+      items[i].hidden = place < 0;
+      items[i].className = place === at ? "on" : (at >= 0 && place >= 0 && place < at ? "done" : "");
+    }
+  }
+  function ask() {
+    fetch("/admin/jobs/" + encodeURIComponent(card.dataset.job), {credentials: "same-origin", cache: "no-store"})
+      .then(function (answer) { return answer.ok ? answer.json() : null; })
+      .then(function (job) {
+        if (job && job.state !== "running") {
+          // Ended: the page at its own address says how.
+          window.location.replace(window.location.pathname + "?job=" + encodeURIComponent(card.dataset.job));
+          return;
+        }
+        if (job) { show(job); }
+        window.setTimeout(ask, 1000);
+      }, function () { window.setTimeout(ask, 1000); });
+  }
+  window.setTimeout(ask, 1000);
+}());

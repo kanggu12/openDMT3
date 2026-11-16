@@ -10,6 +10,7 @@
   {% set tab = "song_list" %}{% include "_admin_tabs.html" %}
   {% if notice %}<p class="alert ok" role="status">{{ notice }}</p>{% endif %}
   {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
+  {% include "_job.html" %}
   {# What the server takes from the game, as OpenDMTQ's setup page shows each thing: what it is, the forms it may come
      in, whether it is needed; then whether the server has it, part by part. #}
   <div class="card song-list">

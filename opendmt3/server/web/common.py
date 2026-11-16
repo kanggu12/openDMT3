@@ -849,43 +849,82 @@ def _song_list_found(site):
     return {"found": sources.as_json(sources.found(places)), "places": places, "browse": not sources.in_container()}
 
 
-async def _import_song_list(site, who, path=None, upload=None, shown_as=None):
-    """Import the song list on a worker thread, one reading at a time: from a path on the server PC in any form (a game
-    folder, an archive holding one, a song list), from the game folder the server was given when no path is given
-    (Read again), or from an uploaded song list (`upload`, its file; shown_as, the name it came with). Returns
-    (report, None) once it is in, with a line in the change log, or (None, (code, why)): "busy" while another runs,
-    "refused" for a path or a file that is not what the server takes (its one plain line), "not_read" for anything
-    else (the traceback in the server's log and in catalog.log)."""
+def _start_import(site, who, path=None, upload=None, shown_as=None):
+    """Start the song list's import as a job (jobs.py), one reading at a time: from a path on the server PC in any form
+    (a game folder, an archive holding one, a song list), from the game folder the server was given when no path is
+    given (Read again), or from an uploaded song list (`upload`, its file, removed once the job ends; shown_as, the
+    name it came with). Returns (the job, None), or (None, ("busy", why)) while another import runs (an upload's file
+    is removed then too). Once done the change log has its line; a failure that is not one of the worded refusals
+    leaves its traceback in the server's log and in catalog.log. On the event loop."""
     source = upload or path or site.game_folder
     if not site.reading.acquire(blocking=False):
-        return None, ("busy", "a song list is being imported already")
-    try:
         if upload:
-            report = await long(songlist.take, upload, site.data_dir, None, shown_as)
-        else:
-            # traces: a part that cannot be read leaves its traceback in the server's own log as well as catalog.log.
-            report = await long(sources.read, source, site.data_dir, None, True)
-    except (sources.SourceError, songlist.SongListError, errors.Worded) as e:
-        # What the path or the file is, in its own words: nothing changed.
-        return None, ("refused", errors.say(e), e)
-    except Exception as e:  # noqa: BLE001  (every other reason is said the same way, its traceback kept)
-        cat.keep_trace(site.data_dir, "the song list", e)
-        log.warning("the song list could not be imported from %s", shown_as or source, exc_info=True)
-        return None, ("not_read", cat.why(e), e)
-    finally:
-        site.reading.release()
+            cat.remove(upload)
+        return None, ("busy", "a song list is being imported already")
     where = ("an uploaded song list (%s)" % shown_as) if upload else source
-    # The change log's line written on a worker thread (a write to the database).
-    await threaded(_log_change, site, who, "imported the song list from %s: %d songs, %s" % (
-        where, report["songs"], ", ".join("%s missing" % part for part in report["missing"]) or "nothing missing"))
-    return report, None
+
+    def work():
+        if upload:
+            return songlist.take(upload, site.data_dir, None, shown_as)
+        # traces: a part that cannot be read leaves its traceback in the server's own log as well as catalog.log.
+        return sources.read(source, site.data_dir, None, True)
+
+    def finish(job):
+        try:
+            if job.state == "done":
+                report = job.result
+                _log_change(site, who, "imported the song list from %s: %d songs, %s" % (
+                    where, report["songs"],
+                    ", ".join("%s missing" % part for part in report["missing"]) or "nothing missing"))
+            elif not isinstance(job.exception, (sources.SourceError, songlist.SongListError, errors.Worded)):
+                # Not one of the worded refusals: its traceback kept, and the job's words say why in a line.
+                cat.keep_trace(site.data_dir, "the song list", job.exception)
+                log.warning("the song list could not be imported from %s", shown_as or source,
+                            exc_info=job.exception)
+        finally:
+            site.reading.release()
+            if upload:
+                cat.remove(upload)
+    try:
+        job = site.jobs.start("song_list", who, work, details={"from": "upload" if upload else "path",
+                                                                "path": shown_as or source}, finish=finish)
+    except BaseException:
+        # Never started: the next import may go.
+        site.reading.release()
+        if upload:
+            cat.remove(upload)
+        raise
+    return job, None
 
 
-async def _upload_song_list(site, request, who, form=False):
+def _import_outcome(job):
+    """What an import job ended with, as _import_song_list returns it: (report, None), or (None, (code, why, error)):
+    "refused" for a path or a file that is not what the server takes (its one plain line), "not_read" for anything
+    else."""
+    if job.state == "done":
+        return job.result, None
+    e = job.exception
+    if isinstance(e, (sources.SourceError, songlist.SongListError, errors.Worded)):
+        return None, ("refused", errors.say(e), e)
+    return None, ("not_read", cat.why(e), e)
+
+
+async def _import_song_list(site, who, path=None, upload=None, shown_as=None):
+    """Import the song list and wait for it (_start_import's job, followed to its end): (report, None) once it is in,
+    or (None, (code, why[, error])): "busy" while another runs, "refused" or "not_read" (_import_outcome)."""
+    job, refused = _start_import(site, who, path, upload, shown_as)
+    if refused:
+        return None, refused
+    await job.finished
+    return _import_outcome(job)
+
+
+async def _upload_song_list(site, request, who, form=False, wait=True):
     """A song list the admin uploads (the Song list tab's form with its token, or the API's body), written to a file of
-    its own in the data folder as it comes, at most songlist.MOST bytes, then imported (_import_song_list) and the file
-    removed whatever happened. Returns what _import_song_list returns; SongListError (too large, no file) or FormExpired
-    for an upload refused before it was read."""
+    its own in the data folder as it comes, at most songlist.MOST bytes, then imported, the file removed whatever
+    happened (by the import's job once it has it). With wait, the import is followed to its end and this returns what
+    _import_song_list returns; without, it returns what _start_import does (the job, to follow). SongListError (too
+    large, no file) or FormExpired for an upload refused before it was read."""
     if upload.declared_too_large(request, songlist.MOST + (upload.FORM_ROOM if form else 0)):
         raise songlist.too_large()
     fd, part = tempfile.mkstemp(prefix=cat.STAGING + "upload-", suffix=".zip", dir=site.data_dir)
@@ -898,12 +937,18 @@ async def _upload_song_list(site, request, who, form=False):
                 size, name = await upload.body_to(request, out, songlist.MOST, too_large=songlist.too_large), None
         if not size:
             raise songlist.no_file()
-        return await _import_song_list(site, who, upload=part, shown_as=_upload_name(name))
     except upload.Malformed:
         # A body no page of this site sends: no file to take.
-        raise songlist.no_file() from None
-    finally:
         cat.remove(part)
+        raise songlist.no_file() from None
+    except BaseException:
+        # Refused or cut short before the import: the file goes with it.
+        cat.remove(part)
+        raise
+    # From here the import's job has the file, and removes it once it ends (_start_import).
+    if wait:
+        return await _import_song_list(site, who, upload=part, shown_as=_upload_name(name))
+    return _start_import(site, who, upload=part, shown_as=_upload_name(name))
 
 
 def _upload_name(name):

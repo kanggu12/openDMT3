@@ -48,12 +48,19 @@ from opendmt3.server import db
 from opendmt3.server.services import accounts as acc
 from opendmt3.server.services import activity as act
 from opendmt3.server.services import limits
+# The machine's last day (Status tab) and the site's requests log (Logs tab), one each per data folder.
+from opendmt3.server.services import machine
 from opendmt3.server.services import maintenance
 from opendmt3.server.services import notice
+from opendmt3.server.services import requestlog
+from opendmt3.server.services import sources
 # The areas: each builds its own routes for a Site, and create_app joins them into one table.
 from opendmt3.server.web import admin, api, pages
 # The lists made from everyone's plays, kept until the plays change.
 from opendmt3.server.web import cache
+# The admin pages' long jobs, and who started the server (how its Stop asks them).
+from opendmt3.server.web import jobs as jobs_mod
+from opendmt3.server.web import runner as runner_mod
 # Each request's own connection and processor time, and the worker threads its work runs on.
 from opendmt3.server.web.work import REQUEST, Request as _Request, charged, limit_threads, long, threaded
 from opendmt3.server.web import session as sess
@@ -138,8 +145,19 @@ log = logging.getLogger("opendmt3.web")
 class Site:
     """What the pages share: the database, the signer, the game server (for live cabinets), the words."""
 
-    def __init__(self, data_dir, game_server=None, game_port=4725, downloads=None, game_folder=None, address=None):
+    def __init__(self, data_dir, game_server=None, game_port=4725, downloads=None, game_folder=None, address=None,
+                 runner=None):
         self.data_dir = data_dir
+        # Who started this server, which the Status tab's Stop asks (runner.py): given by whoever made the Site (the
+        # command line, the launcher), else Docker Compose's in a container or one the server cannot tell.
+        self.runner = runner or runner_mod.default(sources.in_container())
+        # The admin pages' long jobs (a song list's import, a restore) and how far each has come.
+        self.jobs = jobs_mod.Jobs()
+        # The site's requests log (services/requestlog.py), shared by every Site of this data folder.
+        self.requests = requestlog.for_dir(data_dir)
+        # The machine's last day (services/machine.py), its thread started with the first request (Work): a Site made
+        # for a test or a command never starts it. The game server counts the cabinets connected for each point.
+        self.machine = machine.sampler(data_dir, cabinets=self._cabinets_online if game_server is not None else None)
         # The site's address as the players reach it (--site-address: the one its owner chose in ./dmt3 setup), which
         # the message to send a player carries; None: the address the admin's own browser used stands in.
         self.address = address
@@ -172,6 +190,10 @@ class Site:
         self.templates.filters["when"] = lambda t: time.strftime("%Y-%m-%d %H:%M", time.localtime(t)) if t else ""
         # A day without the year, for the activity chart's weeks.
         self.templates.filters["day"] = lambda t: time.strftime("%m/%d", time.localtime(t))
+        # An hour and its minutes, for the charts of the last day.
+        self.templates.filters["clock"] = lambda t: time.strftime("%H:%M", time.localtime(t))
+        # A size in bytes as the admin pages say sizes (KB, MB, GB with one decimal).
+        self.templates.filters["size"] = _size_words
         # The lists made from everyone's plays, kept until the plays change (cache.py).
         self.lists = cache.Lists()
         # The seconds of requests each caller and each address spent lately (Shares), shared by every thread.
@@ -188,6 +210,10 @@ class Site:
         # (the event loop, its _Turns: who is being answered now, per caller and address) for Shares: made on the loop
         # that first needs it, as gate() is.
         self._turns = None
+
+    def _cabinets_online(self):
+        """How many cabinets are connected now (the machine's points count them)."""
+        return sum(1 for link in self.game_server.live() if link["online"])
 
     def connect(self):
         """The database connection for the request being answered: opened at its first use in the request and lent to
@@ -408,6 +434,17 @@ class Site:
         return _whole_seconds(self.wrong_ids.wait(_id_key(login_id), ID_TRIES))
 
 
+def _size_words(n):
+    """Bytes as a page says them: whole KB under a megabyte, then MB and GB with one decimal."""
+    if n is None:
+        return "-"
+    if n < 1024 * 1024:
+        return "%d KB" % max(0, round(n / 1024))
+    if n < 1024 ** 3:
+        return "%.1f MB" % (n / 1024 ** 2)
+    return "%.1f GB" % (n / 1024 ** 3)
+
+
 def _id_key(login_id):
     """An ID as the limits count it: as the database compares it (in any case), cut to a sane length."""
     return str(login_id).strip().upper()[:32]
@@ -573,13 +610,66 @@ def create_app(site):
         return Response("Method Not Allowed", status_code=405, headers=_allowed(exc))
 
     # Around the routes, outermost first: text answers compressed, the API's answers never stored, failures answered
-    # and logged, the request's own connection and processor time (Work), each caller's fair share of it (Shares), the
+    # and logged, each request in the requests log (Logged: inside Errors, so a failure is logged as one; outside the
+    # rest, so a refusal of Shares or the wall is logged too), the request's own connection and processor time (Work), each caller's fair share of it (Shares), the
     # sign-in wall. NoStore is outside the rest, so their own answers under /api/ carry it too; Errors outside Work and
     # Shares, so a failure anywhere below is answered; Work outside Shares, so Shares counts what Work kept (a refused
     # request opens nothing: the connection is opened at its first use).
     return Starlette(routes=routes, exception_handlers={404: missing, 405: wrong_method},
-                     middleware=[Middleware(Compress), Middleware(NoStore), Middleware(Errors), Middleware(Work),
-                                 Middleware(Shares, site=site), Middleware(SignInWall)])
+                     middleware=[Middleware(Compress), Middleware(NoStore), Middleware(Errors),
+                                 Middleware(Logged, site=site), Middleware(Work), Middleware(Shares, site=site),
+                                 Middleware(SignInWall)])
+
+
+# What the requests log leaves out besides the files (free()): the progress card's own asks, one a second while a job
+# runs (they would fill the log and say nothing of who used the site).
+UNLOGGED = ("/admin/jobs/",)
+# The key under which Work leaves the signed-in account's ID in the request's scope for Logged.
+WHO_KEY = "opendmt3.who"
+
+
+class Logged:
+    """Each request the site answers, in the requests log (services/requestlog.py): its method, path, status, how long
+    the answer took, its address and the account signed in (Work leaves its ID in the scope). On the loop it only adds
+    the line to a list; the log's own thread writes it. The files every page loads, the health check and the progress
+    card's asks are left out. The first request also starts the machine's sampler (services/machine.py), so a Site made
+    for a test or a command never does."""
+
+    def __init__(self, app, site):
+        self.app = app
+        self.site = site
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        # The sampler's thread, once per data folder (a look at a flag after that).
+        self.site.machine.start()
+        path = scope["path"]
+        if free(path) or path.startswith(UNLOGGED):
+            await self.app(scope, receive, send)
+            return
+        started = time.monotonic()
+        status = [None]
+
+        async def watched(message):
+            if message["type"] == "http.response.start":
+                status[0] = message["status"]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, watched)
+        finally:
+            # An exception before any answer is answered by Errors as a failure: logged as one.
+            query = scope.get("query_string", b"").decode("latin-1")
+            client = scope.get("client")
+            self.site.requests.add(scope["method"], path + ("?" + query if query else ""), status[0] or 500,
+                                   1000 * (time.monotonic() - started), client[0] if client else "?",
+                                   scope.get(WHO_KEY))
+        if self.site.requests.due():
+            # The lines waiting written once a second at most, after the answer and on a thread of the long work's
+            # own: never on the loop, never on the site's two threads.
+            await long(self.site.requests.write)
 
 
 class Work:
@@ -603,6 +693,10 @@ class Work:
             await self.app(scope, receive, send)
         finally:
             REQUEST.reset(token)
+            # The account the request's sign-in named (looked up already, never looked up for this), for the log.
+            signed = next((row for row in work.accounts.values() if row is not None), None)
+            if signed is not None:
+                scope[WHO_KEY] = signed["login_id"]
             if work.connection is not None:
                 connection, work.connection = work.connection, None
                 try:

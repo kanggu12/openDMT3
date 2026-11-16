@@ -851,6 +851,7 @@ class RouteDocsTest(ApiBase):
             ("GET", "/api/v1/download", "/api/v1/download", {}),
             ("GET", "/api/v1/download/windows", "/api/v1/download/windows", {}),
             ("GET", "/api/v1/players", "/api/v1/players", {}),
+            ("GET", "/api/v1/players/download", "/api/v1/players/download", {}),
             ("POST", "/api/v1/players", "/api/v1/players", {"json": {"login_id": "NEW1"}}),
             ("POST", "/api/v1/players/{login_id}/password", "/api/v1/players/NEW1/password", {}),
             ("POST", "/api/v1/players/{login_id}/dj_name", "/api/v1/players/NEW1/dj_name", {"json": {"dj_name": "N"}}),
@@ -863,8 +864,11 @@ class RouteDocsTest(ApiBase):
             ("POST", "/api/v1/cabinets/{id}/name", "/api/v1/cabinets/%d/name" % cabinet, {"json": {"name": "Left"}}),
             ("GET", "/api/v1/server", "/api/v1/server", {}),
             ("GET", "/api/v1/server/invite", "/api/v1/server/invite", {}),
+            ("GET", "/api/v1/status/machine", "/api/v1/status/machine", {}),
             ("GET", "/api/v1/server/song_list", "/api/v1/server/song_list", {}),
             ("POST", "/api/v1/server/song_list", "/api/v1/server/song_list", {}),
+            ("GET", "/api/v1/jobs", "/api/v1/jobs", {}),
+            ("GET", "/api/v1/jobs/{id}", "/api/v1/jobs/{made_job}", {}),
             ("GET", "/api/v1/server/folders", "/api/v1/server/folders", {}),
             ("POST", "/api/v1/notice", "/api/v1/notice", {"json": {"text": "Hello"}}),
             ("GET", "/api/v1/notice", "/api/v1/notice", {}),
@@ -875,6 +879,8 @@ class RouteDocsTest(ApiBase):
             ("GET", "/api/v1/log", "/api/v1/log", {}),
             ("GET", "/api/v1/log/plays", "/api/v1/log/plays", {}),
             ("GET", "/api/v1/log/plays.csv", "/api/v1/log/plays.csv", {}),
+            ("GET", "/api/v1/log/requests", "/api/v1/log/requests", {}),
+            ("GET", "/api/v1/log/requests.csv", "/api/v1/log/requests.csv", {}),
             ("GET", "/api/v1/backups", "/api/v1/backups", {}),
             ("POST", "/api/v1/backups", "/api/v1/backups", {}),
             ("POST", "/api/v1/backups/upload", "/api/v1/backups/upload", {"content": backup_file}),
@@ -883,7 +889,12 @@ class RouteDocsTest(ApiBase):
             ("POST", "/api/v1/backups/{name}/restore", "/api/v1/backups/%s/restore" % kept, {}),
             ("DELETE", "/api/v1/plays", "/api/v1/plays", {}),
             ("DELETE", "/api/v1/session", "/api/v1/session", {"token": self.token()}),
+            # Last: the server's runner asked to stop it (one made up here, which only notes it was asked).
+            ("POST", "/api/v1/server/stop", "/api/v1/server/stop", {}),
         ]
+        from opendmt3.server.web import runner
+        asked = []
+        self.site.runner = runner.Runner("python", stop=lambda: asked.append(True))
         table = {(c.method, c.path): c for c in calls.CALLS}
         # The song list read again: a game folder given, and its reading made up (the reading itself is
         # tests/server/test_sources.py's); the server PC's look through its folders made up too.
@@ -922,6 +933,8 @@ class RouteDocsTest(ApiBase):
                         made["made_token"] = answer["id"]
                     if (method, path) == ("POST", "/api/v1/backups/upload"):
                         made["made_upload"] = answer["uploaded"]
+                    if (method, path) == ("POST", "/api/v1/server/song_list"):
+                        made["made_job"] = answer["job"]
                 checked += 1
         # The instrument itself: every call was made and looked at.
         self.assertEqual(checked, len(table))

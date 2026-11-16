@@ -24,12 +24,15 @@ import time
 
 from opendmt3.server import db
 from opendmt3.core.errors import Worded
-from opendmt3.server.services import records
+# How far the work has come, for the admin page's job (nothing without one).
+from opendmt3.server.services import progress, records
 
 log = logging.getLogger("opendmt3.backups")
 
 # How many of each kind stay (a week of daily ones).
 KEEP = 7
+# The database's pages a restore copies at a time, each step said to the admin page's job (4 MB of 4 KB pages).
+COPY_PAGES = 1024
 # How old the newest daily backup may be before the next is made.
 DAY = 86400
 # daily: made by the server once a day; manual: asked for; restore: made right before a restore; reset: made right
@@ -180,6 +183,8 @@ def restore(db_path, data_dir, name):
     with _folder_lock:
         # The backup it reads is not deleted or pruned meanwhile, and two restores go one after the other.
         path = path_of(data_dir, name)
+        # The admin page's job follows the restore step by step (progress.py; nothing happens without one).
+        progress.step("check")
         probe = sqlite3.connect(path)
         try:
             version = probe.execute("PRAGMA user_version").fetchone()[0]
@@ -187,17 +192,23 @@ def restore(db_path, data_dir, name):
             probe.close()
         if version > db.VERSION:
             raise BackupError("%s is from a newer openDMT3" % name, "error.backup.newer", name=name)
+        progress.step("backup")
         safety = make(db_path, data_dir, "restore", tidy=False)
+        progress.step("copy")
         source = sqlite3.connect(path)
         try:
             target = sqlite3.connect(db_path)
             try:
-                source.backup(target)
+                # COPY_PAGES at a time, each step said with the pages done of the backup's (no pause between steps:
+                # the game server's writes wait for the restore meanwhile, common._restore).
+                source.backup(target, pages=COPY_PAGES, sleep=0,
+                              progress=lambda status, left, total: progress.step("copy", total - left, total))
             finally:
                 target.close()
         finally:
             source.close()
         # A backup from before an upgrade is brought up to this version, as an old database is on open.
+        progress.step("upgrade")
         db.connect(db_path).close()
         # Everything the site's lists were made of may differ now (records.changed: they are made again).
         records.changed()

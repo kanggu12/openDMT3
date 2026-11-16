@@ -107,12 +107,13 @@ def save_song_list(path, out):
     return 0
 
 
-async def serve(args, data, until=None, notes=()):
+async def serve(args, data, until=None, notes=(), runner=None):
     """The game server and the site on args' addresses, until they are cancelled (Ctrl+C), or until `until` (a
     coroutine function, when given) returns: the server's own command line for a PC of its own (standalone.py) stops
     it that way when asked to from another window. Either way the site finishes the requests it has, and the game
     server and the database are closed. Once the site answers, the banner (banner.py) says where it is, with `notes`
-    under it (the caller's own lines)."""
+    under it (the caller's own lines). runner: who started the server, which the admin's Status tab asks to stop it
+    (web/runner.py); without one, Docker Compose's in a container, else one it cannot tell."""
     # The folder the Download page hands the installer out from, there to put the file in.
     os.makedirs(os.path.join(data, "downloads"), exist_ok=True)
     connection = db.connect(os.path.join(data, "openDMT3.sqlite"))
@@ -132,7 +133,7 @@ async def serve(args, data, until=None, notes=()):
         # The game folder only when it is there: an empty mount point offers no button.
         game_folder = args.game if args.game and os.path.isdir(args.game) else None
         site = Site(data, game_server=game, game_port=game.port, game_folder=game_folder,
-                    address=args.site_address)
+                    address=args.site_address, runner=runner)
         config = web_config(uvicorn, create_app(site), args)
         web = uvicorn.Server(config)
         web_task = asyncio.ensure_future(web.serve())
@@ -279,8 +280,23 @@ def main(argv=None):
         # An account made from the command line ends the run, like --setup-only: the server is started on its own.
         return 0
 
+    # What the admin's Status tab asked this command (web/runner.py): it started the server, so it stops it. In a
+    # container Docker Compose runs this command and starts it again when it ends: the tab names the command there.
+    holder = {}
+
+    def ask():
+        # From the site's timer thread: the loop ends the server as after Ctrl+C.
+        holder["loop"].call_soon_threadsafe(holder["event"].set)
+
+    async def until():
+        holder["loop"], holder["event"] = asyncio.get_running_loop(), asyncio.Event()
+        await holder["event"].wait()
+        logging.getLogger("opendmt3.server").info("stopping: asked on the admin page")
+
+    from opendmt3.server.web import runner as runners
+    run_by = runners.default(True) if sources.in_container() else runners.Runner("python", stop=ask)
     try:
-        asyncio.run(serve(args, data))
+        asyncio.run(serve(args, data, until=None if sources.in_container() else until, runner=run_by))
     except KeyboardInterrupt:
         pass
     return 0

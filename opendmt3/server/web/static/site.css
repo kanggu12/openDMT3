@@ -577,3 +577,106 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
   .found-row form .btn { width: 100%; }
   .form.path-row { grid-template-columns: 1fr; }
 }
+
+/* -------------------------------------------------------------------------------------------- charts */
+/* The admin pages' charts (templates/_charts.html), in the site's own look: thin marks in the section's colour, hairline
+   guides in the seam's grey, words in the text colours, and the tip of the wk bars (the DJ's weeks) for every hour, slot
+   and cell, on hover and on keyboard focus. Requests answered are the title screen's blue and those refused or failed
+   the site's pink for errors (a pair checked for colour blindness), with a gap between them and a key. */
+.tip { display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+       white-space: nowrap; padding: 4px 8px; background: var(--deck-top); box-shadow: var(--glass-rim);
+       color: var(--chalk); font: 400 12px/1.4 var(--text-face); z-index: 3; pointer-events: none; }
+/* The machine's figures: each with a thin meter of how full, the section's colour on the rail. */
+.meter { display: block; height: 4px; margin-top: 2px; background: var(--rail); border-radius: 2px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.machine .stats { margin-bottom: 18px; }
+.trend-head { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 0 4px; font-size: 13px;
+              color: var(--chalk); }
+/* A share over the last day: the plot stretches to the card, so its words are text around it, never inside it. */
+.trend-plot { position: relative; height: 88px; border-bottom: 1px solid var(--seam); }
+.trend-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.trend .guide { stroke: var(--seam); stroke-width: 1; stroke-dasharray: 2 3; }
+.trend .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.trend .wash { fill: var(--accent); opacity: 0.14; }
+.trend-y { position: absolute; right: 0; font-size: 11px; color: var(--faint); line-height: 1; padding-left: 4px;
+           background: linear-gradient(90deg, transparent, var(--deck) 30%); }
+.trend-y.top { top: 0; }
+.trend-y.mid { top: calc(52% - 6px); }
+.trend-hours { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); }
+.trend-hours .hr { position: relative; outline: none; }
+.trend-hours .hr:hover, .trend-hours .hr:focus-visible { background: rgba(255, 255, 255, 0.05); }
+.trend-hours .hr:focus-visible { box-shadow: inset 0 0 0 1px var(--cyan); }
+.trend-axis { display: flex; justify-content: space-between; margin-top: 6px; color: var(--faint); font-size: 12px; }
+/* Requests by half hour: two stacked columns a slot, a 2px gap of the card between them. */
+.slots { display: grid; grid-template-columns: repeat(48, minmax(0, 1fr)); align-items: end; gap: 2px; height: 120px;
+         border-bottom: 1px solid var(--seam); }
+.slot { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end;
+        align-items: center; gap: 2px; outline: none; }
+.slot .col { display: block; width: min(12px, 80%); background: var(--blue-hi); }
+.slot .col:last-of-type { border-radius: 0; }
+.slot .col:first-child { border-radius: 3px 3px 0 0; }
+.slot .col.bad { background: var(--pink); }
+.slot:hover, .slot:focus-visible { background: rgba(255, 255, 255, 0.05); }
+.slot:focus-visible { box-shadow: inset 0 0 0 1px var(--cyan); }
+.key { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 10px 0 0; padding: 0; list-style: none; color: var(--ash);
+       font-size: 12px; }
+.key li { display: inline-flex; align-items: center; gap: 6px; }
+.key i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--blue-hi); }
+.key i.bad { background: var(--pink); }
+/* The tips at either end open inward, so they never run off the card. */
+.trend-hours .hr:nth-child(-n+4) .tip, .slot:nth-child(-n+6) .tip { left: 0; transform: none; }
+.trend-hours .hr:nth-last-child(-n+4) .tip, .slot:nth-last-child(-n+6) .tip { left: auto; right: 0; transform: none; }
+.trend-hours .hr:hover .tip, .trend-hours .hr:focus-visible .tip, .slot:hover .tip, .slot:focus-visible .tip,
+.heat i:hover .tip, .heat i:focus-visible .tip { display: block; }
+/* When players play: a row a day, a cell an hour, five steps of the section's colour (h0, nothing, to h4). */
+.heat-wrap { overflow-x: auto; padding-top: 30px; margin-top: -24px; }
+.heat { display: grid; grid-template-columns: 34px repeat(24, minmax(14px, 1fr)); gap: 2px; min-width: 420px; }
+.heat-hour { font-size: 11px; color: var(--faint); line-height: 1.6; }
+.heat-day { font-size: 12px; color: var(--ash); line-height: 18px; }
+.heat i, .heat-key i, .daycells i { position: relative; display: block; height: 18px; border-radius: 2px; background: var(--rail); outline: none; }
+.heat i:focus-visible { box-shadow: 0 0 0 2px var(--cyan); }
+.h1 { --step: 0.3; } .h2 { --step: 0.5; } .h3 { --step: 0.72; } .h4 { --step: 1; }
+.heat i[class^="h"]:not(.h0), .heat-key i:not(.h0), .daycells i:not(.h0) {
+  background: color-mix(in srgb, var(--accent) calc(var(--step) * 100%), var(--rail)); }
+.heat i:nth-child(25n+2) .tip, .heat i:nth-child(25n+3) .tip, .heat i:nth-child(25n+4) .tip { left: 0; transform: none; }
+.heat i:nth-child(25n+24) .tip, .heat i:nth-child(25n+25) .tip, .heat i:nth-child(25n) .tip { left: auto; right: 0; transform: none; }
+.heat-key { display: flex; align-items: center; gap: 4px; justify-content: flex-end; margin-top: 8px; font-size: 12px; color: var(--faint); }
+.heat-key i { width: 14px; height: 10px; }
+/* What takes the disk: one bar of the parts, the server's own in steps of the console's light, other files in the faint
+   grey and free space the rail's; a swatch beside each name in the table says which is which. */
+.partbar { display: flex; gap: 2px; height: 14px; margin: 8px 0 14px; }
+.partbar i { display: block; min-width: 3px; border-radius: 2px; }
+.p-0 { background: #f1f4f7; } .p-1 { background: #cfd6de; } .p-2 { background: #adb7c2; } .p-3 { background: #8e9aa7; }
+.p-4 { background: #75828f; } .p-other { background: #4b5560; } .p-free { background: var(--rail); box-shadow: inset 0 0 0 1px var(--seam); }
+.swatch { display: inline-block; width: 10px; height: 10px; margin-right: 8px; border-radius: 2px; vertical-align: 0; }
+/* A player's last two weeks: fourteen small cells on one scale for every row. */
+.daycells { display: inline-flex; gap: 2px; vertical-align: middle; }
+.daycells i { width: 9px; height: 14px; }
+.table.players td.days { white-space: nowrap; }
+.players-file, .requests-file { margin: 0 0 12px; }
+.requests-file { margin: 14px 0 0; }
+/* A column's header that sorts: its words, and an arrow for the order once it is the one sorted by. */
+.table th a.sort { color: inherit; font-weight: inherit; }
+.table th a.sort:hover { color: var(--chalk); text-decoration: none; }
+.table th a.sort.on { color: var(--chalk); }
+.table th a.sort.on::after { content: " \2193"; color: var(--accent); }
+.table th a.sort.on.asc::after { content: " \2191"; }
+/* The requests log: a request's path in its own face, wrapping anywhere (a long query has no spaces). */
+.table.requests td.path code { overflow-wrap: anywhere; background: none; padding: 0; }
+.table.requests td.when { white-space: nowrap; }
+/* A long job's card: a bar of how far it has come, the step it is on, and its steps in a row. */
+.job-bar { height: 8px; background: var(--rail); border-radius: 4px; overflow: hidden; }
+.job-bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.4s ease; }
+@media (prefers-reduced-motion: reduce) { .job-bar i { transition: none; } }
+.job-step { margin: 10px 0 6px; }
+.job-steps { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; padding: 0; list-style: none; font-size: 12px; color: var(--faint); }
+.job-steps li.on { color: var(--accent); }
+.job-steps li.done { color: var(--ash); }
+.job-steps li.done::before { content: "\2713 "; }
+/* The server's card: what started it, and its Stop beside it. */
+.form.server-stop p { margin: 0; }
+@media (max-width: 760px) {
+  .trend-plot { height: 72px; }
+  .slots { height: 96px; gap: 1px; }
+  .daycells i { width: 8px; }
+}
