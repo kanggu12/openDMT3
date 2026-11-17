@@ -18,8 +18,6 @@ from opendmt3.client.pages.common import card
 STEPS = ("1", "2", "3", "login", "4")
 # The few words each step says after its question, in the line under its title.
 LEADS = {"1": "guide.1.text", "2": "guide.2.text", "login": "guide.login.text", "4": "guide.4.text"}
-# Each step's arrangement of shards in its head, so moving between steps feels like moving.
-SEEDS = {"1": 3, "2": 13, "3": 23, "login": 33, "4": 43}
 
 
 class Guide:
@@ -133,8 +131,9 @@ class Guide:
             question += (" " if question.endswith(("?", ".", "!")) else ". ") + w(lead)
         # The line under the title, as wide as the brightest shards leave it; the head as tall as its words (a page's).
         sub_width = max(px(300), int(width * 0.52))
-        picture = art.header(width, self.app.head_height(question, sub_width), (), seed=SEEDS[key],
-                             title=w("guide.%s.name" % key), scale=self.app.scale, title_at=TITLE_AT)
+        # The same stage as every page's (one composition), in the title screen's blue.
+        picture = art.header(width, self.app.head_height(question, sub_width), (), title=w("guide.%s.name" % key),
+                             scale=self.app.scale, title_at=TITLE_AT)
         self.body.set_head(picture, question, (px(SUB_AT[0]), px(SUB_AT[1])), sub_width)
 
     # ------------------------------------------------------------------------------------- steps

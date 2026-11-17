@@ -1362,6 +1362,8 @@ class SelectList(tk.Toplevel):
             words = fit_words(ui.fonts.body, options[index][1], width - 2 * px(self.PAD))
             c.create_text(px(self.PAD), y + row // 2, text=words, anchor="w", font=ui.fonts.body,
                           fill=theme.TEXT if (chosen or index == self.at) else theme.MUTED)
+        # The light along the list's top edge, as what floats has (Sidenote's rim): drawn over the first row.
+        c.create_line(0, 0, width, 0, fill=theme.RIM)
         count = len(options)
         if count > self.shown:
             # Where the view is in the whole list: a thin thumb, as the page's scroll bar draws it.
@@ -1502,7 +1504,9 @@ class Card(tk.Frame):
     def __init__(self, parent, ui, pad=18, title=None):
         self.ui = ui
         outside = parent.cget("bg")
-        super().__init__(parent, bg=theme.LINE, padx=1, pady=1)
+        # The edge: a hairline round the card (theme.SEAM), lit along its top and a step darker along its foot (the
+        # lines placed over it below), as the Platinum Crew site's boxes and Sidenote's panels have their light.
+        super().__init__(parent, bg=theme.SEAM, padx=1, pady=1)
         inside = tk.Frame(self, bg=theme.PANEL)
         inside.pack(fill="both", expand=True)
         top = ui.px(pad - 2)
@@ -1511,7 +1515,8 @@ class Card(tk.Frame):
         self.head.pack(fill="x")
         self.tab = None
         if title:
-            words = title.upper() if ui.words.language == "en" else title
+            # A card's name in the game's capitals (English in both languages, as the menu's; Hangul has none).
+            words = title.upper()
             picture = art.name_plate(words, ui.scale, fill=theme.LINE)
             image = ImageTk.PhotoImage(picture, master=self)
             self.tab = tk.Label(self.head, image=image, bg=theme.PANEL, bd=0)
@@ -1528,7 +1533,13 @@ class Card(tk.Frame):
         # inside the pixel of seam the frame keeps round its inside): the page's colour beyond the cut, the seam going
         # on along it from the top edge to the right one, so that no square corner is left.
         cut = ui.px(self.CUT)
-        picture = art.corner(cut, theme.PANEL, outside, seam=theme.LINE)
+        # The top edge's light, from the left to where the cut begins (it goes on down the cut in the corner's picture),
+        # and the foot a step darker: one line round the card, its light from above.
+        tk.Frame(self, bg=theme.RIM, height=1, bd=0, highlightthickness=0).place(x=0, y=0, relwidth=1.0, width=-cut,
+                                                                                  height=1, bordermode="outside")
+        tk.Frame(self, bg=theme.FOOT, height=1, bd=0, highlightthickness=0).place(x=0, rely=1.0, y=-1, relwidth=1.0,
+                                                                                   height=1, bordermode="outside")
+        picture = art.corner(cut, theme.PANEL, outside, seam=theme.SEAM, rim=theme.RIM)
         self._corner = ImageTk.PhotoImage(picture, master=self)
         corner = tk.Label(self, image=self._corner, bd=0, highlightthickness=0, bg=outside)
         # A dialog draws the window behind it from the widgets (snapshot.py): the corner as it looks.
@@ -1566,7 +1577,7 @@ def check_line(parent, ui, state, text, action_text=None, action=None, bg=None):
     optional link, on its parent's colour unless told."""
     bg = bg or parent.cget("bg")
     row = tk.Frame(parent, bg=bg)
-    colour, lit = {"ok": (theme.LIME, True), "change": (theme.AMBER, False), "bad": (theme.PINK, True)}[state]
+    colour, lit = {"ok": (theme.NET, True), "change": (theme.AMBER, False), "bad": (theme.PINK, True)}[state]
     lamp = Lamp(row, ui, colour, lit, bg=bg)
     lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
     beside = [lamp]
@@ -1839,7 +1850,7 @@ class Said(tk.Frame):
     there (FORMS.md: the problem's 7 px lamp, then the words) or what the field takes (a hint); under a form, how the
     form stands (too many tries, a server that does not answer), with a link under the words when there is a way on."""
 
-    TONES = {"ok": theme.LIME, "warn": theme.AMBER, "bad": theme.PINK}
+    TONES = {"ok": theme.NET, "warn": theme.AMBER, "bad": theme.PINK}
 
     def __init__(self, parent, ui, font=None, bg=None):
         bg = bg or parent.cget("bg")

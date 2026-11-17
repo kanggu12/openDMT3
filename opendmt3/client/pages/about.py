@@ -57,6 +57,16 @@ def build_about(app, parent):
                         lambda p: widgets.Segmented(p, ui, language_options(app),
                                                     app.state.picked_language or "system", app.set_language)).pack(
         fill="x")
+
+    def rerun():
+        app.state.guide_done = False
+        app.state.save()
+        app.show()
+
+    # The first-start guide, again: a second row of GENERAL (a card for one key said little but its name).
+    widgets.divider(general.body, ui)
+    widgets.setting_row(general.body, ui, w("about.guide.row"),
+                        lambda p: widgets.Button(p, ui, w("about.guide.run"), rerun), None).pack(fill="x")
     _play_without_window(app, parent)
     updates_card = card(parent, ui, w("about.updates"))
     version = updates.shown_version()
@@ -113,14 +123,6 @@ def build_about(app, parent):
         updating.run(app, result)
 
     widgets.Button(box, ui, w("about.check"), check).pack(side="left", padx=(ui.px(16), 0))
-    guide = card(parent, ui, w("about.guide"))
-
-    def rerun():
-        app.state.guide_done = False
-        app.state.save()
-        app.show()
-
-    widgets.Button(guide.body, ui, w("about.guide.run"), rerun).pack(anchor="w")
     legal = card(parent, ui, w("about.legal"), last=True)
     for i, key in enumerate(("about.license", "about.notice")):
         if i:

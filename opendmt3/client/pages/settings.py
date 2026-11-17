@@ -11,7 +11,7 @@ from opendmt3.core.cabinet import values as choices
 from opendmt3.client import actions, dialogs, theme, widgets
 
 log = logging.getLogger("opendmt3.launcher")
-from opendmt3.client.pages.common import Sections, card, rows_that_come
+from opendmt3.client.pages.common import CARD_GAP, Sections, card, rows_that_come
 
 
 # -------------------------------------------------------------------------------------------- Screen
@@ -20,6 +20,17 @@ from opendmt3.client.pages.common import Sections, card, rows_that_come
 def _work_area(app):
     """The monitor size in the launcher's pixels, to leave out window sizes that would not fit."""
     return app.root.winfo_screenwidth(), app.root.winfo_screenheight()
+
+
+class _Named:
+    """A part of a page with its name over it and no card round it: the client data's plate is a card of its own, and a
+    card round it was a card inside a card (two frames and two grounds round one thing). It stands on the page under
+    its name, as DISC CHECK stands its plates under FOUND ON THIS PC; `body` takes its parts, as a card's does."""
+
+    def __init__(self, parent, ui, title):
+        self.body = tk.Frame(parent, bg=parent.cget("bg"))
+        self.body.pack(fill="x", pady=(0, ui.px(CARD_GAP)))
+        widgets.section(self.body, ui, title).pack(fill="x", pady=(0, ui.px(10)))
 
 
 def _row(card_, ui, title, control, hint, first=False):
@@ -347,7 +358,7 @@ def build_game(app, parent):
     card of the page, as the other pages have theirs."""
     from opendmt3.client import cards, found_list, intake
     ui, w = app.ui, app.words
-    files = card(parent, ui, w("game.files"))
+    files = _Named(parent, ui, w("game.files"))
     folder = app.state.game_folder
     opened = getattr(app, "game_list", None)
 
@@ -384,12 +395,9 @@ def build_game(app, parent):
             extra.append((w("game.songlist.save"), lambda: save_song_list(app)))
             if actions.is_server_admin(app.state):
                 extra.append((w("game.songlist.send"), lambda: send_song_list(app)))
-        cards.Card(files.body, app, found, chosen=ready, on_put_back=put_back, extra=extra,
-                   thumbs=_thumbs(app)).pack(fill="x")
-        if ready:
-            # The song list said once where it is first shown: what its button makes, and what it holds.
-            widgets.label(files.body, ui, w("game.songlist.hint"), font=ui.fonts.small, fg=theme.MUTED,
-                          wrap_margin=0).pack(fill="x", pady=(ui.px(8), 0))
+        # The song list said once where it is first shown, on the plate under its button: what it makes, what it holds.
+        cards.Card(files.body, app, found, chosen=ready, on_put_back=put_back, extra=extra, thumbs=_thumbs(app),
+                   note=w("game.songlist.hint") if ready else None).pack(fill="x")
     else:
         # Nothing chosen yet: the card says so, and the list to choose from is open under it.
         found = intake.Found(w("game.folder.none"), state=intake.NOT_YET)
@@ -400,7 +408,7 @@ def build_game(app, parent):
     if opened is not None:
         # The list to change to, under the card in use, on the same card of the page.
         widgets.divider(files.body, ui, pady=14)
-        box = tk.Frame(files.body, bg=theme.PANEL)
+        box = tk.Frame(files.body, bg=files.body.cget("bg"))
         box.pack(fill="x")
         opened.build(box)
     # The operator data is kept in openDMT3's own folder, made at the first PLAY: its card shows once there is a
@@ -408,7 +416,7 @@ def build_game(app, parent):
     data = app.state.own().path(g.DATA_DIR)
     cabinet = card(parent, ui, w("game.cabinet"), last=not os.path.isdir(data))
     _row(cabinet, ui, w("game.freeplay"),
-         lambda p: widgets.label(p, ui, w("common.on"), font=ui.fonts.body_bold, fg=theme.LIME),
+         lambda p: widgets.label(p, ui, w("game.freeplay.always"), font=ui.fonts.body_bold, fg=theme.TEXT),
          w("game.freeplay.hint"), first=True)
     _row(cabinet, ui, w("game.unlock"), lambda p: widgets.Toggle(p, ui, app.state.unlock, app.set_unlock),
          w("game.unlock.hint"))

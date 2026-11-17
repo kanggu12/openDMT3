@@ -472,7 +472,7 @@ def _signed_card(app, parent, remote_state, rerender):
 
     leave = widgets.Button(line, ui, w("online.signout"), sign_out)
     leave.pack(side="right", anchor="n")
-    lamp = widgets.Lamp(line, ui, theme.LIME)
+    lamp = widgets.Lamp(line, ui, theme.NET)
     lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
     who = tk.Frame(line, bg=theme.PANEL)
     who.pack(side="left", fill="x", expand=True, padx=(ui.px(8), ui.px(16)))
@@ -487,9 +487,12 @@ def _signed_card(app, parent, remote_state, rerender):
     return sign
 
 
-# A step's lamp by its state: waiting and not run an outline, running an amber outline, passed lime, failed pink.
-TEST_LAMPS = {"waiting": (theme.MUTED, False), "not_run": (theme.FAINT, False), "running": (theme.AMBER, False),
-              "ok": (theme.LIME, True), "failed": (theme.PINK, True)}
+# A step's lamp by its state: waiting and not run quiet, running an amber outline, passed the NET lamp's green, failed
+# pink.
+TEST_LAMPS = {"waiting": (theme.MUTED, "quiet"), "not_run": (theme.FAINT, "quiet"), "running": (theme.AMBER, False),
+              "ok": (theme.NET, True), "failed": (theme.PINK, True)}
+# A step's time is said only when it says something: a step this slow (milliseconds) or slower.
+SLOW_MS = 500
 
 
 def test_card(app, parent, typed, rerender=None):
@@ -525,8 +528,9 @@ def test_card(app, parent, typed, rerender=None):
             colour, lit = TEST_LAMPS[step.state]
             lamp = widgets.Lamp(line, ui, colour, lit=lit)
             lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
-            took = "%d ms" % step.ms if step.ms is not None else ""
-            # The time at the right end, in the hints' grey, as a ready check's value stands.
+            # The time at the right end, in the hints' grey, only for a slow step: a column of 0 ms and 2 ms said nothing
+            # anyone acts on (the copied result keeps every step's time for the server's owner).
+            took = "%d ms" % step.ms if step.ms is not None and step.ms >= SLOW_MS else ""
             tk.Label(line, text=took, font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(side="right",
                                                                                               anchor="n")
             words = tk.Frame(line, bg=theme.PANEL)
@@ -549,7 +553,7 @@ def test_card(app, parent, typed, rerender=None):
             failed = [s for s in steps if s.state == "failed"]
             said = (w("server_test.failed", step=w("server_test." + failed[0].key + ".in")) if failed
                     else w("server_test.passed"))
-            colour = theme.PINK if failed else theme.LIME
+            colour = theme.PINK if failed else theme.NET
             # The whole result as text, for a message to the server's owner.
             widgets.link(foot, ui, w("server_test.copy"), copy, fg=theme.MUTED, chevron=False).pack(side="right")
         widgets.label(foot, ui, said, fg=colour, wrap_margin=0).pack(side="left", fill="x", expand=True)
@@ -730,7 +734,8 @@ def _player_line(app, parent, r, changed):
     if not on:
         widgets.Button(line, ui, w("online.pick"), pick).pack(side="right", padx=(0, ui.px(8)))
     else:
-        tk.Label(line, text=w("online.plays"), font=ui.fonts.small, fg=theme.LIME, bg=theme.PANEL).pack(
+        # Who plays now, said in the hints' ink: the row's lit lamp already marks it (one mark, one accent).
+        tk.Label(line, text=w("online.plays"), font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(
             side="right", padx=(0, ui.px(12)))
 
 

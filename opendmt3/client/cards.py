@@ -17,10 +17,11 @@ from PIL import ImageTk
 
 from opendmt3.client import art, intake, theme, widgets
 
-# The chip's colours by state: lime for ready (a check that passed), amber for unpack (something to do before it plays,
-# as PLAY's "will change"), pink for does not work here, quiet metal while it is looked at or not there yet.
+# The chip's colours by state: the NET lamp's green for ready (a check that passed), amber for unpack (something to do
+# before it plays, as PLAY's "will change"), pink for does not work here, quiet metal while it is looked at or not there
+# yet.
 CHIP = {
-    intake.READY: (theme.LIME, theme.INK),
+    intake.READY: (theme.NET, theme.INK),
     intake.UNPACK: (theme.AMBER, theme.INK),
     intake.NOT_HERE: (theme.PINK, theme.INK),
     intake.NOT_YET: (theme.RAIL, theme.MUTED),
@@ -52,11 +53,13 @@ def chip(parent, ui, state, bg):
 class Card(tk.Frame):
     """One found path. on_choose(found) for a click on a card that can be picked; on_unpack(found) and
     on_put_back(found) for its buttons; `extra` more buttons as (words, function). `chosen` marks the folder in use;
-    `thumbs` are three of its jackets (PhotoImages)."""
+    `thumbs` are three of its jackets (PhotoImages); `note` a fact said under its buttons, small (the Game page's song
+    list)."""
 
     def __init__(self, parent, app, found, chosen=False, on_choose=None, on_unpack=None, on_put_back=None, thumbs=(),
-                 extra=()):
+                 extra=(), note=None):
         self.app, self.ui, self.found = app, app.ui, found
+        self.note = note
         # The folder in use is marked (its seam and IN USE).
         self.chosen = chosen
         # Only a game folder that plays is picked with a click; anything else says why it is not.
@@ -131,9 +134,6 @@ class Card(tk.Frame):
         ui, px, bg = self.ui, self.ui.px, self.inner_bg
         body = tk.Frame(self, bg=bg)
         body.pack(fill="x")
-        # The state's colour down the left edge, so a list reads at a glance.
-        bar = tk.Frame(body, bg=CHIP[self.found.state][0], width=px(4))
-        bar.pack(side="left", fill="y")
         # The card's room inside its edge, as the launcher's cards keep it.
         inside = tk.Frame(body, bg=bg, padx=px(16), pady=px(12))
         inside.pack(side="left", fill="x", expand=True)
@@ -171,5 +171,11 @@ class Card(tk.Frame):
             # The card's whole width, which the buttons flow over (as many rows as it takes).
             buttons.pack(fill="x", pady=(px(10), 0))
             self._buttons(buttons, actions)
+        if self.note:
+            # A fact about what a button makes, on the plate itself (the plate stands on the page, where no words lie).
+            note = widgets.label(inside, self.ui, self.note, font=self.ui.fonts.small, fg=theme.MUTED, bg=bg,
+                                 wrap_margin=0)
+            note.pack(fill="x", pady=(px(8), 0))
+            made.append(note)
         # Every part but the buttons picks the folder.
         self.clickable = [body, inside] + made

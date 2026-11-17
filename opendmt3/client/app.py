@@ -39,9 +39,6 @@ TITLE_AT, SUB_AT = (32, 60), (32, 78)
 # The room under the column's foot (PLAY, the guide's buttons) to the window's edge, the gap over PLAY, and PLAY's
 # slab's height (logical pixels), as OpenDMTQ's column has them.
 FOOT_UNDER, OVER_PLAY, PLAY_HEIGHT = 20, 14, 50
-# Each page gets its own arrangement of shards, so moving between pages feels like moving.
-SEEDS = {"play": 7, "screen": 11, "sound": 23, "controls": 31, "game": 5, "online": 13, "records": 19, "help": 17,
-         "about": 41}
 
 
 # Where a long word is best broken: after these (a path's or an address's parts).
@@ -186,9 +183,10 @@ class LauncherApp:
         foot = self.make_foot(self.rail)
         status = tk.Frame(foot, bg=theme.BAR)
         status.pack(side="top", fill="x")
-        # The lamp before the line: an outline while there is nothing to say, lit in the colour of what happened. It
-        # stands on the middle of the line's first row, however many rows the line wraps to.
-        self.status_lamp = widgets.Lamp(status, ui, theme.MUTED, lit=False, bg=theme.BAR)
+        # The lamp before the line: quiet metal while there is nothing to say, lit in the colour of what happened (the
+        # NET lamp's green while it says the launcher is ready). It stands on the middle of the line's first row,
+        # however many rows the line wraps to.
+        self.status_lamp = widgets.Lamp(status, ui, theme.MUTED, lit="quiet", bg=theme.BAR)
         drop = max(0, (self.fonts.small.metrics("linespace") - self.status_lamp.opendmt3_picture.height + 1) // 2)
         self.status_lamp.pack(side="left", anchor="n", pady=(drop, 0))
         # The line wraps at the column's room after the lamp: a long error (a path) takes more rows, never a cut, and
@@ -201,12 +199,21 @@ class LauncherApp:
         self.status_label.pack(side="left", fill="x", expand=True, padx=(px(8), 0))
         # A report for whoever helps, a quiet link under the line, its words in the line's own column after the lamp
         # (its keyboard ring's width in from there); the HELP page's Tools has it too, with its hint.
-        self.report_link = widgets.link(foot, ui, w("bottom.report"), self.save_report, fg=theme.MUTED, bg=theme.BAR,
+        under = tk.Frame(foot, bg=theme.BAR)
+        under.pack(side="top", fill="x", pady=(px(4), 0))
+        self.report_link = widgets.link(under, ui, w("bottom.report"), self.save_report, fg=theme.MUTED, bg=theme.BAR,
                                         chevron=False)
         self.report_link.configure(font=self.fonts.small)
         ring = int(self.report_link.cget("highlightthickness"))
-        self.report_link.pack(side="top", anchor="w", pady=(px(4), 0),
-                              padx=(self.status_lamp.opendmt3_picture.width + px(8) - ring, 0))
+        self.report_link.pack(side="left", anchor="w", padx=(self.status_lamp.opendmt3_picture.width + px(8) - ring, 0))
+        # The cabinet's lamps with their words at the row's right end, as the game shows them in its own corner: NET
+        # lit while the server it plays on is there (signed in to another server, or this PC's server running), ID CARD
+        # lit while a player's card goes in at PLAY. Off: black glass and grey words.
+        self.cabinet_lamps = {}
+        for key in ("card", "net"):
+            lamp = tk.Label(under, bg=theme.BAR, bd=0, highlightthickness=0)
+            lamp.pack(side="right", padx=(px(4), 0))
+            self.cabinet_lamps[key] = lamp
         # PLAY under it all, as wide as the column holds.
         self.play_button = self._make_play(foot)
         self.play_button.pack(side="top", anchor="w", pady=(px(OVER_PLAY), 0))
@@ -624,9 +631,10 @@ class LauncherApp:
         # The line under the title, as wide as the room the discs and the brightest shards leave it.
         sub_width = max(px(300), int(width * 0.52))
         # The title is part of the picture: chrome letters, the TECHNIKA 3 logo's blue 3 on PLAY.
-        picture = art.header(width, self.head_height(sub, sub_width), discs, seed=SEEDS.get(self.page, 7),
-                             colours=colours, title=title, title_tail="3" if title.endswith(" 3") else None,
-                             scale=self.scale, title_at=TITLE_AT)
+        # Every page has the same stage (art.stage_ground), its section's colour in it: one composition, not a new
+        # scatter of shards on each page.
+        picture = art.header(width, self.head_height(sub, sub_width), discs, colours=colours, title=title,
+                             title_tail="3" if title.endswith(" 3") else None, scale=self.scale, title_at=TITLE_AT)
         self.body.set_head(picture, sub, (px(SUB_AT[0]), px(SUB_AT[1])), sub_width)
 
     def head_height(self, sub, sub_width):
@@ -682,7 +690,7 @@ class LauncherApp:
             elif not self.ready():
                 self.set_status(self.why_not_ready(), "warn")
             elif self.status_tone not in ("ok", "bad") and not self.status_sticky:
-                self.set_status(self.words("status.ready"), "normal")
+                self.set_status(self.words("status.ready"), "ready")
         self._paint_play()
         # The PLAY page, the HELP page and the guide's last step each show the check when they are on screen.
         from opendmt3.client import pages
@@ -723,11 +731,41 @@ class LauncherApp:
     def _paint_status(self):
         if not hasattr(self, "status_label") or not self.status_label.winfo_exists():
             return
-        colour = {"normal": theme.MUTED, "ok": theme.LIME, "warn": theme.AMBER, "bad": theme.PINK}[self.status_tone]
-        self.status_lamp.show(colour, lit=self.status_tone != "normal")
+        colour = {"normal": theme.MUTED, "ready": theme.NET, "ok": theme.NET, "warn": theme.AMBER,
+                  "bad": theme.PINK}[self.status_tone]
+        self.status_lamp.show(colour, lit="quiet" if self.status_tone == "normal" else True)
+        self._paint_cabinet_lamps()
         # Tk wraps only at spaces: a word wider than the column's line (an address, a path) is broken in it first.
         shown = break_long_words(self.fonts.small, self.status_text, int(str(self.status_label.cget("wraplength"))))
-        self.status_label.configure(text=shown, fg=theme.TEXT if self.status_tone != "normal" else theme.MUTED)
+        # The words in the hints' ink while there is nothing to report (ready is the usual state, its lamp says it).
+        self.status_label.configure(text=shown, fg=theme.MUTED if self.status_tone in ("normal", "ready") else theme.TEXT)
+
+    def cabinet_lamp_states(self):
+        """Which of the cabinet's lamps are lit: NET while the server the game plays on is there (signed in to another
+        server, or this PC's own server running), ID CARD while a player's card goes in at PLAY."""
+        state = self.state
+        if state.mode == "server":
+            signed = bool(state.remote and state.remote.get("card"))
+            return {"net": signed, "card": signed}
+        if state.mode == "this_pc":
+            return {"net": bool(getattr(self, "host", None) and self.host.running), "card": bool(state.player)}
+        return {"net": False, "card": False}
+
+    def _paint_cabinet_lamps(self):
+        lamps = getattr(self, "cabinet_lamps", None)
+        if not lamps:
+            return
+        words = {"net": "NET", "card": "ID CARD"}
+        for key, lit in self.cabinet_lamp_states().items():
+            label = lamps[key]
+            if not label.winfo_exists() or getattr(label, "lit", None) == lit:
+                continue
+            picture = art.lamp_chip(words[key], key, lit, self.ui.scale)
+            label.image = ImageTk.PhotoImage(picture, master=label)
+            # A dialog draws the window behind it from the widgets (snapshot.py): the lamp as it looks now; the words
+            # ride along for the tests and screen readers' sake.
+            label.opendmt3_picture, label.words, label.lit = picture, words[key], lit
+            label.configure(image=label.image)
 
     # ------------------------------------------------------------------------------- changes
 

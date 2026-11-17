@@ -35,7 +35,7 @@ def _who_plays(app, parent, changed):
         # Another server: the signed-in player is the one; changing player means signing in again (ONLINE).
         remote_state = app.state.remote or {}
         if remote_state.get("card"):
-            lamp = widgets.Lamp(line, ui, theme.LIME)
+            lamp = widgets.Lamp(line, ui, theme.NET)
             lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
             widgets.label(line, ui, w("online.signed", dj=remote_state.get("dj_name", ""),
                                       login_id=remote_state.get("login_id", "")), wrap_margin=0).pack(
@@ -111,7 +111,8 @@ def build_play(app, parent):
         line.pack(fill="x")
         tk.Label(line, text=w("play.pattern", n=play["pattern"]), font=ui.fonts.small, fg=theme.MUTED,
                  bg=theme.PANEL).pack(side="left")
-        tk.Label(line, text="{:,}".format(play["score"]), font=ui.fonts.display, fg=theme.LIME, bg=theme.PANEL).pack(
+        # The score in TECHNIKA 3's score colour, in the game's heavy figures.
+        tk.Label(line, text="{:,}".format(play["score"]), font=ui.fonts.figures, fg=theme.SCORE, bg=theme.PANEL).pack(
             side="right")
     refresh_checks(app)
 

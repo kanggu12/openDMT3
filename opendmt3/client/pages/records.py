@@ -5,7 +5,9 @@ import threading
 import time
 import tkinter as tk
 
-from opendmt3.client import actions, theme, widgets
+from PIL import ImageTk
+
+from opendmt3.client import actions, art, theme, widgets
 
 from opendmt3.client.pages.common import CARD_GAP, TITLES, card
 
@@ -76,8 +78,15 @@ def _records_drawn(app, box, dj):
     # The DJ card's level, as the game shows it (an older server sends no card).
     card = dj.get("dj_card") or {}
     if card.get("level"):
-        tk.Label(top, text="Lv %d" % card["level"], font=ui.fonts.body_bold, fg=theme.AMBER, bg=theme.PANEL).pack(
-            side="left", padx=(ui.px(12), 0))
+        # The level as the game's level badge shows it: its tier's gem (a tier every ten levels), then "Lv n".
+        gem = art.level_gem(theme.level_tier(card["level"]), ui.scale)
+        badge = tk.Label(top, bg=theme.PANEL, bd=0)
+        badge.image = ImageTk.PhotoImage(gem, master=badge)
+        badge.opendmt3_picture = gem
+        badge.configure(image=badge.image)
+        badge.pack(side="left", padx=(ui.px(12), ui.px(6)))
+        tk.Label(top, text="Lv %d" % card["level"], font=ui.fonts.body_bold, fg=theme.TEXT, bg=theme.PANEL).pack(
+            side="left")
     widgets.Button(top, ui, w("records.site"), lambda: _records_open_site(app, dj["player"])).pack(
         side="right")
     if card.get("comment"):
@@ -195,5 +204,6 @@ def _records_drawn(app, box, dj):
             chart_words = (w("records.chart.level", mode=item["mode_name"], n=item["pattern"], level=item["level"])
                            if item.get("level") else w("records.chart", mode=item["mode_name"], n=item["pattern"]))
             tk.Label(line, text=chart_words, font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(side="left")
-            tk.Label(line, text="{:,}".format(item["score"]), font=ui.fonts.display, fg=theme.LIME,
+            # The score in TECHNIKA 3's score colour, in the game's heavy figures.
+            tk.Label(line, text="{:,}".format(item["score"]), font=ui.fonts.figures, fg=theme.SCORE,
                      bg=theme.PANEL).pack(side="right")

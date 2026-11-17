@@ -20,6 +20,10 @@ TEXT = {
     "status.choose_folder": ("Choose the client data first, on the GAME page.",
                              "GAME 페이지에서 클라이언트 데이터를 먼저 고르세요."),
     "status.sign_in_first": ("Sign in on the ONLINE page first.", "먼저 ONLINE 페이지에서 로그인하세요."),
+    # FREE PLAY, said once: the game is always free to play here.
+    "game.freeplay.always": ("Always on", "늘 켬"),
+    # The first-start guide as a row of GENERAL on the LAUNCHER page.
+    "about.guide.row": ("First-start guide", "처음 시작 안내"),
     "status.game_open": ("The game is open. Close it first.", "게임이 열려 있습니다. 먼저 닫으세요."),
     "status.preparing": ("Getting the game ready: {step}", "게임을 준비하는 중: {step}"),
     "status.starting": ("Starting the game...", "게임을 시작하는 중..."),
