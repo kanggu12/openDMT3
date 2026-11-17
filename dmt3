@@ -10,6 +10,7 @@ import contextlib
 import glob
 import io
 import os
+import re
 import shutil
 import signal
 import socket
@@ -18,6 +19,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 # This clone's folder; symlinks resolved, so a link to this file on PATH works too.
@@ -36,6 +38,9 @@ BUILD_FILE = os.path.join(ROOT, "packaging", "docker", "build.yaml")
 REGISTRY_IMAGE = "ghcr.io/kanggu12/opendmt3-server"
 # The variable that names the image compose.yaml runs: kept in .env once --build or --published chose it.
 IMAGE_ENV = "OPENDMT3_IMAGE"
+# The label an image's version is in (the published images', and ./dmt3's builds' through build.yaml), and the
+# variable ./dmt3 gives a build for it.
+VERSION_LABEL, VERSION_ENV = "org.opencontainers.image.version", "OPENDMT3_VERSION"
 # The one service in compose.yaml.
 SERVICE = "server"
 # The ports inside the container: the game's, then the site's (opendmt3/server/__main__.py).
@@ -43,10 +48,11 @@ GAME_PORT, WEB_PORT = 4725, 4730
 # Their names in .env, where ./dmt3 ports (and setup --game-port/--web-port) keeps other ones: compose.yaml publishes
 # and the server listens on the same number inside and out, so the site tells launchers the port they reach.
 GAME_PORT_ENV, WEB_PORT_ENV = "GAME_PORT", "WEB_PORT"
-# The admin pages, a site of their own (docs/admin.md): its port on this PC (ADMIN_PORT in .env, 4731 unless ./dmt3
-# ports keeps another; the listener inside the container keeps 4731, compose.yaml maps the one to the other), and who
-# may open it (ADMIN_BIND in .env: 127.0.0.1, this PC alone, unless the owner opens it to the network, 0.0.0.0).
-ADMIN_PORT, ADMIN_INSIDE = 4731, 4731
+# The admin pages, a site of their own (docs/admin.md): its port (ADMIN_PORT in .env, 4731 unless ./dmt3 ports keeps
+# another; the same number inside the container, as the game's and the site's are, so a site's port of 4731 kept from
+# before the admin pages never meets the admin listener there), and who may open it (ADMIN_BIND in .env: 127.0.0.1,
+# this PC alone, unless the owner opens it to the network, 0.0.0.0).
+ADMIN_PORT = 4731
 ADMIN_PORT_ENV, ADMIN_BIND_ENV = "ADMIN_PORT", "ADMIN_BIND"
 # What ADMIN_BIND is when the owner opens the admin pages to the network.
 EVERY_ADDRESS = "0.0.0.0"
@@ -97,7 +103,7 @@ ENV_NOTES = {
     "SITE_ADDRESS": "The site's address as players reach it (./dmt3 setup --address): the invite and the messages carry it.",
     "GAME_PORT": "The game's port on this PC, the same inside the container (./dmt3 ports --game).",
     "WEB_PORT": "The players' site's port on this PC, the same inside the container (./dmt3 ports --web).",
-    "ADMIN_PORT": "The admin pages' port on this PC (./dmt3 ports --admin); 4731 inside the container.",
+    "ADMIN_PORT": "The admin pages' port on this PC (./dmt3 ports --admin), the same inside the container.",
     "ADMIN_BIND": "Who may open the admin pages: 127.0.0.1 this PC alone, 0.0.0.0 other PCs on the network too "
                   "(./dmt3 setup --admin-network).",
     "HTTP_PORT": "Caddy's plain HTTP port on this PC while the site is exposed (./dmt3 ports --http).",
@@ -196,6 +202,62 @@ def admin_public():
 def exposed():
     """The site's name while it is exposed over HTTPS through Caddy (./dmt3 expose), else None."""
     return read_env().get("EDGE_NAME") or None
+
+
+def port_parts(env=None, edge=None, public=None):
+    """Each port the server's parts listen on, as (whose, port), on this PC and inside the container (the server and
+    Caddy share the container's network): the game's, the site's and the admin pages', the same numbers on both;
+    while the site is exposed (edge), Caddy's HTTP and HTTPS here and its 80 and 443 inside; with the admin pages behind
+    it too (public), Caddy's own port for them inside. env: .env as it would be (read now when not given)."""
+    env = read_env() if env is None else env
+    edge = bool(env.get("EDGE_NAME")) if edge is None else edge
+    public = (env.get("EDGE_ADMIN") == "public") if public is None else public
+    ours = [("the game's", int(env.get(GAME_PORT_ENV) or GAME_PORT)), ("the site's", int(env.get(WEB_PORT_ENV) or WEB_PORT)),
+            ("the admin pages'", int(env.get(ADMIN_PORT_ENV) or ADMIN_PORT))]
+    here = ours + ([("Caddy's HTTP", int(env.get("HTTP_PORT") or 80)), ("Caddy's HTTPS", int(env.get("HTTPS_PORT") or 443))]
+                   if edge else [])
+    inside = ours + ([("Caddy's HTTP", 80), ("Caddy's HTTPS", 443)] if edge else []) + (
+        [("Caddy's own for the admin pages", EDGE_ADMIN_PORT)] if edge and public else [])
+    return here, inside
+
+
+def clashes(env=None, edge=None, public=None):
+    """The ports two parts have at once, as (port, [whose, ...]), this PC's first, then the container's own (a port
+    Docker cannot publish twice, or that two listeners in one network cannot both have): empty when each part has its
+    own (port_parts)."""
+    found = []
+    for parts in port_parts(env, edge, public):
+        by_port = {}
+        for whose, port in parts:
+            by_port.setdefault(port, []).append(whose)
+        for port, whose in by_port.items():
+            if len(whose) > 1 and port not in [p for p, _ in found]:
+                found.append((port, whose))
+    return found
+
+
+def clash_words(port, whose):
+    """One clash as a line: port 4731 is the site's and the admin pages' at once."""
+    return "port %d is %s and %s at once" % (port, ", ".join(whose[:-1]), whose[-1])
+
+
+def settle_admin_port():
+    """After an update from before the admin pages had a port (0.3.1): a site's or game's port of 4731 kept in .env
+    meets the admin port. The admin pages then take the next port that no part has and nothing on this PC holds
+    (Caddy's own 4732 inside the container passed over too), kept in .env and said once: from then on it is theirs.
+    An admin port the owner chose (ADMIN_PORT kept) is never moved: ./dmt3 ports and doctor name that clash."""
+    env = read_env()
+    if env.get(ADMIN_PORT_ENV) or not [c for c in clashes(env) if "the admin pages'" in c[1]]:
+        return
+    here, inside = port_parts(env, public=True)
+    taken = {port for _, port in here + inside} | {EDGE_ADMIN_PORT}
+    port = ADMIN_PORT + 1
+    while port in taken or not port_free(port):
+        port += 1
+    write_env({ADMIN_PORT_ENV: str(port)})
+    whose = [w for p, w in clashes(env) if p == ADMIN_PORT][0]
+    say("the admin pages' port: %d, since %d is %s too (./dmt3 ports --admin N chooses another)" % (
+        port, ADMIN_PORT, [w for w in whose if w != "the admin pages'"][0]))
 
 
 def in_server(cli_args, running):
@@ -588,7 +650,10 @@ def admin_line():
     here = "http://127.0.0.1:%d/" % port
     if not admin_open():
         return "The admin pages: %s (this PC only)." % here
-    first = lan_addresses()[0][0]
+    # The host the owner gave the players (setup's address) when there is one other PCs reach, on a PC with several
+    # networks the one they are on; else the PC's first address on its network.
+    kept = urllib.parse.urlsplit(read_env().get("SITE_ADDRESS") or "").hostname or ""
+    first = kept if kept and not kept.startswith("127.") and kept != "localhost" else lan_addresses()[0][0]
     if first.startswith("127."):
         return "The admin pages: %s (other PCs too, at this PC's address on the network)." % here
     return "The admin pages: http://%s:%d/ (on this PC also %s)." % (first, port, here)
@@ -770,6 +835,8 @@ def cmd_setup(args):
     # The image before anything runs in a container: the published one pulled (built only when it cannot be had, or
     # with --build). Counting the accounts first ran a container while the image was missing, and Compose built this
     # clone for it under the published name.
+    # Every part on a port of its own before anything starts (the admin pages moved once after an update).
+    settle_admin_port()
     say("== the server image")
     if cmd_image(argparse.Namespace(build=getattr(args, "build", False), published=False)):
         die("could not get the server image (see above): ./dmt3 image says why again, ./dmt3 doctor checks Docker")
@@ -835,12 +902,59 @@ def has_image(name):
 
 
 def build_image():
-    """This clone's image, built and kept as the one the server runs (OPENDMT3_IMAGE in .env). 0 when built."""
-    write_env({IMAGE_ENV: IMAGE})
-    os.environ[IMAGE_ENV] = IMAGE
+    """This clone's image, built, then kept as the one the server runs (OPENDMT3_IMAGE in .env) once the build worked:
+    a build that failed names no image, so the next command never runs an older image of that name. 0 when built."""
     say("building the server image %s from this clone" % IMAGE)
+    # The build's version label: this clone's (build.yaml passes it on), as the published images carry theirs.
+    os.environ[VERSION_ENV] = version()
     # compose.yaml, then the recipe, which names the build this clone's own (build.yaml's image).
-    return run(compose("build", SERVICE, files=[BUILD_FILE]))[0]
+    code = run(compose("build", SERVICE, files=[BUILD_FILE]))[0]
+    if code == 0:
+        write_env({IMAGE_ENV: IMAGE})
+        os.environ[IMAGE_ENV] = IMAGE
+    return code
+
+
+def image_version(image):
+    """The openDMT3 version an image of the server is: its label (the published images' and ./dmt3's builds'), else
+    what its own package says (an image built by hand, or before the label, as 0.3.1's were), asked of it with no
+    network in a container that goes away. None when neither tells."""
+    code, out = run(["docker", "image", "inspect", "--format", '{{ index .Config.Labels "%s" }}' % VERSION_LABEL,
+                     image], capture=True)
+    if code != 0:
+        # Not here: nothing to tell (and nothing pulled to ask it).
+        return None
+    label = out.strip()
+    if re.match(r"\d+\.\d+", label):
+        return label
+    # Here, never pulled again for the question.
+    code, out = run(["docker", "run", "--rm", "--pull", "never", "--network", "none", "--entrypoint", "python", image,
+                     "-c", "import opendmt3; print(opendmt3.__version__)"], capture=True)
+    found = out.strip().splitlines()[-1].strip() if code == 0 and out.strip() else ""
+    # Only a version: anything else (an image that is not this server's) tells nothing.
+    return found if re.match(r"\d+\.\d+", found) else None
+
+
+def release(text):
+    """A version as numbers to compare (0.3.1 as (0, 3, 1)), its first three parts."""
+    return tuple(int(part) for part in re.findall(r"\d+", text)[:3])
+
+
+def older_image(image):
+    """The image's version when it is an older release's than this clone (an image kept from before an update, such as
+    0.3.1's opendmt3-server:local), else None: the server never runs it under this clone's compose.yaml."""
+    found = image_version(image)
+    return found if found and release(found) < release(version()) else None
+
+
+def refuse_old_image(image):
+    """1 after saying why when the image is an older release's than this clone (older_image), else 0."""
+    found = older_image(image)
+    if not found:
+        return 0
+    say("the server image %s is %s's, older than this server, %s: ./dmt3 image --build builds this one's, or "
+        "./dmt3 image --published gets the published one" % (image, found, version()))
+    return 1
 
 
 def cmd_image(args):
@@ -857,7 +971,8 @@ def cmd_image(args):
     image = chosen_image()
     if has_image(image):
         say("the server image: %s" % image)
-        return 0
+        # Kept from before an update, it may be an older release's: never run under this clone.
+        return refuse_old_image(image)
     if image != published_image():
         # The clone's own image (or one named in .env) is missing: only a build makes it.
         return build_image()
@@ -917,11 +1032,18 @@ def cmd_expose(args):
         shutil.copyfile(args.ca_root, os.path.join(EDGE_DIR, "ca-root.pem"))
         # Where edge.yaml mounts .edge/ inside Caddy's container.
         ca_root = "/etc/caddy/ca-root.pem"
+    # Every part on a port of its own, Caddy's beside the others: an admin port kept before the site was exposed
+    # (80 was no part's then) is refused here, before anything is written.
+    settle_admin_port()
+    clash = clashes(edge=True, public=bool(args.admin_public))
+    if clash:
+        die("each part needs a port of its own: %s (./dmt3 ports moves one)" % "; ".join(
+            clash_words(port, whose) for port, whose in clash))
     try:
         name = edge.check_name(args.name, args.local_ca)
         # With --admin-public, a second site at the same name: Caddy's HTTPS on EDGE_ADMIN_PORT (the admin port on
-        # this PC, edge-admin.yaml), in front of the admin listener at 4731 in the container's network.
-        admin = (EDGE_ADMIN_PORT, "127.0.0.1:%d" % ADMIN_INSIDE) if args.admin_public else None
+        # this PC, edge-admin.yaml), in front of the admin listener at the admin port in the container's network.
+        admin = (EDGE_ADMIN_PORT, "127.0.0.1:%d" % admin_port()) if args.admin_public else None
         text = edge.caddyfile(name, "127.0.0.1:%d" % web_port(), email=args.email,
                               ca="staging" if args.staging else args.ca, ca_root=ca_root, local_ca=args.local_ca,
                               admin=admin)
@@ -975,28 +1097,21 @@ def cmd_ports(args):
             die("%d is no TCP port (1 to 65535)" % value)
     changes = {name: (None if value == default else str(value)) for (name, value), default in
                zip(wanted.items(), (GAME_PORT, WEB_PORT, ADMIN_PORT, 80, 443)) if value is not None}
-    old_web = web_port()
+    old_web, old_admin = web_port(), admin_port()
     # As .env had them, for a refused change to go back to.
     before = read_env()
     if changes:
         write_env(changes)
     env = read_env()
-    # The admin port is this PC's in every case (on its own, or Caddy's for the admin site with --admin-public).
-    numbers = [game_port(), web_port(), admin_port()] + (
-        [int(env.get("HTTP_PORT") or 80), int(env.get("HTTPS_PORT") or 443)] if exposed() else [])
-    # Inside the container the game's and the site's ports are the same numbers as here, beside the admin listener's
-    # own 4731 and, while the site is exposed, Caddy's 80 and 443 (and 4732 for the admin pages with --admin-public):
-    # neither may be one of those either, whatever this PC's numbers for them are.
-    inside = {ADMIN_INSIDE} | ({80, 443} if exposed() else set()) | (
-        {EDGE_ADMIN_PORT} if exposed() and admin_public() else set())
-    clash = sorted({game_port(), web_port()} & inside)
-    if len(set(numbers)) != len(numbers) or clash:
+    # Each part on a port of its own, on this PC and inside the container, where the game's, the site's and the admin
+    # pages' are the same numbers as here, beside Caddy's 80 and 443 while the site is exposed (and its 4732 for the
+    # admin pages with --admin-public).
+    clash = clashes(env)
+    if clash:
         # Undone, each changed line back to what it was (none for the usual one): two parts on one port would leave
         # one of them unreachable.
         write_env({name: before.get(name) for name in changes})
-        die("each part needs a port of its own: %s%s" % (", ".join(str(n) for n in numbers), "".join(
-            " (%d is the container's own: %s)" % (port, "the admin pages'" if port == ADMIN_INSIDE else "Caddy's")
-            for port in clash)))
+        die("each part needs a port of its own: %s" % "; ".join(clash_words(port, whose) for port, whose in clash))
     if web_port() != old_web:
         # The players' address follows the site to its new port (an http address on the old one; one through a proxy
         # stays): the invite, the banner, status and the message to send a player say it. The address kept from
@@ -1005,11 +1120,17 @@ def cmd_ports(args):
         moved = edge_module().moved_address
         write_env({name: moved(env[name], old_web, web_port()) for name in ("SITE_ADDRESS", BEFORE_EXPOSE)
                    if env.get(name)})
-    if changes and exposed() and web_port() != old_web:
-        # Caddy reaches the site on its port: its Caddyfile follows.
+    if changes and exposed() and (web_port(), admin_port()) != (old_web, old_admin):
+        # Caddy reaches the site and the admin listener on their ports: its Caddyfile follows both, each through a mark
+        # of its own first, so two ports swapped never leave both upstreams on one.
         path = os.path.join(EDGE_DIR, "Caddyfile")
         with open(path, encoding="utf-8") as f:
-            text = f.read().replace("reverse_proxy 127.0.0.1:%d" % old_web, "reverse_proxy 127.0.0.1:%d" % web_port())
+            text = f.read()
+        moves = [(old_web, web_port(), "\0site\0"), (old_admin, admin_port(), "\0admin\0")]
+        for old, _, mark in moves:
+            text = text.replace("reverse_proxy 127.0.0.1:%d\n" % old, "reverse_proxy %s\n" % mark)
+        for _, new, mark in moves:
+            text = text.replace("reverse_proxy %s\n" % mark, "reverse_proxy 127.0.0.1:%d\n" % new)
         with open(path, "w", encoding="utf-8") as f:
             f.write(text)
     say("The game's port: %d (TCP). The site's port: %d (the players' site and the API). The admin pages' port: %d."
@@ -1097,6 +1218,8 @@ def cmd_remove(args):
 def cmd_repair(args):
     """./dmt3 repair: the image got again (pulled, or built when this clone's is used), the server's container made
     afresh on it, then the doctor's checks. The data stays as it is."""
+    # Every part on a port of its own before the container is made again (the admin pages moved once after an update).
+    settle_admin_port()
     if chosen_image() == IMAGE:
         code = build_image()
     else:
@@ -1128,12 +1251,13 @@ def cmd_invite(args):
 
 
 def cmd_up(args):
-    """./dmt3 up: the image first (./dmt3 image, unless --no-build), then the server from it; then where the site and
-    the admin pages are."""
-    if not args.no_build:
-        code = cmd_image(args)
-        if code:
-            return code
+    """./dmt3 up: every part on a port of its own (the admin pages moved once after an update that met them), the
+    image first (./dmt3 image, unless --no-build: then the image as it is, never an older release's), then the server
+    from it; then where the site and the admin pages are."""
+    settle_admin_port()
+    code = refuse_old_image(chosen_image()) if args.no_build else cmd_image(args)
+    if code:
+        return code
     code = run(simple_command(args, False))[0]
     if code == 0:
         where = site_lines()
@@ -1176,7 +1300,7 @@ def cmd_check(args):
                                       admin_port())
     else:
         # The admin pages on their own port (on this PC, or the network as ADMIN_BIND says), which answer /health too.
-        code, out = run(compose("port", SERVICE, str(ADMIN_INSIDE)), capture=True)
+        code, out = run(compose("port", SERVICE, str(admin_port())), capture=True)
         if code != 0 or not out.strip():
             problem("the admin pages are not published: the server is not running", "./dmt3 up")
             failed += 1
@@ -1284,7 +1408,8 @@ def doctor_checks():
         out.append(("image", False, "the server image %s is not here yet" % image,
                     "./dmt3 up (it gets the image first: the published one, or --build builds this clone's)"))
     running = is_running()
-    for port in (game_port(), web_port(), admin_port()):
+    # Each port once, however many parts have it (a clash is said below).
+    for port in sorted({game_port(), web_port(), admin_port()}, key=[game_port(), web_port(), admin_port()].index):
         if running:
             # The ports are the running server's own.
             out.append(("port", True, "port %d is the server's" % port, None))
@@ -1293,6 +1418,14 @@ def doctor_checks():
         else:
             out.append(("port", False, "port %d is taken by another program" % port,
                         "stop that program, or publish another port under ports: in compose.yaml"))
+    kept_admin = bool(read_env().get(ADMIN_PORT_ENV))
+    for port, whose in clashes():
+        # Two parts on one port: one of them cannot listen. The admin pages' own, from before they had a port, moves
+        # by itself at the next up; any other is the owner's to move.
+        moves_itself = "the admin pages'" in whose and port == ADMIN_PORT and not kept_admin
+        out.append(("port", False, clash_words(port, whose),
+                    "./dmt3 up gives the admin pages the next free port" if moves_itself else
+                    "./dmt3 ports --game N, --web N, --admin N, --http N or --https N gives one of them another"))
     volume = "%s_data" % PROJECT
     if run(["docker", "volume", "inspect", volume], capture=True)[0] != 0:
         # Not a problem: setup makes it. Nothing is made here, so doctor changes nothing.
@@ -1421,6 +1554,13 @@ class FrontDoor:
 
     def addresses(self):
         return lan_addresses()
+
+    def current(self):
+        """What this server has now, for the wizard's answers to start from, so a setup run again changes nothing that
+        is not changed on its pages: the players' address kept, whether the admin pages are open to the network, and
+        the ports (the game's, the site's, the admin pages')."""
+        return {"address": read_env().get("SITE_ADDRESS") or None, "admin_network": admin_open(),
+                "ports": (game_port(), web_port(), admin_port())}
 
     def accounts(self):
         """How many accounts the database has: 0 without a data volume, None when it cannot be told yet."""

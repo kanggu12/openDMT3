@@ -956,8 +956,11 @@ def save(path, out_path, password=None, now=None, work=None):
 # ------------------------------------------------------------------------------------------------ the server PC
 
 def in_container():
-    """True when this server runs in a container (Docker): it sees only the folders its compose file gives it."""
-    return os.path.exists("/.dockerenv") or os.environ.get("OPENDMT3_IN_CONTAINER") == "1"
+    """True when this server runs in a container (Docker): it sees only the folders its compose file gives it. Docker's
+    mark, /.dockerenv, is Linux's: on Windows it is no container's (a Windows server is never in a Linux container),
+    and Wine hands a path from the root to the Linux files it runs on, so the container Wine runs in would show its
+    own to the Windows package."""
+    return (os.name != "nt" and os.path.exists("/.dockerenv")) or os.environ.get("OPENDMT3_IN_CONTAINER") == "1"
 
 
 def places(game_folder=None):

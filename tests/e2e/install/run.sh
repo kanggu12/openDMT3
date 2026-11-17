@@ -99,6 +99,13 @@ docker run --rm --name "$C" -v "$OUT/files:/files:ro" -v "$OUT:/out" -e VERSION=
   grep -q "\"ok\":true" /out/admin-behind.txt
   r=$?; step "behind Caddy the admin pages are at 127.0.0.1:4732 on this PC alone: $(cat /out/admin-behind.txt)" $r
   as "opendmt3-server expose dmt3.test --local-ca" > /out/expose-site.txt 2>&1
+  # A restart first, while Caddy still has the admin port: said in one line, and the server runs on as it was.
+  as "opendmt3-server restart" > /out/restart-early.txt 2>&1
+  r1=$?
+  python3 -c "import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:4730/health\", timeout=5)" 2>/dev/null
+  r2=$?
+  [ $r1 != 0 ] && [ $r2 = 0 ] && grep -q "port 4731 is taken by another program" /out/restart-early.txt
+  r=$?; step "a restart while Caddy still has the admin port says so, the server running on ($(tail -1 /out/restart-early.txt))" $r
   # In the order expose gives: Caddy with the new settings first, so it lets go of the admin port, then the server,
   # whose admin listener takes it back.
   as "/files/caddy reload --config $D/Caddyfile" > /out/caddy-reload.txt 2>&1

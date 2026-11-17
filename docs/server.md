@@ -89,7 +89,7 @@ window. The same commands run with Python on Linux and macOS ([With Python](#wit
 | :--- | :--- |
 | `opendmt3-server` or `opendmt3-server run` | Runs the server in this window until it closes (Ctrl+C, or `stop` from another one); `--no-browser` |
 | `opendmt3-server start`, `stop`, `restart`, `status`, `logs` | In the background; stops the running one, however it was started; runs it again where it ran (its window, or the background); whether it runs and answers, with its addresses; the last lines of its log |
-| `opendmt3-server setup [--address A] [--game PATH] [--installer FILE] [--admin ID [--password P]] [--game-port N] [--web-port N] [--admin-port N] [--admin-host ADDRESS]` | The players' address, the song list, the installer to hand out, the first account, the ports, who may open the admin pages (`--admin-host 0.0.0.0`: the network too; `127.0.0.1`: this PC again); each only when given. With no account yet and a person at the terminal, it asks for the owner's account and makes it there (a PC with no screen needs no browser) |
+| `opendmt3-server setup [--address A] [--game PATH] [--installer FILE] [--admin ID [--password P]] [--game-port N] [--web-port N] [--admin-port N] [--admin-host ADDRESS]` | The players' address, the song list, the installer to hand out, the first account, the ports (`--admin-port 0` turns the admin pages off), who may open the admin pages (`--admin-host 0.0.0.0`: the network too; `127.0.0.1`: this PC again); each only when given, and two parts never on one port. With no account yet and a person at the terminal, it asks for the owner's account and makes it there, each answer it refuses asked again and the password typed twice (a PC with no screen needs no browser) |
 | `opendmt3-server invite` | The address players open, with its QR code |
 | `opendmt3-server firewall [--remove] [--public] [--print]` | Opens the game's and the site's ports in Windows' firewall as an administrator (the admin pages' port too, only while they are opened to the network); elsewhere prints the commands for ufw and firewalld |
 | `opendmt3-server expose NAME [--admin-public]` | The site over HTTPS behind Caddy on this PC; the admin pages too, at `https://NAME:4731/`, only with `--admin-public` ([Playing from outside your home](internet.md#on-windows-or-with-python)) |
@@ -238,7 +238,7 @@ what is missing and why, and where it came from. The API's twins are `GET` and `
 | Command | Does |
 | :--- | :--- |
 | `./dmt3 up`, `./dmt3 down`, `./dmt3 restart` | Starts the server (getting its image first; `--no-build` to start the image as it is), stops it, restarts it |
-| `./dmt3 image [--build \| --published]` | The server's image: the published one of this version, pulled when it is not here; `--build` builds this copy's and keeps using it, `--published` goes back |
+| `./dmt3 image [--build \| --published]` | The server's image: the published one of this version, pulled when it is not here; `--build` builds this copy's and keeps using it once it is built, `--published` goes back. An image older than this copy (one kept from before an update) is never run: it says so, with these two |
 | `./dmt3 ports [--game N] [--web N] [--admin N]` | The ports ([Ports](#ports)) |
 | `./dmt3 invite` | The address players open, with its QR code |
 | `./dmt3 expose NAME [--admin-public]` | The site over HTTPS at NAME, with Caddy; the admin pages too, at `https://NAME:4731/`, only with `--admin-public` ([Playing from outside your home](internet.md)) |
@@ -249,7 +249,7 @@ what is missing and why, and where it came from. The API's twins are `GET` and `
 | `./dmt3 add-player ID [--password P] [--dj NAME] [--admin]` | The server's `--add-player` ([Players](#players)) |
 | `./dmt3 check` | The site and the admin pages answer `/health`, and the game's port takes a connection |
 | `./dmt3 catalog [PATH] [--save FILE]` | Imports the song list from the client data in a folder or an archive, or from a song list ([The song list](#the-song-list); the folder kept mounted when not given); `--save` saves one instead |
-| `./dmt3 doctor` | Docker, the server's image, the three ports and the data folder, each problem with its fix |
+| `./dmt3 doctor` | Docker, the server's image, the ports (each free, and each part's own) and the data folder, each problem with its fix |
 | The new server package (or `git pull`), then `./dmt3 up` | Updates the server: the new version's image, and the data stays ([Updating the server](#updating-the-server)) |
 
 The commands that reach the database run the server's own command line ([Command line](#command-line)) in its
@@ -490,9 +490,12 @@ the site for the game's port, so players type only the site's address. Other por
 them:
 
 - **Docker**: `./dmt3 ports --game 5725 --web 8080 --admin 8731` (or `./dmt3 setup --game-port 5725 --web-port 8080`)
-  keeps them in `.env` as `GAME_PORT`, `WEB_PORT` and `ADMIN_PORT`; `compose.yaml` publishes them (the game's and the
-  site's on the same numbers the server listens on; the admin pages' on `127.0.0.1` alone, or every address with
-  `ADMIN_BIND=0.0.0.0`, to 4731 inside), and a running server starts again on them.
+  keeps them in `.env` as `GAME_PORT`, `WEB_PORT` and `ADMIN_PORT`; `compose.yaml` publishes them, each on the same
+  number the server listens on inside (the admin pages' on `127.0.0.1` alone, or every address with
+  `ADMIN_BIND=0.0.0.0`), and a running server starts again on them. Two parts never share one, Caddy's ports while
+  the site is exposed among them. A server set up before the admin pages had a port, with its site's or game's port
+  on 4731, gives the admin pages the next free port at its first `./dmt3 up` and says so once; `./dmt3 doctor` names
+  any port two parts share.
 - **On Windows and with Python**: `opendmt3-server setup --game-port 5725 --web-port 8080 --admin-port 8731`, then a
   restart.
 - **On Kubernetes**: `game.service.port` (or `game.service.nodePort`), which the server then listens on too;

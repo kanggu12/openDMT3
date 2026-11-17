@@ -106,7 +106,8 @@ pages themselves move to the next port, 4732, on this PC alone, behind Caddy: th
 `http://127.0.0.1:4732/` too. Forward TCP 4731 on the router as well; on Windows `expose` asks to open that port in
 the firewall. `opendmt3-server expose dmt3.example.org` without `--admin-public` takes them off the internet again
 (and the port's rule out): Caddy with the new settings first (`caddy reload`), so it lets go of port 4731, then the
-server's restart, as `expose` lists them. A port moved later with `opendmt3-server setup` moves in Caddy's settings
+server's restart, as `expose` lists them (a restart while Caddy still has the port says so, and the server runs on as
+it was). A port moved later with `opendmt3-server setup` moves in Caddy's settings
 too, which Caddy reads when it starts again.
 
 ## Checking from outside

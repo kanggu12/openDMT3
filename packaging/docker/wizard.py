@@ -21,8 +21,10 @@ import sys
 import textwrap
 import threading
 import time
+import urllib.parse
 
-# The site's and the game's ports, as the server publishes them (compose.yaml).
+# The site's and the game's ports, as the server publishes them (compose.yaml), unless this server has others
+# (Answers.ports, from the front door).
 WEB_PORT, GAME_PORT = 4730, 4725
 # The admin pages' own port (a site of their own, docs/admin.md), on this PC unless the Access page opens it.
 ADMIN_PORT = 4731
@@ -46,6 +48,8 @@ class Answers:
         self.docker = None
         self.addresses = None
         self.address = None
+        # This server's ports: the game's, the site's and the admin pages' (answers_for gives the ones it has).
+        self.ports = (GAME_PORT, WEB_PORT, ADMIN_PORT)
         # Who may open the admin pages: "no", this PC alone (the usual), or "yes", other PCs on its network too.
         self.admin_network = "no"
         # How many accounts the server's database has: None when it cannot be told yet, False before looking.
@@ -90,6 +94,24 @@ class Answers:
         """True when the look at the path typed says its archive has a password (or the one typed is not its)."""
         found = self.survey()
         return bool(found) and found.get("key") in ("error.source.password", "error.source.wrong_password")
+
+
+def answers_for(env):
+    """The answers a run starts from: what the server has now (env.current: the players' address kept, whether the
+    admin pages are open to the network, its ports), so a setup run again changes nothing its pages do not change; a
+    server set up the first time has none of it, and starts from the usual."""
+    a = Answers()
+    now = env.current() if hasattr(env, "current") else {}
+    a.ports = tuple(now.get("ports") or a.ports)
+    kept = now.get("address")
+    if kept:
+        # The site's own port at a host is that host, as the Address page lists this PC's; any other address (a name
+        # on another port, HTTPS through Caddy) stays whole, offered first and kept as it is.
+        parts = urllib.parse.urlsplit(kept)
+        bare = parts.scheme == "http" and parts.port == a.ports[1] and parts.path in ("", "/") and parts.hostname
+        a.address = parts.hostname if bare else kept
+    a.admin_network = "yes" if now.get("admin_network") else "no"
+    return a
 
 
 # ------------------------------------------------------------------------------------------------ paths
@@ -161,9 +183,26 @@ def marker(tone):
     return {"ok": "ok  ", "bad": "no  "}.get(tone, "")
 
 
-def site(address):
-    """The site's address at an address of this PC."""
-    return "http://%s:%d/" % (address, WEB_PORT)
+def site(address, a=None):
+    """The site's address at an address of this PC, on the site's port this server has (a's), or a whole address as it
+    was kept (one through a proxy, or a name)."""
+    if "://" in address:
+        return address
+    return "http://%s:%d/" % (address, (a.ports if a else (GAME_PORT, WEB_PORT, ADMIN_PORT))[1])
+
+
+def host_of(address):
+    """The host of an address as the Address page keeps it: a bare one, or the host of a whole address."""
+    return (urllib.parse.urlsplit(address).hostname or address) if "://" in address else address
+
+
+def lan_host(a):
+    """The host other PCs of the network reach this PC at: the address chosen when it is one of this PC's, else the
+    first of this PC's addresses that is no loopback one, else this PC's own."""
+    if a.address and "://" not in a.address and not a.address.startswith("127."):
+        return a.address
+    others = [addr for addr, _ in (a.addresses or []) if "://" not in addr and not addr.startswith("127.")]
+    return others[0] if others else "127.0.0.1"
 
 
 def short(text, room=84):
@@ -264,11 +303,11 @@ class Welcome(Page):
                 plain("the logins, the records and the launcher to download."),
                 plain(),
                 plain("It will:"),
-                plain("  1. check Docker and the two ports the server uses (%d and %d)" % (GAME_PORT, WEB_PORT)),
-                plain("  2. ask for this server's address, the admin's ID and password,"),
-                plain("     where the song list comes from and the installer to hand out"),
+                plain("  1. check Docker and the ports the server uses (%d, %d and %d)" % a.ports),
+                plain("  2. ask for this server's address, who may open the admin pages, the admin's ID and"),
+                plain("     password, where the song list comes from and the installer to hand out"),
                 plain("  3. show every answer on one page before anything is done"),
-                plain("  4. build the server, make the account, import the song list, and start it"),
+                plain("  4. get the server's image, make the account, import the song list, and start it"),
                 plain(),
                 plain("What you need:"),
                 plain("  - Docker, running on this PC"),
@@ -341,6 +380,10 @@ class Address(Page):
         if a.addresses is None:
             def look():
                 a.addresses = env.addresses() or [("127.0.0.1", "this PC only")]
+                if a.address and a.address not in [addr for addr, _ in a.addresses]:
+                    # The address this server was set up with, though not one of this PC's now (a name, an address
+                    # over HTTPS through Caddy): first, and Enter keeps it.
+                    a.addresses.insert(0, (a.address, "kept for this server"))
                 # The first address found is the one most likely on the LAN.
                 a.address = a.address or a.addresses[0][0]
             return look
@@ -359,15 +402,15 @@ class Address(Page):
     def preview(self, a, env):
         if not a.address:
             return []
-        out = [good("The site: " + site(a.address)), good("The game: %s:%d" % (a.address, GAME_PORT))]
-        if a.address.startswith("127."):
+        out = [good("The site: " + site(a.address, a)), good("The game: %s:%d" % (host_of(a.address), a.ports[0]))]
+        if host_of(a.address).startswith("127."):
             out.append(dim("Only this PC reaches this address; other PCs need one of the others."))
         return out
 
 
-def admin_site(address):
-    """The admin pages' address at an address of this PC (the admin site's own port)."""
-    return "http://%s:%d/" % (address, ADMIN_PORT)
+def admin_site(address, a=None):
+    """The admin pages' address at an address of this PC, on the admin pages' own port this server has (a's)."""
+    return "http://%s:%d/" % (host_of(address), (a.ports if a else (GAME_PORT, WEB_PORT, ADMIN_PORT))[2])
 
 
 class AdminAccess(Page):
@@ -375,7 +418,7 @@ class AdminAccess(Page):
     keys = "Up/Down  choose"
 
     def body(self, a, env):
-        return [plain("The admin pages are a site of their own, on port %d. Only this PC opens them, unless" % ADMIN_PORT),
+        return [plain("The admin pages are a site of their own, on port %d. Only this PC opens them, unless" % a.ports[2]),
                 plain("you let the other PCs on this network open them too (a server with no screen of its"),
                 plain("own is run from another PC that way).")]
 
@@ -384,10 +427,10 @@ class AdminAccess(Page):
                                                                 ("yes", "This PC and the other PCs on its network")])]
 
     def preview(self, a, env):
-        here = admin_site("127.0.0.1")
+        here = admin_site("127.0.0.1", a)
         if a.admin_network != "yes":
             return [good("The admin pages: %s (this PC only)" % here)]
-        return [good("The admin pages: " + admin_site(a.address or "127.0.0.1")), good("On this PC also " + here)]
+        return [good("The admin pages: " + admin_site(lan_host(a), a)), good("On this PC also " + here)]
 
 
 class AdminId(Page):
@@ -500,7 +543,7 @@ class Game(Page):
             out.append(plain("Found on this PC:"))
             chosen = clean_path(a.game) if a.game.strip() else None
             for item in a.found[:5]:
-                # Each with its one line, as the site's Song list tab shows it.
+                # Each with its one line, as the admin pages' Song list shows it.
                 out.append(plain(("> " if item["path"] == chosen else "  ") + short(item["path"])))
                 out.append((("      " + item["line"]), "ok" if item["ready"] else "bad"))
         return out
@@ -534,8 +577,8 @@ class Game(Page):
                                 (len(mounts) - 1)))
             for path in refused:
                 out.append(bad("links into %s cannot be followed in the container" % path))
-            out.append(good("the Song list tab's Import: offered") if readable else
-                       dim("the Song list tab's Import: not offered (only its owner reads these files); "
+            out.append(good("the admin pages' Song list, Import: offered") if readable else
+                       dim("the admin pages' Song list, Import: not offered (only its owner reads these files); "
                            "./dmt3 catalog imports it again"))
         return out
 
@@ -630,7 +673,7 @@ class Confirm(Page):
             parts = [text for _, text in env.lines(found)] if found else []
         installer = Installer().chosen(a, env) if a.installer != NONE else None
         rows = [("1", "Docker and ports", "ready"),
-                ("2", "Address", site(a.address or "127.0.0.1")),
+                ("2", "Address", site(a.address or "127.0.0.1", a)),
                 ("3", "Admin pages", "this PC and the other PCs on its network" if a.admin_network == "yes"
                  else "this PC only"),
                 ("4", "Admin", admin),
@@ -642,12 +685,13 @@ class Confirm(Page):
             if number == "5":
                 out += [plain("   %-17s %s" % ("", part)) for part in parts]
         if kept:
-            out.append(plain("   %-17s %s" % ("Import again", "offered on the site's Song list tab" if kept[2]
+            out.append(plain("   %-17s %s" % ("Import again", "offered on the admin pages' Song list" if kept[2]
                                               else "with ./dmt3 catalog")))
         return out
 
     def preview(self, a, env):
-        return [dim("Enter starts the setup. It builds the image, which takes a few minutes the first time.")]
+        return [dim("Enter starts the setup. It gets the server's image first (pulled, or built when it cannot be),"),
+                dim("which takes a few minutes the first time.")]
 
 
 class Progress(Page):
@@ -701,17 +745,18 @@ class Done(Page):
     def body(self, a, env):
         address = a.address or "127.0.0.1"
         # An address of this PC alone is one no other PC reaches: said so, with how to choose another.
-        alone = address.startswith("127.")
+        alone = host_of(address).startswith("127.")
         out = [plain("The site:"),
-               good("  on this PC:      " + site("127.0.0.1")),
+               good("  on this PC:      " + site("127.0.0.1", a)),
                # (Four spaces in the place of the line above's "ok  ", so the two addresses stand in one column.)
                dim("      from other PCs:  not reachable at this address (./dmt3 setup again to choose another)") if alone
-               else good("  from other PCs:  " + site(address)),
+               else good("  from other PCs:  " + site(address, a)),
                plain()]
         # The admin pages, a site of their own: on this PC, and the network's address too when it was opened to it.
-        here = admin_site("127.0.0.1")
+        here = admin_site("127.0.0.1", a)
         opened = a.admin_network == "yes" and not alone
-        admin_where = (admin_site(address) + " (on this PC also %s)" % here) if opened else here + " (this PC only)"
+        admin_where = (admin_site(lan_host(a), a) + " (on this PC also %s)" % here) if opened else \
+            here + " (this PC only)"
         out += [good("The admin pages:  " + admin_where), plain()]
         if a.accounts:
             out.append(plain("Sign in with the admin account you have."))
@@ -723,7 +768,7 @@ class Done(Page):
         # address chosen above (the one players reach).
         out += [plain(),
                 plain("Next:"),
-                plain("  1. Open the admin pages, %s, and sign in." % (admin_site(address) if opened else
+                plain("  1. Open the admin pages, %s, and sign in." % (admin_site(lan_host(a), a) if opened else
                                                                      here + " on this PC"))]
         if not alone:
             # The accounts first: the Download page asks for a sign-in, and each account's message has it.
@@ -781,7 +826,10 @@ def run_setup(a, env, redraw):
     code, lines = stream("image", env.build_command())
     if code:
         return fail(a, "image", "Server image", lines, mark)
-    mark("image", "ok", "built")
+    # What the image step did, by its own lines (./dmt3 image): found here, pulled, or built from this clone.
+    said = " ".join(lines)
+    mark("image", "ok", "built" if "building the server image" in said else "pulled" if "pulling the server image"
+         in said else "ready")
     a.accounts = env.accounts()
     if a.address and hasattr(env, "keep_address"):
         # Kept before the server starts, so the server is given it: the message to send a player carries the address
@@ -794,7 +842,7 @@ def run_setup(a, env, redraw):
         if key == "image":
             continue
         if key == "server" and a.game.strip() and a.kept() and a.kept()[2]:
-            # Kept mounted before the server starts, so its Song list tab can import it again.
+            # Kept mounted before the server starts, so the admin pages' Song list can import it again.
             env.keep_game(clean_path(a.game))
         code, lines = stream("songs" if key == "catalog" else key, cmd)
         if key == "catalog":
@@ -853,7 +901,7 @@ def fail(a, key, label, lines, mark):
 def run_plain(env, ask=input, secret=getpass.getpass, out=print, a=None):
     """The wizard as numbered prompts, one page after another, for a terminal that cannot draw. "b" goes back, Enter
     keeps what is shown; the end of input stops. Returns the exit code."""
-    a = a or Answers()
+    a = a or answers_for(env)
     ordered = pages()
     at = 0
     try:
@@ -931,7 +979,7 @@ def ask_fields(page, a, env, ask, secret, out):
         if isinstance(page, Progress) and not a.failed:
             return None
         if isinstance(page, Confirm):
-            hint = "Enter starts the setup, 1-5 changes an answer, b goes back"
+            hint = "Enter starts the setup, 1-%d changes an answer, b goes back" % len(CHANGE)
         elif isinstance(page, Progress):
             hint = "Enter tries again, b goes back"
         elif isinstance(page, Docker) and a.docker is not None and blocking(a.docker):
@@ -1279,7 +1327,7 @@ def run(env):
     import curses
     # Esc goes back at once, not after curses' own wait for a longer key.
     os.environ.setdefault("ESCDELAY", "25")
-    a = Answers()
+    a = answers_for(env)
     try:
         code = curses.wrapper(lambda scr: Screen(scr, env, a, capture).run())
     except KeyboardInterrupt:
@@ -1288,8 +1336,8 @@ def run(env):
     if a.done:
         # The page closes with the screen; what to keep is said once more where it stays.
         chosen = a.address or "127.0.0.1"
-        print("The site: %s%s" % (site("127.0.0.1"), "" if chosen.startswith("127.") else
-                                  " (from other PCs: %s)" % site(chosen)))
+        print("The site: %s%s" % (site("127.0.0.1", a), "" if host_of(chosen).startswith("127.") else
+                                  " (from other PCs: %s)" % site(chosen, a)))
         if not a.accounts:
             print("Admin %s, password %s" % (a.admin.strip().upper(), a.made_password or a.password))
     return code

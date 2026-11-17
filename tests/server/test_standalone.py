@@ -517,6 +517,92 @@ class AdminPublicTest(unittest.TestCase):
         self.assertIn("The admin pages: https://dmt3.example.org:4731/ (through Caddy).", said)
 
 
+class OperationsReview2Test(unittest.TestCase):
+    """What the second operations review of 0.4.0 found in the server's own program (review040/ops2.md), each kept from
+    coming back: --admin-port 0, the owner's account typed at the terminal, a restart onto a port another program
+    holds, and the banner under Wine. A data folder of the test's own; Windows and its firewall made up."""
+
+    def setUp(self):
+        self.base = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, self.base)
+        self.data = os.path.join(self.base, "data")
+        os.makedirs(self.data)
+
+    def test_admin_port_0_turns_the_admin_pages_off(self):
+        code, said = quiet("--data", self.data, "setup", "--admin-port", "0")
+        self.assertEqual(code, 0, said)
+        self.assertIn("the admin pages: off", said)
+        # Kept, and given to the run: the server has none of them then.
+        self.assertEqual(standalone.settings(self.data)["admin_port"], 0)
+        argv = standalone.server_args(self.data)
+        self.assertEqual(argv[argv.index("--admin-port") + 1], "0")
+        self.assertIsNone(standalone.admin_here(self.data))
+        self.assertIn("off", standalone.admin_line(self.data))
+        # Opened to the network while off: no rule for a port that is not there.
+        quiet("--data", self.data, "setup", "--admin-host", "0.0.0.0")
+        self.assertEqual(standalone.firewall_ports(self.data), [4725, 4730])
+        # Behind Caddy they would need to be on.
+        code, said = quiet("--data", self.data, "expose", "dmt3.example.org", "--admin-public")
+        self.assertEqual(code, 2, said)
+        self.assertIn("setup --admin-port", said)
+        # On again at the usual port: nothing kept for it.
+        quiet("--data", self.data, "setup", "--admin-port", "4731")
+        self.assertNotIn("--admin-port", standalone.server_args(self.data))
+        self.assertEqual(standalone.admin_here(self.data), "http://127.0.0.1:4731/")
+
+    def test_the_owners_account_at_the_terminal_is_asked_again_until_the_server_takes_it(self):
+        # An ID the game cannot type, then one it can; a password too short, two that differ, then one typed twice.
+        secrets = iter(["abc", "abcdef12", "abcdef13", "abcdef12", "abcdef12"])
+        with mock.patch.object(standalone, "at_terminal", return_value=True), \
+                mock.patch("builtins.input", side_effect=["no va", "nova"]), \
+                mock.patch.object(standalone.getpass, "getpass", side_effect=lambda prompt="": next(secrets)):
+            code, said = quiet("--data", self.data, "setup")
+        self.assertEqual(code, 0, said)
+        self.assertIn("made NOVA", said)
+        # Each refusal said in the server's own words, then asked again.
+        self.assertIn("an ID is 1 to 8 letters or digits", said)
+        self.assertIn("a password is 6 to 16 letters or digits", said)
+        self.assertIn("the two passwords differ", said)
+        self.assertFalse(standalone.first_account_needed(self.data))
+
+    def test_restart_says_a_port_another_program_holds_and_leaves_the_server_running(self):
+        # The running server (this test's own process stands in for it) has the game's port, the site's and the admin
+        # listener behind Caddy at 4732; expose --off moved the admin listener back to 4731, which Caddy still has.
+        record = {"pid": os.getpid(), "game_port": 4725, "web_port": 4730, "admin_port": 4732, "started": 1}
+        standalone.write_json(os.path.join(self.data, standalone.RUNNING), record)
+        with mock.patch.object(standalone, "port_free", side_effect=lambda port, host="0.0.0.0": port != 4731):
+            code, said = quiet("--data", self.data, "restart")
+        self.assertEqual(code, 2, said)
+        self.assertIn("port 4731 is taken by another program", said)
+        # The running server was never asked: it runs on as it was.
+        self.assertFalse(os.path.exists(os.path.join(self.data, standalone.RESTART)))
+        # The ports the running server has itself are never another program's: the restart is asked.
+        record["admin_port"] = 4731
+        standalone.write_json(os.path.join(self.data, standalone.RUNNING), record)
+        with mock.patch.object(standalone, "port_free", return_value=False), \
+                mock.patch.object(standalone, "STOP_SECONDS", -31):
+            quiet("--data", self.data, "restart")
+        self.assertTrue(os.path.exists(os.path.join(self.data, standalone.RESTART)))
+
+    def test_a_run_keeps_the_admin_listeners_port_in_its_record(self):
+        # What restart reads back: the admin listener's port as the run has it (behind Caddy, the next one).
+        quiet("--data", self.data, "expose", "dmt3.example.org", "--admin-public")
+        self.assertEqual(standalone.run_record(self.data, background=True)["admin_port"], 4732)
+
+    def test_on_windows_no_file_is_a_containers_mark(self):
+        from opendmt3.server.services import sources
+        # Wine hands a path from the root to the Linux files it runs on, so the container Wine runs in showed its
+        # /.dockerenv to the Windows package and its banner left out the admin pages' row. A Windows server is never
+        # in a Linux container.
+        with mock.patch.object(sources.os.path, "exists", return_value=True):
+            self.assertTrue(sources.in_container())
+            with mock.patch.object(sources.os, "name", "nt"):
+                self.assertFalse(sources.in_container())
+        # Said by the environment, it counts anywhere.
+        with mock.patch.object(sources.os, "name", "nt"), mock.patch.dict(os.environ, {"OPENDMT3_IN_CONTAINER": "1"}):
+            self.assertTrue(sources.in_container())
+
+
 @unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
 class StartStopTest(unittest.TestCase):
     """A real server in the background on free ports: start, status, a stop request it answers by itself."""

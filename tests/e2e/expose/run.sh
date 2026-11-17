@@ -87,12 +87,18 @@ r=$?; step "an admin signs in over HTTPS, and the invite carries https://$NAME/"
 r=$?; step "the site's own port is not published while it is exposed" $r
 # The admin pages without --admin-public: on this PC alone, plain HTTP on their own port, nothing of them behind Caddy
 # (no HTTPS at the name and the admin port), and the players' site serves none of them over the internet.
-admin_where=$(docker compose -f compose.yaml -f packaging/docker/edge.yaml port server 4731 2>/dev/null)
+# The admin listener has the admin port inside the container too (the same number as on this PC).
+admin_where=$(docker compose -f compose.yaml -f packaging/docker/edge.yaml port server "$ADMIN" 2>/dev/null)
 curl -sf --max-time 5 "http://127.0.0.1:$ADMIN/health" > /dev/null && [[ "$admin_where" == 127.0.0.1:* ]] \
   && ! curl -s --max-time 5 --cacert "$OUT/local-root.crt" --resolve "$NAME:$ADMIN:127.0.0.1" \
        "https://$NAME:$ADMIN/health" > /dev/null \
   && [ "$(https /admin --cacert "$OUT/local-root.crt" -o /dev/null -w '%{http_code}')" = 404 ]
 r=$?; step "without --admin-public the admin pages stay on this PC ($admin_where), none behind Caddy" $r
+# What the server is told of the admin port's published side, which it cannot see from inside: this PC alone, at the
+# admin port, and no address through Caddy.
+told() { docker exec "$COMPOSE_PROJECT_NAME-server-1" sh -c 'echo "${OPENDMT3_ADMIN_HOST_BIND:-} ${OPENDMT3_ADMIN_HOST_PORT:-} ${OPENDMT3_ADMIN_ADDRESS:-none}"' 2>/dev/null; }
+[ "$(told)" = "127.0.0.1 $ADMIN none" ]
+r=$?; step "the server is told who reaches the admin port and where: $(told)" $r
 # With --admin-public: the admin site at https://NAME:ADMIN/ through Caddy, its certificate the name's.
 ./dmt3 expose "$NAME" --local-ca --admin-public > "$OUT/expose-admin.txt" 2>&1 \
   && grep -q "The admin pages: https://$NAME:$ADMIN/" "$OUT/expose-admin.txt"
@@ -102,6 +108,9 @@ code=$(curl -s --max-time 10 --cacert "$OUT/local-root.crt" --resolve "$NAME:$AD
   -o "$OUT/health-admin.json" -w '%{http_code}' "https://$NAME:$ADMIN/health")
 [ "$code" = 200 ] && grep -q "the admin pages answer https://$NAME:$ADMIN/ through Caddy" "$OUT/check-admin.txt"
 r=$?; step "the admin pages answer at https://$NAME:$ADMIN/ through Caddy (curl --cacert: $code), ./dmt3 check says so" $r
+# Behind Caddy: every address reaches the admin port, at Caddy's HTTPS address for the admin pages.
+[ "$(told)" = "0.0.0.0 $ADMIN https://$NAME:$ADMIN/" ]
+r=$?; step "the server is told the admin pages are behind Caddy: $(told)" $r
 
 # ---- 1b. An address as the site's name (a closed network with no names): a client sends no name in the handshake
 # for an address, so Caddy must be told which certificate to give then. The address is one no container has, as a

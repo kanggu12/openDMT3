@@ -1,8 +1,8 @@
 # The admin pages over HTTPS too (./dmt3 expose NAME --admin-public, EDGE_ADMIN=public in .env): read after
 # compose.yaml and edge.yaml. Caddy, in the server's network, serves the admin site at the site's name on its own port
-# (4732 inside, its Caddyfile's second block) in front of the admin listener (4731 inside); the admin port on this PC
-# (ADMIN_PORT) is Caddy's then, on every address of this PC, and the admin listener is published nowhere else (one
-# port of this PC cannot be both). Without this file nothing of the admin site is behind Caddy: it stays on this PC,
+# (4732 inside, its Caddyfile's second block) in front of the admin listener (the admin port inside); the admin port on
+# this PC (ADMIN_PORT) is Caddy's then, on every address of this PC, and the admin listener is published nowhere else
+# (one port of this PC cannot be both). Without this file nothing of the admin site is behind Caddy: it stays on this PC,
 # or on the network as ADMIN_BIND says.
 services:
   server:
@@ -11,6 +11,10 @@ services:
       # 127.0.0.1): Caddy shares this network and reaches it there, and nothing else does, not even another container
       # on the project's network.
       OPENDMT3_ADMIN_HOST: "127.0.0.1"
+      # What the server cannot see from inside: every address of this PC reaches the admin port (Caddy's), and the
+      # admin pages' address is Caddy's HTTPS at the site's name on it, for the players' site's way to them.
+      OPENDMT3_ADMIN_HOST_BIND: "0.0.0.0"
+      OPENDMT3_ADMIN_ADDRESS: "https://${EDGE_NAME}:${ADMIN_PORT:-4731}/"
     # In place of edge.yaml's ports: the game's, Caddy's plain HTTP and HTTPS for the players' site, then Caddy's HTTPS
     # for the admin site at the admin port.
     ports: !override

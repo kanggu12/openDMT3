@@ -149,8 +149,9 @@ PY
   ! kill -0 $front 2>/dev/null && grep -q "The server stopped." /out/stop2.txt && grep -q "To stop it" /out/run.txt
   r=$?; step "a run in the foreground stops when stop asks it from another process" $r
   # The banner the run printed: the logo, the version and the addresses in a box (plain: the output is a file).
-  grep -q "| This PC   http://127.0.0.1:4730/" /out/run.txt && grep -q "server $(sed "s/openDMT3 server //" /out/version.txt)" /out/run.txt
-  r=$?; step "the run printed its banner with the addresses in a box" $r
+  grep -q "| This PC   http://127.0.0.1:4730/" /out/run.txt && grep -q "server $(sed "s/openDMT3 server //" /out/version.txt)" /out/run.txt \
+    && grep -q "| Admin     http://127.0.0.1:4731/" /out/run.txt && grep -q "| Admin     http://127.0.0.1:4731/" /out/start.txt
+  r=$?; step "the run and the start printed the banner with the addresses in a box, the admin pages among them" $r
   srv repair > /out/repair.txt 2>&1 && grep -q "the package.s files are as they were made" /out/repair.txt
   r=$?; step "repair: the package files, the data folder and the ports as they should be" $r
   rm -f _internal/opendmt3/server/web/static/site.css

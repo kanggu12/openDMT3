@@ -146,6 +146,27 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ### Fixed
 
+- `compose.yaml` tells the server the published side of the admin port, which it cannot see from inside: who
+  reaches it on this PC and its number there (`OPENDMT3_ADMIN_HOST_BIND`, `OPENDMT3_ADMIN_HOST_PORT`), and with
+  `./dmt3 expose --admin-public` the admin pages' address through Caddy (`OPENDMT3_ADMIN_ADDRESS`), for the players'
+  site's way to them in Docker. The admin listener has the admin port inside the container too, as the game's and the
+  site's ports are the same numbers there.
+- `./dmt3 setup` run again starts from what the server has: the players' address (a name or an HTTPS address kept as
+  it is), whether the admin pages are open to the network, and its ports, so Enter through its pages changes nothing.
+  Its pages name this server's own ports and what its image step did (found, pulled or built).
+- A server set up before the admin pages had a port, with its site's or game's port on 4731, gives the admin pages
+  the next free port at its first `./dmt3 up` (said once) instead of failing to start; `./dmt3 doctor` names any port
+  two parts share, each port once; `./dmt3 expose` refuses an admin port on Caddy's.
+- A setup that could neither pull nor build the image leaves `.env` naming none, and `./dmt3` never runs an image older
+  than its copy (one kept under `opendmt3-server:local` from before an update): it says so with `--build` and
+  `--published`. Its builds carry their version as a label, as the published images do.
+- `opendmt3-server setup --admin-port 0` turns the admin pages off; the owner's account typed at the terminal is
+  asked again after a refusal, its password typed twice; `restart` while another program has a port of the next run
+  (Caddy after `expose --off`) says so in one line and leaves the server running.
+- The Windows package under Wine names the admin pages in its start banner: Wine showed the container's
+  `/.dockerenv` to it, and the server took itself for one in a container.
+- `tests/e2e/upgrade/run.sh` runs again (an apostrophe inside its quotes stopped bash), and the unit tests check that
+  every end-to-end script parses.
 - When another server no longer takes the launcher's sign-in (found by the connection test, RECORDS, the song list or
   PLAY), the launcher forgets it, its sign-in card asks for the password again with the ID kept, and PLAY says why it
   cannot start; it went on showing "Signed in" and a lit PLAY.

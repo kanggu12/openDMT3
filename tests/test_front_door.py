@@ -191,7 +191,8 @@ class ImageTest(unittest.TestCase):
     def test_an_image_already_here_is_neither_pulled_nor_built(self):
         self.here.add(dmt3.published_image())
         self.assertEqual(dmt3.cmd_image(args_of("image")), 0)
-        self.assertEqual(self.ran, [])
+        # Only asked which version it is (an older release's is never run), never pulled or built.
+        self.assertFalse([cmd for cmd in self.ran if cmd[:2] == ["docker", "pull"] or "build" in cmd], self.ran)
 
     def test_no_published_image_builds_this_clone_and_keeps_it(self):
         self.pull_works = False
@@ -921,13 +922,13 @@ class AdminSiteTest(RecordedDocker):
         with open(dmt3.COMPOSE_FILE, encoding="utf-8") as f:
             text = f.read()
         # The PC's own address by default, the owner's choice in .env otherwise; the admin listener inside the
-        # container on every address of the container, so the published port reaches it.
-        self.assertIn('"${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-4731}:4731"', text)
+        # container on every address of the container (at the same port), so the published port reaches it.
+        self.assertIn('"${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-4731}:${ADMIN_PORT:-4731}"', text)
         self.assertIn('OPENDMT3_ADMIN_HOST: "0.0.0.0"', text)
         # While exposed without --admin-public, Caddy's file keeps it on this PC too; with it, Caddy's own HTTPS for
         # the admin site takes the admin port, from every address.
         with open(dmt3.EDGE_FILE, encoding="utf-8") as f:
-            self.assertIn('"${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-4731}:4731"', f.read())
+            self.assertIn('"${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-4731}:${ADMIN_PORT:-4731}"', f.read())
         with open(dmt3.EDGE_ADMIN_FILE, encoding="utf-8") as f:
             public = f.read()
         self.assertIn('"${ADMIN_PORT:-4731}:%d"' % dmt3.EDGE_ADMIN_PORT, public)
@@ -950,25 +951,31 @@ class AdminSiteTest(RecordedDocker):
         self.assertNotIn("ADMIN_PORT", self.env())
 
     def test_ports_keep_clear_of_the_containers_own(self):
-        # Inside the container the admin listener has 4731, whatever the PC's admin port is: the site's port cannot.
+        # The admin listener has the admin port inside the container too (the same number as here): with the admin
+        # port moved, the site may have 4731, and no part may have the admin port.
         dmt3.cmd_ports(args_of("ports", "--admin", "8731"))
+        dmt3.cmd_ports(args_of("ports", "--web", "4731"))
+        self.assertEqual(self.env()["WEB_PORT"], "4731")
         err = io.StringIO()
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(err):
-            dmt3.cmd_ports(args_of("ports", "--web", "4731"))
-        self.assertNotIn("WEB_PORT", self.env())
+            dmt3.cmd_ports(args_of("ports", "--game", "8731"))
+        self.assertNotIn("GAME_PORT", self.env())
         self.assertIn("each part needs a port of its own", err.getvalue())
-        self.assertIn("4731", err.getvalue())
+        self.assertIn("port 8731 is the game's and the admin pages' at once", err.getvalue())
         # A refusal gives back the port kept before it, not the usual one.
-        dmt3.cmd_ports(args_of("ports", "--web", "8080"))
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
-            dmt3.cmd_ports(args_of("ports", "--web", "4731"))
-        self.assertEqual(self.env()["WEB_PORT"], "8080")
-        # Exposed with --admin-public: nor Caddy's own ports there (80, 443, and 4732 for the admin pages).
+            dmt3.cmd_ports(args_of("ports", "--web", "8731"))
+        self.assertEqual(self.env()["WEB_PORT"], "4731")
+        # Exposed with --admin-public: nor Caddy's own ports there (80, 443, and 4732 for the admin pages), the admin
+        # pages' among them.
         dmt3.write_env({"EDGE_NAME": "dmt3.example.org", "EDGE_ADMIN": "public"})
-        for taken in ("4732", "443"):
-            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
-                dmt3.cmd_ports(args_of("ports", "--game", taken))
+        for option, taken in (("--game", "4732"), ("--game", "443"), ("--admin", "4732")):
+            err = io.StringIO()
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(err):
+                dmt3.cmd_ports(args_of("ports", option, taken))
+            self.assertIn("Caddy's", err.getvalue())
             self.assertNotIn("GAME_PORT", self.env())
+        self.assertEqual(self.env()["ADMIN_PORT"], "8731")
 
     def test_setup_asks_who_may_open_the_admin_pages(self):
         self.images.add(dmt3.published_image())
@@ -1066,6 +1073,178 @@ class AdminSiteTest(RecordedDocker):
         with mock.patch.object(dmt3, "site_lines", return_value="The site: x.\nThe admin pages: y."):
             self.assertEqual(dmt3.cmd_up(args_of("up")), 0)
         self.assertIn("The admin pages: y.", " ".join(self.said))
+
+
+class OperationsReview2Test(RecordedDocker):
+    """What the second operations review of 0.4.0 found in ./dmt3 (review040/ops2.md), each kept from coming back: what
+    the container is told about the admin port, a site's or game's port of 4731 from before the admin pages, the
+    image of a setup that could get none, an image older than its clone, the admin line's address, and Caddy's ports
+    beside the admin port. .env, the Caddyfile's folder and Docker are the test's own, as in RecordedDocker."""
+
+    def test_the_container_is_told_who_reaches_the_admin_port_and_where_it_is(self):
+        with open(dmt3.COMPOSE_FILE, encoding="utf-8") as f:
+            text = f.read()
+        # The PC's side of the admin port (who reaches it, its number), which the server cannot see from inside.
+        self.assertIn("OPENDMT3_ADMIN_HOST_BIND: ${ADMIN_BIND:-127.0.0.1}", text)
+        self.assertIn("OPENDMT3_ADMIN_HOST_PORT: ${ADMIN_PORT:-4731}", text)
+        # Behind Caddy with --admin-public: every address reaches it, at Caddy's HTTPS address for it.
+        with open(dmt3.EDGE_ADMIN_FILE, encoding="utf-8") as f:
+            public = f.read()
+        self.assertIn('OPENDMT3_ADMIN_HOST_BIND: "0.0.0.0"', public)
+        self.assertIn('OPENDMT3_ADMIN_ADDRESS: "https://${EDGE_NAME}:${ADMIN_PORT:-4731}/"', public)
+
+    def test_the_admin_listener_has_the_admin_port_inside_the_container_too(self):
+        # The same number inside and out, as the game's and the site's: a site's port of 4731 kept from before the
+        # admin pages never meets the admin listener inside once the admin port is another.
+        with open(dmt3.COMPOSE_FILE, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn('"${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-4731}:${ADMIN_PORT:-4731}"', text)
+        self.assertIn("OPENDMT3_ADMIN_PORT: ${ADMIN_PORT:-4731}", text)
+        with open(dmt3.EDGE_FILE, encoding="utf-8") as f:
+            self.assertIn('"${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-4731}:${ADMIN_PORT:-4731}"', f.read())
+        # Behind Caddy, Caddy reaches it there, and follows it when the admin port moves.
+        with mock.patch.object(dmt3, "is_running", return_value=False):
+            dmt3.cmd_expose(args_of("expose", "dmt3.example.org", "--admin-public"))
+            dmt3.cmd_ports(args_of("ports", "--admin", "8731", "--web", "8080"))
+        with open(os.path.join(self.folder, ".edge", "Caddyfile"), encoding="utf-8") as f:
+            caddy = f.read()
+        self.assertIn("reverse_proxy 127.0.0.1:8731", caddy)
+        self.assertIn("reverse_proxy 127.0.0.1:8080", caddy)
+        self.assertNotIn("127.0.0.1:4731", caddy)
+        # Two ports swapped at once never leave both upstreams on one.
+        with mock.patch.object(dmt3, "is_running", return_value=False):
+            dmt3.cmd_ports(args_of("ports", "--admin", "8080", "--web", "8731"))
+        with open(os.path.join(self.folder, ".edge", "Caddyfile"), encoding="utf-8") as f:
+            caddy = f.read()
+        self.assertEqual(caddy.count("reverse_proxy 127.0.0.1:8731"), 1)
+        self.assertEqual(caddy.count("reverse_proxy 127.0.0.1:8080"), 1)
+        self.assertLess(caddy.index("reverse_proxy 127.0.0.1:8731"), caddy.index("reverse_proxy 127.0.0.1:8080"))
+
+    def test_a_site_or_game_port_of_4731_from_before_moves_the_admin_pages_once(self):
+        # A 0.3.1 .env: the site on 4731, no admin port kept. doctor names the clash first.
+        dmt3.write_env({"WEB_PORT": "4731"})
+        with mock.patch.object(dmt3, "port_free", return_value=True), mock.patch.object(dmt3, "chosen_image"), \
+                mock.patch.object(dmt3.shutil, "which", return_value="/usr/bin/docker"):
+            checks = dmt3.doctor_checks()
+        clash = [(text, fix) for key, good, text, fix in checks if key == "port" and good is False]
+        self.assertTrue(clash, checks)
+        self.assertIn("4731", clash[0][0])
+        self.assertIn("./dmt3 up", clash[0][1])
+        # Each port looked at once, however many parts it is.
+        self.assertEqual([text for _, _, text, _ in checks].count("port 4731 is free"), 1)
+        # The first up picks the next port that is free and no part's (4732 is Caddy's own inside the container),
+        # says so once, and the server starts.
+        self.images.add(dmt3.published_image())
+        with mock.patch.object(dmt3, "port_free", return_value=True):
+            self.assertEqual(dmt3.cmd_up(args_of("up")), 0)
+            self.assertEqual(self.env()["ADMIN_PORT"], "4733")
+            said = [line for line in self.said if "4733" in line]
+            self.assertEqual(len(said), 1, self.said)
+            self.assertTrue([cmd for cmd in self.ran if "up" in cmd and cmd[:2] == ["docker", "compose"]])
+            self.said.clear()
+            dmt3.cmd_up(args_of("up"))
+        self.assertFalse([line for line in self.said if "admin pages' port" in line], self.said)
+        # A port another program holds is passed over too.
+        dmt3.write_env({"ADMIN_PORT": None, "GAME_PORT": "4731", "WEB_PORT": None})
+        with mock.patch.object(dmt3, "port_free", side_effect=lambda port: port != 4733):
+            dmt3.cmd_up(args_of("up"))
+        self.assertEqual(self.env()["ADMIN_PORT"], "4734")
+
+    def test_doctor_names_every_part_two_share(self):
+        # Caddy's HTTPS on this PC where the admin pages are: two parts on one port, named with their fix.
+        dmt3.write_env({"EDGE_NAME": "dmt3.example.org", "HTTPS_PORT": "8443", "ADMIN_PORT": "8443"})
+        with mock.patch.object(dmt3, "port_free", return_value=True), mock.patch.object(dmt3, "chosen_image"), \
+                mock.patch.object(dmt3.shutil, "which", return_value="/usr/bin/docker"):
+            checks = dmt3.doctor_checks()
+        clash = [text for key, good, text, _ in checks if key == "port" and good is False]
+        self.assertEqual(len(clash), 1, checks)
+        self.assertIn("8443", clash[0])
+        self.assertIn("Caddy", clash[0])
+        self.assertIn("admin pages", clash[0])
+
+    def test_expose_keeps_caddys_ports_and_the_admin_port_apart(self):
+        # Kept before the site was exposed (80 was no part's then): expose refuses, and writes nothing.
+        dmt3.write_env({"ADMIN_PORT": "80"})
+        err = io.StringIO()
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(err):
+            dmt3.cmd_expose(args_of("expose", "dmt3.example.org"))
+        self.assertIn("each part needs a port of its own", err.getvalue())
+        self.assertNotIn("EDGE_NAME", self.env())
+        self.assertFalse(os.path.exists(os.path.join(self.folder, ".edge", "Caddyfile")))
+        # Caddy's own port for the admin pages inside the container is no other part's either.
+        dmt3.write_env({"ADMIN_PORT": "4732"})
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            dmt3.cmd_expose(args_of("expose", "dmt3.example.org", "--admin-public"))
+        self.assertNotIn("EDGE_ADMIN", self.env())
+
+    def test_a_setup_that_gets_no_image_names_none(self):
+        # No pull, no build: .env names no image, so the next up cannot find an older one under that name.
+        self.answers = {"docker pull": (1, ""), "build": (1, "")}
+        with mock.patch.object(dmt3, "has_image", return_value=False):
+            self.assertNotEqual(dmt3.cmd_image(argparse_namespace(build=False, published=False)), 0)
+        self.assertNotIn(dmt3.IMAGE_ENV, self.env())
+        self.assertNotEqual(os.environ.get(dmt3.IMAGE_ENV), dmt3.IMAGE)
+        # A build that works names it, after it worked, with this clone's version as its label.
+        self.answers = {}
+        with mock.patch.object(dmt3, "has_image", return_value=False), \
+                mock.patch.object(dmt3, "image_version", return_value=dmt3.version()):
+            self.assertEqual(dmt3.cmd_image(argparse_namespace(build=True, published=False)), 0)
+        self.assertEqual(self.env()[dmt3.IMAGE_ENV], dmt3.IMAGE)
+        with open(dmt3.BUILD_FILE, encoding="utf-8") as f:
+            self.assertIn("org.opencontainers.image.version", f.read())
+
+    def test_an_image_older_than_this_clone_is_refused_and_said(self):
+        dmt3.write_env({dmt3.IMAGE_ENV: dmt3.IMAGE})
+        os.environ[dmt3.IMAGE_ENV] = dmt3.IMAGE
+        self.images.add(dmt3.IMAGE)
+        for argv in (("up",), ("up", "--no-build")):
+            self.ran.clear()
+            err = io.StringIO()
+            with mock.patch.object(dmt3, "version", return_value="0.4.0"), \
+                    mock.patch.object(dmt3, "image_version", return_value="0.3.1"), \
+                    contextlib.redirect_stderr(err):
+                code = dmt3.cmd_up(args_of(*argv))
+            words = " ".join(self.said) + err.getvalue()
+            self.assertNotEqual(code, 0, argv)
+            self.assertIn("0.3.1", words)
+            self.assertIn("./dmt3 image --build", words)
+            # Nothing started from it.
+            self.assertFalse([cmd for cmd in self.ran if "up" in cmd and cmd[:2] == ["docker", "compose"]], argv)
+        # This version's, or a newer one's, runs.
+        for found in ("0.4.0", "0.4.1"):
+            self.ran.clear()
+            with mock.patch.object(dmt3, "version", return_value="0.4.0"), \
+                    mock.patch.object(dmt3, "image_version", return_value=found):
+                self.assertEqual(dmt3.cmd_up(args_of("up")), 0, found)
+
+    def test_an_images_version_is_its_label_else_its_own_package(self):
+        # The label first (the published images' and ./dmt3's builds'), else the package inside it says.
+        self.answers = {"docker image inspect": (0, "0.4.0\n")}
+        self.assertEqual(dmt3.image_version("x"), "0.4.0")
+        self.answers = {"docker image inspect": (0, "<no value>\n"), "docker run": (0, "0.3.1\n")}
+        self.assertEqual(dmt3.image_version("x"), "0.3.1")
+        run = [cmd for cmd in self.ran if cmd[:2] == ["docker", "run"]][-1]
+        # Asked with no network and nothing kept.
+        self.assertIn("--rm", run)
+        self.assertIn("none", run)
+        self.answers = {"docker image inspect": (0, "\n"), "docker run": (1, "")}
+        self.assertIsNone(dmt3.image_version("x"))
+        # Never pulled for the question: an image that is not here tells nothing, and is not run.
+        self.assertIn("never", run)
+        self.ran.clear()
+        self.answers = {"docker image inspect": (1, "")}
+        self.assertIsNone(dmt3.image_version("x"))
+        self.assertFalse([cmd for cmd in self.ran if cmd[:2] == ["docker", "run"]])
+
+    def test_the_admin_line_names_the_address_players_were_given(self):
+        # Opened to the network, on a PC with two networks: the one the owner chose for the players.
+        dmt3.write_env({"ADMIN_BIND": "0.0.0.0", "SITE_ADDRESS": "http://10.0.0.7:4730/"})
+        with mock.patch.object(dmt3, "lan_addresses", return_value=[("192.168.0.5", "eth0"), ("10.0.0.7", "eth1")]):
+            self.assertEqual(dmt3.admin_line(), "The admin pages: http://10.0.0.7:4731/ (on this PC also "
+                                                 "http://127.0.0.1:4731/).")
+            # None chosen: the PC's first.
+            dmt3.write_env({"SITE_ADDRESS": None})
+            self.assertIn("http://192.168.0.5:4731/", dmt3.admin_line())
 
 
 if __name__ == "__main__":

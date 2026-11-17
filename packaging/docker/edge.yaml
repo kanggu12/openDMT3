@@ -20,7 +20,7 @@ services:
       - "${HTTPS_PORT:-443}:443/udp"
       # The admin pages stay where they were, on this PC (or the network as ADMIN_BIND says): only expose
       # --admin-public (edge-admin.yaml) puts them behind Caddy.
-      - "${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-4731}:4731"
+      - "${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-4731}:${ADMIN_PORT:-4731}"
   edge:
     # An exact release of Caddy's own image, so every server runs the proxy that was tried.
     image: caddy:2.10.2-alpine

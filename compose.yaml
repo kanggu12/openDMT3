@@ -38,9 +38,9 @@ services:
       # puts Caddy in front of it instead (packaging/docker/edge.yaml, docs/internet.md).
       - "${WEB_PORT:-4730}:${WEB_PORT:-4730}"
       # The admin pages, a site of their own (docs/admin.md): on this PC alone (127.0.0.1), unless the owner opens them
-      # to the network (ADMIN_BIND=0.0.0.0 in .env, ./dmt3 setup --admin-network yes); ADMIN_PORT is their port on
-      # this PC (./dmt3 ports --admin), 4731 inside.
-      - "${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-4731}:4731"
+      # to the network (ADMIN_BIND=0.0.0.0 in .env, ./dmt3 setup --admin-network yes); ADMIN_PORT is their port
+      # (./dmt3 ports --admin), the same number inside, as the game's and the site's are.
+      - "${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-4731}:${ADMIN_PORT:-4731}"
     environment:
       # Who runs the server, for the admin's Server tab (web/runner.py): Docker Compose, whose commands (./dmt3 down,
       # restart, remove) it names, since Compose starts the server again whenever its process ends.
@@ -49,9 +49,14 @@ services:
       # listens on them, and the site tells launchers the game's port they reach.
       OPENDMT3_GAME_PORT: ${GAME_PORT:-4725}
       OPENDMT3_WEB_PORT: ${WEB_PORT:-4730}
-      # The admin listener on every address of the container, so the port published above reaches it: which addresses
-      # of this PC reach it is the published side's (ADMIN_BIND).
+      # The admin listener on its port, on every address of the container, so the port published above reaches it:
+      # which addresses of this PC reach it is the published side's (ADMIN_BIND).
+      OPENDMT3_ADMIN_PORT: ${ADMIN_PORT:-4731}
       OPENDMT3_ADMIN_HOST: "0.0.0.0"
+      # That published side, which the server cannot see from inside: who reaches the admin port on this PC (127.0.0.1,
+      # this PC alone; 0.0.0.0, the network too) and its number there, for the players' site's way to the admin pages.
+      OPENDMT3_ADMIN_HOST_BIND: ${ADMIN_BIND:-127.0.0.1}
+      OPENDMT3_ADMIN_HOST_PORT: ${ADMIN_PORT:-4731}
       # The game folder mounted below, which the admin's Song list tab imports again (none: not offered).
       OPENDMT3_GAME: ${GAME_DIR:-}
       # The site's address as the players reach it (./dmt3 setup keeps the one chosen there in .env): the message to

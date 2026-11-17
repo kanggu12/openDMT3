@@ -9,22 +9,30 @@
 #   tests/e2e/upgrade/run.sh OLD_TAG OUT_DIR [NEW_COMMIT]
 #
 # OLD_TAG is a release tag (v0.1.0, the release before the one being made). NEW_COMMIT is a commit to build the
-# server under test from; without it, this tree as it is. OUT_DIR must be new or empty.
+# server under test from; without it, this tree as it is. OUT_DIR must be new or empty. The container and the two
+# images carry OPENDMT3_E2E_NAME (opendmt3 when it is not set), so two runs at once name their own; the images are
+# removed at the end.
 set -u
 OLD=${1:?usage: tests/e2e/upgrade/run.sh OLD_TAG OUT_DIR [NEW_COMMIT]}
 OUT=$(realpath -m "${2:?usage: tests/e2e/upgrade/run.sh OLD_TAG OUT_DIR [NEW_COMMIT]}")
 NEW=${3:-}
 REPO=$(cd "$(dirname "$0")/../../.." && pwd)
-C=opendmt3-upgrade-test
+# The container's name, and the images' (old and new), each this run's own.
+C=${OPENDMT3_E2E_NAME:-opendmt3}-upgrade-test
+OLD_IMAGE=${OPENDMT3_E2E_NAME:-opendmt3}-server:upgrade-old
+NEW_IMAGE=${OPENDMT3_E2E_NAME:-opendmt3}-server:upgrade-new
 [ -z "$(ls -A "$OUT" 2>/dev/null)" ] || { echo "$OUT is not empty"; exit 2; }
 mkdir -p "$OUT/old-src" "$OUT/data"
 # The servers' own user writes the database here.
 chmod 777 "$OUT/data"
+# The images go at the end, passed or not (the container too).
+finish() { docker rm -f "$C" >/dev/null 2>&1; docker rmi "$OLD_IMAGE" "$NEW_IMAGE" >/dev/null 2>&1; }
+trap finish EXIT
 fail() { echo "FAIL: $*"; docker logs "$C" > "$OUT/server.log" 2>&1; docker rm -f "$C" >/dev/null 2>&1; exit 1; }
 
 # ---- the two servers, each from its own source: the tag as it was released, and the tree (or commit) under test
 git -C "$REPO" archive "$OLD" | tar -x -C "$OUT/old-src" || { echo "FAIL: no tag $OLD"; exit 1; }
-docker build -q -f "$OUT/old-src/packaging/docker/Dockerfile" -t opendmt3-server:upgrade-old "$OUT/old-src" >/dev/null \
+docker build -q -f "$OUT/old-src/packaging/docker/Dockerfile" -t "$OLD_IMAGE" "$OUT/old-src" >/dev/null \
   || { echo "FAIL: the $OLD server image did not build"; exit 1; }
 NEW_SRC=$REPO
 if [ -n "$NEW" ]; then
@@ -33,21 +41,21 @@ if [ -n "$NEW" ]; then
   mkdir -p "$NEW_SRC"
   git -C "$REPO" archive "$NEW" | tar -x -C "$NEW_SRC" || { echo "FAIL: no commit $NEW"; exit 1; }
 fi
-docker build -q -f "$NEW_SRC/packaging/docker/Dockerfile" -t opendmt3-server:upgrade-new "$NEW_SRC" >/dev/null \
+docker build -q -f "$NEW_SRC/packaging/docker/Dockerfile" -t "$NEW_IMAGE" "$NEW_SRC" >/dev/null \
   || { echo "FAIL: the server image under test did not build"; exit 1; }
-WANT=$(docker run --rm --network none --entrypoint python opendmt3-server:upgrade-new -c "from opendmt3.server import db; print(db.VERSION)")
+WANT=$(docker run --rm --network none --entrypoint python "$NEW_IMAGE" -c "from opendmt3.server import db; print(db.VERSION)")
 
 # ---- the earlier release makes the data: an admin, a player and twelve plays
 old() { docker run --rm --network none -v "$OUT/data:/data" "$@"; }
-old opendmt3-server:upgrade-old --add-player BOSS --password pass1234 --dj BOSS --admin >/dev/null || fail "$OLD could not make BOSS"
-old opendmt3-server:upgrade-old --add-player NOVA --password pass1234 --dj "DJ NOVA" >/dev/null || fail "$OLD could not make NOVA"
-MADE=$(old --entrypoint python opendmt3-server:upgrade-old -c '
+old "$OLD_IMAGE" --add-player BOSS --password pass1234 --dj BOSS --admin >/dev/null || fail "$OLD could not make BOSS"
+old "$OLD_IMAGE" --add-player NOVA --password pass1234 --dj "DJ NOVA" >/dev/null || fail "$OLD could not make NOVA"
+MADE=$(old --entrypoint python "$OLD_IMAGE" -c '
 import time
 try:
     from opendmt3.server import db
     from opendmt3.server.services import records
 except ImportError:
-    # A tree with the older layout keeps both at the package's top.
+    # A tree with the older layout keeps both at the top of the package.
     from opendmt3 import db
     from opendmt3.services import records
 c = db.connect("/data/openDMT3.sqlite")
@@ -64,7 +72,7 @@ echo "  $OLD made database version $WAS with 2 accounts and $PLAYS plays"
 # ---- the server under test opens it
 PORT=$(python3 -c "import socket; s = socket.socket(); s.bind(('127.0.0.1', 0)); print(s.getsockname()[1])")
 docker rm -f "$C" >/dev/null 2>&1
-docker run -d --name "$C" -p "127.0.0.1:$PORT:4730" -v "$OUT/data:/data" opendmt3-server:upgrade-new >/dev/null \
+docker run -d --name "$C" -p "127.0.0.1:$PORT:4730" -v "$OUT/data:/data" "$NEW_IMAGE" >/dev/null \
   || fail "the server under test did not start"
 for _ in $(seq 1 60); do curl -sf "http://127.0.0.1:$PORT/health" >/dev/null && break; python3 -c "import time; time.sleep(0.5)"; done
 curl -sf "http://127.0.0.1:$PORT/health" >/dev/null || fail "the server under test does not answer"

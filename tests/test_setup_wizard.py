@@ -566,6 +566,96 @@ class PlainPromptsTest(unittest.TestCase):
         plain.assert_called_once()
 
 
+class RunAgainTest(unittest.TestCase):
+    """The wizard on a server set up before (the second operations review of 0.4.0, M2 and L1): every answer starts as
+    the server has it, so Enter through every page changes nothing, and the pages say this server's own ports and
+    what its image step did."""
+
+    def env(self, **now):
+        """A server set up before: one account, its players' address, the admin pages opened to the network, and an
+        admin port of its own."""
+        env = FakeEnv(accounts=1)
+        state = {"address": "http://192.168.0.20:4730/", "admin_network": True, "ports": (4725, 4730, 9731)}
+        state.update(now)
+        env.current = lambda: state
+        return env
+
+    def through(self, env, a):
+        """Enter on every page; (exit code, every line printed)."""
+        printed = []
+        replies = [""] * 20
+
+        def ask(prompt):
+            printed.append(prompt)
+            if not replies:
+                raise EOFError
+            return replies.pop(0)
+        code = wizard.run_plain(env, ask=ask, secret=lambda prompt: "", out=printed.append, a=a)
+        return code, "\n".join(printed)
+
+    def test_enter_through_every_page_keeps_what_the_server_has(self):
+        env = self.env()
+        a = wizard.answers_for(env)
+        self.assertEqual((a.address, a.admin_network, a.ports), ("192.168.0.20", "yes", (4725, 4730, 9731)))
+        code, text = self.through(env, a)
+        self.assertEqual(code, 0, text)
+        # The admin pages stay open to the network, the address as it was.
+        self.assertIs(env.admin_network, True)
+        self.assertEqual(env.address, "192.168.0.20")
+        # A server set up before without them: none of them opened.
+        env = self.env(admin_network=False)
+        self.through(env, wizard.answers_for(env))
+        self.assertIs(env.admin_network, False)
+
+    def test_a_kept_address_that_is_no_address_of_this_pc_is_offered_first_and_kept(self):
+        env = self.env(address="https://dmt3.example.org/")
+        a = wizard.answers_for(env)
+        p = page(wizard.Address)
+        looked(p, a, env)
+        options = p.fields(a, env)[0].options()
+        self.assertEqual(options[0][0], "https://dmt3.example.org/")
+        self.assertIn("The site: https://dmt3.example.org/", [text for text, _ in p.preview(a, env)])
+        code, text = self.through(env, a)
+        self.assertEqual(code, 0, text)
+        self.assertEqual(env.address, "https://dmt3.example.org/")
+
+    def test_the_pages_say_this_servers_own_ports(self):
+        # The players' address on the site's port this server has (ports moved it there).
+        env = self.env(ports=(5725, 8080, 9731), address="http://192.168.0.20:8080/")
+        a = wizard.answers_for(env)
+        self.assertEqual(a.address, "192.168.0.20")
+        welcome = " ".join(text for text, _ in page(wizard.Welcome).body(a, env))
+        for port in ("5725", "8080", "9731"):
+            self.assertIn(port, welcome)
+        self.assertNotIn("two ports", welcome)
+        self.assertIn("port 9731", " ".join(text for text, _ in page(wizard.AdminAccess).body(a, env)))
+        address = page(wizard.Address)
+        looked(address, a, env)
+        shown = [text for text, _ in address.preview(a, env)]
+        self.assertIn("The site: http://192.168.0.20:8080/", shown)
+        self.assertIn("The game: 192.168.0.20:5725", shown)
+        a.done = True
+        done = " ".join(text for text, _ in page(wizard.Done).body(a, env))
+        self.assertIn("http://192.168.0.20:9731/", done)
+        self.assertIn("http://127.0.0.1:9731/", done)
+        self.assertNotIn("4731", done)
+
+    def test_the_confirm_hint_counts_its_answers_and_the_image_step_says_what_it_did(self):
+        code, text = self.through(self.env(), wizard.answers_for(self.env()))
+        self.assertIn("1-6 changes an answer", text)
+        self.assertNotIn("1-5", text)
+        self.assertNotIn("builds the image", " ".join(t for t, _ in page(wizard.Confirm).preview(
+            wizard.Answers(), FakeEnv())))
+        for said, word in (("the server image: ghcr.io/kanggu12/opendmt3-server:0.4.0\n", "ready"),
+                           ("pulling the server image ghcr.io/kanggu12/opendmt3-server:0.4.0\n", "pulled"),
+                           ("building the server image opendmt3-server:local from this clone\n", "built")):
+            env = FakeEnv(accounts=1, outputs={"build": (0, said)})
+            a = wizard.Answers()
+            a.address, a.installer = "192.168.0.20", wizard.NONE
+            self.assertTrue(wizard.run_setup(a, env, lambda: None))
+            self.assertEqual(a.progress["image"], ("ok", word))
+
+
 class ScreenKeysTest(unittest.TestCase):
     """The curses screen's keys on a page, without a terminal: a made-up window that keeps what is drawn."""
 

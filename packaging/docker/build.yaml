@@ -11,3 +11,7 @@ services:
       # The top of the clone (relative paths are read from compose.yaml's folder, the first file named).
       context: .
       dockerfile: packaging/docker/Dockerfile
+      # The version this clone carries (./dmt3 gives it as OPENDMT3_VERSION), as the published images carry theirs:
+      # ./dmt3 never runs an image older than its clone (an image kept from before an update under this same name).
+      labels:
+        org.opencontainers.image.version: "${OPENDMT3_VERSION:-}"
