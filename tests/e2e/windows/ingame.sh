@@ -555,7 +555,7 @@ grep "mix: a stream written by" "$OUT/ingame.log" | sed 's/^[0-9]* /  /'
 show_bar; x "xdotool mousemove $MENU_AT sleep 0.4 click 1"; wait_s 1; focus
 x "xdotool key Down"; wait_s 0.3; x "xdotool key Down"; wait_s 0.3; x "xdotool key Return"; wait_s 0.8
 wait_log "layer: sound panel opened" 5 || fail "the menu's Sound did not open the sound panel"
-drew s1 sound || fail "the sound panel is not under the X, or something is in the middle"
+drew s1 bar sound chip || fail "the sound panel is not under the X, or something is in the middle"
 shot 07s-sound-panel
 x "xdotool key Up"; wait_s 1.5
 wait_log "layer: sound master_volume set to 85" 3 || fail "Up on the master did not raise it a step"

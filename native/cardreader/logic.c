@@ -853,10 +853,11 @@ float ui_unit(int area_h)
 #define ANSWER_H 32.0f
 #define ROW_H 22.0f
 #define ROW_GAP 2.0f
-/* The sound panel: as wide as the question, its right edge under the X's; under its title tab, eight columns, each a
+/* The sound panel: 340 wide (its eight columns' names, MUSIC and KEYS side by side, need the room), its right edge
+ * under the X's; under its title tab, eight columns, each a
  * value over a track 42 tall over its name; 112 tall in all, so it ends with its shadow above line 192 as the others
  * do. */
-#define SOUND_W 300.0f
+#define SOUND_W 340.0f
 #define SOUND_VALUE_H 14.0f
 #define SOUND_TRACK_H 42.0f
 #define SOUND_NAME_H 14.0f
@@ -1223,10 +1224,11 @@ Box toast_box(int area_w, int area_h, float text_w)
     b.h = 40 * u;
     b.x = ((float)area_w - b.w) / 2;
     b.y = 0;
-    /* Clear of the menu and the question, which hang from the bar's foot at its right end (the question the wider, past
-     * the chips' row): its right end a menu gap left of them, moved left when the middle would reach further (a narrow
-     * screen filled, as 5:4), never past the left edge's room. */
+    /* Clear of the menu, the question and the sound panel, which hang from the bar's foot at its right end (the sound
+     * panel the widest, past the chips' row): its right end a menu gap left of them, moved left when the middle would
+     * reach further (a narrow screen filled, as 5:4), never past the left edge's room. */
     float panels = QUIT_W > CHIPS_ROW_W ? QUIT_W : CHIPS_ROW_W;
+    panels = SOUND_W > panels ? SOUND_W : panels;
     float limit = (float)area_w - (EDGE + panels + MENU_GAP) * u;
     if (b.x + b.w > limit)
         b.x = limit - b.w < EDGE * u ? EDGE * u : limit - b.w;

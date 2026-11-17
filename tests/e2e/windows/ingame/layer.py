@@ -49,9 +49,9 @@ def zones(w, h, fill=False):
     return {
         "bar": (px, py, px + pw, py + (70 + 10) * u),
         # They hang from the bar's foot (70 lines), at most 114 tall, with room for their shadows and the keys' ring;
-        # the sound panel as wide as the question, under the X too.
+        # the sound panel 340 wide, under the X too.
         "question": (x_right - 300 * u - 10 * u, py + 70 * u, px + pw, py + (70 + 114 + 12) * u),
-        "sound": (x_right - 300 * u - 10 * u, py + 70 * u, px + pw, py + (70 + 114 + 12) * u),
+        "sound": (x_right - 340 * u - 10 * u, py + 70 * u, px + pw, py + (70 + 114 + 12) * u),
         "menu": (menu_left - 10 * u, py + 70 * u, px + pw, py + (70 + 114 + 12) * u),
         "toast": (px + pw * 0.15, py, px + pw * 0.85, py + (40 + 12) * u),
         # The rail 72 wide along the top edge, the tab 12 deep lit, with a little room.
