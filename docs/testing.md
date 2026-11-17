@@ -79,8 +79,12 @@ bar must leave the page its whole width. Its spacing pass (`tests/e2e/ui/spacing
 boxes that touch or overlap, words over a box they are no part of, words closer to the edge of the menu column or a
 card than its padding, words lying on a page's field outside any card, and gaps between stacked boxes off the
 launcher's spacing scale; every drop-down on every page is opened and its list must lie whole on the screen and over
-everything at its corners (read from the screen's own pixels); and no screen may light two main actions at once. A run with no new screenshot for five
-minutes prints its stack and ends, failing: a window that never finishes drawing would hold it silent otherwise. The
+everything at its corners (read from the screen's own pixels); and no screen may light two main actions at once. The
+forms are used as a person uses them: a wrong value said under its field and gone with the next key, Show in the Tab
+order after its password, and the sign-in against a made-up server in each state (asked, a wrong ID or password, not
+answering, too many tries, banned), each said where it belongs and scrolled into view. A run with no new screenshot
+for five minutes prints its stack and ends, failing: a window that never finishes drawing would hold it silent
+otherwise. The
 site's check (`tests/e2e/web/shoot.js`, measuring with `measure.js`) fails on anything past a page's right edge, words
 cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone width, a word of the phone
 menu that does not fit, a button whose words are out of its middle, boxes that touch or overlap, words nearer a box's
