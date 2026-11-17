@@ -75,7 +75,11 @@ The launcher's check (`tests/e2e/ui/shots.py`) walks every widget of each screen
 label never told its width, a button squeezed, anything past the window's right edge, anything hidden past the window's
 bottom edge with no way to scroll to it, or a menu column whose names run under its foot (the status, **Save a report**
 and **PLAY**, or the guide's buttons); **Play** must show whole at the size the launcher opens at, and a page's scroll
-bar must leave the page its whole width. A run with no new screenshot for five
+bar must leave the page its whole width. Its spacing pass (`tests/e2e/ui/spacing.py`, as OpenDMTQ's) fails on two
+boxes that touch or overlap, words over a box they are no part of, words closer to the edge of the menu column or a
+card than its padding, words lying on a page's field outside any card, and gaps between stacked boxes off the
+launcher's spacing scale; every drop-down on every page is opened and its list must lie whole on the screen and over
+everything at its corners (read from the screen's own pixels); and no screen may light two main actions at once. A run with no new screenshot for five
 minutes prints its stack and ends, failing: a window that never finishes drawing would hold it silent otherwise. The
 site's check (`tests/e2e/web/shoot.js`, measuring with `measure.js`) fails on anything past a page's right edge, words
 cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone width, a word of the phone

@@ -48,6 +48,20 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   first-start guide's steps stand down the same column, with **Skip**, **Back** and **Next** (and the last step's
   **PLAY**) at its foot. The names stand closer in a short window, and a card's buttons go on a second row where the
   page beside the column has no room for them in one.
+- A choice that brings or takes rows (a window's size, the FPS counter's corner, the upscale filter, the sound device)
+  makes its own card again and no other, in place: the page no longer flickers or jumps, and the keyboard stays where
+  it was. The drop-downs are the launcher's own: a field with a chevron that opens its list under it (above it near
+  the screen's foot), with the chosen one marked in its page's colour, the arrow keys, Enter, Esc and the wheel.
+- The sign-in and add-player forms: **Show** in the password field, an error under the field it is about (a password
+  too short, a wrong password, an ID taken), and the last ID signed in with on another server filled in again after
+  signing out or a restart (never the password).
+- RECORDS' week chart says a week's number for a click, a tap or the arrow keys, not only under a resting pointer.
+- Running the installer again over the same version offers **Uninstall** beside **Repair** and **Open openDMT3**,
+  with the same choice as **Help**, **Uninstall**: keep the settings, players and records, or delete them too.
+- One lit main action on a screen: the first-start guide's own button (Add a player, Sign in) goes quiet once **Next**
+  is lit.
+- Words never lie on a page's field outside a card: the guide's line on what **Next** waits for, its last step's way
+  out of the game and DISC CHECK's "nothing found" stand on cards.
 
 
 ### Fixed

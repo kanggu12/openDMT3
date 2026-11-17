@@ -41,8 +41,8 @@ curl.exe -LO https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opend
 .\opendmt3-launcher-0.3.1-windows-x64-setup.exe
 ```
 
-Run again, the installer updates an older openDMT3, offers **Repair** or **Open openDMT3** over the same version, and
-asks before going back from a newer one. It closes an open launcher first, and does not go on while a game the
+Run again, the installer updates an older openDMT3, offers **Uninstall**, **Repair** or **Open openDMT3** over the
+same version (**Uninstall** with the same choice as **Help**'s, below), and asks before going back from a newer one. It closes an open launcher first, and does not go on while a game the
 launcher started is running (close the game, then **Try again**).
 
 ## On Linux, with Wine
@@ -166,7 +166,7 @@ on the site, under **My account**: playing on this PC, **Play**, **Open my recor
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen), and how each plays |
 | **Game** | The client data in use, with its client, songs and jackets; the song list (**Save the song list...** and, signed in as a server's admin, **Send the song list to this server**); FREE PLAY; the hidden patterns |
 | **Online** | The way to play, the players on this PC, opening this PC's server to the other PCs on your network |
-| **Records** | The chosen player's numbers, the last 12 weeks, recent plays and best scores |
+| **Records** | The chosen player's numbers, the last 12 weeks (a click or a tap on a week, or the arrow keys, says its number), recent plays and best scores |
 | **Help** | The checks, what to do when the game closes by itself, putting the files back, a report for an issue, the launcher's log, Repair, Uninstall |
 | **Launcher** | Language (**Same as Windows**, English, Korean), playing without this window, updates, the first-start guide again |
 
@@ -358,7 +358,8 @@ Either way it:
 - says so in its last step and closes; the program is gone a few seconds later (the install folder and its line in
   Windows' Settings, Apps), with no window of its own.
 
-Removing openDMT3 in Windows' Settings, Apps does the same, except that it always keeps settings, players and records.
+Running the installer again and choosing **Uninstall** asks the same and does the same. Removing openDMT3 in Windows'
+Settings, Apps does the same, except that it always keeps settings, players and records.
 While the game is open its files cannot change: client data an older openDMT3 changed stays as it left it, and a note
 in its `backup\` folder (`README-openDMT3.txt`) says which originals to copy back.
 
