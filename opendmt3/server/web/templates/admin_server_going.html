@@ -9,7 +9,7 @@
 <section class="page">
   <div class="card server-going"{% if action == "restart" %} data-back="/admin/server" data-run="{{ run }}"{% endif %}>
     <h3>{{ w("server.going." + action + ".title") }}</h3>
-    <p class="alert ok" role="status">{{ w("server.going." + action, folder=data_dir, kept=kept) }}</p>
+    <p class="done-line" role="status">{{ w("server.going." + action, folder=data_dir, kept=kept) }}</p>
     {% if action == "restart" %}
     <p class="muted small going-wait" aria-live="polite">{{ w("server.going.wait") }}</p>
     <noscript><p><a class="btn small" href="/admin/server">{{ w("job.again") }}</a></p></noscript>

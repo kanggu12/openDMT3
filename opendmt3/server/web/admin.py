@@ -294,20 +294,22 @@ def routes(site):
         for item in found["found"]:
             # Each one's line in the page's language.
             item["said"] = sources.said(item, site.language(request))
-        browsing = None
+        browsing, browse_error = None, None
         if found["browse"]:
             asked = request.query_params.get("browse") or (found["places"][0] if found["places"] else "/")
             try:
                 browsing = await threaded(sources.folders, asked)
             except sources.SourceError as e:
-                error = error or w.error(e)
+                # Said in the folder browser itself (the page's state, not what a form just did).
+                browse_error = w.error(e)
                 browsing = await threaded(sources.folders, "/")
             # The folders in it with their whole paths, and the path's own folders as steps to click back to.
             browsing["links"] = [(name, os.path.join(browsing["path"], name)) for name in browsing["folders"]]
             browsing["crumbs"] = _crumbs(browsing["path"])
         return await threaded(lambda: site.render(
             request, "admin_song_list.html", status=status, here="/admin/song_list", user=user,
-            data=_song_list_state(site, w), found=found, browsing=browsing, notice=done, error=error,
+            data=_song_list_state(site, w), found=found, browsing=browsing, browse_error=browse_error, notice=done,
+            error=error,
             upload_most=songlist.MOST, upload_mb=songlist.MOST >> 20, too_large=w.error(songlist.too_large()),
             quote=quote, command="./dmt3 catalog PATH", job=job if job and job["state"] == "running" else None))
 

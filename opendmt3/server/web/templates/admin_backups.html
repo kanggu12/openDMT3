@@ -8,8 +8,6 @@
 </section>
 <section class="page">
   {% set tab = "backups" %}{% include "_admin_tabs.html" %}
-  {% if notice %}<p class="alert ok">{{ notice }}</p>{% endif %}
-  {% if error %}<p class="alert bad">{{ error }}</p>{% endif %}
   {% include "_job.html" %}
   {# Every form names this page: the page also shows at the upload's own address, after an upload. #}
   <div class="card">
@@ -28,7 +26,7 @@
       {{ drop("backup-file", w("backups.upload.file")) }}
       <button class="btn send">{{ w("backups.upload.button") }}</button>
     </form>
-    <p class="alert bad upload-too-large" role="alert" hidden>{{ too_large }}</p>
+    <p class="field-error upload-too-large" role="alert" hidden>{{ too_large }}</p>
     <p class="muted small">{{ w("backups.upload.hint", mb=upload_mb) }}</p>
   </div>
   <div class="card">

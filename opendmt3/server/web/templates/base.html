@@ -25,15 +25,19 @@
 <body class="lang-{{ lang }}" data-section="{{ section }}">
 {# The front door (sign-in, first run: `door` set by the page) keeps only the language in its bar: no plate under it, and
    the small mark steps aside for the page's big one. #}
+{% set sections = [("/", "nav.home", path == "/"), ("/rankings", "nav.rankings", path.startswith("/rankings") or path.startswith("/dj/")), ("/songs", "nav.songs", path.startswith("/songs")), ("/download", "nav.download", path.startswith("/download")), ("/admin", "nav.admin", path.startswith("/admin"))] %}
 <header class="bar{{ ' door-bar' if door }}">
   <a class="brand" href="/" aria-label="openDMT3"{% if door %} tabindex="-1" aria-hidden="true"{% endif %}><span class="logo" aria-hidden="true"><span class="o">OPEN</span><span class="m">DMT<b>3</b></span><span class="s">SERVER</span></span></a>
   {% if user %}
-  {# The menu: the item of the page showing is lit and says so to screen readers (aria-current). #}
-  <nav class="menu">
-    {% for href, key, on in [("/", "nav.home", path == "/"), ("/rankings", "nav.rankings", path.startswith("/rankings") or path.startswith("/dj/")), ("/songs", "nav.songs", path.startswith("/songs")), ("/download", "nav.download", path.startswith("/download")), ("/admin/players", "nav.admin", path.startswith("/admin"))] if key != "nav.admin" or user.is_admin %}
+  {# The menu: the item of the page showing is lit and says so to screen readers (aria-current). On a phone it moves
+     into the sheet MENU opens; the bar then says where one is. #}
+  <nav class="menu" aria-label="{{ w('nav.sections') }}">
+    {% for href, key, on in sections if key != "nav.admin" or user.is_admin %}
     <a href="{{ href }}" class="{{ 'on' if on }}"{% if on %} aria-current="page"{% endif %}>{{ w(key) }}</a>
     {% endfor %}
   </nav>
+  {% for href, key, on in sections if on %}<span class="where" aria-hidden="true">{{ w(key) }}</span>{% endfor %}
+  <button class="menu-key" type="button" popovertarget="menu-sheet" aria-controls="menu-sheet" aria-expanded="false">{{ w("nav.menu") }}</button>
   {% endif %}
   <div class="tools">
     {# The language switch comes back to this page (next=, checked to be a path of this site). #}
@@ -44,10 +48,42 @@
     {% endif %}
   </div>
 </header>
+{% if user %}
+{# The phone's menu: a sheet from under the bar to the window's foot, over the page (opaque, nothing shows through),
+   with the sections, the language, one's own account and Sign out. A popover: Esc or a tap outside it closes it. #}
+<div id="menu-sheet" class="menu-sheet" popover aria-label="{{ w('nav.menu') }}">
+  <nav class="sheet-sections" aria-label="{{ w('nav.sections') }}">
+    {% for href, key, on in sections if key != "nav.admin" or user.is_admin %}
+    <a href="{{ href }}" class="{{ 'on' if on }}"{% if on %} aria-current="page"{% endif %}>{{ w(key) }}</a>
+    {% endfor %}
+  </nav>
+  <div class="sheet-tools">
+    <a class="who{{ ' on' if path == '/account' }}" href="/account"><span class="badge">{% if user.picture %}<img src="/pictures/{{ user.id }}.png?v={{ user.picture }}" alt="" width="26" height="26">{% else %}{{ user.dj_name[:1] }}{% endif %}</span><span class="sheet-who"><span class="who-name">{{ user.dj_name }}</span><span class="who-sub">{{ w("me.title") }}</span></span></a>
+    <span class="langs"><a href="/lang/ko?next={{ here|urlencode }}" lang="ko" class="{{ 'on' if lang == 'ko' }}">KOR</a><a href="/lang/en?next={{ here|urlencode }}" lang="en" class="{{ 'on' if lang == 'en' }}">ENG</a></span>
+    <form method="post" action="/signout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ w("nav.signout") }}</button></form>
+  </div>
+</div>
+{% endif %}
+{# What a change just did, or why it did not: a toast in the bar's place (site.js puts it inside the bar where its words fit,
+   else on a strip of the bar's glass right under it), over a dialog too (a popover is drawn over the page's top layer).
+   Done goes by itself; a refusal stays until closed. A field's own error is said under the field instead. #}
+{% set toast_bad = error if error and not field %}
+{% if not door and (notice or toast_bad) %}
+<div class="toast {{ 'bad' if toast_bad else 'ok' }}" popover="manual" role="{{ 'alert' if toast_bad else 'status' }}" data-toast>
+  <p class="toast-words">{{ toast_bad or notice }}{% if toast_bad and notice %} {{ notice }}{% endif %}</p>
+  <button class="toast-close" type="button" aria-label="{{ w('toast.close') }}">&times;</button>
+</div>
+<noscript><p class="alert {{ 'bad' if toast_bad else 'ok' }}">{{ toast_bad or notice }}</p></noscript>
+{% endif %}
+{# The toast a script shows (a job that ended while one was on another page): its frame, filled in by site.js. #}
+<div class="toast" popover="manual" role="status" id="toast-later" hidden data-open-word="{{ w('toast.open') }}">
+  <p class="toast-words"></p><a class="toast-go" href="#"></a>
+  <button class="toast-close" type="button" aria-label="{{ w('toast.close') }}">&times;</button>
+</div>
 {# Maintenance (Admin, Status): the cabinets cannot log in while it is on; said on every page, beside the notice. #}
-{% if site_maintenance %}<div class="site-notice maintenance" role="status"><span class="label">{{ w("maintenance.bar") }}</span><span class="text">{{ w("maintenance.bar.text") }}</span></div>{% endif %}
+{% if site_maintenance %}<div class="site-notice maintenance" role="status"><span class="label">{{ w("maintenance.bar") }}</span><span class="text">{{ w("maintenance.bar.text") }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
 {# The admin's notice (Admin, Status), one line on every page. #}
-{% if site_notice %}<div class="site-notice" role="status"><span class="label">{{ w("notice.bar") }}</span><span class="text">{{ site_notice }}</span></div>{% endif %}
+{% if site_notice %}<div class="site-notice" role="status"><span class="label">{{ w("notice.bar") }}</span><span class="text">{{ site_notice }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
 <main>
 {% block main %}{% endblock %}
 </main>

@@ -1186,8 +1186,8 @@ class FrameTest(SiteBase):
     def test_the_menu_marks_the_page_showing(self):
         self.admin()
         for path, lit in (("/", "/"), ("/rankings", "/rankings"), ("/songs", "/songs"), ("/download", "/download"),
-                          ("/admin/status", "/admin/players")):
-            menu = self.client.get(path).text.split('<nav class="menu">', 1)[1].split("</nav>", 1)[0]
+                          ("/admin/status", "/admin")):
+            menu = self.client.get(path).text.split('<nav class="menu"', 1)[1].split("</nav>", 1)[0]
             self.assertEqual(re.findall(r'<a href="([^"]+)" class="on" aria-current="page">', menu), [lit], path)
             self.assertEqual(menu.count("aria-current"), 1, path)
 

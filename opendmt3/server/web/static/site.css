@@ -57,6 +57,8 @@ body {
   background-image: radial-gradient(circle, rgba(255, 255, 255, 0.045) 1px, transparent 1.3px);
   background-size: 6px 6px; background-attachment: fixed;
 }
+/* A form sent from low on a page comes back to its own place (its action's #anchor): clear of the sticky bar. */
+[id] { scroll-margin-top: calc(var(--bar-h, 62px) + 16px); }
 /* A word longer than its line (a path, an address) breaks rather than run past its box, in every language. */
 body { overflow-wrap: break-word; }
 /* Korean breaks between words, never inside one (the browser's default would split a word between syllables). */
@@ -115,12 +117,77 @@ a.who:hover .who-name, a.who.on .who-name { color: var(--accent); }
 .who-name { font-weight: 600; }
 .tools form { margin: 0; }
 
-/* The admin's notice under the bar on every page: amber, the site's colour for "look". */
+/* The admin's notice and maintenance under the bar on every page: a lit lamp and the label in the colour it means (amber
+   for a notice, the site's word for "look"; pink for maintenance, what is refused), the words in the text's ink. */
 .site-notice { display: flex; gap: 12px; align-items: baseline; padding: 10px 32px; background: var(--deck);
-               border-bottom: 1px solid var(--seam); box-shadow: inset 3px 0 0 var(--amber); }
-.site-notice .label { flex: none; font: 400 10px/1.4 var(--wide); letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber); }
+               border-bottom: 1px solid var(--seam); }
+.site-notice .label { flex: none; display: inline-flex; align-items: center; gap: 8px; font: 400 10px/1.4 var(--wide);
+                      letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber); }
+.site-notice .label::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+                              box-shadow: 0 0 7px currentColor; }
 body.lang-ko .site-notice .label { font: 600 13px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
 .site-notice .text { min-width: 0; overflow-wrap: anywhere; }
+/* On a phone a long notice keeps to two lines until it is opened (site.js: the strip itself is the key). */
+.site-notice .more { display: none; }
+
+/* ------------------------------------------------------------------------------------- phone menu, toast */
+/* The phone's bar: the mark, where one is, and MENU (the word, never an icon alone). Both stay hidden on a wide screen. */
+.where, .menu-key { display: none; }
+.menu-key { align-items: center; gap: 8px; height: 36px; padding: 0 14px; margin: 0 0 0 auto; border: 0; cursor: pointer;
+            font: 400 11px/1 var(--wide); letter-spacing: 0.08em; color: var(--chalk); background: var(--rail);
+            clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+body.lang-ko .menu-key { font: 600 14px/1 var(--text-face); letter-spacing: 0; }
+.menu-key:hover, .menu-key[aria-expanded="true"] { background: var(--rail-up); }
+.menu-key:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+/* Three short lines over the word, drawn: the menu's mark beside its name. */
+.menu-key::before { content: ""; width: 12px; height: 9px; background: linear-gradient(currentColor 0 0) 0 0 / 100% 1.5px no-repeat,
+                    linear-gradient(currentColor 0 0) 0 50% / 100% 1.5px no-repeat, linear-gradient(currentColor 0 0) 0 100% / 100% 1.5px no-repeat; }
+.where { font: 400 11px/1 var(--wide); letter-spacing: 0.08em; color: var(--accent); white-space: nowrap; }
+/* The sheet MENU opens: from under the bar to the window's foot, across it, opaque (nothing shows through it), the
+   sections as large rows, then one's own account, the language and Sign out. */
+.menu-sheet { position: fixed; inset: var(--bar-h, 57px) 0 0 0; width: auto; height: auto; max-width: none; max-height: none;
+              margin: 0; padding: 8px 16px 24px; overflow-y: auto; border: 0; border-top: 1px solid var(--seam);
+              color: var(--chalk); background: var(--field); }
+.menu-sheet::backdrop { background: transparent; }
+.sheet-sections { display: grid; margin-bottom: 18px; }
+.sheet-sections a { display: flex; align-items: center; min-height: 52px; padding: 0 4px; border-bottom: 1px solid var(--seam);
+                    font: 400 14px/1 var(--wide); letter-spacing: 0.06em; color: var(--ash); }
+.sheet-sections a:hover { color: var(--chalk); text-decoration: none; }
+/* The section showing: its words in the chalk and a short rule of its colour before them. */
+.sheet-sections a.on { color: var(--chalk); }
+.sheet-sections a.on::before { content: ""; width: 14px; height: 2px; margin-right: 10px; background: var(--accent); }
+.sheet-tools { display: grid; gap: 14px; }
+.sheet-tools .who { gap: 12px; }
+.sheet-tools .badge { width: 36px; height: 36px; }
+.sheet-who { display: grid; gap: 2px; }
+.sheet-who .who-name { display: block; font-size: 15px; }
+.who-sub { color: var(--ash); font-size: 12px; }
+.sheet-tools .langs a { padding: 9px 14px; font-size: 11px; }
+.sheet-tools form { margin: 0; }
+.sheet-tools .btn { width: 100%; }
+
+/* A toast: what a change just did (a lime lamp, gone by itself) or why it did not (a pink lamp, until closed), in the
+   bar's own glass. It stands inside the bar where its words fit (site.js measures), else on a strip of the bar's glass
+   right under the bar across the window. A popover: drawn over a dialog too. */
+.toast { position: fixed; inset: auto; margin: 0; padding: 0 8px 0 18px; border: 0; display: none; align-items: center; gap: 12px;
+         color: var(--chalk); background: rgba(16, 19, 23, 0.94); box-shadow: var(--glass-rim);
+         -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); overflow: visible; }
+.toast:popover-open { display: flex; }
+.toast.under { border-bottom: 1px solid var(--seam); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45); padding: 10px 8px 10px 16px; }
+.toast::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--lime);
+                 box-shadow: 0 0 8px rgba(180, 240, 42, 0.75); }
+.toast.bad::before { background: var(--pink); box-shadow: 0 0 8px rgba(255, 79, 160, 0.75); }
+.toast-words { flex: 1; min-width: 0; margin: 0; font: 500 14px/1.4 var(--text-face); overflow-wrap: anywhere; }
+.toast-go { flex: none; font-weight: 600; }
+.toast-go:empty { display: none; }
+.toast-close { flex: none; width: 36px; height: 36px; padding: 0; border: 0; cursor: pointer; font: 400 22px/1 var(--text-face);
+               color: var(--ash); background: transparent; }
+.toast-close:hover { color: var(--chalk); }
+.toast-close:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .toast:popover-open { animation: toast-in 0.18s cubic-bezier(0.2, 0.7, 0.3, 1); }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+}
 
 /* ----------------------------------------------------------------------------------------------- hero */
 /* The head of a page: shards in the section's colour cutting in from the right, the title in chrome. */
@@ -422,10 +489,14 @@ details > summary:focus-visible { outline: 2px solid var(--cyan); outline-offset
 .inline { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
 /* Older and newer pages of a long list, under it. */
 .pages { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
-.alert { position: relative; background: var(--glass); box-shadow: var(--glass-rim); padding: 11px 14px 11px 18px; margin: 0 0 16px; }
-.alert::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--amber); }
-.alert.ok::before { background: var(--lime); }
-.alert.bad::before { background: var(--pink); }
+/* A line that says something about the page (what may want a look, a page's own state): on a glass strip, a lit lamp
+   in the colour it means before its words (amber: look; lime: done; pink: refused), never a stripe down its side. */
+.alert { display: flex; align-items: baseline; gap: 10px; background: var(--glass); box-shadow: var(--glass-rim); padding: 11px 14px;
+         margin: 0 0 16px; }
+.alert::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--amber);
+                 box-shadow: 0 0 7px rgba(255, 179, 61, 0.65); transform: translateY(-1px); }
+.alert.ok::before { background: var(--lime); box-shadow: 0 0 7px rgba(180, 240, 42, 0.7); }
+.alert.bad::before { background: var(--pink); box-shadow: 0 0 7px rgba(255, 79, 160, 0.7); }
 /* Tabs lean like the mode bar on the game's mode select. */
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
 .tabs a { padding: 9px 22px; font: 400 11px/1 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash);
@@ -639,9 +710,20 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
 
 /* --------------------------------------------------------------------------------------------- phones */
 @media (max-width: 760px) {
-  .bar { padding: 10px 16px; gap: 12px; }
+  /* One row, 56 px: the mark, where one is, and MENU; the menu, the language and the account move into its sheet. */
+  .bar { padding: 10px 16px; gap: 12px; flex-wrap: nowrap; min-height: 56px; }
+  .bar:not(.door-bar) .menu, .bar:not(.door-bar) .tools { display: none; }
+  .brand { flex: none; }
+  /* Where one is takes the room between the mark and MENU; a name too long for it stops at the room's end. */
+  .where { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: clip; }
+  .menu-key { display: inline-flex; flex: none; }
   .site-notice { padding: 10px 16px; }
+  /* A long notice: two lines, the rest when the strip is pressed (site.js). */
+  .site-notice.long .text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .site-notice.long.open .text { display: block; }
+  .site-notice.long .more { display: inline; flex: none; margin-left: auto; color: var(--accent); font-size: 13px; }
   .who-name { display: none; }
+  .sheet-tools .who-name { display: block; }
   .grid { grid-template-columns: minmax(0, 1fr); padding: 16px; }
   .page { padding: 16px; }
   .hero-text { padding: 30px 16px 0; max-width: 100%; }
@@ -649,12 +731,6 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
   .shards { opacity: 0.45; }
   .foot { padding: 16px; }
   .hero-text > * { max-width: 100%; }
-  /* The menu takes a row of its own under the name. Its five words (an admin's) fit a phone 360 px wide whole: a
-     word cut at the screen's edge read as another word. On a narrower screen it slides sideways. */
-  .menu { order: 3; flex-basis: 100%; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 4px; gap: 0; }
-  .menu::-webkit-scrollbar { display: none; }
-  .menu a { padding: 8px 4px; font-size: 11px; white-space: nowrap; overflow-wrap: normal; word-break: normal; }
-  .menu a::after { left: 4px; right: 4px; bottom: -2px; }
   /* The admin tables become one block per row: the actions go under the names instead of past the screen's
      edge. Tables of numbers stay tables, without their less needed columns. */
   .table:not(.board):not(.songs) thead { display: none; }
@@ -769,7 +845,6 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 .table .token-name { overflow-wrap: anywhere; }
 
 /* Maintenance, on every page beside the notice: in pink, the site's colour for what is refused (card logins). */
-.site-notice.maintenance { box-shadow: inset 3px 0 0 var(--pink); }
 .site-notice.maintenance .label { color: var(--pink); }
 /* Admin, Status: maintenance's state and its one button, on one row like the notice's. */
 .form.maintenance p { margin: 0; }

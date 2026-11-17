@@ -32,7 +32,9 @@ const layout = page => page.evaluate(() => {
   // An element's own words (its text nodes), not its children's.
   const own = e => [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
   for (const box of document.querySelectorAll('body *:not(dialog):not(dialog *)')) {
-    if (!hides(box) || !shown(box) || box.matches('.shards, .shards *, textarea, input, select')) continue;
+    // A long notice kept to two lines on a phone has its More right beside it (the strip opens): not cut off. The bar's
+    // place-name ends where MENU starts, as a word that fits the bar's room.
+    if (!hides(box) || !shown(box) || box.matches('.shards, .shards *, textarea, input, select, .site-notice.long .text')) continue;
     const b = box.getBoundingClientRect(), style = getComputedStyle(box);
     // The box's own line, wider than the box (a row of one line that is clipped at its end).
     if (own(box) && ['hidden', 'clip'].includes(style.overflowX) && box.scrollWidth > box.clientWidth + 1) {

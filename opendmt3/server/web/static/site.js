@@ -417,3 +417,144 @@
   }
   window.setTimeout(ask, 500);
 }());
+
+// The bar: its height for what hangs under it (the phone's menu sheet, a toast's strip), MENU's state for screen readers,
+// a toast placed in the bar where its words fit (else on a strip of the bar's glass right under it, across the window),
+// a job that ended while one was on another page told by a toast with the way to it, and a long notice on a phone kept
+// to two lines until it is pressed.
+(function () {
+  "use strict";
+  var bar = document.querySelector(".bar");
+  if (!bar) { return; }
+  var root = document.documentElement;
+  function measure() { root.style.setProperty("--bar-h", Math.round(bar.getBoundingClientRect().height) + "px"); }
+  measure();
+  window.addEventListener("resize", measure);
+
+  // MENU and its sheet (a popover: the browser opens and closes it, Esc and a tap outside included).
+  var sheet = document.getElementById("menu-sheet"), key = bar.querySelector(".menu-key");
+  if (sheet && key) {
+    sheet.addEventListener("toggle", function (event) {
+      var open = event.newState === "open";
+      key.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) { measure(); var first = sheet.querySelector("a"); if (first) { first.focus(); } }
+    });
+    // Past the phone's width the sheet has nothing to do (the bar shows the menu): a sheet left open closes.
+    window.addEventListener("resize", function () {
+      if (window.innerWidth > 760 && sheet.matches(":popover-open")) { sheet.hidePopover(); }
+    });
+  }
+
+  // A toast inside the bar, between the menu and the tools, when its words fit there on one line; else across the
+  // window right under the bar.
+  function place(toast) {
+    var b = bar.getBoundingClientRect();
+    var menu = bar.querySelector(".menu"), tools = bar.querySelector(".tools"), brand = bar.querySelector(".brand");
+    var from = (menu && menu.offsetWidth ? menu : brand).getBoundingClientRect().right + 20;
+    var to = (tools && tools.offsetWidth ? tools.getBoundingClientRect().left : b.right) - 20;
+    toast.classList.remove("under");
+    toast.style.top = b.top + "px";
+    toast.style.left = from + "px";
+    toast.style.width = Math.max(0, to - from) + "px";
+    toast.style.height = b.height + "px";
+    var words = toast.querySelector(".toast-words");
+    if (window.innerWidth <= 760 || to - from < 260 || words.scrollHeight > words.clientHeight + 1 ||
+        words.scrollWidth > words.clientWidth + 1 || words.getClientRects().length > 1 ||
+        words.getBoundingClientRect().height > 22) {
+      toast.classList.add("under");
+      toast.style.top = b.bottom + "px";
+      toast.style.left = "0px";
+      toast.style.width = "100%";
+      toast.style.height = "auto";
+    }
+  }
+  // Shown; a done one goes after six seconds unless the pointer or the keyboard is on it; a refusal stays until closed.
+  function show(toast) {
+    if (typeof toast.showPopover !== "function") { return; }
+    toast.hidden = false;
+    toast.showPopover();
+    place(toast);
+    var close = toast.querySelector(".toast-close");
+    close.onclick = function () { toast.hidePopover(); };
+    toast.addEventListener("keydown", function (event) { if (event.key === "Escape") { toast.hidePopover(); } });
+    if (!toast.classList.contains("bad")) {
+      var held = false;
+      toast.addEventListener("mouseenter", function () { held = true; });
+      toast.addEventListener("mouseleave", function () { held = false; });
+      toast.addEventListener("focusin", function () { held = true; });
+      var timer = window.setInterval(function () {
+        if (!held) { window.clearInterval(timer); if (toast.matches(":popover-open")) { toast.hidePopover(); } }
+      }, 6000);
+    }
+    window.addEventListener("resize", function () { if (toast.matches(":popover-open")) { place(toast); } });
+  }
+  document.querySelectorAll(".toast[data-toast]").forEach(show);
+  // A dialog that opens over a toast that stays: the toast comes up again over it (the newest of the top layer is drawn
+  // on top).
+  var ask = document.getElementById("ask");
+  if (ask) {
+    new MutationObserver(function () {
+      if (!ask.open) { return; }
+      document.querySelectorAll(".toast").forEach(function (toast) {
+        if (toast.matches(":popover-open")) { toast.hidePopover(); toast.showPopover(); place(toast); toast.dataset.raised = "1"; }
+      });
+    }).observe(ask, { attributes: true, attributeFilter: ["open"] });
+  }
+
+  // Long jobs (a song list's import, a restore) an admin started: kept by id in this browser while their card is shown;
+  // on any other page, each one still kept is asked once and then every few seconds, and when it has ended a toast says
+  // how, with the way to its page.
+  var later = document.getElementById("toast-later");
+  var KEY = "opendmt3.jobs", PAGES = { song_list: "/admin/song_list", restore: "/admin/backups" };
+  function kept() { try { return JSON.parse(window.localStorage.getItem(KEY) || "[]"); } catch (ignored) { return []; } }
+  function keep(list) { try { window.localStorage.setItem(KEY, JSON.stringify(list)); } catch (ignored) { /* storage off */ } }
+  var card = document.querySelector(".card.job[data-job]");
+  if (card && kept().indexOf(card.dataset.job) < 0) { keep(kept().concat([card.dataset.job])); }
+  if (later && typeof window.fetch === "function" && kept().length) {
+    var ask_ = function () {
+      var ids = kept().filter(function (id) { return !card || card.dataset.job !== id; });
+      if (!ids.length) { return; }
+      ids.forEach(function (id) {
+        fetch("/admin/jobs/" + encodeURIComponent(id), { credentials: "same-origin", cache: "no-store" })
+          .then(function (answer) { return answer.status === 404 ? { gone: true } : (answer.ok ? answer.json() : null); })
+          .then(function (job) {
+            if (!job) { return; }
+            if (job.gone) { keep(kept().filter(function (k) { return k !== id; })); return; }
+            if (job.state === "running") { return; }
+            keep(kept().filter(function (k) { return k !== id; }));
+            later.classList.toggle("bad", job.state !== "done");
+            later.querySelector(".toast-words").textContent = job.text || job.title || "";
+            var go = later.querySelector(".toast-go");
+            go.textContent = later.dataset.openWord;
+            go.href = (PAGES[job.kind] || "/admin/status") + "?job=" + encodeURIComponent(id);
+            show(later);
+          }, function () { /* asked again at the next round */ });
+      });
+      window.setTimeout(ask_, 3000);
+    };
+    ask_();
+  }
+  // The job's own page, at its end, says how it ended: it is not kept any more.
+  if (!card && /[?&]job=/.test(window.location.search)) {
+    var shown = (window.location.search.match(/[?&]job=([^&]+)/) || [])[1];
+    if (shown) { keep(kept().filter(function (k) { return k !== decodeURIComponent(shown); })); }
+  }
+
+  // A long notice on a phone: two lines, the rest when the strip is pressed (a key for the keyboard too).
+  document.querySelectorAll(".site-notice").forEach(function (strip) {
+    var text = strip.querySelector(".text");
+    function fit() {
+      strip.classList.remove("long");
+      if (window.innerWidth > 760) { strip.removeAttribute("role"); return; }
+      var lines = Math.round(text.getBoundingClientRect().height / parseFloat(getComputedStyle(text).lineHeight || "24"));
+      if (lines > 2) { strip.classList.add("long"); strip.setAttribute("tabindex", "0"); strip.setAttribute("aria-expanded", strip.classList.contains("open") ? "true" : "false"); }
+    }
+    function flip() { strip.classList.toggle("open"); strip.setAttribute("aria-expanded", strip.classList.contains("open") ? "true" : "false"); }
+    strip.addEventListener("click", function () { if (strip.classList.contains("long")) { flip(); } });
+    strip.addEventListener("keydown", function (event) {
+      if (strip.classList.contains("long") && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); flip(); }
+    });
+    fit();
+    window.addEventListener("resize", fit);
+  });
+}());

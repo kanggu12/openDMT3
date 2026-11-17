@@ -8,8 +8,6 @@
 <section class="page">
   {% set tab = "players" %}{% include "_admin_tabs.html" %}
   <p><a class="btn small" href="/admin/players">{{ w("player.back") }}</a></p>
-  {% if notice %}<p class="alert ok" role="status">{{ notice }}</p>{% endif %}
-  {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
   {# After a new password: what the player needs, as text to copy (selected whole on focus, site.js). #}
   {% if message %}
   <div class="card">

@@ -6,8 +6,6 @@
 </section>
 <section class="page">
   {% set tab = "status" %}{% include "_admin_tabs.html" %}
-  {% if notice %}<p class="alert ok" role="status">{{ notice }}</p>{% endif %}
-  {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
   {# What may want a look, each line only when it is so, with where to fix it (amber: the site's colour for "look"). #}
   {% if look %}
   <div class="card">

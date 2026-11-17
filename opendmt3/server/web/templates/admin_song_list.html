@@ -8,8 +8,6 @@
 </section>
 <section class="page">
   {% set tab = "song_list" %}{% include "_admin_tabs.html" %}
-  {% if notice %}<p class="alert ok" role="status">{{ notice }}</p>{% endif %}
-  {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
   {% include "_job.html" %}
   {# What the server takes from the game, as OpenDMTQ's setup page shows each thing: what it is, the forms it may come
      in, whether it is needed; then whether the server has it, part by part. #}
@@ -84,6 +82,7 @@
       {% for place in found.places %}<a class="chip" href="/admin/song_list?browse={{ quote(place) }}">{{ place }}</a>{% endfor %}
       <a class="chip" href="/admin/song_list?browse=/">/</a>
     </div>
+    {% if browse_error %}<p class="alert bad" role="alert">{{ browse_error }}</p>{% endif %}
     <div class="browser">
       <div class="crumbs">
         <span class="steps">{% for name, path in browsing.crumbs %}<a href="/admin/song_list?browse={{ quote(path) }}">{{ name }}</a>{{ " › " if not loop.last }}{% endfor %}</span>
@@ -115,7 +114,7 @@
       {{ drop("song-list-file", w("songlist.upload.file"), ".zip,application/zip") }}
       <button class="btn send">{{ w("songlist.upload.button") }}</button>
     </form>
-    <p class="alert bad upload-too-large" role="alert" hidden>{{ too_large }}</p>
+    <p class="field-error upload-too-large" role="alert" hidden>{{ too_large }}</p>
     <p class="muted small">{{ w("songlist.upload.hint", mb=upload_mb) }}</p>
   </div>
 </section>

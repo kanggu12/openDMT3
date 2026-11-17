@@ -6,8 +6,6 @@
 </section>
 <section class="page">
   {% set tab = "cabinets" %}{% include "_admin_tabs.html" %}
-  {% if notice %}<p class="alert ok">{{ notice }}</p>{% endif %}
-  {% if error %}<p class="alert bad">{{ error }}</p>{% endif %}
   <div class="card">
     {% if not cabinets %}<p class="muted">{{ w("cabinets.none") }}</p>{% else %}
     <table class="table">

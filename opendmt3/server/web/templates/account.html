@@ -14,8 +14,6 @@
     {% for key in ("profile", "account", "security") %}<a href="#{{ key }}" class="{{ 'on' if opened == key }}"{% if opened == key %} aria-current="true"{% endif %}>{{ w("me.section." + key) }}</a>{% endfor %}
   </nav>
   <div class="sections">
-    {% if notice %}<p class="alert ok" role="status">{{ notice }}</p>{% endif %}
-    {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
 
     {# ------------------------------------------------------------------ the profile and its decoration #}
     <section id="profile" class="area-section" aria-labelledby="profile-title">

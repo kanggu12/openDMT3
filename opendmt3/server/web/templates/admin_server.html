@@ -6,7 +6,6 @@
 </section>
 <section class="page">
   {% set tab = "server" %}{% include "_admin_tabs.html" %}
-  {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
   {# What started the server, and what these pages can ask it: each asks first in the site's own dialog, then the one
      that started the server does it (runner.py). What it cannot be asked here is named as the command that does it. #}
   <div class="card">
