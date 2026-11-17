@@ -508,12 +508,15 @@ class LauncherApp:
         def work():
             try:
                 # Starting the server and its sites can take a moment: never on the window's thread.
-                actions.open_link(actions.admin_link(self.state, self.host))
+                link, made = actions.admin_link(self.state, self.host)
+                actions.open_link(link)
             except Exception as e:  # noqa: BLE001  (shown, never swallowed)
                 log.exception("opening the admin pages failed")
                 self.post(lambda e=e: self.set_status(self.words("status.error", error=self.words.error(e)), "bad"))
                 return
-            self.post(lambda: self.set_status(self.words("online.admin.opened"), "ok"))
+            # A player made the server's admin just now is said, once (it happens once): never a silent change.
+            said = self.words("online.admin.made", login_id=made) if made else self.words("online.admin.opened")
+            self.post(lambda: self.set_status(said, "ok"))
 
         threading.Thread(target=work, daemon=True, name="admin").start()
 

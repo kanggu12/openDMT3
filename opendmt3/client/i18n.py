@@ -475,6 +475,8 @@ TEXT = {
                              "브라우저에서 이 PC의 관리 페이지를 여는 중입니다..."),
     "online.admin.opened": ("This PC's admin pages are open in the browser.",
                             "브라우저에서 이 PC의 관리 페이지를 열었습니다."),
+    # The first player made on this PC, made the server's admin the first time its admin pages open: said once.
+    "online.admin.made": ("{login_id} is now this server's admin.", "이제 {login_id} 계정이 이 서버의 관리자입니다."),
     "online.home": ("Other PCs on this network", "같은 네트워크의 다른 PC"),
     "online.home.open": ("Open this PC's server", "이 PC 서버 열기"),
     "online.home.hint": ("Lets other PCs on this network play on this PC's server.",

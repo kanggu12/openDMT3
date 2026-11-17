@@ -103,8 +103,9 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   page showing past it; dialogs and the menu's lit slab are cut the same way.
 - This PC's server (the launcher's own) has the admin site of its own, as every server now does: on this PC's own
   address only (`http://127.0.0.1:4731/`, or the next free port). **Online**, **Admin pages** on the Players card, and
-  `openDMT3-cmd --admin`, open it signed in as the server's admin with a link that works once; the first player made on
-  this PC is its admin.
+  `openDMT3-cmd --admin`, open it signed in as the server's admin with a link that works once. While it has no admin,
+  the first player made on this PC becomes it the first time they open, and the launcher says so once ("NOVA is now
+  this server's admin.") and writes it in its log.
 - The installer's windows and the launcher's own (getting ready, cannot start, stopped) wear the product's header in
   place of Windows' caption: the lockup with SETUP or LAUNCHER, a minimize and a close key, the window moved by its
   header; the taskbar button, Alt+Tab and minimizing from the taskbar stay as they were.

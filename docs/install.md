@@ -304,7 +304,10 @@ allow it. To keep a server running without a launcher, see [Running a server](se
 
 This PC's server has admin pages of its own, as any server's ([the admin pages](admin.md)), on this PC only
 (`http://127.0.0.1:4731/`, or the next free port). **Online**, **Admin pages** (the Players card's) opens them signed in
-as the server's admin; the first player made on this PC is its admin, as a server's first account is its owner's.
+as the server's admin. While the server has no admin, the first player made on this PC becomes it the first time the
+admin pages open, as a server's first account is its owner's: the launcher says so once on its status line ("NOVA is
+now this server's admin.", and `--admin` prints the same line) and writes it in its log. Its admin rights can be given
+to another player, or taken, on the admin pages' **Players**.
 
 ## The song list for a server
 

@@ -255,9 +255,12 @@ class BuiltinServer:
         """A link that opens this PC's server's admin pages signed in (Site.once for the admin site, from this PC only):
         as its admin, the first enabled admin account. With none yet, the first player made on this PC becomes its
         admin, as a server's first account is its owner's: this PC's server is the PC's owner's, and the admin pages
-        take an admin's sign-in alone. None without an admin site or an enabled player."""
+        take an admin's sign-in alone. Returns (link, made): made is the ID made admin by this very call (never
+        silently: the launcher says it once, and its log keeps it), else None; (None, None) without an admin site or
+        an enabled player."""
         if self.site is None or self.admin_url is None:
-            return None
+            return None, None
+        made = None
         store = self.accounts()
         try:
             row = store.db.execute("SELECT id, login_id FROM accounts WHERE is_admin = 1 AND disabled = 0 "
@@ -266,13 +269,14 @@ class BuiltinServer:
                 first = store.db.execute("SELECT id, login_id FROM accounts WHERE disabled = 0 ORDER BY id LIMIT 1"
                                          ).fetchone()
                 if first is None:
-                    return None
+                    return None, None
                 store.set_admin(first["login_id"], True, who="launcher")
-                log.info("%s is this PC's server's admin now (its first player)", first["login_id"])
-                row = first
+                log.info("%s is now this PC's server's admin (the first player made on this PC; the admin pages take "
+                         "an admin's sign-in alone)", first["login_id"])
+                row, made = first, first["login_id"]
         finally:
             store.db.close()
-        return "%ssignin/once/%s?lang=%s" % (self.admin_url, self.site.once(row["id"], admin=True), language)
+        return "%ssignin/once/%s?lang=%s" % (self.admin_url, self.site.once(row["id"], admin=True), language), made
 
     def stop(self):
         if self.loop is not None and self.thread is not None and self.thread.is_alive():

@@ -1056,7 +1056,12 @@ class LauncherTest(FolderCase):
             store.create("ACE", "pass1234", "DJ ACE")
             store.db.close()
             self.state.language = "ko"
-            link = actions.admin_link(self.state, host)
+            with self.assertLogs("opendmt3.launcher", "INFO") as logged:
+                link, made = actions.admin_link(self.state, host)
+            # Made the server's admin by this very call: said by the caller, and kept in the launcher's log.
+            self.assertEqual(made, "NOVA")
+            self.assertTrue(any("NOVA is now this PC's server's admin" in line for line in logged.output),
+                            logged.output)
             # The admin site on this PC's own address, its listener beside the players' site (ADMIN-SITE.md).
             self.assertTrue(host.admin_url.startswith("http://127.0.0.1:"), host.admin_url)
             self.assertNotEqual(host.admin_url, host.web_url)
@@ -1075,8 +1080,10 @@ class LauncherTest(FolderCase):
             fresh = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
             with fresh.open(link, timeout=10) as page:
                 self.assertEqual(page.geturl(), host.admin_url + "signin")
-            # Asked again, the same admin (no other player is made one).
-            self.assertTrue(actions.admin_link(self.state, host).startswith(host.admin_url))
+            # Asked again, the same admin (no other player is made one), and nothing more to say.
+            again, made = actions.admin_link(self.state, host)
+            self.assertTrue(again.startswith(host.admin_url))
+            self.assertIsNone(made)
             store = host.accounts()
             try:
                 self.assertEqual(store.by_login("ACE")["is_admin"], 0)
@@ -1085,6 +1092,29 @@ class LauncherTest(FolderCase):
         finally:
             host.stop()
         self.assertIsNone(host.admin_url)
+
+    def test_a_player_made_the_admin_is_said_once(self):
+        # The first player made on this PC becomes its server's admin the first time the admin pages open: never in
+        # silence. The window's words (both languages) and the command line's say it, and only that once.
+        from opendmt3.client import cli, i18n
+        self.assertEqual(i18n.Words("en")("online.admin.made", login_id="NOVA"), "NOVA is now this server's admin.")
+        self.assertEqual(i18n.Words("ko")("online.admin.made", login_id="NOVA"), "이제 NOVA 계정이 이 서버의 관리자입니다.")
+
+        class Host:
+            admin_url = "http://127.0.0.1:4731/"
+            running = False
+
+            def stop(self):
+                pass
+
+        said = []
+        answers = iter([("http://127.0.0.1:4731/signin/once/a", "NOVA"), ("http://127.0.0.1:4731/signin/once/b", None)])
+        with mock.patch.object(cli, "say", lambda text, error=False: said.append(text)), \
+                mock.patch("opendmt3.client.hosting.BuiltinServer", lambda game=False: Host()), \
+                mock.patch.object(actions, "admin_link", lambda state, host: next(answers)):
+            self.assertEqual(cli._admin(self.state, no_browser=True), 0)
+            self.assertEqual(cli._admin(self.state, no_browser=True), 0)
+        self.assertEqual([line for line in said if "admin." in line], ["NOVA is now this server's admin."])
 
     def test_the_records_page_reads_this_pcs_database_or_says_why_not(self):
         from opendmt3.client import hosting, i18n, remote

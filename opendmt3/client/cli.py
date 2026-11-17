@@ -226,12 +226,15 @@ def _admin(state, no_browser):
     from opendmt3.client import hosting
     host = hosting.BuiltinServer(game=False)
     try:
-        link = actions.admin_link(state, host)
+        link, made = actions.admin_link(state, host)
     except Exception as e:  # noqa: BLE001  (said, logged, never swallowed)
         log.exception("--admin failed")
         say(str(e), error=True)
         host.stop()
         return 2
+    if made:
+        # The first player made on this PC is the server's admin from now on: said once, as the window says it.
+        say("%s is now this server's admin." % made)
     say("Admin pages: %s" % host.admin_url)
     if no_browser:
         say("Sign-in link (works once, for a minute, from this PC): %s" % link)

@@ -773,16 +773,17 @@ def records_link(state, host):
 def admin_link(state, host):
     """A link that opens this PC's server's admin pages (the admin site on this PC's own address), signed in as its
     admin (BuiltinServer.admin_link): ONLINE's Admin pages and --admin. Starts the built-in server and its sites when
-    they are not running yet."""
+    they are not running yet. Returns (link, made): made is the player made the server's admin just now (the first
+    one made on this PC, when it had none), which the caller says once; else None."""
     host.start()
     if host.site is None or host.admin_url is None:
         raise g.GameError("this launcher cannot show the admin pages (its web libraries are missing)",
                           "error.admin.no_site")
-    link = host.admin_link(state.language)
+    link, made = host.admin_link(state.language)
     if link is None:
         raise g.GameError("add a player on this PC first: the admin pages are signed in to as one",
                           "error.admin.no_player")
-    return link
+    return link, made
 
 
 def open_link(url):
