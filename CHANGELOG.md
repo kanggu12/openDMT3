@@ -74,6 +74,11 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   and reach (`setup --admin-port`, `--admin-host`), the Windows firewall leaves their port closed until they are
   opened to the network (then it asks, as for the others), and `setup` makes the owner's account in the terminal
   when there is none, so a PC with no screen needs no browser. `.env` says what each of its lines is.
+- `opendmt3-server expose NAME --admin-public` (the Windows package, the one-line install, Python) puts the admin
+  pages at `https://NAME:4731/` through the Caddy beside the server, as `./dmt3 expose --admin-public` does: Caddy's
+  HTTPS on their port, the admin pages behind it on the PC alone at the next one (4732), Windows asking to open that
+  port; without it nothing of them is behind Caddy. Its `status`, `start`'s banner, `run` and `repair` name the admin
+  pages' port too, and a port moved with `setup` while the site is behind Caddy moves in Caddy's settings.
 
 ### Changed
 
@@ -131,6 +136,9 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   cannot start; it went on showing "Signed in" and a lit PLAY.
 - The touch screen's hint on **Controls** says every finger plays, as it has since 0.3.0.
 - `.env` saved by Notepad (with a byte-order mark, CRLF or spaces around `=`) reads the same as any other.
+- `opendmt3-server setup --game-port` alone keeps the site's port it had (it went back to 4730), and `setup` refuses
+  two parts on one port, as `./dmt3 ports` does. `./dmt3 ports` refuses the ports the container uses itself (the
+  admin pages' 4731 inside, and Caddy's while exposed), and a refused change gives back the port kept before it.
 - The launcher connects to an `https://` address without a port on 443, as a browser does.
 - `./dmt3 expose <address> --local-ca` (an IP address as the site's name, on a closed network) answers over HTTPS:
   Caddy gives the address's certificate to visitors that name no site in their handshake, as browsers opening an

@@ -351,6 +351,172 @@ class AdminSiteTest(unittest.TestCase):
         self.assertIn("http://127.0.0.1:4731/", said)
 
 
+@contextlib.contextmanager
+def on_windows(rules, asked, answer=None):
+    """Windows made up for a test: not an administrator, its firewall holding the rules of `rules`, and its
+    administrator question answered by `answer` (None: no), each question kept in `asked`."""
+    with mock.patch.object(standalone, "on_windows", return_value=True), \
+            mock.patch.object(standalone, "is_admin", return_value=False), \
+            mock.patch.object(standalone, "firewall_rules", side_effect=lambda ports: [p for p in ports if p in rules]), \
+            mock.patch.object(standalone, "elevated", side_effect=lambda argv: asked.append(argv) or answer):
+        yield
+
+
+class AdminPublicTest(unittest.TestCase):
+    """opendmt3-server expose NAME --admin-public, for the Caddy beside the server (the Windows package, the one-line
+    install, Python): the admin pages at https://NAME:4731/ through it, in ./dmt3's words, the admin listener behind
+    it on this PC alone at the next port, Windows' firewall following; without it nothing of the admin site is behind
+    Caddy. Then the admin listener where the other commands look for it (the run's ports, the first start, the
+    banner, status, repair). A data folder of the test's own; Windows' firewall and its question made up."""
+
+    def setUp(self):
+        self.base = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, self.base)
+        self.data = os.path.join(self.base, "data")
+        os.makedirs(self.data)
+
+    def caddyfile(self):
+        with open(os.path.join(self.data, "Caddyfile"), encoding="utf-8") as f:
+            return f.read()
+
+    def test_expose_admin_public_puts_the_admin_pages_behind_the_caddy_beside_it(self):
+        code, said = quiet("--data", self.data, "expose", "dmt3.example.org", "--admin-public")
+        self.assertEqual(code, 0, said)
+        caddy = self.caddyfile()
+        # The same name on the admin port, Caddy's HTTPS there, in front of the admin listener at the next port.
+        self.assertIn("dmt3.example.org:4731 {", caddy)
+        self.assertIn("reverse_proxy 127.0.0.1:4732", caddy)
+        # ./dmt3's words: where they are, and the router's forward for them.
+        self.assertIn("The admin pages: https://dmt3.example.org:4731/ (through Caddy).", said)
+        self.assertIn("TCP 4731 (the admin pages, HTTPS)", said)
+        # The run: the admin listener on this PC alone behind Caddy, which it believes, as the site does.
+        argv = standalone.server_args(self.data)
+        self.assertEqual(argv[argv.index("--admin-port") + 1], "4732")
+        self.assertEqual(argv[argv.index("--admin-host") + 1], "127.0.0.1")
+        self.assertEqual(argv[argv.index("--proxy") + 1], "127.0.0.1")
+        # The firewall opens Caddy's admin port, never the listener's behind it.
+        self.assertEqual(standalone.firewall_ports(self.data), [4725, 80, 443, 4731])
+        # Exposed again without it: nothing of the admin site behind Caddy, the admin pages on this PC again.
+        code, said = quiet("--data", self.data, "expose", "dmt3.example.org")
+        self.assertEqual(code, 0, said)
+        self.assertNotIn(":4731 {", self.caddyfile())
+        self.assertIn("The admin pages: http://127.0.0.1:4731/ (this PC only).", said)
+        self.assertNotIn("TCP 4731", said)
+        # Caddy first then, so it lets go of the admin port the admin listener takes back at the restart.
+        self.assertLess(said.index("so it lets go of port 4731"), said.index("Restart the server"))
+        self.assertNotIn("--admin-port", standalone.server_args(self.data))
+        self.assertEqual(standalone.firewall_ports(self.data), [4725, 80, 443])
+        # --off after it: neither, Caddy stopped first for the same reason.
+        quiet("--data", self.data, "expose", "dmt3.example.org", "--admin-public")
+        code, said = quiet("--data", self.data, "expose", "--off")
+        self.assertEqual(code, 0, said)
+        self.assertIn("stop Caddy (it has port 4731), then restart the server", said)
+        self.assertNotIn("--admin-port", standalone.server_args(self.data))
+        self.assertEqual(standalone.firewall_ports(self.data), [4725, 4730])
+
+    def test_an_address_with_caddys_own_authority_gives_the_admin_pages_its_certificate(self):
+        code, said = quiet("--data", self.data, "expose", "192.168.0.5", "--local-ca", "--admin-public")
+        self.assertEqual(code, 0, said)
+        caddy = self.caddyfile()
+        # No name in the handshake to an address: the address's certificate for both sites.
+        self.assertIn("default_sni 192.168.0.5", caddy)
+        self.assertIn("192.168.0.5:4731 {", caddy)
+        self.assertEqual(caddy.count("tls internal"), 2)
+        self.assertIn("The admin pages: https://192.168.0.5:4731/ (through Caddy).", said)
+
+    def test_ports_moved_behind_caddy_move_caddys_settings_and_never_two_parts_share_one(self):
+        quiet("--data", self.data, "expose", "dmt3.example.org", "--email", "owner@example.org", "--admin-public")
+        # A new admin port: Caddy's admin site and the listener behind it go with it, the rest as expose wrote it.
+        code, said = quiet("--data", self.data, "setup", "--admin-port", "8731")
+        self.assertEqual(code, 0, said)
+        caddy = self.caddyfile()
+        self.assertIn("dmt3.example.org:8731 {", caddy)
+        self.assertIn("reverse_proxy 127.0.0.1:8732", caddy)
+        self.assertIn("email owner@example.org", caddy)
+        argv = standalone.server_args(self.data)
+        self.assertEqual(argv[argv.index("--admin-port") + 1], "8732")
+        # A new site port: Caddy reaches the site there.
+        quiet("--data", self.data, "setup", "--web-port", "8080")
+        self.assertIn("reverse_proxy 127.0.0.1:8080", self.caddyfile())
+        # The site's port on the admin listener's behind Caddy: refused, nothing changed.
+        code, said = quiet("--data", self.data, "setup", "--web-port", "8732")
+        self.assertEqual(code, 2, said)
+        self.assertIn("each part needs a port of its own", said)
+        self.assertEqual(standalone.settings(self.data)["web_port"], 8080)
+        # Nor the game's on the site's, exposed or not.
+        quiet("--data", self.data, "expose", "--off")
+        self.assertEqual(quiet("--data", self.data, "setup", "--game-port", "8080")[0], 2)
+        self.assertEqual(standalone.settings(self.data)["game_port"], 4725)
+        # Nor --admin-public where the port after the admin port is another part's.
+        quiet("--data", self.data, "setup", "--web-port", "8732")
+        code, said = quiet("--data", self.data, "expose", "dmt3.example.org", "--admin-public")
+        self.assertEqual(code, 2, said)
+        self.assertIn("each part needs a port of its own", said)
+        self.assertFalse(standalone.settings(self.data)["proxy"])
+
+    def test_on_windows_the_admin_ports_rule_follows_expose_admin_public(self):
+        asked = []
+        with on_windows([], asked):
+            code, said = quiet("--data", self.data, "expose", "dmt3.example.org", "--admin-public")
+        # Windows was asked for Caddy's admin port alone; answered no, what stays is said, the exposure kept.
+        self.assertEqual(code, 0, said)
+        self.assertEqual(len(asked), 1)
+        self.assertEqual(asked[0][asked[0].index("--ports") + 1], "4731")
+        self.assertIn("Windows' firewall does not open TCP 4731", said)
+        self.assertTrue(standalone.settings(self.data)["admin_public"])
+        # Without it again: the rule, which is there, taken out.
+        with on_windows([4731], asked, answer=0):
+            quiet("--data", self.data, "expose", "dmt3.example.org")
+        self.assertEqual(len(asked), 2)
+        self.assertIn("--remove", asked[-1])
+        # Opened to the network first, then behind Caddy: the same port reached either way, nothing asked again;
+        # and closed to the network while behind Caddy, Caddy keeps its rule.
+        with on_windows([], asked, answer=0):
+            quiet("--data", self.data, "setup", "--admin-host", "0.0.0.0")
+        with on_windows([4731], asked, answer=0):
+            quiet("--data", self.data, "expose", "dmt3.example.org", "--admin-public")
+            quiet("--data", self.data, "setup", "--admin-host", "127.0.0.1")
+        self.assertEqual(len(asked), 3)
+        # --off: neither opened nor behind Caddy, its rule taken out.
+        with on_windows([4731], asked, answer=0):
+            quiet("--data", self.data, "expose", "--off")
+        self.assertEqual(len(asked), 4)
+        self.assertIn("--remove", asked[-1])
+
+    def test_the_admin_listener_is_where_the_other_commands_look(self):
+        # The first-run page's address on this PC: the admin port, or the one behind Caddy, or the environment's when
+        # this folder keeps none (the server's own default comes from there too).
+        self.assertEqual(standalone.admin_here(self.data), "http://127.0.0.1:4731/")
+        with mock.patch.dict(os.environ, {"OPENDMT3_ADMIN_PORT": "5731"}):
+            self.assertEqual(standalone.admin_here(self.data), "http://127.0.0.1:5731/")
+        quiet("--data", self.data, "expose", "dmt3.example.org", "--admin-public")
+        self.assertEqual(standalone.admin_here(self.data), "http://127.0.0.1:4732/")
+        # The run will not start onto a port another program holds: the admin listener's among them.
+        taken = mock.patch.object(standalone, "port_free", side_effect=lambda port, host="0.0.0.0": port != 4732)
+        with taken:
+            code, said = quiet("--data", self.data, "run", "--no-browser")
+        self.assertEqual(code, 2, said)
+        self.assertIn("port 4732 is taken by another program", said)
+        self.assertIn("--admin-port", said)
+        # repair looks at it too.
+        with taken:
+            code, said = quiet("--data", self.data, "repair")
+        self.assertIn("port 4732 is taken by another program", said)
+        # The banner start prints, as the server's own: the admin pages' row, and the first start's page there.
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), \
+                mock.patch.object(standalone.server_cli.sources, "in_container", return_value=False):
+            standalone.show_banner(self.data)
+        self.assertIn("Admin     http://127.0.0.1:4732/", out.getvalue())
+        self.assertIn("First start: open http://127.0.0.1:4732/ on this PC", out.getvalue())
+        # status says where the admin pages are, in ./dmt3's words.
+        standalone.write_json(os.path.join(self.data, standalone.RUNNING), {"pid": os.getpid(), "game_port": 4725,
+                                                                            "web_port": 4730})
+        with mock.patch.object(standalone, "health", return_value={"ok": True, "version": "0"}):
+            code, said = quiet("--data", self.data, "status")
+        self.assertIn("The admin pages: https://dmt3.example.org:4731/ (through Caddy).", said)
+
+
 @unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
 class StartStopTest(unittest.TestCase):
     """A real server in the background on free ports: start, status, a stop request it answers by itself."""

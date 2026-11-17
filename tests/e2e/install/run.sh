@@ -2,10 +2,12 @@
 # The one-line install (packaging/server/install.sh) as a server owner runs it on Linux, in a container
 # (odt3-srv-install, python:3.12-slim-bookworm, as a user of its own): the installer from a folder of release files
 # (the server package made here from this tree, as the release makes it, with the checksums), then the command it
-# puts on PATH: setup, start, /health, status, stop; the installer again while the server runs (an update: stopped,
-# put in place, started again, the data kept); a later release whose libraries cannot be had (refused, the running
-# server left as it was); --uninstall, the data still there. Each step says PASS or FAIL; the
-# exit code is the number that failed. Its network is for pip and 7-Zip's site only.
+# puts on PATH: setup, start, /health and the admin pages', status, stop; expose --admin-public with Caddy beside it
+# (the release Caddy ./dmt3 runs, copied out of its image: the site and the admin pages over HTTPS at the name), then
+# without it and --off; the installer again while the server runs (an update: stopped, put in place, started again,
+# the data kept); a later release whose libraries cannot be had (refused, the running server left as it was);
+# --uninstall, the data still there. Each step says PASS or FAIL; the exit code is the number that failed. Its network
+# is for pip and 7-Zip's site only.
 #
 #   tests/e2e/install/run.sh OUT_DIR
 set -u
@@ -45,6 +47,13 @@ cp "$OUT/files/opendmt3-server-$VERSION.zip" "$OUT/files/opendmt3-server-$NEXT.z
 (cd "$OUT/files" && sha256sum "opendmt3-server-$NEXT.zip" > "opendmt3-$NEXT-checksums.txt")
 sed "s/@VERSION@/$NEXT/g; s/pillow==[0-9.]*/pillow==0.0.1/" "$REPO/packaging/server/install.sh" \
   > "$OUT/files/opendmt3-server-$NEXT-linux-installer.sh"
+# The Caddy ./dmt3 runs (the exact release its edge.yaml names), its program copied out of that image for the server's
+# own program to run beside it, as an owner without Docker runs Caddy's own build for Linux.
+CADDY_IMAGE=$(sed -n 's/^ *image: \(caddy:[^ ]*\)$/\1/p' "$REPO/packaging/docker/edge.yaml")
+docker rm -f "$C-caddy" >/dev/null 2>&1
+{ docker create --name "$C-caddy" "$CADDY_IMAGE" >/dev/null && docker cp "$C-caddy:/usr/bin/caddy" "$OUT/files/caddy" \
+    >/dev/null; } || { docker rm -f "$C-caddy" >/dev/null 2>&1; echo "FAIL Caddy for the test ($CADDY_IMAGE)"; exit 1; }
+docker rm -f "$C-caddy" >/dev/null 2>&1
 docker run --rm --name "$C" -v "$OUT/files:/files:ro" -v "$OUT:/out" -e VERSION="$VERSION" -e NEXT="$NEXT" \
   python:3.12-slim-bookworm bash -c '
   set -u
@@ -69,6 +78,42 @@ docker run --rm --name "$C" -v "$OUT/files:/files:ro" -v "$OUT:/out" -e VERSION=
   python3 -c "import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:4731/health\", timeout=5).read().decode())" > /out/admin-health.txt 2>&1
   grep -q "\"ok\":true" /out/admin-health.txt
   r=$?; step "the admin pages answer on this PC: $(cat /out/admin-health.txt)" $r
+  # expose --admin-public with Caddy beside it, as the owner runs it: the site and the admin pages over HTTPS at the
+  # name, through Caddy (its own authority, whose root it keeps in the owner home), the admin pages behind it at the
+  # next port on this PC alone; then without it nothing of the admin site at the admin port, and --off.
+  D=/home/owner/.local/share/opendmt3-server/data
+  root=/home/owner/.local/share/caddy/pki/authorities/local/root.crt
+  over() { curl -s --max-time 5 --cacert "$root" --connect-to "dmt3.test:$1:127.0.0.1:$1" -o "/out/https-$1.json" \
+             -w "%{http_code}" "https://dmt3.test:$1/health"; }
+  # Caddy as the owner, its log in the owner home (copied out at the end: the output folder is not the owner one).
+  caddy() { as "nohup /files/caddy run --config $D/Caddyfile > /home/owner/caddy-$1.txt 2>&1 & echo \$! > /home/owner/caddy.pid"; }
+  as "opendmt3-server expose dmt3.test --local-ca --admin-public && opendmt3-server restart" > /out/expose-admin.txt 2>&1
+  r1=$?
+  caddy admin
+  for i in $(seq 60); do [ "$(over 4731)" = 200 ] && break; sleep 1; done
+  site=$(over 443); admin=$(over 4731)
+  [ $r1 = 0 ] && [ "$site" = 200 ] && [ "$admin" = 200 ] && grep -q "\"ok\":true" /out/https-4731.json \
+    && grep -q "The admin pages: https://dmt3.test:4731/ (through Caddy)." /out/expose-admin.txt
+  r=$?; step "expose --admin-public, Caddy beside it: https://dmt3.test/ $site, the admin pages at https://dmt3.test:4731/ $admin" $r
+  python3 -c "import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:4732/health\", timeout=5).read().decode())" > /out/admin-behind.txt 2>&1
+  grep -q "\"ok\":true" /out/admin-behind.txt
+  r=$?; step "behind Caddy the admin pages are at 127.0.0.1:4732 on this PC alone: $(cat /out/admin-behind.txt)" $r
+  as "opendmt3-server expose dmt3.test --local-ca" > /out/expose-site.txt 2>&1
+  # In the order expose gives: Caddy with the new settings first, so it lets go of the admin port, then the server,
+  # whose admin listener takes it back.
+  as "/files/caddy reload --config $D/Caddyfile" > /out/caddy-reload.txt 2>&1
+  as "opendmt3-server restart" >> /out/expose-site.txt 2>&1
+  for i in $(seq 60); do [ "$(over 443)" = 200 ] && break; sleep 1; done
+  site=$(over 443); admin=$(over 4731)
+  [ "$site" = 200 ] && [ "$admin" != 200 ] && grep -q "The admin pages: http://127.0.0.1:4731/ (this PC only)." /out/expose-site.txt \
+    && grep -q "so it lets go of port 4731" /out/expose-site.txt && grep -q "The server runs again" /out/expose-site.txt
+  r=$?; step "without --admin-public nothing of the admin site behind Caddy (https://dmt3.test:4731/ $admin), the site there ($site)" $r
+  as "kill \$(cat /home/owner/caddy.pid)"
+  cp /home/owner/caddy-*.txt /out/ 2>/dev/null
+  as "opendmt3-server expose --off && opendmt3-server restart" > /out/expose-off.txt 2>&1
+  python3 -c "import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:4731/health\", timeout=5).read().decode())" > /out/admin-again.txt 2>&1
+  grep -q "\"ok\":true" /out/admin-again.txt
+  r=$?; step "expose --off: the admin pages on their own port again" $r
   as "cat /files/opendmt3-server-$VERSION-linux-installer.sh | sh" > /out/update.txt 2>&1
   as "opendmt3-server status" > /out/status.txt 2>&1
   r=$?; step "the installer again while it runs: stopped, put in place, running again" $r

@@ -45,7 +45,9 @@ Open a terminal in this folder (type cmd in Explorer's address bar, then Enter):
   opendmt3-server add-player NOVA   an account (its password is printed)
   opendmt3-server backup            a backup now (one is made every day while it runs, a week of them kept)
   opendmt3-server expose dmt3.example.org
-                                    the site over HTTPS at that name, behind Caddy on this PC
+                                    the site over HTTPS at that name, behind Caddy on this PC; with --admin-public
+                                    the admin pages too, at https://dmt3.example.org:4731/ (Windows asks to open
+                                    that port)
   opendmt3-server --help            every command
 
 The data

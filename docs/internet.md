@@ -79,8 +79,7 @@ answers. `./dmt3 expose dmt3.example.org` without `--admin-public` takes them of
 With an address as the name (`./dmt3 expose 192.168.0.5 --local-ca --admin-public`, a closed network), the admin
 pages are at `https://192.168.0.5:4731/`, with the address's certificate.
 
-The server's own program (below) keeps the admin pages on the PC, or the network with
-`opendmt3-server setup --admin-host 0.0.0.0`; `--admin-public` is `./dmt3`'s.
+The server's own program takes the same `--admin-public` for the Caddy beside it ([below](#on-windows-or-with-python)).
 
 ## On Windows or with Python
 
@@ -95,6 +94,20 @@ into the data folder. Restart the server (`opendmt3-server restart`), then run
 [Caddy](https://caddyserver.com/download) with it: `caddy run --config "<data folder>\Caddyfile"`.
 `opendmt3-server firewall` opens 80, 443 and the game's port on this PC; `expose --off` undoes it and gives back the
 players' address setup kept.
+
+With `--admin-public` the admin pages are there too, as with `./dmt3`:
+
+```sh
+opendmt3-server expose dmt3.example.org --email you@example.org --admin-public
+```
+
+They are then at `https://dmt3.example.org:4731/`: Caddy's HTTPS on their port, with the site's certificate. The admin
+pages themselves move to the next port, 4732, on this PC alone, behind Caddy: the server PC opens them at
+`http://127.0.0.1:4732/` too. Forward TCP 4731 on the router as well; on Windows `expose` asks to open that port in
+the firewall. `opendmt3-server expose dmt3.example.org` without `--admin-public` takes them off the internet again
+(and the port's rule out): Caddy with the new settings first (`caddy reload`), so it lets go of port 4731, then the
+server's restart, as `expose` lists them. A port moved later with `opendmt3-server setup` moves in Caddy's settings
+too, which Caddy reads when it starts again.
 
 ## Checking from outside
 

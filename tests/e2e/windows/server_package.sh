@@ -3,7 +3,9 @@
 # container with no network: the zip unpacked whole, the first account and the players' address set up, the song list
 # imported from a saved one (made-up data, tests/e2e/web/seed.py), the server started in the background, its health,
 # its pages, the installer it brings handed out by the Download page, its status, the invite and the firewall's
-# commands, the launcher of the same release connecting to it and signing in, then stop; and a run in the
+# commands, the admin pages on this PC, the launcher of the same release connecting to it and signing in, then stop;
+# the admin pages opened to the network and closed again; expose --admin-public (the settings for the Caddy beside it,
+# the admin pages behind it at the next port, the rule of the admin port), without it and --off; and a run in the
 # foreground, stopped from another process by the same program. Each step says PASS or FAIL; the exit code is the
 # number that failed.
 #
@@ -107,6 +109,33 @@ PY
   r2=$?
   [ $r1 = 0 ] && [ $r2 = 0 ]
   r=$?; step "setup --admin-host 0.0.0.0 opens the rule of the admin pages, 127.0.0.1 closes it again ($(head -1 /out/admin-open.txt))" $r
+  # expose --admin-public for the Caddy beside it (Caddy is not in the package): the words and the settings it writes,
+  # then a start with the admin pages behind Caddy at the next port, on this PC alone, the admin port left to Caddy
+  # and its rule among the rules; then without it, and --off.
+  srv expose dmt3.test --local-ca --admin-public > /out/expose-admin.txt 2>&1
+  grep -q "The admin pages: https://dmt3.test:4731/ (through Caddy)." /out/expose-admin.txt \
+    && grep -q "TCP 4731 (the admin pages, HTTPS)" /out/expose-admin.txt \
+    && grep -q "dmt3.test:4731 {" data/Caddyfile && grep -q "reverse_proxy 127.0.0.1:4732" data/Caddyfile
+  r=$?; step "expose --admin-public: the admin pages at https://dmt3.test:4731/ through Caddy, in the settings for it" $r
+  srv start > /out/start-behind.txt 2>&1
+  get http://127.0.0.1:4732/health > /out/admin-behind.txt 2>&1; grep -q "\"ok\":true" /out/admin-behind.txt \
+    && ! get http://127.0.0.1:4731/health > /dev/null 2>&1
+  r1=$?
+  srv firewall --print > /out/firewall-behind.txt 2>&1; grep -q "localport=4731" /out/firewall-behind.txt \
+    && grep -q "localport=443" /out/firewall-behind.txt && ! grep -q "localport=4732" /out/firewall-behind.txt
+  r2=$?
+  srv stop > /out/stop-behind.txt 2>&1
+  [ $r1 = 0 ] && [ $r2 = 0 ]
+  r=$?; step "behind Caddy the admin pages answer at 127.0.0.1:4732, port 4731 left to Caddy with its rule ($(tail -1 /out/expose-admin.txt))" $r
+  srv expose dmt3.test --local-ca > /out/expose-site.txt 2>&1
+  grep -q "The admin pages: http://127.0.0.1:4731/ (this PC only)." /out/expose-site.txt && ! grep -q ":4731 {" data/Caddyfile
+  r1=$?
+  srv expose --off > /out/expose-off.txt 2>&1
+  srv firewall --print > /out/firewall-off.txt 2>&1; ! grep -q "localport=4731" /out/firewall-off.txt \
+    && grep -q "localport=4730" /out/firewall-off.txt
+  r2=$?
+  [ $r1 = 0 ] && [ $r2 = 0 ]
+  r=$?; step "expose without --admin-public takes the admin pages off Caddy, and --off the site" $r
   ! get http://127.0.0.1:4730/health > /dev/null 2>&1
   r=$?; step "nothing answers after the stop" $r
   # The same program in the foreground (the double click), stopped from another process.

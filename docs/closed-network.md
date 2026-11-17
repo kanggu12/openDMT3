@@ -48,7 +48,7 @@ screen of its own, or you run it from another PC at the party, open them to the 
 
 The owner's account is made without a browser either way: `./dmt3 setup` makes it (its password printed), and
 `opendmt3-server setup` asks for it in the terminal. Over HTTPS, `./dmt3 expose 192.168.0.5 --local-ca --admin-public`
-puts them at `https://192.168.0.5:4731/` (below).
+(or `opendmt3-server expose 192.168.0.5 --local-ca --admin-public`) puts them at `https://192.168.0.5:4731/` (below).
 
 ## HTTPS on a closed network
 

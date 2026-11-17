@@ -67,8 +67,9 @@ def caddyfile(name, upstream, email=None, ca=None, ca_root=None, local_ca=False,
     from Let's Encrypt (email: the address it writes to about the certificate), from another ACME authority `ca`
     ("staging" for Let's Encrypt's staging one; ca_root: that authority's root certificate when it is a private one,
     as a test's is), or from Caddy's own local authority (local_ca), for a closed network. admin: (Caddy's port for
-    it, the admin listener's host:port) puts the admin pages behind Caddy too (./dmt3 expose --admin-public), at the
-    same name on a port of their own, with the same certificate; without it nothing of the admin site is here."""
+    it, the admin listener's host:port) puts the admin pages behind Caddy too (expose --admin-public, ./dmt3's or the
+    server's own program's), at the same name on a port of their own, with the same certificate; without it nothing
+    of the admin site is here."""
     name = check_name(name, local_ca)
     if local_ca and (ca or email):
         raise EdgeError("--local-ca signs the certificate itself: no ACME authority or e-mail goes with it")

@@ -949,6 +949,27 @@ class AdminSiteTest(RecordedDocker):
             dmt3.cmd_ports(args_of("ports", "--admin", "4730"))
         self.assertNotIn("ADMIN_PORT", self.env())
 
+    def test_ports_keep_clear_of_the_containers_own(self):
+        # Inside the container the admin listener has 4731, whatever the PC's admin port is: the site's port cannot.
+        dmt3.cmd_ports(args_of("ports", "--admin", "8731"))
+        err = io.StringIO()
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(err):
+            dmt3.cmd_ports(args_of("ports", "--web", "4731"))
+        self.assertNotIn("WEB_PORT", self.env())
+        self.assertIn("each part needs a port of its own", err.getvalue())
+        self.assertIn("4731", err.getvalue())
+        # A refusal gives back the port kept before it, not the usual one.
+        dmt3.cmd_ports(args_of("ports", "--web", "8080"))
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            dmt3.cmd_ports(args_of("ports", "--web", "4731"))
+        self.assertEqual(self.env()["WEB_PORT"], "8080")
+        # Exposed with --admin-public: nor Caddy's own ports there (80, 443, and 4732 for the admin pages).
+        dmt3.write_env({"EDGE_NAME": "dmt3.example.org", "EDGE_ADMIN": "public"})
+        for taken in ("4732", "443"):
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                dmt3.cmd_ports(args_of("ports", "--game", taken))
+            self.assertNotIn("GAME_PORT", self.env())
+
     def test_setup_asks_who_may_open_the_admin_pages(self):
         self.images.add(dmt3.published_image())
         dmt3.cmd_setup(args_of("setup", "--admin-network", "yes", "--no-start"))

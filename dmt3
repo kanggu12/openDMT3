@@ -976,16 +976,27 @@ def cmd_ports(args):
     changes = {name: (None if value == default else str(value)) for (name, value), default in
                zip(wanted.items(), (GAME_PORT, WEB_PORT, ADMIN_PORT, 80, 443)) if value is not None}
     old_web = web_port()
+    # As .env had them, for a refused change to go back to.
+    before = read_env()
     if changes:
         write_env(changes)
     env = read_env()
     # The admin port is this PC's in every case (on its own, or Caddy's for the admin site with --admin-public).
     numbers = [game_port(), web_port(), admin_port()] + (
         [int(env.get("HTTP_PORT") or 80), int(env.get("HTTPS_PORT") or 443)] if exposed() else [])
-    if len(set(numbers)) != len(numbers):
-        # Undone: two parts on one port would leave one of them unreachable.
-        write_env({name: env.get(name) if name not in changes else None for name in changes})
-        die("each part needs a port of its own: %s" % ", ".join(str(n) for n in numbers))
+    # Inside the container the game's and the site's ports are the same numbers as here, beside the admin listener's
+    # own 4731 and, while the site is exposed, Caddy's 80 and 443 (and 4732 for the admin pages with --admin-public):
+    # neither may be one of those either, whatever this PC's numbers for them are.
+    inside = {ADMIN_INSIDE} | ({80, 443} if exposed() else set()) | (
+        {EDGE_ADMIN_PORT} if exposed() and admin_public() else set())
+    clash = sorted({game_port(), web_port()} & inside)
+    if len(set(numbers)) != len(numbers) or clash:
+        # Undone, each changed line back to what it was (none for the usual one): two parts on one port would leave
+        # one of them unreachable.
+        write_env({name: before.get(name) for name in changes})
+        die("each part needs a port of its own: %s%s" % (", ".join(str(n) for n in numbers), "".join(
+            " (%d is the container's own: %s)" % (port, "the admin pages'" if port == ADMIN_INSIDE else "Caddy's")
+            for port in clash)))
     if web_port() != old_web:
         # The players' address follows the site to its new port (an http address on the old one; one through a proxy
         # stays): the invite, the banner, status and the message to send a player say it. The address kept from

@@ -5,7 +5,8 @@ command the one-line install puts on PATH).
     opendmt3-server                  run here until this window closes (Ctrl+C, or opendmt3-server stop elsewhere)
     opendmt3-server start | stop | restart | status | logs
     opendmt3-server setup [--address A] [--game PATH] [--installer FILE] [--admin ID [--password P]]
-    opendmt3-server invite | firewall | expose NAME | add-player ID | backup | backups | restore NAME | catalog PATH
+    opendmt3-server invite | firewall | expose NAME [--admin-public] | add-player ID | backup | backups | restore NAME
+    opendmt3-server catalog PATH
 
 Every command works on one data folder: beside the program in the Windows package (data\\), else --data, or
 OPENDMT3_DATA, else ./data. Whatever starts the server, run or start, its stop is this same program's stop: the
@@ -127,12 +128,45 @@ def settings(data):
             "web_port": int(kept.get("web_port") or WEB_PORT), "game": kept.get("game"),
             "proxy": kept.get("proxy"), "webhook": kept.get("webhook"),
             # The admin pages' port and address (None for the server's own defaults, 4731 on this PC alone).
-            "admin_port": int(kept.get("admin_port") or ADMIN_PORT), "admin_host": kept.get("admin_host") or ADMIN_HOST}
+            "admin_port": int(kept.get("admin_port") or ADMIN_PORT), "admin_host": kept.get("admin_host") or ADMIN_HOST,
+            # What expose chose (the name, the authority, the admin pages behind Caddy too), for Caddy's settings to
+            # be written again when a port moves: none before expose (or after --off, or from a release before it).
+            "edge": kept.get("edge") or {},
+            # The admin pages behind Caddy too, at the name and the admin port (expose --admin-public).
+            "admin_public": bool((kept.get("edge") or {}).get("admin_public"))}
 
 
 def admin_opened(kept):
     """True when the owner opened the admin pages to other PCs (an address other than this PC's own)."""
     return kept["admin_host"] not in ("127.0.0.1", "localhost", "::1")
+
+
+def behind_caddy(kept):
+    """True while the Caddy beside the server has the admin pages too (expose NAME --admin-public): its HTTPS on the
+    admin port, in front of the admin listener."""
+    return bool(kept["proxy"] and kept["admin_public"])
+
+
+def admin_listens(kept):
+    """Where the admin listener is for a run, as (address, port): behind Caddy, this PC alone at the port after the
+    admin port (one port of a PC cannot be both, and Caddy's HTTPS has the admin port itself then); else the address
+    and the port kept."""
+    if behind_caddy(kept):
+        return "127.0.0.1", kept["admin_port"] + 1
+    return kept["admin_host"], kept["admin_port"]
+
+
+def admin_reached(kept):
+    """True when other PCs reach the admin port: the admin pages opened to the network, or Caddy's HTTPS for them
+    (expose --admin-public). Only then does the firewall open it."""
+    return admin_opened(kept) or behind_caddy(kept)
+
+
+def own_ports(kept):
+    """The ports this server's parts listen on, each needing its own: the game's, the site's, the admin listener's,
+    and Caddy's admin port while it has the admin pages (expose --admin-public)."""
+    return [kept["game_port"], kept["web_port"], admin_listens(kept)[1]] + (
+        [kept["admin_port"]] if behind_caddy(kept) else [])
 
 
 def keep(data, **changes):
@@ -275,11 +309,13 @@ def server_args(data):
         argv += ["--game", kept["game"]]
     if kept["webhook"]:
         argv += ["--webhook", kept["webhook"]]
-    # The admin pages' port and address, only when the owner chose others than the server's own (4731, this PC).
-    if kept["admin_port"] != ADMIN_PORT:
-        argv += ["--admin-port", str(kept["admin_port"])]
-    if kept["admin_host"] != ADMIN_HOST:
-        argv += ["--admin-host", kept["admin_host"]]
+    # The admin listener's port and address: behind Caddy always given (this PC alone, the next port, whatever the
+    # environment says), else only when the owner chose others than the server's own (4731, this PC).
+    host, port = admin_listens(kept)
+    if port != ADMIN_PORT or behind_caddy(kept):
+        argv += ["--admin-port", str(port)]
+    if host != ADMIN_HOST or behind_caddy(kept):
+        argv += ["--admin-host", host]
     return argv
 
 
@@ -341,14 +377,39 @@ def first_account_needed(data):
 
 
 def show_banner(data):
-    """The server's banner as the running one printed it (server/banner.py), for start, whose server prints its own into
-    its log folder."""
+    """The server's banner as the running one printed it (server/banner.py, its rows the server's own: the players'
+    address, this PC's, the admin pages', the game's port), for start, whose server prints its own into its log
+    folder."""
     from opendmt3.server import banner
     kept = settings(data)
-    banner.show(__version__, banner.rows(players_address(data), "http://127.0.0.1:%d/" % kept["web_port"],
-                                         kept["game_port"]),
-                ["First start: open http://127.0.0.1:%d/ on this PC to make the owner's account." % kept["web_port"]]
+    # The first-run page is the admin pages' (the site's when the server has none).
+    first = admin_here(data) or "http://127.0.0.1:%d/" % kept["web_port"]
+    banner.show(__version__, server_cli.banner_rows(server_args_namespace(data), kept["game_port"]),
+                ["First start: open %s on this PC to make the owner's account." % first]
                 if first_account_needed(data) else [])
+
+
+def admin_here(data):
+    """The admin pages' address on this PC, where their first-run page answers: the admin listener's port as the run
+    will have it (behind Caddy the next one; nothing kept here, the server's own default or its environment's). None
+    when the server has no admin pages of their own (--admin-port 0)."""
+    port = server_args_namespace(data).admin_port
+    return "http://127.0.0.1:%d/" % port if port else None
+
+
+def admin_line(data):
+    """Where the admin pages are, in ./dmt3's words: through Caddy at the site's name and the admin port (expose
+    --admin-public), on the network too (setup --admin-host 0.0.0.0), or on this PC alone."""
+    kept = settings(data)
+    if behind_caddy(kept):
+        return "The admin pages: https://%s:%d/ (through Caddy)." % (kept["edge"]["name"], kept["admin_port"])
+    here = admin_here(data)
+    if not admin_opened(kept):
+        return "The admin pages: %s (this PC only)." % here
+    addresses = lan_addresses()
+    if not addresses:
+        return "The admin pages: %s (other PCs too, at this PC's address on the network)." % here
+    return "The admin pages: http://%s:%d/ (on this PC also %s)." % (addresses[0], kept["admin_port"], here)
 
 
 def cmd_run(args):
@@ -360,10 +421,18 @@ def cmd_run(args):
         raise Refused("the server already runs on this data folder (process %s): %s stop stops it"
                       % (other["pid"], PROG))
     kept = settings(data)
-    for port in (kept["game_port"], kept["web_port"]):
+    if len(set(own_ports(kept))) != len(own_ports(kept)):
+        # Two of its own parts on one port (a site's port kept from before the admin pages had theirs): one of them
+        # could not listen.
+        raise Refused("each part needs a port of its own: %s (%s setup --game-port/--web-port/--admin-port moves one)"
+                      % (", ".join(str(port) for port in own_ports(kept)), PROG))
+    # The admin listener's port as the run will have it (behind Caddy the next one; the environment's when this
+    # folder keeps none): a port another program holds would stop the server just after its start.
+    admin = server_args_namespace(data).admin_port
+    for port in [kept["game_port"], kept["web_port"]] + ([admin] if admin else []):
         if not port_free(port):
             raise Refused("port %d is taken by another program: stop it, or choose other ports with %s setup "
-                          "--game-port/--web-port" % (port, PROG))
+                          "--game-port/--web-port/--admin-port" % (port, PROG))
     log_to(data, console=not args.background)
     brought = hand_out_bundled(data)
     if brought:
@@ -409,9 +478,10 @@ def cmd_run(args):
                 await asyncio.sleep(0.1)
             if not task.done():
                 # The first start, at the PC: the admin pages, a site of their own on this PC, where the owner's
-                # account is made (their first-run page).
+                # account is made (their first-run page), at the admin listener itself (behind Caddy too: a visit
+                # through it is never this PC's).
                 import webbrowser
-                webbrowser.open("http://127.0.0.1:%d/" % kept["admin_port"])
+                webbrowser.open(admin_here(data) or "http://127.0.0.1:%d/" % kept["web_port"])
         await task
 
     first = True
@@ -565,6 +635,7 @@ def cmd_status(args):
     say("Health: %s" % ("ok" if answer and answer.get("ok") else "the site does not answer"))
     say("Players: %s" % players_address(data))
     say("On this PC: http://127.0.0.1:%s/" % record["web_port"])
+    say(admin_line(data))
     return 0 if answer and answer.get("ok") else 1
 
 
@@ -589,9 +660,13 @@ def cmd_setup(args):
     client data, the installer to hand out, the owner's account. Each only when given; the rest stays as it is."""
     data = os.path.abspath(args.data)
     os.makedirs(os.path.join(data, "downloads"), exist_ok=True)
+    # As they were: what a refused port goes back to, and what Caddy's settings and the firewall follow from.
+    was, raw = settings(data), read_json(os.path.join(data, SETTINGS), {})
     if args.game_port or args.web_port:
         old_web = settings(data)["web_port"]
-        keep(data, game_port=args.game_port or None, web_port=args.web_port or None)
+        # Only the ones given: the other one stays as it was kept.
+        keep(data, **{name: port for name, port in (("game_port", args.game_port), ("web_port", args.web_port))
+                      if port})
         new_web = settings(data)["web_port"]
         if new_web != old_web:
             # The players' address follows the site to its new port (an http address on the old one; one through a
@@ -600,26 +675,32 @@ def cmd_setup(args):
             keep(data, **{name: edge.moved_address(kept[name], old_web, new_web) for name in ("site_address",
                                                                                         BEFORE_EXPOSE)
                           if kept.get(name)})
-        say("ports: the game %d, the site %d" % (settings(data)["game_port"], new_web))
-    if args.address:
-        address = site_address(args.address, settings(data)["web_port"])
-        keep(data, site_address=address)
-        say("the players' address: %s" % address)
     if args.admin_port or args.admin_host:
-        was = settings(data)
         # The server's own defaults are kept as none, so a run passes nothing for them.
         keep(data, **{"admin_port": None if (args.admin_port or was["admin_port"]) == ADMIN_PORT
                       else args.admin_port or was["admin_port"],
                       "admin_host": None if (args.admin_host or was["admin_host"]) == ADMIN_HOST
                       else args.admin_host or was["admin_host"]})
-        now = settings(data)
+    now = settings(data)
+    if any((args.game_port, args.web_port, args.admin_port, args.admin_host)) and len(set(own_ports(now))) != len(
+            own_ports(now)):
+        # Undone, all of it: two parts on one port would leave one of them unreachable.
+        write_json(os.path.join(data, SETTINGS), raw)
+        raise Refused("each part needs a port of its own: %s" % ", ".join(str(port) for port in own_ports(now)))
+    if args.game_port or args.web_port:
+        say("ports: the game %d, the site %d" % (now["game_port"], now["web_port"]))
+    if args.admin_port or args.admin_host:
         say("the admin pages: port %d, %s" % (now["admin_port"], "other PCs on the network too" if admin_opened(now)
                                              else "this PC only"))
-        if on_windows() and (admin_opened(now), now["admin_port"]) != (admin_opened(was), was["admin_port"]):
-            # Windows' firewall follows: the admin port's rule added when they are opened to the network, taken out
-            # when they are closed again (or moved), with the administrator's question the firewall command asks.
-            firewall_follow(data, [was["admin_port"]] if admin_opened(was) else [],
-                            [now["admin_port"]] if admin_opened(now) else [])
+    if now["proxy"] and now["edge"] and (now["web_port"], now["admin_port"]) != (was["web_port"], was["admin_port"]):
+        # Behind Caddy, its settings follow the ports: the site's, the admin pages' and the listener behind them.
+        say("Caddy's settings, for the new ports: %s (Caddy reads them when it starts)" % write_caddyfile(data))
+    # Windows' firewall follows the admin port's reach: its rule in when other PCs reach it, out when none do.
+    follow_admin_rule(data, was)
+    if args.address:
+        address = site_address(args.address, settings(data)["web_port"])
+        keep(data, site_address=address)
+        say("the players' address: %s" % address)
     if args.game:
         # The song list (with its jackets and the DJ cards), read now; a folder is kept so the admin's Song list tab
         # can read it again.
@@ -657,7 +738,8 @@ def cmd_setup(args):
             "pages' Song list." % PROG)
     if first_account_needed(data):
         say("The owner's account: %s setup --admin ID makes it here (its password printed), or start the server and "
-            "open the admin pages, http://127.0.0.1:%d/, on this PC." % (PROG, settings(data)["admin_port"]))
+            "open the admin pages, %s, on this PC." % (PROG, admin_here(data) or "http://127.0.0.1:%d/" % settings(
+                data)["web_port"]))
     return 0
 
 
@@ -730,9 +812,10 @@ def firewall_ports(data):
     """The ports the firewall opens for this data folder's server: the game's, and the site's, or Caddy's 80 and 443
     while the site is behind it (expose)."""
     kept = settings(data)
-    # The admin pages' port only when the owner opened them to the network: on this PC alone it needs no rule.
+    # The admin pages' port only while other PCs reach it (opened to the network, or Caddy's HTTPS for them with
+    # expose --admin-public): on this PC alone it needs no rule, nor does the admin listener behind Caddy.
     return [kept["game_port"]] + ([80, 443] if kept["proxy"] else [kept["web_port"]]) + (
-        [kept["admin_port"]] if admin_opened(kept) else [])
+        [kept["admin_port"]] if admin_reached(kept) else [])
 
 
 def firewall_rules(ports):
@@ -764,6 +847,16 @@ def firewall_follow(data, close, open_):
             say("Windows' firewall %s TCP %s: %s firewall%s does it later." % (
                 "still opens" if remove else "does not open", ", ".join(str(p) for p in ports), PROG,
                 " --remove" if remove else ""))
+
+
+def follow_admin_rule(data, was):
+    """Windows' firewall after the admin port's reach or number changed (setup --admin-host or --admin-port, expose
+    --admin-public, without it, or --off): the rule out for the port other PCs reached, in for the one they reach now,
+    as firewall_follow asks for them. Nothing elsewhere: the firewall command prints its commands there."""
+    now = settings(data)
+    if on_windows() and (admin_reached(now), now["admin_port"]) != (admin_reached(was), was["admin_port"]):
+        firewall_follow(data, [was["admin_port"]] if admin_reached(was) else [],
+                        [now["admin_port"]] if admin_reached(now) else [])
 
 
 def is_admin():
@@ -846,40 +939,87 @@ def cmd_firewall(args):
 
 def cmd_expose(args):
     """The site over HTTPS behind Caddy on this PC: the Caddyfile in the data folder, the players' address
-    https://NAME/, and the site on this PC only with the proxy's headers believed. --off undoes it."""
+    https://NAME/, and the site on this PC only with the proxy's headers believed. With --admin-public the admin pages
+    too, at https://NAME:<admin port>/, the admin listener behind Caddy on this PC alone at the next port; without it
+    nothing of the admin site is behind Caddy. --off undoes it."""
     data = os.path.abspath(args.data)
+    # As it was: what Windows' firewall follows from (the admin port's rule).
+    was = settings(data)
     if args.off:
-        # The players' address is the one setup kept before expose (none when there was none).
+        # The players' address is the one setup kept before expose (none when there was none); the admin pages leave
+        # Caddy too, on this PC (or the network, as setup --admin-host keeps them) on their own port again.
         before = read_json(os.path.join(data, SETTINGS), {}).get(BEFORE_EXPOSE)
-        keep(data, proxy=None, site_address=before, **{BEFORE_EXPOSE: None})
+        keep(data, proxy=None, site_address=before, edge=None, **{BEFORE_EXPOSE: None})
         if before:
             say("The players' address is %s again." % before)
-        say("The site is on its own port again for other PCs (restart the server: %s restart)." % PROG)
+        if behind_caddy(was):
+            # Caddy holds the admin port until it stops: the admin listener can have it back only then.
+            say("The site is on its own port again for other PCs: stop Caddy (it has port %d), then restart the "
+                "server (%s restart)." % (was["admin_port"], PROG))
+        else:
+            say("The site is on its own port again for other PCs (restart the server: %s restart)." % PROG)
+        say(admin_line(data))
+        follow_admin_rule(data, was)
         return 0
     if not args.name:
         raise Refused("expose needs the site's name: %s expose dmt3.example.org" % PROG)
+    # What expose chose, kept so Caddy's settings can be written again when a port moves (setup).
+    choice = {"email": args.email, "ca": "staging" if args.staging else args.ca, "local_ca": args.local_ca or None,
+              "admin_public": args.admin_public or None}
+    # The admin port is Caddy's then, and the admin listener moves to the next one: neither may be another part's.
+    would = dict(was, proxy="127.0.0.1", admin_public=bool(args.admin_public))
+    if len(set(own_ports(would))) != len(own_ports(would)) or own_ports(would)[2] > 65535:
+        raise Refused("each part needs a port of its own: %s" % ", ".join(str(port) for port in own_ports(would)))
     try:
-        text = edge.caddyfile(args.name, "127.0.0.1:%d" % settings(data)["web_port"], email=args.email,
-                              ca="staging" if args.staging else args.ca, local_ca=args.local_ca)
+        # Checked before anything is kept: a name no authority signs, or an authority with the local one.
+        edge.caddyfile(args.name, "127.0.0.1:%d" % was["web_port"], email=choice["email"], ca=choice["ca"],
+                       local_ca=args.local_ca)
         name = edge.check_name(args.name, args.local_ca)
     except edge.EdgeError as e:
         raise Refused(str(e))
     os.makedirs(data, exist_ok=True)
+    # The address setup kept is kept aside, once (a second expose keeps the first one's), for expose --off.
+    aside = {BEFORE_EXPOSE: was["site_address"]} if not was["proxy"] and was["site_address"] else {}
+    keep(data, proxy="127.0.0.1", site_address="https://%s/" % name,
+         edge={key: value for key, value in dict(choice, name=name).items() if value}, **aside)
+    path = write_caddyfile(data)
+    now = settings(data)
+    say("The players' address: https://%s/" % name)
+    say(admin_line(data))
+    say("Caddy's settings: %s" % path)
+    server = "Restart the server (%s stop, then %s start): the site then answers through Caddy only." % (PROG, PROG)
+    caddy = ("Run Caddy (https://caddyserver.com/download) beside it: caddy run --config \"%s\" (caddy reload, with the "
+             "same --config, while it runs)" % path)
+    if behind_caddy(was) and not behind_caddy(now):
+        # The admin pages leave Caddy: Caddy lets go of their port first, or the admin listener cannot have it back.
+        steps = [caddy + ", so it lets go of port %d" % was["admin_port"], server]
+    else:
+        # The server first: behind Caddy the admin listener leaves the admin port for Caddy to take.
+        steps = [server, caddy]
+    say("Next:")
+    for number, step in enumerate(steps, 1):
+        say("  %d. %s" % (number, step))
+    # The admin pages' HTTPS port too, only when they are behind Caddy (--admin-public), in ./dmt3's words.
+    admin = " and TCP %d (the admin pages, HTTPS)" % now["admin_port"] if behind_caddy(now) else ""
+    say("  3. On the router, forward TCP 80 and 443 (Caddy)%s and %d (the game) to this PC; %s firewall opens them "
+        "here." % (admin, now["game_port"], PROG))
+    follow_admin_rule(data, was)
+    return 0
+
+
+def write_caddyfile(data):
+    """Caddy's settings in the data folder from what expose chose (the name, the authority, the admin pages too) and
+    the ports as they are now: the site's for the site, the admin port and the listener behind it for the admin
+    pages. The file's path."""
+    kept = settings(data)
+    choice = kept["edge"]
+    admin = (kept["admin_port"], "127.0.0.1:%d" % admin_listens(kept)[1]) if behind_caddy(kept) else None
+    text = edge.caddyfile(choice["name"], "127.0.0.1:%d" % kept["web_port"], email=choice.get("email"),
+                          ca=choice.get("ca"), local_ca=bool(choice.get("local_ca")), admin=admin)
     path = os.path.join(data, "Caddyfile")
     with open(path, "w", encoding="utf-8") as f:
         f.write(text)
-    kept = settings(data)
-    # The address setup kept is kept aside, once (a second expose keeps the first one's), for expose --off.
-    aside = {BEFORE_EXPOSE: kept["site_address"]} if not kept["proxy"] and kept["site_address"] else {}
-    keep(data, proxy="127.0.0.1", site_address="https://%s/" % name, **aside)
-    say("The players' address: https://%s/" % name)
-    say("Caddy's settings: %s" % path)
-    say("Next:")
-    say("  1. Restart the server (%s stop, then %s start): the site then answers through Caddy only." % (PROG, PROG))
-    say("  2. Run Caddy (https://caddyserver.com/download) beside it: caddy run --config \"%s\"" % path)
-    say("  3. On the router, forward TCP 80 and 443 (Caddy) and %d (the game) to this PC; %s firewall opens them here."
-        % (settings(data)["game_port"], PROG))
-    return 0
+    return path
 
 
 # ---------------------------------------------------------------------------------------------- repair, remove
@@ -949,12 +1089,15 @@ def cmd_repair(args):
     except OSError as e:
         problems += 1
         say("the data folder %s cannot be written (%s)" % (data, e))
-    for port in (settings(data)["game_port"], settings(data)["web_port"]):
+    # The admin listener's port as the run will have it, beside the game's and the site's.
+    admin = server_args_namespace(data).admin_port
+    for port in [settings(data)["game_port"], settings(data)["web_port"]] + ([admin] if admin else []):
         if running(data) or port_free(port):
             say("ok    port %d is free or the server's" % port)
         else:
             problems += 1
-            say("port %d is taken by another program (fix: stop it, or %s setup --game-port/--web-port)" % (port, PROG))
+            say("port %d is taken by another program (fix: stop it, or %s setup --game-port/--web-port/--admin-port)"
+                % (port, PROG))
     return 1 if problems else 0
 
 
@@ -1072,6 +1215,8 @@ def parser():
     choice.add_argument("--ca", metavar="URL", help="another ACME authority's directory")
     choice.add_argument("--local-ca", action="store_true",
                         help="Caddy's own authority, for a closed network (players trust its root once)")
+    c["expose"].add_argument("--admin-public", action="store_true",
+                             help="the admin pages too, over HTTPS at https://NAME:4731/ (the admin port) through Caddy")
     c["expose"].add_argument("--off", action="store_true", help="back to the site on its own port")
     c["add-player"].add_argument("id", help="the account's ID")
     c["add-player"].add_argument("--password", help="its password (made and printed when not given)")

@@ -92,7 +92,7 @@ window. The same commands run with Python on Linux and macOS ([With Python](#wit
 | `opendmt3-server setup [--address A] [--game PATH] [--installer FILE] [--admin ID [--password P]] [--game-port N] [--web-port N] [--admin-port N] [--admin-host ADDRESS]` | The players' address, the song list, the installer to hand out, the first account, the ports, who may open the admin pages (`--admin-host 0.0.0.0`: the network too; `127.0.0.1`: this PC again); each only when given. With no account yet and a person at the terminal, it asks for the owner's account and makes it there (a PC with no screen needs no browser) |
 | `opendmt3-server invite` | The address players open, with its QR code |
 | `opendmt3-server firewall [--remove] [--public] [--print]` | Opens the game's and the site's ports in Windows' firewall as an administrator (the admin pages' port too, only while they are opened to the network); elsewhere prints the commands for ufw and firewalld |
-| `opendmt3-server expose NAME` | The site over HTTPS behind Caddy on this PC ([Playing from outside your home](internet.md#on-windows-or-with-python)) |
+| `opendmt3-server expose NAME [--admin-public]` | The site over HTTPS behind Caddy on this PC; the admin pages too, at `https://NAME:4731/`, only with `--admin-public` ([Playing from outside your home](internet.md#on-windows-or-with-python)) |
 | `opendmt3-server catalog PATH [--save FILE]`, `add-player`, `backup`, `backups`, `restore NAME` | The server's own `--catalog`, `--add-player`, `--backup`, `--backups` and `--restore` on this data folder |
 | `opendmt3-server repair`, `remove [--delete-data]` | The checks with their fixes; removing the server ([Removing a server](#removing-a-server)) |
 
@@ -360,7 +360,8 @@ The admin pages are a site of their own, with their own sign-in (an account with
   `ADMIN_BIND=0.0.0.0` in `.env`), `opendmt3-server setup --admin-host 0.0.0.0` (the server's own program; on Windows
   it asks to open their port in the firewall), or `--admin-host 0.0.0.0` on the server's command line. Then
   `http://<server>:4731/`.
-- **From the internet**, only with `./dmt3 expose NAME --admin-public`: `https://NAME:4731/` through Caddy, over HTTPS
+- **From the internet**, only with `./dmt3 expose NAME --admin-public` (or `opendmt3-server expose NAME
+  --admin-public` for the server's own program): `https://NAME:4731/` through Caddy, over HTTPS
   ([Playing from outside your home](internet.md#the-admin-pages)). Without it nothing of the admin pages is on the
   internet.
 - **On Kubernetes**, inside the cluster: `kubectl port-forward` ([On Kubernetes](kubernetes.md#the-admin-pages)).
@@ -499,7 +500,7 @@ was given.
 [Playing from outside your home](internet.md) has the name, the router's forwards and HTTPS: `./dmt3 expose NAME`
 puts Caddy in front of the site with a certificate it gets and renews by itself (the admin pages too, at
 `https://NAME:4731/`, only with `--admin-public`), and the server's own command line writes the same settings for a
-Caddy beside it (`opendmt3-server expose NAME`). By hand, with Caddy or another reverse
+Caddy beside it (`opendmt3-server expose NAME`, with `--admin-public` too). By hand, with Caddy or another reverse
 proxy on the server PC: the site behind it on the server PC only (`--web-host 127.0.0.1`), the proxy's forwarded
 headers believed from its address alone (`--proxy 127.0.0.1`), the game's port opened as it is.
 
