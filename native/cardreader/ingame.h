@@ -156,6 +156,22 @@ void render_from(const void *ret);
  * cursor reading, and the counts into the log every two seconds. */
 void sound_attach(void *direct_sound);
 void sound_frame(void);
+/* The music's and the key sounds' volumes (percent): where setting.ini started the game (once, before its buffers),
+ * then the player's as they change; the game's buffers move by the difference (logic.c volume_moved). */
+void sound_volumes_start(int music, int keys);
+void sound_volumes(int music, int keys);
+/* The last stage of the game's sound (mix.c): its audio clients' tables turned to ours before the game opens its sound,
+ * the master volume and the equaliser it puts on the mix (set from the game's thread), and its log lines each frame. */
+void mix_install(void);
+void mix_set(const SoundValues *v);
+void mix_frame(void);
+/* The sound's values (soundset.c): read from the launcher's start and kept in the file the launcher writes too; each
+ * frame another writer's change is taken; the in-game panel changes one; the version moves with every change. */
+void soundset_start(void);
+void soundset_frame(void);
+const SoundValues *soundset_values(void);
+long soundset_version(void);
+void soundset_change(int which, int value);
 void sound_summary(void);
 /* The song's music as it plays (the music lock): how far it is in ms and the frame it started at; 0 when none plays. */
 int sound_music_position(double *ms, long *started_frame);

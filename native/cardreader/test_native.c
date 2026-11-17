@@ -320,7 +320,7 @@ static void test_card(void)
     check(card_key(&c, 'A') == ACT_NONE && c.open == CARD_MENU, "card: other keys wait");
     check(card_key(&c, 0x1B) == ACT_CLOSE && c.open == CARD_NONE, "card: Esc closes");
     card_open(&c, CARD_MENU);
-    check(card_count(&c) == 3 && !strcmp(card_label(&c, 1, NULL), "SHOW FPS") && !strcmp(card_state(&c, 1), "OFF") &&
+    check(card_count(&c) == 4 && !strcmp(card_label(&c, 1, NULL), "SHOW FPS") && !strcmp(card_state(&c, 1), "OFF") &&
               card_state(&c, 0) == NULL,
           "card: the menu has Show FPS, its state at its right");
     check(card_choose(&c, 1) == ACT_FPS && c.fps && c.open == CARD_MENU && !strcmp(card_state(&c, 1), "ON"),
@@ -328,8 +328,8 @@ static void test_card(void)
     card_key(&c, 0x28);
     check(card_key(&c, 0x0D) == ACT_FPS && !c.fps, "card: Enter on Show FPS turns it off again");
     int danger2 = 0;
-    card_label(&c, 2, &danger2);
-    check(danger2 && card_choose(&c, 2) == ACT_QUIT, "card: the menu's Quit (its last row) quits");
+    card_label(&c, 3, &danger2);
+    check(danger2 && card_choose(&c, 3) == ACT_QUIT, "card: the menu's Quit (its last row) quits");
     c.korean = 1;
     card_open(&c, CARD_QUIT);
     c.song = 1;
@@ -356,7 +356,7 @@ static void test_layout(void)
     for (int k = 0; k < 5; k++) {
         int w = sizes[k][0], h = sizes[k][1];
         Box middle = {w * 0.25f, h * 0.25f, w * 0.5f, h * 0.5f};
-        for (int open = CARD_MENU; open <= CARD_QUIT; open++) {
+        for (int open = CARD_MENU; open <= CARD_SOUND; open++) {
             Card c = {0, 0, 0, 0};
             card_open(&c, open);
             UiLayout l;
@@ -407,7 +407,7 @@ static void test_layout(void)
           "layout: each chip, answer, panel and the bar where it is drawn; the game elsewhere");
     card_open(&q, CARD_MENU);
     ui_layout(&q, 1920, 1080, &l);
-    check(l.count == 3 && fabsf(l.panel.x - l.chip[CHIP_MENU].x) < 0.01f &&
+    check(l.count == 4 && fabsf(l.panel.x - l.chip[CHIP_MENU].x) < 0.01f &&
               fabsf(l.panel.x + l.panel.w - (l.chip[CHIP_X].x + l.chip[CHIP_X].w)) < 0.01f &&
               fabsf(l.panel.y - l.bar.h) < 0.01f && l.rows[1].y > l.rows[0].y + l.rows[0].h,
           "layout: the menu hangs from the bar's foot under its chip and the chips beside it, its rows one under the "
@@ -577,7 +577,7 @@ static void test_places(void)
         float u = ui_unit(h);
         Box note = toast_box(w, h, 400 * u);
         Box middle = {w * 0.25f, h * 0.25f, w * 0.5f, h * 0.5f};
-        for (int open = CARD_MENU; open <= CARD_QUIT; open++) {
+        for (int open = CARD_MENU; open <= CARD_SOUND; open++) {
             Card c = {0, 0, 0, 0};
             card_open(&c, open);
             c.song = 1;
@@ -600,7 +600,7 @@ static void test_places(void)
         handle &= m.y == 0 && m.h <= 12 * u + 0.01f && fabsf(m.x + m.w / 2 - w / 2.0f) < 0.01f;
     }
     check(clear, "places: the notice clear of the menu, the question and the chips' row, and of the middle, at every shape");
-    check(hung, "places: the menu and the question hang from the bar's foot within the chips' row, above a quarter");
+    check(hung, "places: the menu, the question and the sound panel hang from the bar's foot within the chips' row, above a quarter");
     check(handle, "places: the handle at the top centre within the game's top 12 lines, at every shape");
     /* A press while the bar comes down: the X where it is drawn now, not where it will be. */
     Card c = {0, 0, 0, 0};
@@ -678,6 +678,122 @@ static void test_gate(void)
 }
 
 /* The handle's press (#7 of the 0.4.0 list: a tap and a long press bring the bar, as a draw down does). */
+/* A sine's peak after it has run a second through the mix (its first half second let pass: the filters settle). */
+static double mixed_peak(const MixShape *m, double hz, int rate)
+{
+    static float x[48000 * 2];
+    MixState st;
+    memset(&st, 0, sizeof st);
+    for (int i = 0; i < rate; i++)
+        x[2 * i] = x[2 * i + 1] = (float)(0.1 * sin(2 * 3.14159265358979 * hz * i / rate));
+    mix_run_float(m, &st, x, rate, 2);
+    double peak = 0;
+    for (int i = rate / 2; i < rate; i++)
+        peak = fmax(peak, fabs(x[2 * i]));
+    return peak / 0.1;
+}
+
+/* The sound's values (#11 of the 0.4.0 list): the shared file, the volumes' move and the equaliser. */
+static void test_sound_panel(void)
+{
+    /* The menu's Sound opens the panel in its place; its eight columns under the X, each with its track, in the
+     * panel; a press at a track's top is its highest, at its foot its lowest, a volume in 5 % steps; the keys move the
+     * ringed value a step; Enter and Esc go back to the game; nothing in it quits. (Above a quarter: test_places.) */
+    Card c = {0, 0, 0, 0};
+    card_open(&c, CARD_MENU);
+    check(card_count(&c) == 4 && !strcmp(card_label(&c, 2, NULL), "SOUND") && card_choose(&c, 2) == ACT_SOUND_OPEN &&
+          c.open == CARD_SOUND && c.focus == 0 && card_count(&c) == 8, "sound panel: the menu's Sound opens it");
+    static const int sizes[5][2] = {{1280, 768}, {1920, 1080}, {3840, 2160}, {1600, 1200}, {2560, 1080}};
+    int inside_all = 1;
+    for (int k = 0; k < 5; k++) {
+        UiLayout l;
+        ui_layout(&c, sizes[k][0], sizes[k][1], &l);
+        inside_all &= l.panel.x + l.panel.w <= (float)sizes[k][0];
+        for (int i = 0; i < 8; i++)
+            inside_all &= l.track[i].x >= l.rows[i].x && l.track[i].y >= l.rows[i].y &&
+                          l.track[i].y + l.track[i].h <= l.rows[i].y + l.rows[i].h + 0.01f &&
+                          l.rows[i].x + l.rows[i].w <= l.panel.x + l.panel.w + 0.01f &&
+                          l.rows[i].y + l.rows[i].h <= l.panel.y + l.panel.h + 0.01f;
+    }
+    check(inside_all, "sound panel: its columns and tracks in the panel, at five sizes and shapes");
+    UiLayout l;
+    ui_layout(&c, 1920, 1080, &l);
+    Box t = l.track[0], e = l.track[SOUND_EQ0 + 2];
+    check(ui_sound_value_at(&l, 0, t.y) == 100 && ui_sound_value_at(&l, 0, t.y + t.h) == 0 &&
+          ui_sound_value_at(&l, 0, t.y - 50) == 100 && ui_sound_value_at(&l, 0, t.y + t.h / 2) == 50 &&
+          ui_sound_value_at(&l, 0, t.y + t.h * 0.37f) % 5 == 0, "sound panel: a volume's place on its track");
+    check(ui_sound_value_at(&l, SOUND_EQ0 + 2, e.y + e.h / 2) == 0 && ui_sound_value_at(&l, SOUND_EQ0 + 2, e.y) == 12 &&
+          fabsf(ui_sound_y(&l, SOUND_EQ0 + 2, 0) - (e.y + e.h / 2)) < 0.01f, "sound panel: a band flat at its middle");
+    check(ui_hit(&l, l.rows[3].x + 2, l.rows[3].y + 2) == 3, "sound panel: a press on a column is that column's");
+    c.sound[SOUND_EQ0] = 3;
+    c.sound[SOUND_EQ0 + 1] = -2;
+    c.sound[SOUND_MUSIC] = 80;
+    int danger = 1;
+    check(!strcmp(card_state(&c, SOUND_EQ0), "+3") && !strcmp(card_state(&c, SOUND_EQ0 + 1), "-2") &&
+          !strcmp(card_state(&c, SOUND_MUSIC), "80") && card_label(&c, 7, &danger) && !danger,
+          "sound panel: its values as written, nothing in it quits");
+    check(card_key(&c, 0x27) == ACT_REDRAW && c.focus == 1 && card_key(&c, 0x26) == ACT_SOUND && c.step == 1 &&
+          card_key(&c, 0x28) == ACT_SOUND && c.step == -1 && sound_step(1) == 5 && sound_step(SOUND_EQ0) == 1,
+          "sound panel: Right goes along, Up and Down a step");
+    check(card_choose(&c, 4) == ACT_NONE && c.open == CARD_SOUND && card_key(&c, 0x0D) == ACT_CLOSE &&
+          c.open == CARD_NONE, "sound panel: a column stays, Enter goes back to the game");
+}
+
+static void test_sound_values(void)
+{
+    SoundValues s;
+    sound_values_default(&s);
+    check(s.v[SOUND_MASTER] == 100 && s.v[SOUND_KEYS] == 100 && s.v[SOUND_EQ0 + 2] == 0, "sound: 100 % and flat");
+    /* Read: known lines, spaces and \r allowed; out of range and unknown lines left alone. */
+    unsigned named = sound_values_parse("# a note\nmaster_volume = 80\r\nmusic_volume=101\neq_1k=-3\nother=5\n", &s);
+    check(named == ((1u << SOUND_MASTER) | (1u << (SOUND_EQ0 + 2))) && s.v[SOUND_MASTER] == 80 &&
+          s.v[SOUND_MUSIC] == 100 && s.v[SOUND_EQ0 + 2] == -3, "sound: the file's lines read, a bad one left");
+    /* Written: only the changed value's line, every other line (another writer's) kept, a missing one added. */
+    char out[512];
+    s.v[SOUND_KEYS] = 40;
+    s.v[SOUND_MASTER] = 10;
+    int n = sound_values_merge("# a note\nmaster_volume=55\r\nkey_volume=90\nkey_volume=91\n", &s,
+                               (1u << SOUND_KEYS) | (1u << (SOUND_EQ0 + 4)), out, sizeof out);
+    check(n > 0 && !strcmp(out, "# a note\nmaster_volume=55\nkey_volume=40\neq_12k=0\n"),
+          "sound: a write changes its own lines only");
+    check(sound_values_merge(NULL, &s, 1u << SOUND_MUSIC, out, sizeof out) > 0 && !strcmp(out, "music_volume=100\n"),
+          "sound: the first write makes the file");
+    check(sound_values_merge("master_volume=55\n", &s, 1u << SOUND_MUSIC, out, 10) == -1, "sound: no room, no file");
+    /* The volumes' move: none at the launch percent, half the amplitude 6 dB down, no louder than 0, 0 % silent. */
+    check(volume_moved(-1500, 60, 60) == -1500 && volume_moved(-1500, 60, 30) == -1500 - 602 &&
+          volume_moved(-300, 50, 100) == 0 && volume_moved(-300, 50, 0) == -10000 &&
+          volume_moved(-4000, 0, 1) == -4000, "sound: a volume moved from where the game started it");
+    /* The mix: off at 100 % and flat (nothing touched); the master as an amplitude; a band's own frequency raised by its
+     * gain, a far one not; the shelves; 16 bits clipped at full scale. */
+    MixShape m;
+    sound_values_default(&s);
+    mix_shape(&m, &s, 48000);
+    check(!m.on, "mix: nothing to do at 100 % and flat");
+    s.v[SOUND_MASTER] = 50;
+    mix_shape(&m, &s, 48000);
+    check(m.on && fabs(mixed_peak(&m, 1000, 48000) - 0.5) < 0.01, "mix: the master at 50 % halves the amplitude");
+    sound_values_default(&s);
+    s.v[SOUND_EQ0 + 2] = 6;
+    mix_shape(&m, &s, 48000);
+    double at = mixed_peak(&m, 1000, 48000), far = mixed_peak(&m, 100, 48000);
+    check(fabs(at - 1.995) < 0.05 && fabs(far - 1.0) < 0.06, "mix: +6 dB at 1 kHz doubles 1 kHz, leaves 100 Hz");
+    sound_values_default(&s);
+    s.v[SOUND_EQ0] = 12;
+    s.v[SOUND_EQ0 + 4] = -12;
+    mix_shape(&m, &s, 48000);
+    check(fabs(mixed_peak(&m, 25, 48000) - 3.98) < 0.25 && mixed_peak(&m, 20000, 48000) < 0.35,
+          "mix: the low shelf raises the bass, the high shelf lowers the top");
+    int16_t loud[4] = {30000, -30000, 100, -100};
+    MixState st;
+    memset(&st, 0, sizeof st);
+    sound_values_default(&s);
+    s.v[SOUND_MASTER] = 100;
+    s.v[SOUND_EQ0 + 2] = 12;
+    mix_shape(&m, &s, 48000);
+    mix_run_s16(&m, &st, loud, 2, 2);
+    check(loud[0] <= 32767 && loud[1] >= -32768 && loud[0] > 30000, "mix: 16 bits clipped at full scale, not wrapped");
+}
+
 /* A screen's rates (#9 of the 0.4.0 list): what motion clarity is offered from, and what is said of the screen. */
 static void test_refresh_advice(void)
 {
@@ -2458,6 +2574,8 @@ int main(void)
     test_gate();
     test_mark_press();
     test_refresh_advice();
+    test_sound_values();
+    test_sound_panel();
     test_bar_clock();
     test_slides();
     test_slot_index();

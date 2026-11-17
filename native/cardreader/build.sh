@@ -32,7 +32,7 @@ docker run --rm --network none -u "$AS" -v "$HERE:/src:ro" -v "$OUT:/out" opendm
   i686-w64-mingw32-gcc -O2 -s -shared -static-libgcc -Wall -o /out/CRT_R1.dll \
     /src/crt_r1.c /src/hooks.c /src/trace.c /src/post.c /src/postmath.c /src/sound.c /src/engine.c /src/openal.c \
     /src/layer.c /src/text.c /src/look.c /src/logic.c /src/paint.c /src/files.c /src/redirect.c /src/passtimes.c \
-    /src/render.c /src/strobe.c /src/flip.c /src/touch.c /src/contacts.c /src/methods.c \
+    /src/render.c /src/strobe.c /src/flip.c /src/touch.c /src/contacts.c /src/methods.c /src/mix.c /src/soundset.c \
     /src/crt_r1.def /out/post.res \
     -Wl,--kill-at -luser32 -lgdi32 -lm
 # The touch screen's library the game imports (multidll.c): three plain __cdecl names at the original's numbers.

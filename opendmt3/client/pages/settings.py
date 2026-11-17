@@ -180,18 +180,33 @@ def build_screen(app, parent):
 
 
 def build_sound(app, parent):
-    """Two cards, as OpenDMTQ's SOUND: the volumes, and the output (the device, who mixes, low latency, how late the
-    device plays). A choice that changes the output's rows or hints makes that card again and no other (Sections)."""
+    """Three cards, as OpenDMTQ's SOUND: the volumes, the equalizer, and the output (the device, who mixes, low
+    latency, how late the device plays). A choice that changes the output's rows or hints makes that card again and no
+    other (Sections)."""
+    # The sound file's values first: the game's sound panel may have changed them since the page was last drawn.
+    app.state.sync_sound()
     ui, w = app.ui, app.words
     sections = Sections(app, parent, rows_that_come("sound"))
 
     def volume(holder):
         v = app.state.values
         made = card(holder, ui, w("sound.volumes"))
-        for i, (name, key) in enumerate((("music_volume", "sound.music"), ("key_volume", "sound.keys"))):
+        for i, (name, key) in enumerate((("master_volume", "sound.master"), ("music_volume", "sound.music"),
+                                         ("key_volume", "sound.keys"))):
             _row(made, ui, w(key),
                  lambda p, n=name: widgets.Slider(p, ui, v[n], lambda val, n=n: app.changed(n, val)),
                  w(key + ".hint"), first=i == 0)
+
+    def equalizer(holder):
+        # The equalizer's five bands, flat at 0, each -12 to 12 dB (the in-game layer's last stage, on the whole mix).
+        v = app.state.values
+        made = card(holder, ui, w("sound.eq"))
+        low, high = choices.EQ_RANGE
+        for i, name in enumerate(choices.EQ_BANDS):
+            _row(made, ui, w("sound." + name),
+                 lambda p, n=name: widgets.Slider(p, ui, v[n], lambda val, n=n: app.changed(n, val), low=low,
+                                                  high=high, unit=" dB"),
+                 w("sound." + name + ".hint"), first=i == 0)
 
     def output(holder):
         v = app.state.values
@@ -252,6 +267,7 @@ def build_sound(app, parent):
              w("sound.offset.hint"))
 
     sections.add("volume", volume)
+    sections.add("equalizer", equalizer)
     sections.add("output", output)
 
 

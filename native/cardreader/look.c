@@ -388,6 +388,43 @@ void look_mark(Sprite *s, float u, int lit)
 
 /* ------------------------------------------------------------------------------------------ the menu and question */
 
+/* A sound column of the panel (its box in the sprite at the panel's offset `o`): its value over it, a rail with the
+ * part up to the value lit (a volume from its foot, a band from its flat middle, marked), the value's knob as the
+ * launcher's slider's (blue while chosen, held or under the pointer, metal otherwise), its name under it. */
+static void sound_column(Canvas *c, const Card *card, const UiLayout *l, int i, float o, int chosen, int held,
+                         TextFn text, void *ctx)
+{
+    float u = l->u, dx = o - l->panel.x, dy = o - l->panel.y;
+    Box col = l->rows[i], t = l->track[i];
+    col.x += dx;
+    col.y += dy;
+    t.x += dx;
+    t.y += dy;
+    float mid = t.x + t.w / 2;
+    /* The value, over the column. */
+    text(ctx, c, card_state(card, i), l->px_small, mid, col.y + 7 * u, chosen ? 0xffffff : RGB_WORDS,
+         chosen ? TEXT_EDGE : 0);
+    /* The rail: a faint line the track's height. */
+    Paint rail = paint_solid(0xffffff, 0.16f);
+    paint_rect(c, (int)(mid - 1.5f * u), (int)t.y, (int)(3 * u + 0.5f), (int)t.h, &rail);
+    /* The lit part: from the foot for a volume, from the flat middle for a band (its middle marked across). */
+    float at = ui_sound_y(l, i, card->sound[i]) + dy;
+    float from = i < SOUND_EQ0 ? t.y + t.h : ui_sound_y(l, i, 0) + dy;
+    Paint lit = paint_solid(RGB_ACCENT, 0.9f);
+    float y0 = at < from ? at : from, y1 = at < from ? from : at;
+    paint_rect(c, (int)(mid - 1.5f * u), (int)y0, (int)(3 * u + 0.5f), (int)(y1 - y0 + 0.5f), &lit);
+    if (i >= SOUND_EQ0) {
+        Paint flat = paint_solid(0xffffff, 0.35f);
+        paint_rect(c, (int)(mid - 6 * u), (int)from, (int)(12 * u), 1, &flat);
+    }
+    /* The knob at the value. */
+    Box k = {mid - 9 * u, at - 4 * u, 18 * u, 8 * u};
+    gloss_button(c, &k, chosen ? &BLUE : &METAL, u, 0, held);
+    /* The name, under the track. */
+    text(ctx, c, card_label(card, i, NULL), card->korean ? l->px_small * look_ko_label : l->px_small, mid,
+         t.y + t.h + 7 * u, chosen ? 0xffffff : RGB_QUIET, chosen ? TEXT_EDGE : 0);
+}
+
 void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int pressed, TextFn text, void *ctx)
 {
     canvas_clear(s->content);
@@ -428,6 +465,10 @@ void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int p
         int lit = hover == i, held = pressed == i;
         /* Korean where English is in capitals: its own size, so both fill the button alike. */
         float px = card->korean ? l->px_button * look_ko_label : l->px_button;
+        if (card->open == CARD_SOUND) {
+            sound_column(s->content, card, l, i, o, lit || held || card->focus == i, held, text, ctx);
+            continue;
+        }
         if (card->open == CARD_QUIT) {
             /* The question's two: going on in the game's blue; quitting in quiet metal, red once it is the answer chosen
              * (the pointer on it, held, or the keys' ring on it). */
@@ -457,8 +498,16 @@ void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int p
             }
         }
     }
-    /* The keys' ring on the question's answer they are on (the menu's chosen row is its glossy plate). */
-    if (card->open == CARD_QUIT && card->focus >= 0 && card->focus < l->count) {
+    /* Between the three volumes and the equaliser's bands, a hairline down the panel. */
+    if (card->open == CARD_SOUND) {
+        Box a = l->rows[SOUND_EQ0 - 1], b = l->rows[SOUND_EQ0];
+        Paint sep = paint_solid(0xffffff, 0.12f);
+        paint_rect(s->content, (int)((a.x + a.w + b.x) / 2 + o - l->panel.x), (int)(a.y + o - l->panel.y + 4 * u), 1,
+                   (int)(a.h - 8 * u), &sep);
+    }
+    /* The keys' ring on the question's answer they are on, or the sound column (the menu's chosen row is its glossy
+     * plate). */
+    if ((card->open == CARD_QUIT || card->open == CARD_SOUND) && card->focus >= 0 && card->focus < l->count) {
         Box b = l->rows[card->focus];
         b.x += o - l->panel.x;
         b.y += o - l->panel.y;

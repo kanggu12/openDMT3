@@ -521,7 +521,7 @@ rm -f "$OUT/ingame.log"
 # The sound watched (OPENDMT3_SOUND_WATCH, the tests only): its log says when the tutorial's song starts.
 docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' \
   -e OPENDMT3_SOUND_WATCH=1 "$C" sh -c \
-  "wine '$APP' --mode offline --set vsync=off --set frame_pacing=music --set show_fps=on --set 'sound_device=$GUID' --set upscale=fsr1 --set sharpness=50 --set antialiasing=off --play > /out/play-offline.txt 2>&1; echo \"exit \$?\" >> /out/play-offline.txt"
+  "wine '$APP' --mode offline --set vsync=off --set frame_pacing=music --set show_fps=on --set 'sound_device=$GUID' --set upscale=fsr1 --set sharpness=50 --set antialiasing=off --set master_volume=80 --set eq_60=4 --set eq_1k=3 --play > /out/play-offline.txt 2>&1; echo \"exit \$?\" >> /out/play-offline.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline"
 grep -q "picture: vsync off, pacing even (openDMT3's clock), locked to a song's music" "$OUT/ingame.log" \
@@ -540,6 +540,36 @@ wait_log "sound: the engine's period on " 10 || fail "the layer did not say what
 grep "sound: the engine's period on " "$OUT/ingame.log" | sed 's/^/  /'
 grep -qE "sound: the engine's period on [^(]*\($GUID\): (held|unchanged|none-shorter|locked|refused|no-answer)" \
   "$OUT/ingame.log" || fail "the sound engine's period was not asked for on the chosen device $GUID"
+# The player's sound (the Sound page's master 80 % and two bands raised, from --set): the game started with them, and
+# the last stage of its sound is on the mix Windows' DirectSound writes (the stream's writer named in the log).
+grep -q "sound: master 80 %, music 100 %, key sounds 100 %, equaliser 4 0 3 0 0 dB" "$OUT/ingame.log" \
+  || fail "the game did not start with the Sound page's values ($(grep 'sound: master' "$OUT/ingame.log"))"
+grep -q "mix: the last stage of the game's sound (master volume, equaliser): in place" "$OUT/ingame.log" \
+  || fail "the last stage of the sound is not in place ($(grep 'mix:' "$OUT/ingame.log" | head -2))"
+wait_log "mix: a stream written by dsound.dll passes the last stage" 20 \
+  || fail "DirectSound's mix did not pass the last stage ($(grep 'mix:' "$OUT/ingame.log" | head -3))"
+grep "mix: a stream written by" "$OUT/ingame.log" | sed 's/^[0-9]* /  /'
+# The in-game sound panel: the menu's Sound (its third row), the master a step up with the Up key, then the key sounds
+# set by the launcher's command while the game runs: the game hears it within a second, and the file keeps both (each
+# writer changed its own line only). The panel where it belongs (under the X), nothing in the middle.
+show_bar; x "xdotool mousemove $MENU_AT sleep 0.4 click 1"; wait_s 1; focus
+x "xdotool key Down"; wait_s 0.3; x "xdotool key Down"; wait_s 0.3; x "xdotool key Return"; wait_s 0.8
+wait_log "layer: sound panel opened" 5 || fail "the menu's Sound did not open the sound panel"
+drew s1 sound || fail "the sound panel is not under the X, or something is in the middle"
+shot 07s-sound-panel
+x "xdotool key Up"; wait_s 1.5
+wait_log "layer: sound master_volume set to 85" 3 || fail "Up on the master did not raise it a step"
+SOUND_FILE=/w/drive_c/users/root/AppData/Roaming/openDMT3/sound.ini
+wait_log "sound: the sound's file written \(1 value\)" 5 || fail "the panel's change was not written to the sound file"
+docker exec "$C" grep -q "^master_volume=85$" "$SOUND_FILE" || fail "the sound file has not the panel's master 85"
+x "xdotool key Escape"; wait_s 1; away
+docker exec -e WINEPREFIX=/w -e WINEDEBUG=-all "$C" sh -c "wine '$APP' --set key_volume=50" >/dev/null 2>&1
+wait_log "sound: the music at 100 %, the key sounds at 50 %" 5 \
+  || fail "the launcher's key sounds' volume did not reach the running game ($(grep 'sound: the sound' "$OUT/ingame.log" | tail -2))"
+docker exec "$C" sh -c "grep -E '^(master_volume|key_volume|eq_60|eq_1k)=' $SOUND_FILE" | tr '\n' ' ' | sed 's/^/  the sound file: /'; echo
+for want in master_volume=85 key_volume=50 eq_60=4 eq_1k=3; do
+  docker exec "$C" grep -q "^$want$" "$SOUND_FILE" || fail "the sound file lost $want (one writer overwrote the other)"
+done
 wait_s 20
 # What openDMT3 adds to the frames, judged fairly (ingame/pace.py): each part of the layer shown for 8 s in turn, with
 # 8 s of nothing shown between (the chip, the bar, the question, the menu, a toast), on the title screen (it waits for
@@ -765,6 +795,25 @@ end=$((SECONDS + 40)); until grep -q "^exit " "$OUT/play-offline.txt" 2>/dev/nul
 cat "$OUT/play-offline.txt"
 grep -q "^exit 0" "$OUT/play-offline.txt" || fail "openDMT3-cmd --play did not return after the game ended"
 game_alive && fail "the game is still running offline"
+# The last stage's own time on the mix (the master and two bands), every 10 s of the run, against the 10 ms the
+# engine's period gives each buffer at most: a few percent of it, so the low latency path keeps its room; and the game's
+# streams never ran dry (the sound watch's underruns) with it on.
+grep "mix: [0-9]* buffers shaped" "$OUT/ingame.log" | tail -3 | sed 's/^[0-9]* /  /'
+python3 - "$OUT/ingame.log" <<'PY' || fail "the last stage of the sound took too long a buffer"
+import re, sys
+lines = [l for l in open(sys.argv[1], errors="replace") if "buffers shaped in 10 s" in l]
+assert lines, "no line of the last stage's time"
+each = [float(re.search(r"([0-9.]+) us each", l).group(1)) for l in lines]
+longest = max(float(re.search(r"longest ([0-9.]+) us", l).group(1)) for l in lines)
+print("  the last stage: %.1f us a buffer at the median, %.1f us the longest" % (sorted(each)[len(each) // 2], longest))
+sys.exit(0 if sorted(each)[len(each) // 2] < 500 and longest < 2000 else 1)
+PY
+under=$(grep -c "sound: underrun on stream" "$OUT/ingame.log")
+echo "  the game's streams' underruns with the last stage on: $under"
+[ "$under" = 0 ] || fail "the game's sound ran dry $under times with the last stage on"
+# The launcher took the panel's master back when the game ended (its log of the values PLAY started with next).
+docker exec "$C" sh -c "grep -c '^master_volume=85$' /w/drive_c/users/root/AppData/Roaming/openDMT3/sound.ini" >/dev/null \
+  || fail "the sound file lost the panel's master after the game ended"
 # The layer's note of the sound engine's period read into the launcher's log when the game ended (the Sound page and
 # --status show it from there), and the note gone.
 docker exec "$C" sh -c "grep -E 'the sound engine' $LOG | tail -1" | sed 's/^/  /'
@@ -782,12 +831,21 @@ rm -f "$OUT/ingame.log"
 # chip on.
 docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' \
   -e 'OPENDMT3_POSTFX_DUMP=Z:\out' -e OPENDMT3_SAFETY=off -e OPENDMT3_LAYER_TIMING=frame "$C" sh -c \
-  "wine '$APP' --mode offline --set upscale=fsr1 --set sharpness=80 --set antialiasing=smaa-high --set show_fps=on --set sound_path=openal --play > /out/play-picture.txt 2>&1; echo \"exit \$?\" >> /out/play-picture.txt"
+  "wine '$APP' --mode offline --set upscale=fsr1 --set sharpness=80 --set antialiasing=smaa-high --set show_fps=on --set sound_path=openal --set eq_12k=-2 --play > /out/play-picture.txt 2>&1; echo \"exit \$?\" >> /out/play-picture.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline the second time"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline the second time"
 # The Mixer on OpenAL Soft: PLAY put DSOAL and OpenAL Soft beside the library, and the game's DirectSound is DSOAL's.
 wait_log "sound: the game's sound goes through DSOAL and OpenAL Soft" 30 \
   || fail "the game's sound did not go through OpenAL Soft ($(grep 'sound:' "$OUT/ingame.log" | head -5))"
+# OpenAL Soft writes its own mix through Windows' audio client: the same last stage is on it (its writer named, not
+# DirectSound's), with the values the first game left in the sound file (master 85, key sounds 50) and the band set now.
+wait_log "mix: a stream written by .* passes the last stage" 20 \
+  || fail "OpenAL Soft's mix did not pass the last stage ($(grep 'mix:' "$OUT/ingame.log" | head -3))"
+grep "mix: a stream written by" "$OUT/ingame.log" | sed 's/^[0-9]* /  /'
+grep "mix: a stream written by" "$OUT/ingame.log" | grep -qv "written by dsound.dll" \
+  || fail "the stream that passed the last stage was DirectSound's, not OpenAL Soft's"
+grep -q "sound: master 85 %, music 100 %, key sounds 50 %, equaliser 4 0 3 0 -2 dB" "$OUT/ingame.log" \
+  || fail "the second game did not start with the values the first left ($(grep 'sound: master' "$OUT/ingame.log"))"
 grep -q "upscale fsr1, sharpness 80, anti-aliasing smaa-high" "$OUT/ingame.log" \
   || fail "the picture options did not reach the layer ($(grep 'start:' "$OUT/ingame.log"))"
 grep -q "post: on" "$OUT/ingame.log" || fail "the post-process chain did not start ($(grep 'post:' "$OUT/ingame.log" | tail -3))"

@@ -9,6 +9,7 @@ import os
 import re
 import time
 
+from opendmt3.client import sound_file
 from opendmt3.core import game as g
 from opendmt3.core.backup import Backup
 from opendmt3.core.cabinet import launch, steps, values as choices
@@ -363,6 +364,9 @@ def _play(state, report, popen, host, card):
         finally:
             took.append("%s %.1f s" % (name, time.perf_counter() - at))
 
+    # The sound values as the sound file has them now (changed in the last game's sound panel), before setting.ini is
+    # written from them and the game's environment is made.
+    state.sync_sound()
     # The game folder found once for the whole PLAY (finding it lists the folder: 0.7 s under Wine each time).
     game = timed("client data", state.game)
     if state.mode == "this_pc":
@@ -389,8 +393,10 @@ def _play(state, report, popen, host, card):
     timed("card", lambda: put_card(own, card if state.mode in ("this_pc", "server") else None))
     kwargs = {} if popen is None else {"popen": popen}
     # The in-game layer's choices (language, pointer, frame limit, sound device) travel in the game's environment.
-    session = timed("start", lambda: launch.start(game, own, env=choices.layer_environment(state.values, state.language),
-                                                  **kwargs))
+    # The sound file itself, for the game's panel to write and to watch.
+    env = choices.layer_environment(state.values, state.language)
+    env["OPENDMT3_SOUND_FILE"] = state.sound_path or sound_file.path_beside(state.path())
+    session = timed("start", lambda: launch.start(game, own, env=env, **kwargs))
     # One line for the log: how long PLAY took to start the game, and each part of it.
     log.info("PLAY started the game in %.1f s (%s)", time.perf_counter() - began, ", ".join(took))
     return session
@@ -413,6 +419,8 @@ def finish(state, session):
         "crashed": dumps > 0 or (code not in (0, None) and seconds < 30),
     }
     state.last_session = record
+    # What the player changed in the game's sound panel, back in the launcher's values.
+    state.sync_sound()
     # One line for the log: how the run ended (a report for an issue reads it, and so do the Wine tests).
     log.info("the game closed after %d s (exit code %s, %d crash dump(s))", seconds, code, dumps)
     # The layer's safety net, when it stepped the picture down in this run: into the log, then the note goes.

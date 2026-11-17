@@ -1612,6 +1612,50 @@ class LauncherTest(FolderCase):
         widgets.Slider._drag(s, SimpleNamespace(x=160))
         self.assertEqual(s.value, 50)
 
+    def test_the_sound_file_is_shared_by_the_launcher_and_the_game_without_either_overwriting(self):
+        import re
+        from opendmt3.client import sound_file
+        from opendmt3.client import state as st
+        # The game's own reader and writer names the same values in the same order (native/cardreader/logic.c).
+        logic = open(os.path.join(os.path.dirname(__file__), "..", "..", "native", "cardreader", "logic.c"),
+                     encoding="utf-8").read()
+        names = re.search(r"SOUND_NAMES\[SOUND_VALUES\] = \{([^}]*)\}", logic).group(1)
+        self.assertEqual(tuple(re.findall(r'"([a-z0-9_]+)"', names)), values.SOUND_FILE_VALUES)
+        # Read: known lines in range; a bad or unknown line as if absent. Merged: only the changed lines, the rest (the
+        # other writer's values, comments) as they were; a missing one added; a second copy dropped.
+        self.assertEqual(sound_file.parse("# x\nmaster_volume = 80\r\nmusic_volume=101\neq_1k=-3\nother=5\n"),
+                         {"master_volume": 80, "eq_1k": -3})
+        self.assertEqual(sound_file.merge("# x\nmaster_volume=55\nkey_volume=90\nkey_volume=91\n",
+                                          {"key_volume": 40, "eq_12k": 0}),
+                         "# x\nmaster_volume=55\nkey_volume=40\neq_12k=0\n")
+        # An upgrade: the volumes a player had in launcher.json come into the new file unchanged, so the game plays as
+        # loud as before (setting.ini from the same values).
+        settings = os.path.join(self.config, "launcher.json")
+        with open(settings, "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "values": {"music_volume": 40, "key_volume": 65}}, f)
+        state = st.LauncherState.load()
+        found = sound_file.read(sound_file.path_beside(settings))
+        self.assertEqual((found["music_volume"], found["key_volume"], found["master_volume"], found["eq_60"]),
+                         (40, 65, 100, 0))
+        self.assertEqual(values.ini_changes(state.values)["bgm_volume"], str(values.to_game_volume(40)))
+        # The game's panel writes its lines (as soundset.c does): the launcher takes them at its next read, and a value
+        # the launcher sets meanwhile changes only its own line.
+        path = sound_file.path_beside(settings)
+        sound_file.write(path, {"master_volume": 70, "eq_4k": 5})
+        state.set_value("key_volume", 30)
+        self.assertEqual(sound_file.read(path)["master_volume"], 70)
+        state.sync_sound()
+        self.assertEqual((state.values["master_volume"], state.values["eq_4k"], state.values["key_volume"]), (70, 5, 30))
+        # The game starts with them, and is told the file.
+        env = values.layer_environment(state.values)
+        self.assertIn("master_volume=70", env["OPENDMT3_SOUND_VALUES"])
+        self.assertIn("eq_4k=5", env["OPENDMT3_SOUND_VALUES"])
+        # 0 % is never 0 in setting.ini (the layer silences it and can raise it again while the game runs).
+        self.assertEqual(values.to_game_volume(0), 1)
+        self.assertEqual(values.to_game_volume(100), 127)
+        with self.assertRaises(values.ChoiceError):
+            values.normalize({"eq_60": 13})
+
     def test_motion_clarity_is_offered_only_at_whole_multiples_of_60_hz(self):
         import sys
         from opendmt3.client import window_room

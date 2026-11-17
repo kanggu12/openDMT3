@@ -46,8 +46,10 @@ TOKEN = "remove-everything"
 
 # What the launcher writes in its own folder (state.config_dir()), and nothing else, is what delete_data() takes,
 # file by file and by the names the launcher gives them. Anything else stays, and the folders holding it.
-DATA_FILES = ("launcher.json", "update-pending.json", TOKEN)
-DATA_PREFIXES = ("launcher.json.broken-", ".launcher-")
+# The sound file both the launcher and the game write (sound_file.py, native/cardreader/soundset.c), with its lock and
+# their temporary files.
+DATA_FILES = ("launcher.json", "update-pending.json", TOKEN, "sound.ini", "sound.ini.lock", "sound.ini.tmp-ingame")
+DATA_PREFIXES = ("launcher.json.broken-", ".launcher-", ".sound-")
 # The log and the two before it (main._logging).
 LOG_NAME = re.compile(r"^launcher\.log(\.\d+)?$")
 # This PC's server (client/hosting.py, server/__main__.py): the database with its journal files and the copies

@@ -313,26 +313,32 @@ int hold_keys(uint8_t keys[256], int card_open, int waiting);
 
 /* ------------------------------------------------------------------------------------------ menu and question */
 
-enum { CARD_NONE = 0, CARD_MENU = 1, CARD_QUIT = 2 };
+enum { CARD_NONE = 0, CARD_MENU = 1, CARD_QUIT = 2, CARD_SOUND = 3 };
 /* What a key or a choice does. */
-enum { ACT_NONE = 0, ACT_REDRAW = 1, ACT_CLOSE = 2, ACT_QUIT = 3, ACT_FPS = 4 };
+enum { ACT_NONE = 0, ACT_REDRAW = 1, ACT_CLOSE = 2, ACT_QUIT = 3, ACT_FPS = 4,
+       ACT_SOUND_OPEN = 5,  /* the menu's Sound: the sound panel in its place */
+       ACT_SOUND = 6 };     /* the keys moved the focused value of the sound panel by c->step steps */
 
 typedef struct {
-    int open;              /* CARD_NONE, CARD_MENU or CARD_QUIT */
+    int open;              /* CARD_NONE, CARD_MENU, CARD_QUIT or CARD_SOUND */
     int focus;             /* the row or answer the keyboard's ring is on */
     int korean;
     int fps;               /* whether the frame rate chip shows (the menu's Show FPS row says it and turns it) */
     int song;              /* a song plays: the question says what quitting loses only then (on the game's menus it
                             * would not be true) */
+    int sound[8];          /* the sound panel's values as they are (SoundValues' order: master, music, keys, the five
+                            * bands), copied in by the layer before it draws */
+    int step;              /* the keys' last move of a sound value (ACT_SOUND): +1 or -1 steps */
 } Card;
 
-/* How many answers the card has: the menu's three rows (Back to the game, Show FPS, Quit the game), the question's
- * two (Keep playing, Quit the game). */
+/* How many answers the card has: the menu's four rows (Back to the game, Show FPS, Sound, Quit the game), the
+ * question's two (Keep playing, Quit the game), the sound panel's eight columns (master, music, key sounds, then the
+ * equaliser's five bands). */
 int card_count(const Card *c);
 /* The words of answer i, in the card's language (UTF-8, in capitals as the game writes its buttons); whether it is the
  * one that quits. */
 const char *card_label(const Card *c, int i, int *danger);
-/* The state a row shows at its right (Show FPS: ON or OFF), or NULL. */
+/* The state a row shows at its right (Show FPS: ON or OFF), a sound column's value over it (80, +3), or NULL. */
 const char *card_state(const Card *c, int i);
 /* The question's title and its one line (as the game writes its own: a sentence); NULL for the menu, which has
  * neither. The line is there only while a song plays (c->song): NULL on the game's menus. */
@@ -345,6 +351,8 @@ int card_key(Card *c, unsigned vk);
 /* Answer i chosen (Enter or a click): what it does. The menu's Show FPS turns c->fps over and leaves the menu open
  * (ACT_FPS); the layer shows or hides the chip by it. */
 int card_choose(Card *c, int i);
+/* A sound value's step for the keys and the wheel: 5 % for a volume, 1 dB for a band. */
+int sound_step(int which);
 
 /* ------------------------------------------------------------------------------------------------- layout */
 
@@ -373,9 +381,10 @@ typedef struct {
     Box panel;             /* the menu or the question, hanging from the bar's foot under its chip (w 0: none open) */
     Box tab;               /* the question's title tab, hanging from the panel's top edge */
     float line_y;          /* the question's one line, its capitals' middle (with no line: none) */
-    Box rows[4];           /* the menu's rows, or the question's answers side by side */
+    Box rows[8];           /* the menu's rows, the question's answers side by side, or the sound panel's columns */
+    Box track[8];          /* the sound panel's columns' tracks: a value's place, its highest at the top */
     int count;
-    float px_name, px_title, px_line, px_button;   /* type sizes, output pixels */
+    float px_name, px_title, px_line, px_button, px_small;   /* type sizes, output pixels */
 } UiLayout;
 void ui_layout(const Card *c, int area_w, int area_h, UiLayout *out);
 
@@ -383,6 +392,10 @@ void ui_layout(const Card *c, int area_w, int area_h, UiLayout *out);
  * answer (0 to 3), the open panel elsewhere, the bar elsewhere, or nothing of the layer's. */
 enum { HIT_NONE = -1, HIT_MENU = 100, HIT_X = 101, HIT_PANEL = 102, HIT_BAR = 103, HIT_MIN = 104, HIT_FULL = 105 };
 int ui_hit(const UiLayout *l, float x, float y);
+/* The sound panel's value at height y on column i's track (a press or a drag there sets it), and the height a value
+ * stands at on it. */
+int ui_sound_value_at(const UiLayout *l, int i, float y);
+float ui_sound_y(const UiLayout *l, int i, int value);
 /* The chip a hit is on (CHIP_*), or -1 for any other hit. */
 int ui_hit_chip(int hit);
 
@@ -645,5 +658,58 @@ float slide_top(float place, float rows, float h, float shade);
  * the layer's. A press counts against the places the parts stood at when it was pressed, so a chip pressed while the
  * bar still comes down acts too. */
 int ui_hit_moved(const UiLayout *l, float x, float y, float bar_dy, float panel_dy);
+
+/* ---------------------------------------------------------------------------------------------- the sound's values */
+
+/* The sound the player sets (the 0.4.0 list's #11), on the launcher's Sound page and in the in-game menu's sound panel
+ * alike, kept in one file both write (sound.ini beside the launcher's settings, OPENDMT3_SOUND_FILE): the master
+ * volume, the music's and the key sounds' (percent), and a five-band equaliser (whole dB, -12 to 12). */
+#define EQ_BANDS 5
+#define EQ_MAX_DB 12
+enum { SOUND_MASTER = 0, SOUND_MUSIC, SOUND_KEYS, SOUND_EQ0, SOUND_VALUES = SOUND_EQ0 + EQ_BANDS };
+typedef struct {
+    int v[SOUND_VALUES];   /* master, music, keys in percent (0 to 100), then each band's gain in dB */
+} SoundValues;
+/* The bands' middles (a low shelf, three peaks, a high shelf) and each value's name in the file. */
+extern const int EQ_HZ[EQ_BANDS];
+extern const char *const SOUND_NAMES[SOUND_VALUES];
+/* Everything at 100 % and flat. */
+void sound_values_default(SoundValues *s);
+/* A value kept within its range (percent 0 to 100, a band -12 to 12). */
+int sound_value_clamp(int which, int value);
+/* The file's lines read over `s` (a name=value line a value; a line it does not know, or one out of range, left as
+ * `s` had it). Returns a mask of the values the text named. */
+unsigned sound_values_parse(const char *text, SoundValues *s);
+/* The file again with the values in `changed` (a mask) set from `s` and every other line as it was (another writer's
+ * value kept): `old` the file as read just now (NULL or empty: none yet), `out` the new text. Returns its length, or -1
+ * when it does not fit. */
+int sound_values_merge(const char *old, const SoundValues *s, unsigned changed, char *out, int size);
+
+/* A DirectSound volume (hundredths of a dB, 0 the loudest) for a buffer the game set to `game_v`, with the music's or
+ * the key sounds' percent moved from `launch` (what setting.ini gave the game at its start, which made `game_v`) to
+ * `now`: the game's own loudness at the start, the change on top of it (no louder than DirectSound's 0), silent at 0 %. */
+long volume_moved(long game_v, int launch, int now);
+
+/* The last stage of the game's sound, on its way to Windows (the mix's buffers, sound.c): the master volume and the
+ * equaliser, five biquad filters (RBJ's cookbook) one after the other on each channel. */
+typedef struct {
+    float b0, b1, b2, a1, a2;
+} Biquad;
+#define MIX_CHANNELS 8
+typedef struct {
+    int on;                /* anything to do: off (the buffers untouched) at 100 % and flat */
+    float gain;            /* the master volume as an amplitude */
+    int bands;             /* the bands not flat, in `band` */
+    Biquad band[EQ_BANDS];
+} MixShape;
+typedef struct {
+    float z1[EQ_BANDS][MIX_CHANNELS], z2[EQ_BANDS][MIX_CHANNELS];
+} MixState;
+/* The shape for these values at a sample rate. */
+void mix_shape(MixShape *m, const SoundValues *s, int rate);
+/* Run over interleaved samples in place: 32-bit float, or 16-bit and 32-bit whole numbers (kept within their range). */
+void mix_run_float(const MixShape *m, MixState *st, float *x, int frames, int channels);
+void mix_run_s16(const MixShape *m, MixState *st, int16_t *x, int frames, int channels);
+void mix_run_s32(const MixShape *m, MixState *st, int32_t *x, int frames, int channels);
 
 #endif

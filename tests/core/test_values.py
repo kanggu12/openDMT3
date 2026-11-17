@@ -112,7 +112,9 @@ class LayerChoicesTest(unittest.TestCase):
                                "OPENDMT3_PICTURE_SHAPE": "keep", "OPENDMT3_PASS_TIMES": "off",
                                "OPENDMT3_LOW_LATENCY": "on", "OPENDMT3_SOUND_PATH": "directsound",
                                "OPENDMT3_RENDER": "game", "OPENDMT3_AUDIO_OFFSET": "0",
-                               "OPENDMT3_MOTION_CLARITY": "off", "OPENDMT3_FLIP_MODEL": "off"})
+                               "OPENDMT3_MOTION_CLARITY": "off", "OPENDMT3_FLIP_MODEL": "off",
+                               "OPENDMT3_SOUND_VALUES": "master_volume=100;music_volume=100;key_volume=100;eq_60=0;"
+                                                        "eq_250=0;eq_1k=0;eq_4k=0;eq_12k=0"})
         # Who mixes the game's sounds: Windows' DirectSound unless OpenAL Soft is chosen, by the layer's names.
         self.assertEqual(values.DEFAULTS["sound_path"], "directsound")
         self.assertEqual(values.layer_environment({"sound_path": "OpenAL"})["OPENDMT3_SOUND_PATH"], "openal")

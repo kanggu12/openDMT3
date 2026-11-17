@@ -639,6 +639,8 @@ int layer_parts(LayerPart *out, int max, int w, int h)
     g_toast.v = slide_at(&g_toast_slide, now);
     step(&g_fps, dt, fade_ms, fade_ms);
     step(&g_mark, dt, fade_ms, fade_ms);
+    /* The sound panel's values as they are now (the panel's, or the launcher's change while it is open). */
+    memcpy(g_card.sound, soundset_values()->v, sizeof g_card.sound);
     /* The panel drawn is the open one, or the last one while it slides back up. */
     if (open)
         g_shown = g_card;
@@ -734,8 +736,11 @@ int layer_parts(LayerPart *out, int max, int w, int h)
      * closes. Drawn before the bar, which lies over what of it is still under the bar. */
     if (g_panel.v > 0.0f && g_lay.panel.w > 0 && n < max) {
         int hover = g_hover >= 0 ? g_hover : -1, held = g_pressed >= 0 && g_pressed == g_hover ? g_pressed : -1;
-        int key = ((((g_shown.open * 8 + g_shown.focus) * 2 + g_shown.fps) * 2 + g_shown.korean) * 8 + hover + 1) * 8 +
+        int key = ((((g_shown.open * 8 + g_shown.focus) * 2 + g_shown.fps) * 2 + g_shown.korean) * 16 + hover + 1) * 16 +
                   held + 1;
+        /* The sound panel drawn again when a value changes (by its knob, its keys or the launcher). */
+        if (g_shown.open == CARD_SOUND)
+            key = (int)((unsigned)key * 131u + (unsigned)soundset_version());
         if (key != g_drawn_panel && sprite_for(&g_s_panel, g_lay.panel.w, g_lay.panel.h, 8 * u)) {
             redraw_start();
             look_panel(&g_s_panel, &g_shown, &g_lay, hover, held, text_gdi, NULL);
@@ -958,8 +963,36 @@ static void set_fps(int on)
 }
 
 /* Do what a key or a choice asked for. */
+/* A sound value set from the panel, said in the log once its knob or key lets go of it (each change goes to the sound
+ * at once and to the file soon after: soundset.c). */
+static void sound_set(int which, int value)
+{
+    int before = soundset_values()->v[which];
+    soundset_change(which, value);
+    if (soundset_values()->v[which] != before)
+        ingame_log("layer: sound %s set to %d", SOUND_NAMES[which], soundset_values()->v[which]);
+}
+
+/* The sound column under a press or a drag at height y (on the screen, the panel where it stands now): its value. */
+static void sound_at(int column, float y)
+{
+    UiLayout moved = g_lay;
+    sound_set(column, ui_sound_value_at(&moved, column, y - g_panel_dy));
+}
+
 static void act(int what)
 {
+    if (what == ACT_SOUND_OPEN) {
+        /* The sound panel in the menu's place (its card switched by card_choose). */
+        ingame_log("layer: sound panel opened");
+        return;
+    }
+    if (what == ACT_SOUND) {
+        /* Up or Down on a column: its value a step on. */
+        int f = g_card.focus;
+        sound_set(f, soundset_values()->v[f] + g_card.step * sound_step(f));
+        return;
+    }
     if (what == ACT_FPS)
         /* The menu stays, its row now saying the other state. */
         set_fps(g_card.fps);
@@ -1189,6 +1222,11 @@ static int pointer_pressed(float x, float y)
     if (hit != HIT_NONE) {
         /* On the layer: held there until the button comes up (a click counts where it began and ended). */
         g_pressed = hit;
+        /* A sound column: its value where it was pressed, the ring on it. */
+        if (g_card.open == CARD_SOUND && hit >= 0 && hit < card_count(&g_card)) {
+            g_card.focus = hit;
+            sound_at(hit, y);
+        }
         g_keys_waiting = 1;
         SetCapture(g_game);
         return 1;
@@ -1304,9 +1342,12 @@ static LRESULT CALLBACK game_proc(HWND h, UINT msg, WPARAM w, LPARAM l)
     case WM_MOUSEMOVE:
         g_mouse_down = (w & MK_LBUTTON) != 0;
         pointer_moved((short)LOWORD(l), (short)HIWORD(l), x, y, BUTTONS_HELD(w));
-        /* A drag that began on the layer stays the layer's. */
-        if (g_pressed != HIT_NONE)
+        /* A drag that began on the layer stays the layer's; on a sound column it moves its value. */
+        if (g_pressed != HIT_NONE) {
+            if (g_card.open == CARD_SOUND && g_pressed >= 0 && g_pressed < card_count(&g_card) && (w & MK_LBUTTON))
+                sound_at(g_pressed, y);
             return 0;
+        }
         break;
     case WM_POINTERDOWN:
     case WM_POINTERUPDATE:
@@ -1333,6 +1374,15 @@ static LRESULT CALLBACK game_proc(HWND h, UINT msg, WPARAM w, LPARAM l)
          * procedure never gets it, as it would end the game at once (measured under Wine: exit 0, no close request). */
         if ((w & 0xFFF0) == SC_CLOSE && !g_quitting) {
             open_card(CARD_QUIT);
+            return 0;
+        }
+        break;
+    case WM_MOUSEWHEEL:
+        /* The wheel over the sound panel: the column under the pointer (or the ring's) a step up or down a notch. */
+        if (g_card.open == CARD_SOUND) {
+            int f = g_hover >= 0 && g_hover < card_count(&g_card) ? g_hover : g_card.focus;
+            g_card.focus = f;
+            sound_set(f, soundset_values()->v[f] + ((short)HIWORD(w) > 0 ? 1 : -1) * sound_step(f));
             return 0;
         }
         break;

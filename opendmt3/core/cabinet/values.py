@@ -98,6 +98,20 @@ VOLUME_MAX = 127
 # frames ahead of the game's own start would need more than one frame a refresh on a 60 Hz display.
 AUDIO_OFFSET_RANGE = (0, 500)
 
+# The player's sound in the file the launcher and the in-game layer both write (client/sound_file.py, sound.ini; the
+# layer's native/cardreader/soundset.c, SOUND_NAMES in logic.c in this order): the master volume, the music's and the
+# key sounds' (percent), and the equaliser's five bands by their middles (60 Hz low shelf, three peaks, 12 kHz high
+# shelf), each a whole number of dB from -12 to 12.
+EQ_BANDS = ("eq_60", "eq_250", "eq_1k", "eq_4k", "eq_12k")
+EQ_RANGE = (-12, 12)
+SOUND_FILE_VALUES = ("master_volume", "music_volume", "key_volume") + EQ_BANDS
+
+
+def sound_range(name):
+    """A sound value's range: a volume 0 to 100 percent, a band EQ_RANGE in dB."""
+    return EQ_RANGE if name in EQ_BANDS else (0, 100)
+
+
 # Every choice with its default. The defaults are the game's own values in its original setting.ini, except the
 # mouse pointer, which a PC needs (the cabinet hid it under the touch screen).
 DEFAULTS = {
@@ -108,8 +122,10 @@ DEFAULTS = {
     "videos": True,                 # setting.ini UseVedio=true (the background videos behind the notes)
     "preload": False,               # setting.ini resource_preload=false and PreLoadMovie=false
     "cursor": True,                 # setting.ini show_cursor: shown for a mouse, hidden for a touch screen
-    "music_volume": 100,            # percent of bgm_volume 127
-    "key_volume": 100,              # percent of sfx_volume 127 (notes and key sounds)
+    "master_volume": 100,           # percent of the whole mix (the layer's last stage: not a setting.ini line)
+    "music_volume": 100,            # percent of bgm_volume 127 (the layer moves the game's music from it while it runs)
+    "key_volume": 100,              # percent of sfx_volume 127 (notes and key sounds; the same)
+    "eq_60": 0, "eq_250": 0, "eq_1k": 0, "eq_4k": 0, "eq_12k": 0,  # the equaliser's bands, flat (the layer's)
     "frame_pacing": "music",        # 60.0 a second by openDMT3's clock, led by a song's music (measured: the notes
                                     # stay within a frame of the music over a song; the client's own steps fall behind
                                     # it by about a quarter of a second a minute); not a setting.ini line
@@ -135,7 +151,7 @@ DEFAULTS = {
 # The choices openDMT3's in-game layer reads when the game starts, not lines of setting.ini.
 LAYER_CHOICES = ("frame_pacing", "show_fps", "fps_position", "sound_device", "upscale", "sharpness", "antialiasing",
                  "picture_shape", "pass_times", "low_latency", "sound_path", "render_size", "audio_offset",
-                 "motion_clarity", "flip_model")
+                 "motion_clarity", "flip_model", "master_volume") + EQ_BANDS
 
 
 class ChoiceError(ValueError):
@@ -174,6 +190,18 @@ def _percent(name, value):
     # Out-of-range numbers are refused rather than clamped, so a typo never passes silently.
     if not 0 <= number <= 100:
         raise ChoiceError("%s takes a number from 0 to 100, not %r" % (name, value))
+    return number
+
+
+def _decibels(name, value, low, high):
+    """A whole number of decibels within the range given, refused rather than clamped (as the percentages are)."""
+    words = "%s takes a number of dB from %d to %d, not %r" % (name, low, high, value)
+    try:
+        number = int(str(value).strip())
+    except (TypeError, ValueError):
+        raise ChoiceError(words) from None
+    if not low <= number <= high:
+        raise ChoiceError(words)
     return number
 
 
@@ -234,8 +262,10 @@ def normalize(values):
             else:
                 raise ChoiceError("sound_device takes default or a device's GUID ({xxxxxxxx-xxxx-xxxx-xxxx-"
                                   "xxxxxxxxxxxx}, as --sound-devices lists them), not %r" % value)
-        elif name in ("music_volume", "key_volume", "sharpness"):
+        elif name in ("master_volume", "music_volume", "key_volume", "sharpness"):
             out[name] = _percent(name, value)
+        elif name in EQ_BANDS:
+            out[name] = _decibels(name, value, *EQ_RANGE)
         elif name == "audio_offset":
             out[name] = _milliseconds(name, value, *AUDIO_OFFSET_RANGE)
         else:
@@ -245,8 +275,10 @@ def normalize(values):
 
 
 def to_game_volume(percent):
-    """Percent (0 to 100) on the game's 0 to 127 scale, rounded to the nearest step."""
-    return int(round(percent * VOLUME_MAX / 100.0))
+    """Percent (0 to 100) on the game's 0 to 127 scale, rounded to the nearest step; never 0: the game sets its buffers'
+    volumes from it, and the in-game layer moves them from there when the player changes the volume while the game runs
+    (a game started at 0 would have nothing to move), so 0 % is the layer's own silence (logic.c volume_moved)."""
+    return max(1, int(round(percent * VOLUME_MAX / 100.0)))
 
 
 def ini_changes(values):
@@ -315,6 +347,9 @@ def layer_environment(values, language="en"):
         "OPENDMT3_RENDER": v["render_size"],
         # The frames kept this many milliseconds behind a song's music (whole milliseconds as decimal text; 0: none).
         "OPENDMT3_AUDIO_OFFSET": str(v["audio_offset"]),
+        # The player's sound values as the game starts with them (setting.ini has the same music and key sounds'), in
+        # the sound file's names, one "name=value" each, ";" between.
+        "OPENDMT3_SOUND_VALUES": ";".join("%s=%d" % (n, v[n]) for n in SOUND_FILE_VALUES),
         # Each frame shown whole, or over its refreshes as a CRT's beam or black frames, by the layer's names.
         "OPENDMT3_MOTION_CLARITY": v["motion_clarity"],
         # The borderless full screen's frames handed to Windows' compositor (flipped) instead of copied into it.

@@ -192,6 +192,9 @@ static void mixer_note(int played, const char *failed, unsigned long hr)
 
 static HRESULT WINAPI our_ds8(LPCGUID dev, LPDIRECTSOUND8 *out, LPUNKNOWN outer)
 {
+    /* The player's sound values, and the last stage of the sound in place before any mixer opens its stream. */
+    soundset_start();
+    mix_install();
     char text[39];
     format_guid(g_settings.device, text);
     /* The launcher's Mixer through OpenAL Soft (openal.c): DSOAL's DirectSound on the same device, its objects
@@ -249,6 +252,9 @@ static HRESULT WINAPI our_ds8(LPCGUID dev, LPDIRECTSOUND8 *out, LPUNKNOWN outer)
 
 static HRESULT WINAPI our_ds(LPCGUID dev, LPDIRECTSOUND *out, LPUNKNOWN outer)
 {
+    /* As for DirectSoundCreate8. */
+    soundset_start();
+    mix_install();
     char text[39];
     format_guid(g_settings.device, text);
     /* The older call takes no Mixer: Windows' own DirectSound plays (the game imports DirectSoundCreate8). */

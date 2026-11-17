@@ -77,6 +77,7 @@ typedef struct {
     DWORD last_cursor;
     LONG underruns;
     LONG started_frame;
+    LONG game_v;            /* the volume the game last set on it (0, the loudest, until it sets one) */
     DWORD block;            /* bytes in a 20 ms block */
     DWORD *hash;            /* each block's content hash from the last lap (0: not seen yet) */
     DWORD checked;          /* the next block to read before the play cursor reaches it */
@@ -88,6 +89,11 @@ static Watched g_w[WATCHED];
 /* Each buffer's slot by its address (logic.c's slot index): a DirectSound call finds its buffer in a step or two, where
  * a walk over the 4096 slots took up to 4096 (the game calls Play and Unlock for each key sound it plays). */
 static SlotIndex g_index;
+/* The music's and the key sounds' volumes (percent): what setting.ini gave the game at its start (OPENDMT3_MUSIC_VOLUME,
+ * OPENDMT3_KEY_VOLUME), from which the game sets its buffers' volumes itself, and what the player has set since (the
+ * in-game sound panel, or the launcher's Sound page while the game runs): the buffers move by the difference
+ * (logic.c volume_moved). [0] the music, [1] the key sounds. */
+static int g_volume_start[2] = {100, 100}, g_volume_now[2] = {100, 100};
 /* The free slots, a stack (filled on the first buffer: slot 0 on top). */
 static int g_free[WATCHED], g_nfree = -1;
 /* The slots of the music playing now (music, playing, its buffer alive), which is all the frame's own work looks at
@@ -105,6 +111,30 @@ static Watched *find(IDirectSoundBuffer *b)
 {
     int slot = slot_index_get(&g_index, b);
     return slot >= 0 ? &g_w[slot] : NULL;
+}
+
+/* Whether a buffer is the music's (1: a loop, the menus', or one of 10 s or more, a song's) or a key sound's (0), for
+ * the two volumes: the game sets them from setting.ini's bgm_volume and sfx_volume. */
+static int is_music(const Watched *w)
+{
+    return w->looping || (w->bytes_a_second && w->size >= 10 * w->bytes_a_second);
+}
+
+/* The volume a buffer plays at for the game's own `v`: moved by its kind's change since the game's start. */
+static LONG moved_volume(IDirectSoundBuffer *b, LONG v)
+{
+    Watched *w = find(b);
+    if (!w)
+        return v;
+    int k = is_music(w) ? 0 : 1;
+    return (LONG)volume_moved(v, g_volume_start[k], g_volume_now[k]);
+}
+
+/* Whether a kind's volume is moved from the game's start (a buffer's own volume then needs ours at its play). */
+static int volume_is_moved(const Watched *w)
+{
+    int k = is_music(w) ? 0 : 1;
+    return g_volume_now[k] != g_volume_start[k];
 }
 
 /* A slot in the list of the music playing, or out of it, as its entry says now (called wherever its buffer, its playing
@@ -208,6 +238,10 @@ static HRESULT STDMETHODCALLTYPE our_play(IDirectSoundBuffer *b, DWORD r, DWORD 
         w->playing = 1;
         /* Music that plays: in the frame's list. */
         music_list(w);
+        /* The player's volume for its kind, moved since the game's start: on it before it sounds (the game set its
+         * own, or none, before the play). */
+        if (volume_is_moved(w) && real_set_volume)
+            real_set_volume(b, moved_volume(b, w->game_v));
     }
     /* Started while the music fades back in after a hold: at the fade's share, so it comes in with the rest. */
     join_fade_in(b);
@@ -474,6 +508,11 @@ static void set_share(Held *h, double k)
 
 static HRESULT STDMETHODCALLTYPE our_set_volume(IDirectSoundBuffer *b, LONG v)
 {
+    /* The game's own volume kept, the player's move put on it. */
+    Watched *w = find(b);
+    if (w)
+        w->game_v = v;
+    LONG mine = moved_volume(b, v);
     /* During a fade, the game's own volume for a held buffer becomes the fade's goal, and the fade's share of it is what
      * plays: the game sets its sounds' volumes while they play (16 or 17 times over a song's fade in: measured), which
      * would otherwise undo the fade's step. */
@@ -481,10 +520,44 @@ static HRESULT STDMETHODCALLTYPE our_set_volume(IDirectSoundBuffer *b, LONG v)
         for (int i = 0; i < g_nheld; i++)
             if (g_held[i].buf == b) {
                 g_game_volume_calls++;
-                g_held[i].volume = v;
-                return real_set_volume(b, volume_at(v, g_held[i].k));
+                g_held[i].volume = mine;
+                return real_set_volume(b, volume_at(mine, g_held[i].k));
             }
-    return real_set_volume(b, v);
+    return real_set_volume(b, mine);
+}
+
+void sound_volumes_start(int music, int keys)
+{
+    /* What setting.ini gave the game (the launcher writes it from the same values), and so where the player starts. */
+    g_volume_start[0] = g_volume_now[0] = music;
+    g_volume_start[1] = g_volume_now[1] = keys;
+}
+
+void sound_volumes(int music, int keys)
+{
+    if (music == g_volume_now[0] && keys == g_volume_now[1])
+        return;
+    g_volume_now[0] = music;
+    g_volume_now[1] = keys;
+    if (!real_set_volume)
+        return;
+    /* Every buffer the game has: at its new volume now, a held one when it goes on (its fade comes up to it). */
+    for (int i = 0; i < WATCHED; i++) {
+        Watched *w = &g_w[i];
+        if (!w->buf)
+            continue;
+        int held = -1;
+        for (int k = 0; k < g_nheld; k++)
+            if (g_held[k].buf == w->buf)
+                held = k;
+        LONG v = moved_volume(w->buf, w->game_v);
+        if (held >= 0)
+            g_held[held].volume = v;
+        else
+            real_set_volume(w->buf, v);
+    }
+    ingame_log("sound: the music at %d %%, the key sounds at %d %% (the game started them at %d %% and %d %%)", music,
+               keys, g_volume_start[0], g_volume_start[1]);
 }
 
 /* The fade in after a hold, a step a frame; the buffers let go when it is done. */
@@ -700,6 +773,9 @@ static void check_block(Watched *w, DWORD k)
 void sound_frame(void)
 {
     ramp_step();
+    /* The player's sound values from the launcher's page while the game runs, and the last stage's log lines. */
+    soundset_frame();
+    mix_frame();
     if (!g_watch && !g_settings.music_lock)
         return;
     for (int k = 0; k < g_nmusic; k++) {

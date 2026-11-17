@@ -135,8 +135,14 @@ the notes come, and no key of the keyboard brings it:
 - **In a window** the game keeps its title bar, to move it, and its borders, to size it, with no buttons on the title
   bar: the overlay bar's buttons minimize it, take it to full screen and back, and quit.
 - **The menu** comes out from under the bar below its button and the buttons beside it: **BACK TO THE GAME**, **SHOW
-  FPS** (the FPS counter on or off for this run) and **QUIT THE GAME**, and goes back up under it. The arrow keys and
-  Enter choose, Esc closes; a click beside the menu or the question closes it too.
+  FPS** (the FPS counter on or off for this run), **SOUND** and **QUIT THE GAME**, and goes back up under it. The arrow
+  keys and Enter choose, Esc closes; a click beside the menu or the question closes it too.
+- **The sound panel** (the menu's **SOUND**) hangs under the X: the master volume (**ALL**), the music's and the key
+  sounds' (**MUSIC**, **KEYS**) and the equalizer's five bands (60 Hz to 12 kHz), each a column you drag, tap or turn
+  with the wheel; Left and Right go along them, Up and Down move one a step, Enter or Esc goes back to the game. A
+  change is heard at once and is the launcher's **Sound** page's too (both keep the same file, `sound.ini` beside
+  `launcher.json`, each writing only the values it changed): a value set on the Sound page while the game runs is heard
+  within a second, and one set in the game is on the page when you look at it again.
 - **The game holds still** while the menu or the question is open during a song, or while the game is minimized in
   one: the picture stops on the frame it showed, the music on the note it played, and both go on together when you
   go back to the game. The game sees none of the keys and clicks that answer them.
@@ -164,7 +170,7 @@ on the site, under **My account**: playing on this PC, **Play**, **Open my recor
 | :--- | :--- |
 | **Play** | Who plays, the ready check (what PLAY makes), how to play, the last game's stages |
 | **Screen** | Full screen or a window and its size, vertical sync, frame pacing, motion clarity (on a display that can run at a whole multiple of 60 Hz from 120 up), the picture's shape, the FPS counter and its corner, the size the game draws at, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time, the flip model |
-| **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), the output device, who mixes the game's sounds, low latency, and the audio offset for a device that plays late |
+| **Sound** | The master volume, the volumes of the music and of the keysounds (the sound each note plays when you hit it), the equalizer, the output device, who mixes the game's sounds, low latency, and the audio offset for a device that plays late |
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen), and how each plays |
 | **Game** | The client data in use, with its client, songs and jackets; the song list (**Save the song list...** and, signed in as a server's admin, **Send the song list to this server**); FREE PLAY; the hidden patterns |
 | **Online** | The way to play, the players on this PC, opening this PC's server to the other PCs on your network |
@@ -233,6 +239,11 @@ is read as late as the frame's own work allows.
   of copied into its own surface (Direct3D 9Ex), the way Windows can show a game as in exclusive full screen and a
   display's variable refresh rate (G-SYNC, FreeSync) can follow the frames.
 
+- **Master**, **Music**, **Keysounds** (**Sound**, 100 % by default) and the **Equalizer**'s bands (60 Hz, 250 Hz, 1
+  kHz, 4 kHz and 12 kHz, each -12 to 12 dB, flat by default): the in-game sound panel has the same and keeps them with
+  the page. The music and the key sounds start where the game's own setting puts them and move while it runs; the master
+  and the equalizer act on the whole mix as it goes to Windows, with every **Mixer**, and add no delay: at 100 % and
+  flat nothing is touched.
 - **Device** (**Sound**): **Windows' default output** (the default), or one of Windows' output devices by name. When
   the chosen device is not connected, the game plays on Windows' default output, and the page says so.
 - **Mixer** (**Sound**): who mixes the game's sounds. **DirectSound** (the default) is Windows' own, as the game was
@@ -445,7 +456,8 @@ The settings `--set` takes, each as its page keeps it:
 | `pass_times` | `on`, `off` | **Screen**, **Measure the picture's GPU time** |
 | `motion_clarity` | `off`, `crt`, `bfi` | **Screen**, **Motion clarity**: **Off**, **CRT beam**, **Black frames** |
 | `flip_model` | `on`, `off` | **Screen**, **Flip model** |
-| `music_volume`, `key_volume` | 0 to 100 | **Sound**: the music's and the notes' volumes |
+| `master_volume`, `music_volume`, `key_volume` | 0 to 100 | **Sound**: the whole mix's, the music's and the notes' volumes |
+| `eq_60`, `eq_250`, `eq_1k`, `eq_4k`, `eq_12k` | -12 to 12 | **Sound**, **Equalizer**: each band's gain in dB |
 | `sound_device` | `default`, or a GUID from `--sound-devices` | **Sound**, **Device** |
 | `low_latency` | `on`, `off` | **Sound**, **Low latency** |
 | `sound_path` | `directsound`, `openal`, `openal-exclusive` | **Sound**, **Mixer**: **DirectSound**, **OpenAL Soft**, **Exclusive** |

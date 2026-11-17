@@ -324,9 +324,28 @@ first points) into the log, read from its memory in the PC build.
 - **How long it stays**: whole 600 ms after the pointer was last on it (looked for ten times a second), 4 s after a
   finger, then it slides back up; a press on the game takes it away.
 - **Its chips**: the menu, minimise, full screen or back to a window, the X.
-- **The menu** (Back to the game, Show FPS, Quit the game) and **the question** (Keep playing, Quit the game; its line
-  only while a song plays): sheets hanging from the bar's foot, the menu under its chip and the chips beside it, the
-  question under the X.
+- **The menu** (Back to the game, Show FPS, Sound, Quit the game), **the question** (Keep playing, Quit the game; its
+  line only while a song plays) and **the sound panel** (the menu's Sound: eight columns, the master, music and key
+  sounds' volumes and the equaliser's five bands, set by a press or a drag on a column, the wheel or Up and Down):
+  sheets hanging from the bar's foot, the menu under its chip and the chips beside it, the question and the sound
+  panel under the X, each at most 114 game lines tall so that with its shadow it ends above line 192.
+- **The sound's values** (`soundset.c`): the launcher starts the game with them (`OPENDMT3_SOUND_VALUES`) and names
+  the file it keeps them in (`OPENDMT3_SOUND_FILE`, `sound.ini` beside `launcher.json`). Both write it the same way:
+  under its lock (`sound.ini.lock`, held open alone, gone when its writer is), the file read as it is then, only the
+  lines of the values changed rewritten, swapped in through a temporary file; so a change from either side never
+  undoes the other's. The game's side does its reads and writes on a thread of its own, looks at the file twice a
+  second and hears the launcher's change at once; the launcher reads it when it starts, on its Sound page, before
+  PLAY and when the game closes. The music's and the key sounds' volumes move the game's DirectSound buffers from the
+  volume the game set them to (`setting.ini`'s, written from the same values, never 0: 0 % is the layer's own
+  silence), a ratio of amplitudes in DirectSound's hundredths of a dB (`logic.c` `volume_moved`); a buffer that loops
+  or lasts 10 s or more is the music's. The master volume and the equaliser (five biquad filters, RBJ's cookbook: a
+  60 Hz low shelf, peaks at 250 Hz, 1 kHz and 4 kHz, a 12 kHz high shelf) act on the mix itself (`mix.c`): every
+  mixer writes its mix through Windows' audio client in the game's process (Windows' DirectSound, and OpenAL Soft
+  in shared or exclusive mode), so the render client's GetBuffer and ReleaseBuffer, and the audio client's Initialize
+  and GetService that tell each stream's format, are turned to the layer's before the game opens its sound, and the
+  mix is shaped in place between its writing and its hand-over: no buffer and no delay added. The log names each
+  stream's writer (`mix: a stream written by dsound.dll`, or OpenAL Soft's library) and every 10 s the stage's time a
+  buffer; at 100 % and flat it touches nothing.
 - **The toast, the mark and the frame rate chip**, which the menu's Show FPS turns on and off for the run. A toast that
   comes during a song waits for the song's end (`sound.c`'s song music), so nothing of the layer covers the game's
   groove meter while it is played.

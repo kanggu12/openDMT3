@@ -10,6 +10,7 @@ import sys
 import tempfile
 
 from opendmt3.core import game as g
+from opendmt3.client import sound_file
 from opendmt3.core.cabinet import steps, values as choices
 
 FILE_NAME = "launcher.json"
@@ -98,6 +99,8 @@ class LauncherState:
         self.server_url = None           # another server: its site's address (http://host:port)
         self.remote = None               # another server: {login_id, dj_name, card, token, game} after signing in
         self.lan = False                 # this PC: open the built-in server to the other PCs on its network as well
+        self.sound_path = None           # the sound file both the launcher and the game write (sound_file.py), beside
+                                         # the settings file it was loaded from (None: beside the default one)
 
     # ------------------------------------------------------------------------------------------- files
 
@@ -120,7 +123,10 @@ class LauncherState:
         """The saved state, or a fresh one when there is no file yet."""
         path = path or cls.path()
         state = cls()
+        state.sound_path = sound_file.path_beside(path)
         if not os.path.isfile(path):
+            # A first start: the sound file, if the game or an earlier launcher left one, still counts.
+            state.sync_sound()
             return state
         try:
             with open(path, encoding="utf-8") as f:
@@ -137,10 +143,18 @@ class LauncherState:
             # A newer launcher wrote it; reading it with old rules could drop what it added.
             raise StateError("%s is from a newer openDMT3; update the launcher" % path, path, newer=True)
         try:
-            return cls._from(data, state)
+            cls._from(data, state)
         except (TypeError, AttributeError, ValueError) as e:
             # A field of the wrong kind (a hand-edited file): the same as a file that cannot be read.
             raise StateError("cannot read %s: %s" % (path, e), path) from None
+        # The sound values as the sound file has them (the in-game panel may have changed them since).
+        state.sync_sound()
+        return state
+
+    def sync_sound(self):
+        """The sound file's values taken in (the in-game panel's changes), or the file made from ours when there is
+        none yet (sound_file.sync)."""
+        sound_file.sync(self, self.sound_path or sound_file.path_beside(self.path()))
 
     @classmethod
     def _from(cls, data, state):
@@ -194,6 +208,14 @@ class LauncherState:
         merged = dict(self.values)
         merged[name] = value
         self.values = choices.normalize(merged)
+        # A sound value goes to the file the game reads too (only its line: the game's own changes stay).
+        if name in choices.SOUND_FILE_VALUES:
+            try:
+                sound_file.write(self.sound_path or sound_file.path_beside(self.path()), {name: self.values[name]})
+            except OSError:
+                # The file cannot be written now (its lock held past a second, a locked folder): the launcher's own
+                # settings keep it, and the next sync writes it.
+                pass
 
     def options(self):
         """The setup options the choices amount to.

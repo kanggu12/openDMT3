@@ -54,7 +54,9 @@ const char *const SETTINGS_NAMES[] = {"OPENDMT3_LANGUAGE", "OPENDMT3_CURSOR", "O
                                       "OPENDMT3_SHARPNESS", "OPENDMT3_ANTIALIASING", "OPENDMT3_PICTURE_SHAPE",
                                       "OPENDMT3_PASS_TIMES", "OPENDMT3_LOW_LATENCY", "OPENDMT3_SOUND_PATH",
                                       "OPENDMT3_RENDER", "OPENDMT3_AUDIO_OFFSET", "OPENDMT3_MOTION_CLARITY",
-                                      "OPENDMT3_FLIP_MODEL"};
+                                      "OPENDMT3_FLIP_MODEL",
+                                      /* The sound's values, read by soundset.c itself (settings_read passes them). */
+                                      "OPENDMT3_SOUND_VALUES"};
 
 /* The sound paths' names, in the order of SOUND_PATH_* (the launcher's words for them, values.py SOUND_PATHS). */
 const char *const SOUND_PATH_NAMES[SOUND_PATHS] = {"directsound", "openal", "openal-exclusive"};
@@ -674,14 +676,17 @@ int hold_keys(uint8_t keys[256], int card_open, int waiting)
 }
 
 /* The words: the buttons in the game's capitals (it writes its own so: NO ID CARD), Korean as it is written. */
-static const char *const MENU_EN[] = {"BACK TO THE GAME", "SHOW FPS", "QUIT THE GAME"};
-static const char *const MENU_KO[] = {"게임으로 돌아가기", "FPS 표시", "게임 끝내기"};
+static const char *const MENU_EN[] = {"BACK TO THE GAME", "SHOW FPS", "SOUND", "QUIT THE GAME"};
+static const char *const MENU_KO[] = {"게임으로 돌아가기", "FPS 표시", "사운드", "게임 끝내기"};
+/* The sound panel's columns: the three volumes, then the bands by their middles. */
+static const char *const SOUND_EN[] = {"ALL", "MUSIC", "KEYS", "60", "250", "1K", "4K", "12K"};
+static const char *const SOUND_KO[] = {"전체", "음악", "키음", "60", "250", "1K", "4K", "12K"};
 static const char *const QUIT_EN[] = {"KEEP PLAYING", "QUIT THE GAME"};
 static const char *const QUIT_KO[] = {"계속하기", "게임 끝내기"};
 
 int card_count(const Card *c)
 {
-    return c->open == CARD_NONE ? 0 : c->open == CARD_MENU ? 3 : 2;
+    return c->open == CARD_MENU ? 4 : c->open == CARD_QUIT ? 2 : c->open == CARD_SOUND ? 8 : 0;
 }
 
 /* The answer that quits: the last one, in both cards. */
@@ -692,10 +697,13 @@ static int quit_index(const Card *c)
 
 const char *card_label(const Card *c, int i, int *danger)
 {
+    /* The quitting answer in the menu and the question; nothing in the sound panel quits. */
     if (danger)
-        *danger = i == quit_index(c);
+        *danger = c->open != CARD_SOUND && i == quit_index(c);
     if (i < 0 || i >= card_count(c))
         return "";
+    if (c->open == CARD_SOUND)
+        return c->korean ? SOUND_KO[i] : SOUND_EN[i];
     if (c->open == CARD_MENU)
         return c->korean ? MENU_KO[i] : MENU_EN[i];
     return c->korean ? QUIT_KO[i] : QUIT_EN[i];
@@ -703,6 +711,12 @@ const char *card_label(const Card *c, int i, int *danger)
 
 const char *card_state(const Card *c, int i)
 {
+    /* A sound column's value: a volume in percent, a band's gain signed (0 flat). Room for every column at once. */
+    if (c->open == CARD_SOUND && i >= 0 && i < 8) {
+        static char words[8][8];
+        snprintf(words[i], sizeof words[i], i < SOUND_EQ0 || !c->sound[i] ? "%d" : "%+d", c->sound[i]);
+        return words[i];
+    }
     /* Show FPS says what it is now, at its row's right, as a switch does. */
     if (c->open != CARD_MENU || i != 1)
         return NULL;
@@ -713,6 +727,8 @@ const char *card_title(const Card *c)
 {
     /* The menu is a list under its chip, with no title; the X asks before anything ends. Titles are sentences, as
      * the game's own ("Data authentication failed"). */
+    if (c->open == CARD_SOUND)
+        return c->korean ? "사운드" : "Sound";
     if (c->open != CARD_QUIT)
         return NULL;
     return c->korean ? "게임을 끝낼까요?" : "Quit the game?";
@@ -735,11 +751,28 @@ void card_open(Card *c, int what)
     c->focus = 0;
 }
 
+int sound_step(int which)
+{
+    return which < SOUND_EQ0 ? 5 : 1;
+}
+
 int card_key(Card *c, unsigned vk)
 {
     int n = card_count(c);
     if (!n)
         return ACT_NONE;
+    if (c->open == CARD_SOUND) {
+        /* The panel's columns side by side: Left and Right (and Tab) go along them, Up and Down move the value the
+         * ring is on (the layer moves it by sound_step), Enter goes back to the game, Esc too. */
+        if (vk == K_UP || vk == K_DOWN) {
+            c->step = vk == K_UP ? 1 : -1;
+            return ACT_SOUND;
+        }
+        if (vk == K_RETURN || vk == K_SPACE) {
+            c->open = CARD_NONE;
+            return ACT_CLOSE;
+        }
+    }
     if (vk == K_LEFT || vk == K_UP) {
         /* Round the answers, as a list does. */
         c->focus = (c->focus + n - 1) % n;
@@ -764,10 +797,19 @@ int card_choose(Card *c, int i)
 {
     if (i < 0 || i >= card_count(c))
         return ACT_NONE;
+    /* A sound column chosen (a click on it): its value is set where it was pressed (the layer), the panel stays. */
+    if (c->open == CARD_SOUND)
+        return ACT_NONE;
     if (c->open == CARD_MENU && i == 1) {
         /* Show FPS: turned over, the menu stays (its row now says the other state). */
         c->fps = !c->fps;
         return ACT_FPS;
+    }
+    if (c->open == CARD_MENU && i == 2) {
+        /* Sound: the sound panel in the menu's place, its ring on the master volume. */
+        c->open = CARD_SOUND;
+        c->focus = 0;
+        return ACT_SOUND_OPEN;
     }
     if (i == quit_index(c)) {
         /* Quit the game: in the question it is the answer; in the menu the player already went looking for it. */
@@ -793,7 +835,7 @@ float ui_unit(int area_h)
  * The question is 300 wide (the game's panels hold 16 pixel lines in 627; this one holds one line and two answers),
  * its right edge under the X's; the menu as wide as the chips' row, from its own chip's left edge to the X's right
  * edge (228), so the notice at the top centre never reaches it. Both hang from the bar's foot, sheets the bar lets
- * down (they slide out from under it: logic.h's slides), and are at most 106 tall, so with their shadows they end above
+ * down (they slide out from under it: logic.h's slides), and are at most 114 tall, so with their shadows they end above
  * a quarter of the game's height (line 192 of 768) on a screen of any shape: nothing of the layer reaches the middle of
  * the game. The title tab keeps the game's slope: each end leans in 30 pixels over 37. */
 #define BAR_H 70.0f
@@ -809,8 +851,15 @@ float ui_unit(int area_h)
 #define TAB_H 28.0f
 #define PAD 16.0f
 #define ANSWER_H 32.0f
-#define ROW_H 28.0f
-#define ROW_GAP 3.0f
+#define ROW_H 22.0f
+#define ROW_GAP 2.0f
+/* The sound panel: as wide as the question, its right edge under the X's; under its title tab, eight columns, each a
+ * value over a track 42 tall over its name; 112 tall in all, so it ends with its shadow above line 192 as the others
+ * do. */
+#define SOUND_W 300.0f
+#define SOUND_VALUE_H 14.0f
+#define SOUND_TRACK_H 42.0f
+#define SOUND_NAME_H 14.0f
 
 void ui_layout(const Card *c, int area_w, int area_h, UiLayout *l)
 {
@@ -837,6 +886,8 @@ void ui_layout(const Card *c, int area_w, int area_h, UiLayout *l)
     l->px_title = 17 * u;
     l->px_line = 15 * u;
     l->px_button = 13 * u;
+    /* The sound panel's values and names, as the game's small labels. */
+    l->px_small = 11 * u;
     l->count = card_count(c);
     if (c->open == CARD_QUIT) {
         /* The question under the X, its right edge on the X's, its top on the bar's foot. */
@@ -857,11 +908,56 @@ void ui_layout(const Card *c, int area_w, int area_h, UiLayout *l)
          * the bar's foot, its rows one under the other. */
         float pw = CHIPS_ROW_W * u;
         l->panel = (Box){l->chip[CHIP_MENU].x, BAR_H * u, pw, 0};
-        for (int i = 0; i < l->count && i < 4; i++)
+        for (int i = 0; i < l->count && i < 8; i++)
             l->rows[i] = (Box){l->panel.x + 8 * u, l->panel.y + (8 + (float)i * (ROW_H + ROW_GAP)) * u, pw - 16 * u,
                                ROW_H * u};
         l->panel.h = (16 + (float)l->count * ROW_H + (float)(l->count - 1) * ROW_GAP) * u;
+    } else if (c->open == CARD_SOUND) {
+        /* Under the X as the question, its title tab hanging from its top, its eight columns side by side. */
+        float pw = SOUND_W * u;
+        l->panel = (Box){l->chip[CHIP_X].x + l->chip[CHIP_X].w - pw, BAR_H * u, pw, 0};
+        l->tab = (Box){l->panel.x + 28 * u, l->panel.y, pw - 56 * u, TAB_H * u};
+        float cw = (SOUND_W - 2 * PAD) / 8 * u, top = l->panel.y + (TAB_H + 6) * u;
+        for (int i = 0; i < 8; i++) {
+            /* A column: its value, its track (a little narrower than the column, so a finger finds its middle), its
+             * name; the whole column takes a press. */
+            float x = l->panel.x + PAD * u + (float)i * cw;
+            l->rows[i] = (Box){x, top, cw, (SOUND_VALUE_H + SOUND_TRACK_H + SOUND_NAME_H) * u};
+            l->track[i] = (Box){x + cw / 2 - 5 * u, top + SOUND_VALUE_H * u, 10 * u, SOUND_TRACK_H * u};
+        }
+        l->panel.h = (TAB_H + 6 + SOUND_VALUE_H + SOUND_TRACK_H + SOUND_NAME_H + 8) * u;
     }
+}
+
+/* A sound value's range: a volume 0 to 100, a band -12 to 12. */
+static void sound_range(int i, int *low, int *high)
+{
+    *low = i < SOUND_EQ0 ? 0 : -EQ_MAX_DB;
+    *high = i < SOUND_EQ0 ? 100 : EQ_MAX_DB;
+}
+
+int ui_sound_value_at(const UiLayout *l, int i, float y)
+{
+    if (i < 0 || i >= 8 || l->track[i].h <= 0)
+        return 0;
+    int low, high;
+    sound_range(i, &low, &high);
+    /* The track's top the highest, its foot the lowest; beyond either end, that end. */
+    float t = (l->track[i].y + l->track[i].h - y) / l->track[i].h;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    int v = (int)lroundf((float)low + t * (float)(high - low));
+    /* A volume in whole steps of its own (5 %), so a finger lands on the values the keys reach. */
+    if (i < SOUND_EQ0)
+        v = (v + 2) / 5 * 5;
+    return v;
+}
+
+float ui_sound_y(const UiLayout *l, int i, int value)
+{
+    int low, high;
+    sound_range(i, &low, &high);
+    float t = (float)(value - low) / (float)(high - low);
+    return l->track[i].y + l->track[i].h * (1.0f - t);
 }
 
 /* Inside a box. */
@@ -873,7 +969,7 @@ static int inside(const Box *b, float x, float y)
 int ui_hit(const UiLayout *l, float x, float y)
 {
     /* The answers first (they are inside the panel), then the panel, then the chips, then the rest of the bar. */
-    for (int i = 0; i < l->count && i < 4; i++)
+    for (int i = 0; i < l->count && i < 8; i++)
         if (inside(&l->rows[i], x, y))
             return i;
     if (l->panel.w > 0 && inside(&l->panel, x, y))
@@ -1496,11 +1592,212 @@ int ui_hit_moved(const UiLayout *l, float x, float y, float bar_dy, float panel_
     UiLayout panel = *l;
     panel.panel.y += panel_dy;
     panel.tab.y += panel_dy;
-    for (int i = 0; i < l->count && i < 4; i++)
+    for (int i = 0; i < l->count && i < 8; i++) {
         panel.rows[i].y += panel_dy;
+        panel.track[i].y += panel_dy;
+    }
     /* The bar and its chips out of reach here (the pass above had them): only an answer or the panel can be hit. */
     panel.bar.y = -1e9f;
     for (int i = 0; i < CHIPS; i++)
         panel.chip[i].y = -1e9f;
     return ui_hit(&panel, x, y);
+}
+
+/* ---------------------------------------------------------------------------------------------- the sound's values */
+
+const int EQ_HZ[EQ_BANDS] = {60, 250, 1000, 4000, 12000};
+const char *const SOUND_NAMES[SOUND_VALUES] = {"master_volume", "music_volume", "key_volume", "eq_60",
+                                               "eq_250", "eq_1k", "eq_4k", "eq_12k"};
+
+void sound_values_default(SoundValues *s)
+{
+    /* The three volumes whole, every band flat. */
+    for (int i = 0; i < SOUND_VALUES; i++)
+        s->v[i] = i < SOUND_EQ0 ? 100 : 0;
+}
+
+int sound_value_clamp(int which, int value)
+{
+    /* A volume in percent, a band in dB. */
+    int low = which < SOUND_EQ0 ? 0 : -EQ_MAX_DB, high = which < SOUND_EQ0 ? 100 : EQ_MAX_DB;
+    return value < low ? low : value > high ? high : value;
+}
+
+/* The value a line names (its index), and where its value starts; -1 for any other line. */
+static int sound_line(const char *line, int len, const char **value)
+{
+    /* Spaces before the name are no part of it. */
+    while (len > 0 && (*line == ' ' || *line == '\t')) {
+        line++;
+        len--;
+    }
+    for (int i = 0; i < SOUND_VALUES; i++) {
+        int n = (int)strlen(SOUND_NAMES[i]);
+        const char *p = line + n;
+        if (len <= n || strncmp(line, SOUND_NAMES[i], (size_t)n))
+            continue;
+        /* name, spaces, '=': that value's line. */
+        while (p < line + len && (*p == ' ' || *p == '\t'))
+            p++;
+        if (p < line + len && *p == '=') {
+            *value = p + 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+unsigned sound_values_parse(const char *text, SoundValues *s)
+{
+    unsigned named = 0;
+    while (text && *text) {
+        const char *end = strchr(text, '\n');
+        int len = end ? (int)(end - text) : (int)strlen(text);
+        const char *value = NULL;
+        int i = sound_line(text, len, &value);
+        if (i >= 0) {
+            char *after;
+            long v = strtol(value, &after, 10);
+            /* A whole number within the value's range, else the line is left as if it were not there. */
+            if (after != value && v == sound_value_clamp(i, (int)v)) {
+                s->v[i] = (int)v;
+                named |= 1u << i;
+            }
+        }
+        text = end ? end + 1 : text + len;
+    }
+    return named;
+}
+
+int sound_values_merge(const char *old, const SoundValues *s, unsigned changed, char *out, int size)
+{
+    int at = 0;
+    unsigned written = 0;
+    /* Each line of the file as it is now: a changed value's line rewritten, every other line kept as it was. */
+    while (old && *old) {
+        const char *end = strchr(old, '\n');
+        int len = end ? (int)(end - old) : (int)strlen(old);
+        /* A line's own \r (a file saved by Notepad) is no part of it. */
+        int text_len = len > 0 && old[len - 1] == '\r' ? len - 1 : len;
+        const char *value = NULL;
+        int i = sound_line(old, text_len, &value);
+        int n;
+        if (i >= 0 && (changed & (1u << i)) && !(written & (1u << i))) {
+            n = snprintf(out + at, size > at ? (size_t)(size - at) : 0, "%s=%d\n", SOUND_NAMES[i], s->v[i]);
+            written |= 1u << i;
+        } else if (i >= 0 && (changed & (1u << i))) {
+            /* A second line of a value already written: dropped, so the file says it once. */
+            n = 0;
+        } else {
+            n = snprintf(out + at, size > at ? (size_t)(size - at) : 0, "%.*s\n", text_len, old);
+        }
+        if (n < 0 || at + n >= size)
+            return -1;
+        at += n;
+        old = end ? end + 1 : old + len;
+    }
+    /* A changed value the file had no line for: added at its end. */
+    for (int i = 0; i < SOUND_VALUES; i++) {
+        if (!(changed & (1u << i)) || (written & (1u << i)))
+            continue;
+        int n = snprintf(out + at, size > at ? (size_t)(size - at) : 0, "%s=%d\n", SOUND_NAMES[i], s->v[i]);
+        if (n < 0 || at + n >= size)
+            return -1;
+        at += n;
+    }
+    return at;
+}
+
+long volume_moved(long game_v, int launch, int now)
+{
+    /* 0 %: silent, whatever the game set. */
+    if (now <= 0)
+        return -10000;
+    /* The game made its volume from the launch percent (at least 1 %: setting.ini never gets 0); the move from it is a
+     * ratio of amplitudes, in hundredths of a dB. */
+    double from = launch < 1 ? 1 : launch;
+    long v = game_v + (long)lround(2000.0 * log10((double)now / from));
+    return v > 0 ? 0 : v < -10000 ? -10000 : v;
+}
+
+/* RBJ's cookbook: a peak (shelf 0), a low shelf (1) or a high shelf (2) of `db` at `hz`, normalised (a0 = 1). */
+static Biquad biquad(int shelf, double hz, double db, double rate)
+{
+    const double PI = 3.14159265358979323846;
+    double A = pow(10.0, db / 40.0), w = 2.0 * PI * hz / rate, cw = cos(w), sw = sin(w);
+    double b0, b1, b2, a0, a1, a2;
+    if (!shelf) {
+        /* A peak an octave and a third wide (Q 1). */
+        double alpha = sw / 2.0;
+        b0 = 1 + alpha * A;
+        b1 = -2 * cw;
+        b2 = 1 - alpha * A;
+        a0 = 1 + alpha / A;
+        a1 = -2 * cw;
+        a2 = 1 - alpha / A;
+    } else {
+        /* A shelf of slope 1. */
+        double alpha = sw / 2.0 * sqrt(2.0), sa = 2 * sqrt(A) * alpha, s = shelf == 1 ? 1.0 : -1.0;
+        b0 = A * ((A + 1) - s * (A - 1) * cw + sa);
+        b1 = s * 2 * A * ((A - 1) - s * (A + 1) * cw);
+        b2 = A * ((A + 1) - s * (A - 1) * cw - sa);
+        a0 = (A + 1) + s * (A - 1) * cw + sa;
+        a1 = -s * 2 * ((A - 1) + s * (A + 1) * cw);
+        a2 = (A + 1) + s * (A - 1) * cw - sa;
+    }
+    Biquad q = {(float)(b0 / a0), (float)(b1 / a0), (float)(b2 / a0), (float)(a1 / a0), (float)(a2 / a0)};
+    return q;
+}
+
+void mix_shape(MixShape *m, const SoundValues *s, int rate)
+{
+    memset(m, 0, sizeof *m);
+    m->gain = (float)(s->v[SOUND_MASTER] / 100.0);
+    /* Only the bands that are not flat run (a flat one changes nothing), and only below the rate's half. */
+    for (int b = 0; b < EQ_BANDS; b++)
+        if (s->v[SOUND_EQ0 + b] && rate > 2 * EQ_HZ[b])
+            m->band[m->bands++] = biquad(b == 0 ? 1 : b == EQ_BANDS - 1 ? 2 : 0, EQ_HZ[b], s->v[SOUND_EQ0 + b], rate);
+    m->on = m->bands > 0 || s->v[SOUND_MASTER] != 100;
+}
+
+/* One sample of channel c through every band (transposed direct form II), then the master volume. */
+static float mix_sample(const MixShape *m, MixState *st, float x, int c)
+{
+    for (int b = 0; b < m->bands; b++) {
+        const Biquad *q = &m->band[b];
+        float y = q->b0 * x + st->z1[b][c];
+        st->z1[b][c] = q->b1 * x - q->a1 * y + st->z2[b][c];
+        st->z2[b][c] = q->b2 * x - q->a2 * y;
+        x = y;
+    }
+    return x * m->gain;
+}
+
+void mix_run_float(const MixShape *m, MixState *st, float *x, int frames, int channels)
+{
+    if (!m->on || channels < 1 || channels > MIX_CHANNELS)
+        return;
+    for (int i = 0; i < frames * channels; i++)
+        x[i] = mix_sample(m, st, x[i], i % channels);
+}
+
+void mix_run_s16(const MixShape *m, MixState *st, int16_t *x, int frames, int channels)
+{
+    if (!m->on || channels < 1 || channels > MIX_CHANNELS)
+        return;
+    for (int i = 0; i < frames * channels; i++) {
+        float y = mix_sample(m, st, x[i] / 32768.0f, i % channels) * 32768.0f;
+        /* Within the 16 bits: a boost past full scale clips there, never wraps round. */
+        x[i] = (int16_t)(y > 32767.0f ? 32767 : y < -32768.0f ? -32768 : lrintf(y));
+    }
+}
+
+void mix_run_s32(const MixShape *m, MixState *st, int32_t *x, int frames, int channels)
+{
+    if (!m->on || channels < 1 || channels > MIX_CHANNELS)
+        return;
+    for (int i = 0; i < frames * channels; i++) {
+        double y = (double)mix_sample(m, st, (float)(x[i] / 2147483648.0), i % channels) * 2147483648.0;
+        x[i] = (int32_t)(y > 2147483647.0 ? 2147483647 : y < -2147483648.0 ? -2147483648.0 : llrint(y));
+    }
 }

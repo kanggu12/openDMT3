@@ -9,6 +9,7 @@ picture as the chain placed it in the frame (its own shape kept, bars on two sid
 OPENDMT3_PICTURE_SHAPE=fill in this script's environment), each with room for its shadow and the keys' ring:
   bar       the band of the bar across the top (70 lines, its shadow under it)
   question  the question, hanging from the bar's foot under the X at the right
+  sound     the sound panel, hanging from the bar's foot under the X as the question does
   menu      the menu, hanging from the bar's foot under its own chip and the chips beside it (from the menu's chip's
             left edge to the X's right edge)
   toast     the toast, hanging from the top edge in the middle
@@ -47,9 +48,11 @@ def zones(w, h, fill=False):
     menu_left = x_right - (4 * 50 + 2 * 6 + 16) * u
     return {
         "bar": (px, py, px + pw, py + (70 + 10) * u),
-        # Both hang from the bar's foot (70 lines), at most 106 tall, with room for their shadows and the keys' ring.
-        "question": (x_right - 300 * u - 10 * u, py + 70 * u, px + pw, py + (70 + 106 + 12) * u),
-        "menu": (menu_left - 10 * u, py + 70 * u, px + pw, py + (70 + 106 + 12) * u),
+        # They hang from the bar's foot (70 lines), at most 114 tall, with room for their shadows and the keys' ring;
+        # the sound panel as wide as the question, under the X too.
+        "question": (x_right - 300 * u - 10 * u, py + 70 * u, px + pw, py + (70 + 114 + 12) * u),
+        "sound": (x_right - 300 * u - 10 * u, py + 70 * u, px + pw, py + (70 + 114 + 12) * u),
+        "menu": (menu_left - 10 * u, py + 70 * u, px + pw, py + (70 + 114 + 12) * u),
         "toast": (px + pw * 0.15, py, px + pw * 0.85, py + (40 + 12) * u),
         # The rail 72 wide along the top edge, the tab 12 deep lit, with a little room.
         "mark": (px + pw / 2 - 38 * u, py, px + pw / 2 + 38 * u, py + 14 * u),
