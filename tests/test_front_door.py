@@ -416,7 +416,14 @@ class ReleasePackageTest(unittest.TestCase):
 
     def test_the_clone_s_own_commands_say_so_in_the_server_package(self):
         # The server package has no tests/ and no packaging/windows/: ./dmt3 test and build say where they run.
-        with tempfile.TemporaryDirectory() as package, mock.patch.object(dmt3, "ROOT", package):
+        with tempfile.TemporaryDirectory() as package, mock.patch.object(dmt3, "ROOT", package), \
+                mock.patch.dict(os.environ):
+            # The package's own code is there (its version names the image ./dmt3 runs); the image is not chosen yet,
+            # as in CI, where no ./dmt3 before this one set it.
+            os.environ.pop(dmt3.IMAGE_ENV, None)
+            os.makedirs(os.path.join(package, "opendmt3"))
+            with open(os.path.join(package, "opendmt3", "__init__.py"), "w", encoding="utf-8") as f:
+                f.write('__version__ = "0.0.0"\n')
             for command in ("test", "build"):
                 with self.subTest(command=command), contextlib.redirect_stdout(io.StringIO()) as out:
                     self.assertEqual(dmt3.main([command]), 2)
