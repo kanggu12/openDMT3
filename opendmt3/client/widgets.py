@@ -927,11 +927,18 @@ class Slider(tk.Frame):
         c, mid = self.canvas, self.h // 2
         c.delete("all")
         thick = max(2, self.ui.px(4))
-        # The empty track, then the filled part up to the knob.
+        # The empty track, then the filled part up to the knob: from the track's start, or from 0 on a track that goes
+        # both ways (an equalizer's band: flat at its middle, a cut or a boost filled from there), with a mark at 0.
         c.create_line(self._x(self.low), mid, self._x(self.high), mid, fill=theme.RAIL, width=thick, capstyle="round")
-        c.create_line(self._x(self.low), mid, self._x(self.value), mid, fill=self.colour, width=thick, capstyle="round")
+        start = self._x(0) if self.low < 0 < self.high else self._x(self.low)
+        if self.low < 0 < self.high:
+            c.create_line(start, mid - self.ui.px(7), start, mid + self.ui.px(7), fill=theme.RAIL, width=self.ui.px(2))
+        if self.value != 0 or not self.low < 0:
+            c.create_line(start, mid, self._x(self.value), mid, fill=self.colour, width=thick, capstyle="round")
         c.create_image(self._x(self.value), mid, image=self.knob_img)
-        self.number.configure(text=str(self.value) + self.unit)
+        # A value that goes both ways says its sign (+3 dB, -2 dB), as the in-game panel writes it.
+        sign = "+" if self.low < 0 and self.value > 0 else ""
+        self.number.configure(text=sign + str(self.value) + self.unit)
 
 
 class Select(tk.Canvas):
