@@ -156,7 +156,8 @@ if status:
     problems.append("the browser exited %d" % status)
 print("FAIL: " + "; ".join(problems) if problems else "PASS: %d pages and %d of an empty server, nothing sticks out, "
       "no words cut off, no cell without a label, the phone menu whole, every button's words in its middle, boxes "
-      "apart and on the scale, %d floating layers whole and on top; %d "
+      "apart and on the scale, every form in its design, %d floating layers whole and on top; the toast and the "
+      "phone's menu sheet pressed; %d "
       "questions fine; %d upload fields fine; the songs filter, the message to send, the list to look at, the token "
       "shown once, both uploads and maintenance off and on fine in %d runs; the empty server's %d states hold" % (
           s["pages"], e["pages"], s["layers"], s["dialogs"], s["drops"], rounds, e["states"]))

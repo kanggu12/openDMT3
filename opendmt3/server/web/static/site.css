@@ -402,6 +402,8 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 .form-actions > form { margin: 0; }
 @media (max-width: 760px) {
   .form.row { display: grid; }
+  /* Stacked, a tick needs no label's room above it (the row it lined up with is gone). */
+  .form.row > .fit > .label:empty { display: none; }
   .form.row > .btn, .form.row > .form-actions { margin-top: 8px; }
   .form-actions > .btn, .form-actions > form, .form-actions > form > .btn, .form.row > .btn { width: 100%; }
 }
