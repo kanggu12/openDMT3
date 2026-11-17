@@ -1094,7 +1094,9 @@ class AttackTest(WebBase):
                                  (403, "banned", "Made-up reason"))
                 page = self.sign_in(centre, "RIO")
                 self.assertEqual(page.status_code, 403)
-                self.assertIn("This account is banned: Made-up reason", page.text)
+                # The sign-in page's plate for a banned account, with the owner's reason (FORMS.md).
+                self.assertIn('<p class="held-head">This account is banned</p>', page.text)
+                self.assertIn("Made-up reason", page.text)
         # One check of the password each (the reason said from that check, never from a second one).
         self.assertEqual(len(checks), 2 * tries)
         # Never counted as wrong passwords: every other player behind that address goes on signing in.
