@@ -68,12 +68,18 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - Motion clarity is offered from a screen's highest refresh rate at its size: on Windows 11's dynamic refresh rate,
   which gives programs 60 Hz while the monitor runs faster, the row no longer hides, and its hint says what to change
   in Windows' display settings. The in-game log names each screen's rate now, its highest and whether it is dynamic.
-- The launcher's menu moves to a column down the window's left, as OpenDMTQ's launcher has it now: openDMT3's mark and
-  version at its top, the pages' names one under another (the page on show on a raised slab with a rule in its
-  section's colour), and at its foot the status line, **Save a report** and **PLAY** as wide as the column. The
-  first-start guide's steps stand down the same column, with **Skip**, **Back** and **Next** (and the last step's
-  **PLAY**) at its foot. The names stand closer in a short window, and a card's buttons go on a second row where the
-  page beside the column has no room for them in one.
+- The launcher's menu moves to a column down the window's left, as OpenDMTQ's launcher has it now: openDMT3's lockup
+  at its top (OPEN and its slab over DMT3, the version over LAUNCHER right beside DMT3, as the site's bar sets DMT3
+  SERVER), the pages' names one under another (the page on show on a raised slab with a rule in its section's
+  colour), and at its foot the status line, **Save a report** and **PLAY** as wide as the column. The first-start
+  guide's steps stand down the same column, with **Skip**, **Back** and **Next** (and the last step's **PLAY**) at its
+  foot. The names stand closer in a short window, and a card's buttons go on a second row where the page beside the
+  column has no room for them in one.
+- A card's top-right corner is a real cut: its seam runs from the top edge along the diagonal to the right edge, the
+  page showing past it; dialogs and the menu's lit slab are cut the same way.
+- The installer's windows and the launcher's own (getting ready, cannot start, stopped) wear the product's header in
+  place of Windows' caption: the lockup with SETUP or LAUNCHER, a minimize and a close key, the window moved by its
+  header; the taskbar button, Alt+Tab and minimizing from the taskbar stay as they were.
 - A choice that brings or takes rows (a window's size, the FPS counter's corner, the upscale filter, the sound device)
   makes its own card again and no other, in place: the page no longer flickers or jumps, and the keyboard stays where
   it was. The drop-downs are the launcher's own: a field with a chevron that opens its list under it (above it near
