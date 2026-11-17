@@ -1411,10 +1411,9 @@ def entry(parent, ui, width=18, secret=False):
 
 class SecretField(tk.Frame):
     """A password's field: the dots of what is typed, and Show at its right end inside the same edge, which shows the
-    words until it is pressed again (Hide). Show is out of Tab's way, as Windows' own reveal button is, so typing goes
-    ID, Tab, password, Tab, the next field; from the keyboard Alt+F8 in the field shows or hides, as in Windows. The
-    field keeps what was typed and where the cursor was. Used as a plain field is (get, insert, delete, bind,
-    focus_set): the calls reach the field inside."""
+    words until it is pressed again (Hide). Show takes the keyboard right after the field, as OpenDMTQ's does (Tab,
+    then Enter or Space presses it), and no key of its own shows the words. The field keeps what was typed and where
+    the cursor was. Used as a plain field is (get, insert, delete, bind, focus_set): the calls reach the field inside."""
 
     def __init__(self, parent, ui, width):
         # The edge is the frame's: grey, cyan while the field or Show has the keyboard, as a plain field's.
@@ -1426,16 +1425,20 @@ class SecretField(tk.Frame):
         self.field.pack(side="left", fill="both", expand=True)
         # Show: quiet words at the right end, white under the pointer, a cyan ring with the keyboard on it.
         self.toggle = tk.Label(self, text=ui.words("field.show"), font=ui.fonts.small, fg=theme.MUTED,
-                               bg=theme.FIELD, cursor="hand2", takefocus=0, padx=ui.px(8), highlightthickness=0)
+                               bg=theme.FIELD, cursor="hand2", takefocus=1, padx=ui.px(8),
+                               highlightthickness=max(1, ui.px(1)), highlightbackground=theme.FIELD,
+                               highlightcolor=theme.CYAN)
         self.toggle.pack(side="right", fill="y")
         self.toggle.bind("<Button-1>", lambda e: self.flip())
-        # Windows' own key for a password's reveal button.
-        self.field.bind("<Alt-F8>", lambda e: self.flip())
+        # The keyboard on Show (Tab after the field): Enter or Space presses it, as a button.
+        for key in ("<Return>", "<KP_Enter>", "<space>"):
+            self.toggle.bind(key, lambda e: self.flip())
         self.toggle.bind("<Enter>", lambda e: self.toggle.configure(fg=theme.TEXT))
         self.toggle.bind("<Leave>", lambda e: self.toggle.configure(fg=theme.MUTED))
-        # The edge lights while the field has the keyboard.
-        self.field.bind("<FocusIn>", lambda e: self.configure(highlightbackground=theme.CYAN), add="+")
-        self.field.bind("<FocusOut>", lambda e: self.configure(highlightbackground=theme.LINE), add="+")
+        # The edge lights while the field or Show has the keyboard.
+        for part in (self.field, self.toggle):
+            part.bind("<FocusIn>", lambda e: self.configure(highlightbackground=theme.CYAN), add="+")
+            part.bind("<FocusOut>", lambda e: self.configure(highlightbackground=theme.LINE), add="+")
 
     def flip(self):
         """Show the typed words, or hide them again; the keyboard stays where it was."""

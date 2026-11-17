@@ -183,6 +183,6 @@ def as_text(steps, words):
         if s.fix:
             lines.append("        " + words(s.fix[0], **s.fix[1]))
     failed = [s for s in steps if s.state == FAILED]
-    lines.append(words("server_test.failed", step=words("server_test." + failed[0].key)) if failed
+    lines.append(words("server_test.failed", step=words("server_test." + failed[0].key + ".in")) if failed
                  else words("server_test.passed"))
     return "\n".join(lines)

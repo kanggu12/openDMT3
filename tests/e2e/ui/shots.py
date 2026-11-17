@@ -640,17 +640,19 @@ def interactions_check(app, out, tag, problems):
         if len(said) != 1 or said[0].field is not fields[1]:
             problems.append("%s: a password too short was not said under the Password field (%d said)"
                             % (tag, len(said)))
-        # Tab goes ID, password, DJ name (Show is out of its way), and Alt+F8 in the password shows it, as Windows'.
+        # Show takes the keyboard right after the password (Tab from the field), and Space on it shows the words.
         secret = fields[1]
-        order = widgets.focus_order(fields[0].master)
-        if secret.toggle in order:
-            problems.append("%s: Tab stops at the password's Show between the fields" % tag)
         secret.field.focus_force()
         wait_out(app, 0.1)
-        secret.field.event_generate("<Alt-F8>")
+        after = secret.field.tk_focusNext()
+        if after is not secret.toggle:
+            problems.append("%s: Tab from the password goes to %r, not its Show" % (tag, after))
+        secret.toggle.focus_force()
+        wait_out(app, 0.1)
+        secret.toggle.event_generate("<space>")
         wait_out(app, 0.1)
         if not secret.shown or secret.field.cget("show"):
-            problems.append("%s: Alt+F8 did not show the password" % tag)
+            problems.append("%s: Space on Show did not show the password" % tag)
     else:
         problems.append("%s: the add-player form has %d fields and %d error lines" % (tag, len(fields), len(errors)))
     app.state.mode = kept_mode

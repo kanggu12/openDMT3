@@ -399,6 +399,11 @@ TEXT = {
     "server_test.passed": ("Every step passed: the game can play on this server.",
                            "모든 단계를 통과했습니다. 이 서버에서 게임을 할 수 있습니다."),
     "server_test.failed": ("Stopped at {step}.", "{step} 단계에서 멈췄습니다."),
+    # Each step's name inside that sentence: in lower case in English, as words in a sentence are.
+    "server_test.address.in": ("the address", "주소"),
+    "server_test.site.in": ("the site and its version", "사이트와 버전"),
+    "server_test.game.in": ("the game's port", "게임 포트"),
+    "server_test.sign_in.in": ("the sign-in", "로그인"),
     # A password field's Show at its right end, and Hide once the words show.
     "field.show": ("Show", "보기"),
     "field.hide": ("Hide", "숨기기"),

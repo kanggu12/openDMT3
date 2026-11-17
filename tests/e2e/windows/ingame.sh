@@ -263,7 +263,7 @@ next_to 3 150 || fail "the guide's game folder step did not let it go on"
 next_to 4 30 || fail "the guide did not go to its LOG IN step"
 wait_s 2
 win=$(windows | grep "|openDMT3|" | head -1 | cut -d'|' -f1)
-x "xdotool windowfocus --sync $win; xdotool type --delay 60 NOVA; xdotool key Tab; xdotool type --delay 60 pass1234; xdotool key Tab; xdotool type --delay 60 'DJ NOVA'; xdotool key Return"
+x "xdotool windowfocus --sync $win; xdotool type --delay 60 NOVA; xdotool key Tab; xdotool type --delay 60 pass1234; xdotool key Tab Tab; xdotool type --delay 60 'DJ NOVA'; xdotool key Return"
 wait_s 3
 next_to 5 30 || fail "the guide did not go to its last step"
 wait_s 3; shot 01-ready

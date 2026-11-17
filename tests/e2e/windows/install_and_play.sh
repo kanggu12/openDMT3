@@ -96,9 +96,10 @@ next_to 3 150 || fail "the guide's game folder step did not let it go on"
 wait_s 2; shot 04-guide-3-screen
 next_to 4 30 || fail "the guide did not go to its LOG IN step"
 wait_s 2; shot 05-guide-4-login
-# LOG IN: the ID field has the focus; type a DJ the way a person would, Enter adds it.
+# LOG IN: the ID field has the focus; type a DJ the way a person would (Tab twice after the password: its Show
+# takes the keyboard between it and the DJ name), Enter adds it.
 win=$(windows | grep "|openDMT3|" | head -1 | cut -d'|' -f1)
-docker exec -e DISPLAY=:99 "$C" sh -c "xdotool windowfocus --sync $win; xdotool type --delay 60 NOVA; xdotool key Tab; xdotool type --delay 60 pass1234; xdotool key Tab; xdotool type --delay 60 'DJ NOVA'; xdotool key Return"
+docker exec -e DISPLAY=:99 "$C" sh -c "xdotool windowfocus --sync $win; xdotool type --delay 60 NOVA; xdotool key Tab; xdotool type --delay 60 pass1234; xdotool key Tab Tab; xdotool type --delay 60 'DJ NOVA'; xdotool key Return"
 wait_s 3; shot 06-guide-4-player
 next_to 5 30 || fail "the guide did not go to its last step"
 wait_s 3; shot 07-guide-5-ready

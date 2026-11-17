@@ -270,7 +270,7 @@ def test_card(app, parent, typed):
             said, colour = w("server_test.running"), theme.MUTED
         else:
             failed = [s for s in steps if s.state == "failed"]
-            said = (w("server_test.failed", step=w("server_test." + failed[0].key)) if failed
+            said = (w("server_test.failed", step=w("server_test." + failed[0].key + ".in")) if failed
                     else w("server_test.passed"))
             colour = theme.PINK if failed else theme.LIME
             # The whole result as text, for a message to the server's owner.

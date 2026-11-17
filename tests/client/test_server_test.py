@@ -31,15 +31,13 @@ class MadeUpServer:
 
     def __init__(self, version=__version__, game_open=True, token="good"):
         self.version, self.token = version, token
-        # The game's port: a listening socket while it is open, else a port nothing listens on.
-        self.game = None
+        # The game's port: a listening socket while it is open; closed, a socket bound to it that does not listen, so
+        # a connection is refused and no other test running at the same time can take the port meanwhile.
+        self.game = socket.socket()
+        self.game.bind(("127.0.0.1", 0))
         if game_open:
-            self.game = socket.socket()
-            self.game.bind(("127.0.0.1", 0))
             self.game.listen(4)
-            self.game_port = self.game.getsockname()[1]
-        else:
-            self.game_port = free_port()
+        self.game_port = self.game.getsockname()[1]
         made = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -75,8 +73,7 @@ class MadeUpServer:
     def close(self):
         self.http.shutdown()
         self.http.server_close()
-        if self.game is not None:
-            self.game.close()
+        self.game.close()
 
 
 class ServerTestTest(unittest.TestCase):
@@ -180,7 +177,8 @@ class CommandLineTest(unittest.TestCase):
         # A line a step that ran, the game's port among the failed lines with what to do.
         self.assertIn("Address", out)
         self.assertIn(str(server.game_port), err)
-        self.assertIn("Stopped at The game's port.", err)
+        # The step's name inside the sentence as words in a sentence are.
+        self.assertIn("Stopped at the game's port.", err)
 
     def test_the_server_in_use_with_its_sign_in(self):
         server = MadeUpServer()
