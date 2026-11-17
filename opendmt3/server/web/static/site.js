@@ -471,25 +471,41 @@
       toast.style.height = "auto";
     }
   }
-  // Shown; a done one goes after six seconds unless the pointer or the keyboard is on it; a refusal stays until closed.
+  // Shown; a done one goes after six seconds unless the pointer or the keyboard is on it (and six seconds after it
+  // leaves); a refusal stays until closed. A toast shown again (toast-later's, for each job that ends) keeps the one set
+  // of listeners it got the first time and starts its six seconds again: nothing piles up.
   function show(toast) {
     if (typeof toast.showPopover !== "function") { return; }
     toast.hidden = false;
     toast.showPopover();
     place(toast);
-    var close = toast.querySelector(".toast-close");
-    close.onclick = function () { toast.hidePopover(); };
-    toast.addEventListener("keydown", function (event) { if (event.key === "Escape") { toast.hidePopover(); } });
+    if (!toast.dataset.watched) {
+      // Once per toast: its close key, Esc, what holds it open, and its place when the window changes size.
+      toast.dataset.watched = "1";
+      var close = toast.querySelector(".toast-close");
+      close.onclick = function () { toast.hidePopover(); };
+      toast.addEventListener("keydown", function (event) { if (event.key === "Escape") { toast.hidePopover(); } });
+      toast.held = { pointer: false, focus: false };
+      toast.addEventListener("mouseenter", function () { toast.held.pointer = true; });
+      toast.addEventListener("mouseleave", function () { toast.held.pointer = false; });
+      toast.addEventListener("focusin", function () { toast.held.focus = true; });
+      // The keyboard gone from it (to anywhere but inside it): it holds the toast no more.
+      toast.addEventListener("focusout", function (event) {
+        toast.held.focus = toast.contains(event.relatedTarget);
+      });
+      window.addEventListener("resize", function () { if (toast.matches(":popover-open")) { place(toast); } });
+    }
+    // One timer at a time: one from an earlier showing goes.
+    if (toast.timer) { window.clearInterval(toast.timer); toast.timer = null; }
     if (!toast.classList.contains("bad")) {
-      var held = false;
-      toast.addEventListener("mouseenter", function () { held = true; });
-      toast.addEventListener("mouseleave", function () { held = false; });
-      toast.addEventListener("focusin", function () { held = true; });
-      var timer = window.setInterval(function () {
-        if (!held) { window.clearInterval(timer); if (toast.matches(":popover-open")) { toast.hidePopover(); } }
+      toast.timer = window.setInterval(function () {
+        if (!toast.held.pointer && !toast.held.focus) {
+          window.clearInterval(toast.timer);
+          toast.timer = null;
+          if (toast.matches(":popover-open")) { toast.hidePopover(); }
+        }
       }, 6000);
     }
-    window.addEventListener("resize", function () { if (toast.matches(":popover-open")) { place(toast); } });
   }
   document.querySelectorAll(".toast[data-toast]").forEach(show);
   // A dialog that opens over a toast that stays: the toast comes up again over it (the newest of the top layer is drawn

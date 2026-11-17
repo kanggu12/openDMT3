@@ -234,8 +234,8 @@ class AdminAnswersTest(AdminSiteBase):
             r = self.console.get(path, follow_redirects=False)
             for name, value in self.HEADERS.items():
                 self.assertEqual(r.headers.get(name), value, (path, name))
-        # The players' site is as it was.
-        self.assertIsNone(self.client.get("/signin").headers.get("x-frame-options"))
+        # The players' site has the frame protection alone (FramesTest), not the admin site's other headers.
+        self.assertIsNone(self.client.get("/signin").headers.get("referrer-policy"))
 
     def test_the_api_answers_on_both_ports_with_the_same_tokens(self):
         self.admin()
@@ -346,6 +346,224 @@ class WayBetweenTest(AdminSiteBase):
         self.assertIn(self.LINK % "/admin", browser.get("/").text)
 
 
+def at(app, address, base="http://testserver"):
+    """A browser at `address` on `app`, asking for the site by `base`."""
+    from starlette.testclient import TestClient
+    return TestClient(app, base_url=base, client=(address, 50000))
+
+
+@unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
+class LockoutTest(AdminSiteBase):
+    """Each site's door counts its own wrong passwords, and the admin door never holds back the visits the server knows
+    are this PC's own (the second review's V1: in Docker anyone could keep the owner out of the admin site)."""
+
+    def test_wrong_passwords_at_one_door_never_hold_the_other(self):
+        from opendmt3.server.web import app as web_app
+        self.admin()
+        self.make("RIO", dj="RIO")
+        # The review's: ten wrong passwords for BOSS at the players' door, from anyone's addresses.
+        for n in range(web_app.ID_TRIES):
+            self.assertEqual(self.sign_in(at(self.app, "198.51.100.%d" % n), "BOSS", "nope1234").status_code, 401)
+        # The players' door holds BOSS now; the admin door does not, from another PC of the network either.
+        self.assertEqual(self.sign_in(at(self.app, "198.51.100.200"), "BOSS").status_code, 429)
+        self.assertEqual(self.sign_in(self.far_console, "BOSS").status_code, 303)
+        # The other way: ten wrong passwords for RIO at the admin door leave RIO's sign-in on the players' site alone.
+        for n in range(web_app.ID_TRIES):
+            self.sign_in(at(self.admin_app, "198.51.100.%d" % (100 + n), "http://192.168.0.5:4731"), "RIO", "nope1234")
+        self.assertEqual(self.sign_in(at(self.app, "198.51.100.201"), "RIO").status_code, 303)
+
+    def test_the_admin_door_never_holds_back_this_pcs_own_visits(self):
+        from opendmt3.server.web import app as web_app
+        self.admin()
+        # In Docker with the admin port published on this PC's loopback alone (OPENDMT3_ADMIN_LOCAL_ONLY, which ./dmt3
+        # sets when ADMIN_BIND is 127.0.0.1): every visit comes from the Docker gateway, and only this PC can make one.
+        self.site.admin_local_only = True
+        gateway = at(self.admin_app, "172.17.0.1", "http://127.0.0.1:4731")
+        with mock.patch.object(web_app, "SIGN_INS", 1000):
+            # Wrong passwords past every limit: the address's for any IDs, the ID's at the address and from anywhere.
+            for n in range(web_app.ADDRESS_TRIES + web_app.ID_TRIES):
+                self.assertEqual(self.sign_in(gateway, "BOSS" if n % 2 else "ID%d" % n, "nope1234").status_code, 401)
+            # The owner's right password still gets in; a wrong one is still no sign-in.
+            self.assertEqual(self.sign_in(gateway, "BOSS", "nope1234").status_code, 401)
+            self.assertEqual(self.sign_in(gateway, "BOSS").status_code, 303)
+            # Through a proxy (./dmt3 expose --admin-public) a visit is never this PC's own, whatever its address.
+            proxied = at(self.admin_app, "172.17.0.1", "http://127.0.0.1:4731")
+            token = self.signin_token(proxied)
+            r = proxied.post("/signin", data={"csrf": token, "login_id": "BOSS", "password": "pass1234"},
+                             headers={"X-Forwarded-For": "198.51.100.7"}, follow_redirects=False)
+            self.assertEqual(r.status_code, 429)
+            # With the admin port open to the network, the gateway is anyone's: held as any address is.
+            self.site.admin_local_only = False
+            self.assertEqual(self.sign_in(at(self.admin_app, "172.17.0.1", "http://127.0.0.1:4731"), "BOSS").status_code,
+                             429)
+
+    def test_compose_says_who_reaches_the_admin_pages_and_where(self):
+        from opendmt3.server import __main__ as server_cli
+
+        def settings(*argv, **env):
+            args = CommandTest.parse(None, *argv, env=env)
+            return (server_cli.admin_address(args), server_cli.admin_open(args), server_cli.admin_local_only(args),
+                    server_cli.admin_public(args))
+
+        with mock.patch.object(server_cli.sources, "in_container", return_value=True):
+            # Compose's default: ADMIN_BIND 127.0.0.1, so this PC alone (the admin door's limits relaxed), on the PC's
+            # own port for the admin pages (the listener's in the container is always 4731).
+            self.assertEqual(settings(OPENDMT3_ADMIN_HOST_BIND="127.0.0.1", OPENDMT3_ADMIN_HOST_PORT="4831"),
+                             ("http://127.0.0.1:4831/", False, True, None))
+            # Opened to the network (ADMIN_BIND 0.0.0.0): open, no limit relaxed.
+            self.assertEqual(settings(OPENDMT3_ADMIN_HOST_BIND="0.0.0.0", OPENDMT3_ADMIN_HOST_PORT="4831"),
+                             ("http://127.0.0.1:4831/", True, False, None))
+            # Behind Caddy (expose --admin-public): the edge's 0.0.0.0 and the public address, as it is.
+            self.assertEqual(settings(OPENDMT3_ADMIN_HOST_BIND="0.0.0.0", OPENDMT3_ADMIN_HOST_PORT="4831",
+                                      OPENDMT3_ADMIN_ADDRESS="https://dmt3.example:4831"),
+                             ("http://127.0.0.1:4831/", True, False, "https://dmt3.example:4831/"))
+            # None given (not compose): the listener's own address, never open, nothing assumed.
+            self.assertEqual(settings(), ("http://127.0.0.1:4731/", False, False, None))
+            # The flags say the same as the environment.
+            self.assertEqual(settings("--admin-host-bind", "127.0.0.1", "--admin-host-port", "4831")[:3],
+                             ("http://127.0.0.1:4831/", False, True))
+        # Outside a container the listener's own address and port decide, whatever the environment says.
+        with mock.patch.object(server_cli.sources, "in_container", return_value=False):
+            self.assertEqual(settings(OPENDMT3_ADMIN_HOST_BIND="0.0.0.0", OPENDMT3_ADMIN_HOST_PORT="4831"),
+                             ("http://127.0.0.1:4731/", False, False, None))
+
+
+@unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
+class InAContainerTest(AdminSiteBase):
+    """In a container the server PC's browser comes from the Docker gateway: the name it asks for (this PC's own) says
+    it is the server PC, for the way to the admin site alone (the second review's V2)."""
+
+    def setUp(self):
+        super().setUp()
+        from opendmt3.server.services import sources
+        patch = mock.patch.object(sources, "in_container", return_value=True)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_this_pcs_name_goes_on_to_the_admin_site_and_shows_its_link(self):
+        pc = at(self.app, "172.17.0.1", "http://127.0.0.1:4730")
+        for path in ("/admin/status", "/owner"):
+            r = pc.get(path, follow_redirects=False)
+            self.assertEqual((r.status_code, r.headers.get("location")), (308, ADMIN.rstrip("/") + path), path)
+        for name in ("localhost:4730", "[::1]:4730"):
+            # The name as the browser sent it (the test client takes no IPv6 address for its own).
+            r = pc.get("/admin", headers={"Host": name}, follow_redirects=False)
+            self.assertEqual(r.status_code, 308, name)
+        self.admin()
+        self.sign_in(pc, "BOSS")
+        self.assertIn(WayBetweenTest.LINK % ADMIN, pc.get("/").text)
+        # Another name (this PC's address on the network) or a proxy's visit: the page that is not there, no link.
+        elsewhere = at(self.app, "172.17.0.1", "http://192.168.0.5:4730")
+        self.assertEqual(elsewhere.get("/admin", follow_redirects=False).status_code, 404)
+        self.assertEqual(pc.get("/admin", headers={"X-Forwarded-For": "127.0.0.1"}, follow_redirects=False).status_code,
+                         404)
+        self.assertNotIn("Admin pages", pc.get("/", headers={"X-Real-IP": "198.51.100.1"}).text)
+
+    def test_the_name_decides_no_sign_in_and_no_limit(self):
+        from opendmt3.server.web import app as web_app
+        self.admin()
+        # The per-ID limit from anywhere still holds a visit that names this PC: the name is any client's to send.
+        for n in range(web_app.ID_TRIES):
+            self.sign_in(at(self.app, "198.51.100.%d" % n), "BOSS", "nope1234")
+        self.assertEqual(self.sign_in(at(self.app, "172.17.0.1", "http://127.0.0.1:4730"), "BOSS").status_code, 429)
+
+
+@unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
+class OpenAdminSiteTest(AdminSiteBase):
+    """The ways to an admin site opened to the network, and to one behind the proxy at its public address: every PC that
+    reaches it is sent on there and linked there (in Docker ADMIN_BIND 0.0.0.0 broke 0.3.1's bookmarks otherwise)."""
+
+    def made(self, **settings):
+        from opendmt3.server.web.app import Site, create_app
+        # The PC's side of the admin port as compose passes it (4831 here, the container's own being 4731).
+        site = Site(self.tmp, admin_address="http://127.0.0.1:4831/", admin_on_site_port=False, site_port=SITE_PORT,
+                    **settings)
+        return create_app(site)
+
+    def test_open_to_the_network_any_pc_goes_on_to_it_on_the_pcs_port(self):
+        app = self.made(admin_open=True)
+        other = at(app, "192.168.0.9", "http://192.168.0.5:4730")
+        r = other.get("/admin/status?view=day", follow_redirects=False)
+        self.assertEqual((r.status_code, r.headers.get("location")), (308, "http://192.168.0.5:4831/admin/status?view=day"))
+        self.admin()
+        self.sign_in(other, "BOSS")
+        self.assertIn(WayBetweenTest.LINK % "http://192.168.0.5:4831/", other.get("/").text)
+        # Through the proxy (the internet's, ./dmt3 expose without --admin-public): no way there, no link.
+        proxied = {"X-Forwarded-For": "198.51.100.9"}
+        self.assertEqual(other.get("/admin", headers=proxied, follow_redirects=False).status_code, 404)
+        self.assertNotIn("Admin pages", other.get("/", headers=proxied).text)
+        # This PC itself: its own address, on the PC's port.
+        self.assertEqual(at(app, "127.0.0.1", "http://127.0.0.1:4730").get("/admin", follow_redirects=False)
+                         .headers["location"], "http://127.0.0.1:4831/admin")
+
+    def test_with_a_public_address_every_way_names_it_as_it_is(self):
+        app = self.made(admin_open=True, admin_public="https://dmt3.example:4831/")
+        self.admin()
+        for client, headers in ((at(app, "127.0.0.1", "http://127.0.0.1:4730"), {}),
+                                (at(app, "127.0.0.1", "http://dmt3.example"), {"X-Forwarded-For": "198.51.100.9"}),
+                                (at(app, "192.168.0.9", "http://192.168.0.5:4730"), {})):
+            r = client.get("/admin/players", headers=headers, follow_redirects=False)
+            self.assertEqual((r.status_code, r.headers.get("location")), (308, "https://dmt3.example:4831/admin/players"))
+            self.sign_in(client, "BOSS")
+            self.assertIn(WayBetweenTest.LINK % "https://dmt3.example:4831/", client.get("/", headers=headers).text)
+
+
+@unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
+class FramesTest(AdminSiteBase):
+    """No page of either site is framed by another site's, and the admin pages carry the admin site's headers whichever
+    listener serves them (the second review's V4 and V5)."""
+
+    def test_the_admin_pages_carry_their_headers_on_the_sites_port_too(self):
+        from opendmt3.server.web.app import Site, create_app
+        # --admin-on-site-port (Helm's admin.onPublicPort): the players' listener serves the admin pages too.
+        site = Site(self.tmp, admin_address=ADMIN, admin_on_site_port=True, site_port=SITE_PORT)
+        browser = at(create_app(site), "203.0.113.5")
+        self.admin()
+        self.sign_in(browser, "BOSS")
+        for path in ("/admin", "/admin/status", "/admin/players", "/admin/players/BOSS", "/admin/nowhere"):
+            r = browser.get(path, follow_redirects=False)
+            for name, value in AdminAnswersTest.HEADERS.items():
+                self.assertEqual(r.headers.get(name), value, (path, name))
+
+    def test_no_page_of_the_players_site_can_be_framed(self):
+        self.make()
+        self.sign_in(self.client)
+        for path in ("/", "/account", "/signin", "/nowhere", "/static/site.css", "/api/v1/status"):
+            r = self.client.get(path, follow_redirects=False)
+            self.assertEqual(r.headers.get("x-frame-options"), "DENY", path)
+            self.assertIn("frame-ancestors 'none'", r.headers.get("content-security-policy", ""), path)
+
+
+@unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
+class OneOwnerTest(AdminSiteBase):
+    """The first run makes one owner, however many of its forms come at once (the second review's V6)."""
+
+    def test_first_run_forms_sent_at_once_make_one_owner(self):
+        import threading
+        page = self.console.get("/owner").text
+        token = page.split('name="csrf" value="', 1)[1].split('"', 1)[0]
+        codes, start = [], threading.Barrier(6)
+
+        def post(n):
+            start.wait()
+            codes.append(self.console.post("/owner", data={"csrf": token, "login_id": "OWN%d" % n, "password": "pass1234"},
+                                           follow_redirects=False).status_code)
+
+        threads = [threading.Thread(target=post, args=(n,)) for n in range(6)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(30)
+        store = self.site.accounts()
+        try:
+            made = [row["login_id"] for row in store.all()]
+        finally:
+            store.db.close()
+        # One account, whichever came first; every form is answered (each goes on to the sign-in).
+        self.assertEqual(len(made), 1, made)
+        self.assertEqual(codes, [303] * 6)
+
+
 @unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
 class OneUseLinkTest(AdminSiteBase):
     """The launcher's one-use sign-in links, each for the site it was made for."""
@@ -400,7 +618,8 @@ class CommandTest(unittest.TestCase):
     def parse(self, *argv, env=None):
         from opendmt3.server import __main__ as server_cli
         with mock.patch.dict(os.environ, env or {}, clear=False):
-            for name in ("OPENDMT3_ADMIN_PORT", "OPENDMT3_ADMIN_HOST", "OPENDMT3_ADMIN_ON_SITE_PORT"):
+            for name in ("OPENDMT3_ADMIN_PORT", "OPENDMT3_ADMIN_HOST", "OPENDMT3_ADMIN_ON_SITE_PORT",
+                         "OPENDMT3_ADMIN_HOST_BIND", "OPENDMT3_ADMIN_HOST_PORT", "OPENDMT3_ADMIN_ADDRESS"):
                 if not env or name not in env:
                     os.environ.pop(name, None)
             return server_cli.parser().parse_args(list(argv))

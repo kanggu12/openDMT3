@@ -290,6 +290,23 @@ class AdminPagesTest(ApiBase):
         self.assertGreaterEqual(answer["found"], 3)
         self.refused(self.call("GET", "/api/v1/log/requests?kind=bad", boss), 400, "bad_request")
 
+    def test_a_page_of_requests_past_the_last_says_so_with_the_way_to_the_last(self):
+        self.admin()
+        for _ in range(3):
+            self.client.get("/missing-page")
+        # A bookmark of a page the log has rolled past: said, with the way to the last page there is.
+        page = self.client.get("/admin/log/requests?page=50&kind=refused").text
+        self.assertIn("This page is past the last one.", page)
+        self.assertIn('href="/admin/log/requests?kind=refused&amp;page=1"', page)
+        boss = self.token("BOSS")
+        answer = self.call("GET", "/api/v1/log/requests?per=2&page=99", boss).json()
+        found = answer["found"]
+        self.assertEqual((answer["requests"], answer["past"], answer["last_page"]), ([], True, -(-found // 2)))
+        # A page that is there says nothing of the kind.
+        answer = self.call("GET", "/api/v1/log/requests?per=2&page=1", boss).json()
+        self.assertEqual((answer["past"], answer["last_page"]), (False, -(-answer["found"] // 2)))
+        self.assertNotIn("This page is past the last one.", self.client.get("/admin/log/requests?page=1").text)
+
     def test_the_requests_file_never_gives_a_spreadsheet_a_formula(self):
         from starlette.testclient import TestClient
         from opendmt3.server.services import requestlog

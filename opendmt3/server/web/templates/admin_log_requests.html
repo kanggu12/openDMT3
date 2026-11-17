@@ -25,7 +25,7 @@
   </div>
   <div class="card">
     <h3>{{ w("log.lines") }}</h3>
-    {% if not log.requests %}<p class="muted">{{ w("requests.none") }}</p>{% else %}
+    {% if not log.requests and log.past %}<p class="muted">{{ w("requests.past") }} <a href="{{ links.last }}">{{ w("requests.last", n=log.last_page) }}</a></p>{% elif not log.requests %}<p class="muted">{{ w("requests.none") }}</p>{% else %}
     <p class="muted small">{{ w("requests.found", n="{:,}".format(log.found), kept=log.kept, shown=log.requests|length) }}</p>
     <table class="table requests">
       <thead><tr><th>{{ w("requests.when") }}</th><th>{{ w("requests.request") }}</th><th class="num">{{ w("requests.status") }}</th><th class="num">{{ w("requests.ms") }}</th><th>{{ w("requests.address") }}</th><th>{{ w("requests.who") }}</th></tr></thead>

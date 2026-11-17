@@ -153,17 +153,18 @@ class WebTest(WebBase):
 
     def test_old_wrong_passwords_are_forgotten(self):
         from opendmt3.server.web import app as web_app
-        self.site.failed("203.0.113.9")
-        self.site.failures["203.0.113.9"][0] -= web_app.WINDOW + 1
-        self.assertFalse(self.site.too_many("203.0.113.9"))
-        self.assertNotIn("203.0.113.9", self.site.failures)
+        door = self.site.players_door
+        door.failed("203.0.113.9")
+        door.failures["203.0.113.9"][0] -= web_app.WINDOW + 1
+        self.assertFalse(door.too_many("203.0.113.9"))
+        self.assertNotIn("203.0.113.9", door.failures)
 
     def test_a_flood_of_addresses_does_not_grow_the_table(self):
         from opendmt3.server.web import app as web_app
         with mock.patch.object(web_app, "ADDRESSES_KEPT", 3):
             for n in range(10):
-                self.site.failed("198.51.100.%d" % n)
-        self.assertEqual(len(self.site.failures), 3)
+                self.site.players_door.failed("198.51.100.%d" % n)
+        self.assertEqual(len(self.site.players_door.failures), 3)
 
     def test_sign_in_then_home_shows_the_dj(self):
         self.make()

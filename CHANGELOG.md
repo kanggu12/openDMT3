@@ -241,6 +241,18 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   `--test-server` ended with a traceback and the window's card said every step passed.
 - On the command line, `--sign-in` of a banned account says the ban's reason, `--server URL --test-server` tests the
   server it connected to, and the test's fixes name its own flags (`--sign-in ID`, `--update`).
+- Each site's door counts its own wrong passwords: guesses at the players' site no longer keep the owner out of the
+  admin site, and the admin door never holds back a visit only the server PC can make (in Docker, with the admin port
+  on this PC alone, as compose tells the server).
+- In Docker, the admin pages' old addresses on the site's port and the players' footer's **Admin pages** work from the
+  server PC (by the name a browser there opens the site by), from any PC once the admin pages are open to the network
+  (on the PC's admin port), and at their public address behind `--admin-public`.
+- The Connected page and `GET /api/v1/launchers` list only launchers that signed in; calls that only name a launcher
+  are a count (any program can send that name, and a flood of them pushed real launchers out).
+- The admin pages carry the admin site's headers on the site's port too (`--admin-on-site-port`), and no page of
+  either site can be framed by another site.
+- First-run forms sent at once make one owner; a page of the requests log past the last one says so, with the way to
+  the last; a change's toast goes six seconds after the keyboard leaves it, and one shown again keeps one timer.
 
 ## [0.3.1] - 2026-11-17
 

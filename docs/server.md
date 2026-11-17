@@ -368,12 +368,17 @@ The admin pages are a site of their own, with their own sign-in (an account with
   internet.
 - **On Kubernetes**, inside the cluster: `kubectl port-forward` ([On Kubernetes](kubernetes.md#the-admin-pages)), or
   the site's port too with `admin.onPublicPort`.
-- **In the launcher**: the launcher's own server keeps them on its site's own port, at `/admin/`.
+- **In the launcher**: its own server's admin site, on this PC alone (`http://127.0.0.1:4731/`, or the next free port
+  when that one is taken), which **Online**, **Admin pages** opens signed in.
 
 Their port is `ADMIN_PORT` in `.env` (`./dmt3 ports --admin N`), `opendmt3-server setup --admin-port N`, or
 `--admin-port` ([Ports](#ports)); `--admin-port 0` turns them off, and `--admin-on-site-port` serves them on the site's
 port too, at `/admin/`, for a setup with one port for everything. Their old addresses on the site's port
-(`http://<server>:4730/admin/...`) go on to them from the server PC, and are a page that is not there anywhere else.
+(`http://<server>:4730/admin/...`) go on to them wherever the admin pages are within reach (from the server PC; from
+any PC once they are open to the network, at the address that PC used and the admin port; at their public address
+behind `--admin-public`), and are a page that is not there anywhere else. In Docker, where every visit comes from
+Docker's gateway, a browser on the server PC is told apart by the name it opens the site by (`127.0.0.1`,
+`localhost`): for this way and the footer's link alone, never for a sign-in.
 
 The players' site and the admin pages keep their sign-ins apart: signing in to one never signs in to the other. For a
 signed-in admin, the players' site's footer has **Admin pages** wherever they are within that browser's reach. The API
@@ -531,7 +536,7 @@ caller (a sign-in on the site, or an API token):
 | A cabinet's link | 10 seconds to answer the handshake; 90 seconds without a message ends it; 15 seconds to read what is sent; 16 logins or results waiting for the database | The link is closed (what it left unread thrown away); past 16, its next messages wait their turn |
 | What one address sends the game's port | 64 KB a minute over all its links (a cabinet sends a few hundred bytes a minute) | Its links are closed until the minute ends |
 | Results | 8 stages a card login, only modes, patterns and songs the game has | Not kept, one log line a link |
-| Sign-ins | 20 a minute from one address; in 10 minutes, 5 wrong passwords for one ID from one address (its other IDs go on), 30 from one address for any IDs, 10 for one ID from anywhere (never for the server PC itself); a banned account's right password is no wrong one; 2 password checks at once | 429 with Retry-After |
+| Sign-ins | 20 a minute from one address; in 10 minutes, 5 wrong passwords for one ID from one address (its other IDs go on), 30 from one address for any IDs, 10 for one ID from anywhere (never for the server PC itself); each site's door counts its own, and the admin door holds back none of the visits only this PC makes; a banned account's right password is no wrong one; 2 password checks at once | 429 with Retry-After |
 | Requests at once | 1 per caller, 8 per address; up to 32 more of each wait their turn | 429 with Retry-After |
 | The server's work | 30 seconds of processor time a minute per caller, 90 per address (a page takes a few milliseconds; a file of every play on a long history a few seconds) | 429 with Retry-After until enough of the minute has passed |
 | A request's body | 64 KB, but the uploads: an admin's backup up to 256 MB and song list up to 64 MB, a player's picture up to 2 MB; beside an upload form's file, 64 KB of fields and boundaries, 8 KB of headers a part; each counted as it comes, a body sent in chunks too | 413, or the form's page says it |
@@ -612,6 +617,8 @@ openDMT3 makes these files readable by their owner only (on Linux and macOS).
 | `--port N`, `--web-port N` | The game's port (4725, `OPENDMT3_GAME_PORT`) and the site's (4730, `OPENDMT3_WEB_PORT`; 0 for no site) |
 | `--admin-port N`, `--admin-host ADDRESS` | The admin pages' port (4731, `OPENDMT3_ADMIN_PORT`; 0 for none) and the address they listen on (`127.0.0.1`, this PC alone, `OPENDMT3_ADMIN_HOST`; `0.0.0.0` for the network too) |
 | `--admin-on-site-port` | The admin pages on the site's port too, at `/admin/` (one port for both, as behind one Ingress; `OPENDMT3_ADMIN_ON_SITE_PORT`) |
+| `--admin-host-bind ADDRESS`, `--admin-host-port N` | In a container, the server PC's side of the admin port, which compose passes (`OPENDMT3_ADMIN_HOST_BIND` from `ADMIN_BIND`, `OPENDMT3_ADMIN_HOST_PORT` from `ADMIN_PORT`): a loopback address keeps the admin pages to this PC (and their door never holds back its visits), any other opens them to the network; the links and redirects to them name that port. Outside a container the listener's own address and port say it |
+| `--admin-address URL` | The admin pages' public address behind the proxy, which `./dmt3 expose --admin-public` passes (`OPENDMT3_ADMIN_ADDRESS`, `https://NAME:PORT/`): the links and redirects to them name it as it is |
 | `--catalog PATH` | Imports the song list (with its jackets and the DJ cards) from the client data in a folder or in an archive (`OPENDMT3_ARCHIVE_PASSWORD` for its password), or from a song list, each part one line, then starts. Run as root on a data folder someone else owns, root only reads: the data folder is written as its owner |
 | `--catalog PATH --save FILE` | Saves the song list from `PATH` into `FILE` (a folder: `openDMT3-song-list.zip` in it) instead, checked as a server takes it, and exits; the server's data is not touched |
 | `--game FOLDER` | The folder holding the client data, which the admin pages' **Song list** finds and imports again (`OPENDMT3_GAME`; in Docker, `GAME_DIR`) |

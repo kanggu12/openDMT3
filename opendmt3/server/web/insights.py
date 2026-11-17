@@ -171,8 +171,8 @@ def requests_wanted(params):
     moved, refused or failed, or a status of three digits). What cannot be read is no filter; `unread` names it."""
     kind = params.get("kind", "").strip()
     read = kind in requestlog.KINDS or (kind.isdigit() and len(kind) == 3)
-    # The page of the list (the newest first): the Logs tab shows REQUESTS_PAGE a page; a page past what is kept is
-    # the last one there is.
+    # The page of the list (the newest first): the Logs tab shows REQUESTS_PAGE a page; a page past the last one there
+    # is (a bookmark kept while the log rolled on) says so, with the way to the last (requests_log's past, last_page).
     page = params.get("page", "1").strip()
     return {"q": params.get("q", "").strip()[:64], "kind": kind if read else "",
             "page": max(1, min(int(page), 1000)) if page.isdigit() else 1,
@@ -186,7 +186,8 @@ REQUESTS_PAGE = 50
 def requests_log(site, wanted, now=None, most=200, per=None):
     """The Logs tab's Requests view: the last day by half hours (the chart), and the newest requests the filter
     leaves, at most `most`, with how many it left of those kept in memory. With `per`, one page of them: the
-    wanted page's `per` (newer and older say whether there are pages either side)."""
+    wanted page's `per` (newer and older say whether there are pages either side), the last page there is
+    (last_page) and whether the one asked is past it (past: a bookmark kept while the log rolled on)."""
     page = wanted.get("page", 1)
     if per:
         most = min(requestlog.RECENT, page * per + 1)
@@ -195,11 +196,14 @@ def requests_log(site, wanted, now=None, most=200, per=None):
     if per:
         older = len(shown) > page * per
         shown = shown[(page - 1) * per:page * per]
+    # The last page there is (1 when nothing is found), of the found the pages reach (they are of those kept).
+    last = max(1, -(-found // per)) if per else 1
     chart = site.requests.chart(now)
     return {"chart": chart, "most": max([s["ok"] + s["bad"] for s in chart] + [0]),
             "day": {"ok": sum(s["ok"] for s in chart), "bad": sum(s["bad"] for s in chart)},
             "requests": shown, "found": found, "kept": requestlog.RECENT, "bytes": site.requests.size(),
-            "page": page, "newer": bool(per) and page > 1, "older": older}
+            "page": page, "newer": bool(per) and page > 1, "older": older, "last_page": last,
+            "past": bool(per) and page > last}
 
 
 def _iso(at):

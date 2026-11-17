@@ -118,7 +118,9 @@ class Accounts:
             if not self.db.execute("SELECT 1 FROM accounts WHERE card = ?", (card,)).fetchone():
                 return card
 
-    def create(self, login_id, password, dj_name=None, is_admin=False, who="system"):
+    def create(self, login_id, password, dj_name=None, is_admin=False, who="system", first=False):
+        """A new account. `first`: the server's first (the owner's, the first run's): refused once any account is there
+        (AccountError error.account.not_first), checked in the same write transaction as the account is made."""
         check_id(login_id)
         check_password(password)
         name = (dj_name or login_id).strip()
@@ -126,8 +128,11 @@ class Accounts:
         # The slow hash first, so the write lock below is held for milliseconds, never for a hash.
         secret = _hash(game_digest(password))
         # The check that the ID is free and the account in one write transaction: two admins making the same ID at
-        # once get one account and one "taken", never a failure of the database's own rule.
+        # once get one account and one "taken", never a failure of the database's own rule. The first run's forms sent
+        # at once likewise make one owner: the others find an account there.
         with db.immediate(self.db):
+            if first and self.has_any():
+                raise AccountError("the server has its first account already", "error.account.not_first")
             if self.by_login(login_id):
                 raise AccountError("the ID %s is taken" % login_id, "error.account.taken", login_id=login_id)
             self.db.execute(

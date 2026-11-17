@@ -146,7 +146,8 @@ if s["filters"] != rounds or s["filter_faults"]:
 if s["messages"] != rounds or s["message_faults"]:
     problems.append("the message to send: %d of %d runs misbehaved" % (s["message_faults"], s["messages"]))
 if s["bars"] != rounds or s["bar_faults"]:
-    problems.append("the toast and the phone's menu sheet: %d of %d runs misbehaved" % (s["bar_faults"], s["bars"]))
+    problems.append("the toast (its place, and in one run its time) and the phone's menu sheet: %d of %d runs "
+                    "misbehaved" % (s["bar_faults"], s["bars"]))
 if s["looks"] != rounds or s["look_faults"]:
     problems.append("the list to look at: %d of %d runs misbehaved" % (s["look_faults"], s["looks"]))
 # Two upload fields a round, the Backups tab's and the Song list tab's.

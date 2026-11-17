@@ -136,6 +136,22 @@ def _local(request):
     return (request.url.hostname or "").lower() in ("127.0.0.1", "localhost", "::1")
 
 
+def _asks_as_this_pc(request):
+    """True for a visit that may be shown the ways to the admin site that work on the server PC alone: the 308 of the
+    admin pages' old addresses on the players' port and the players' footer's Admin pages link. A visit from this PC
+    (_local), or, in a container (Docker), one that came straight (no forwarded header) and asked for this PC's own
+    name (localhost, 127.0.0.1, [::1]): there the server PC's own browser comes from the Docker gateway, never from
+    127.0.0.1, and only a browser on the server PC reaches the published port by its loopback name.
+
+    Any client can send that name, so it decides nothing else: no sign-in, no limit, nothing a page shows but the way.
+    All another PC gets from it is an address that leads to that PC itself."""
+    if _local(request):
+        return True
+    if not sources.in_container() or any(name in request.headers for name in FORWARDED):
+        return False
+    return (request.url.hostname or "").lower() in ("127.0.0.1", "localhost", "::1")
+
+
 def admin_side(request):
     """True for a request to the admin site (its own port), False for one to the players' site (scope or Request)."""
     scope = request if isinstance(request, dict) else request.scope
@@ -214,29 +230,37 @@ async def _check_password(site, request, login_id, password):
     sent at once see each other, so none slips past the limit while others are being checked, and right ones in a
     burst never hold each other back (only HASHING_AT_ONCE are being checked at any moment). Wrong passwords hold
     back the ID at the address they came from (other IDs behind it go on), the address once they pass its own looser
-    ceiling for any IDs, and the ID from every address but the server PC (app.TRIES, ADDRESS_TRIES, ID_TRIES)."""
+    ceiling for any IDs, and the ID from every address but the server PC (app.TRIES, ADDRESS_TRIES, ID_TRIES).
+
+    Each site's door counts its own (Site.door): an outsider's guesses at the players' door never hold back the admin
+    door. The admin door holds back none of this PC's own visits for wrong passwords (_admin_own_pc): only the owner
+    makes them, so nobody can keep the owner out of their admin site; a wrong password there is still no sign-in."""
     address, local = _address(request), _local(request)
-    if not site.sign_in_allowed(address):
-        return None, ("signin.wait", "too many sign-ins from this address; wait a minute", site.sign_in_wait(address))
+    door = site.door(request)
+    # The admin door's visits that only this PC can make: nothing but the sign-ins a minute holds them back.
+    own = _admin_own_pc(site, request)
+    if not door.sign_in_allowed(address):
+        return None, ("signin.wait", "too many sign-ins from this address; wait a minute", door.sign_in_wait(address))
     async with site.gate():
-        if site.too_many(address):
+        if not own and door.too_many(address):
             return None, ("signin.wait", "too many failed sign-ins from this address; wait a few minutes",
-                          site.wrong_wait(address))
+                          door.wrong_wait(address))
         # The ID at this address, and from anywhere: never the latter for a visit from this PC (the owner can always
         # sign in at the server itself).
-        here, anywhere = site.held_here(address, login_id), not local and site.id_held(login_id)
+        here = not own and door.held_here(address, login_id)
+        anywhere = not own and not local and door.id_held(login_id)
         if here or anywhere:
             # Until every limit that holds it lets go.
-            wait = max(site.here_wait(address, login_id) if here else 0, site.id_wait(login_id) if anywhere else 0)
+            wait = max(door.here_wait(address, login_id) if here else 0, door.id_wait(login_id) if anywhere else 0)
             return None, ("signin.wait.id", "too many wrong passwords for this ID; wait a few minutes", wait)
-        marks = site.failed(address, login_id, local)
+        marks = door.failed(address, login_id, local or own)
         # The check and its look into the database on a thread of the long work's own (the request's connection opened
         # there too): the site's own threads go on meanwhile.
         row, banned = await long(_password_matches, site, login_id, password)
     if row is not None or banned is not None:
         # The right password: an enabled account's, or a banned account's own (its reason is said to whoever knows it,
         # so it tells nothing a guess could use): never counted as a wrong one.
-        site.forgive(marks)
+        door.forgive(marks)
     else:
         # Who tried which ID from where (never the password); %r keeps a typed line break on one log line.
         log.warning("a wrong password for the ID %r from %s (%s)", str(login_id)[:32], address, request.url.path)
@@ -245,6 +269,18 @@ async def _check_password(site, request, login_id, password):
         # What this check found of a ban, for control.ban_note: the password is never checked a second time.
         work.banned = (login_id, banned) if banned is not None else None
     return row, None
+
+
+def _admin_own_pc(site, request):
+    """True for a visit to the admin site that only this PC can make: from this PC itself (_local), or any that came
+    straight (no forwarded header) when only this PC reaches the admin site (Site.admin_local_only: in Docker its port
+    published on the PC's loopback alone, where every visit comes from the Docker gateway). Through a proxy (./dmt3
+    expose --admin-public) a visit is anyone's. For the sign-in limits alone: it signs nobody in."""
+    if not admin_side(request):
+        return False
+    if _local(request):
+        return True
+    return bool(site.admin_local_only) and not any(name in request.headers for name in FORWARDED)
 
 
 def _password_matches(site, login_id, password):

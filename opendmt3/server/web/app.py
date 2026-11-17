@@ -70,8 +70,8 @@ from opendmt3.server.web import strings
 from opendmt3.server.web.api import _error, api_unknown
 # Site reads the cookies the pages set, so their names come from common.py, where all the cookies' names are; the
 # wall's redirect, the 404 handler's error page, a 405's Allow and the health check come from there too.
-from opendmt3.server.web.common import (FORWARDED, LANG_COOKIE, SIDE_KEY, SIGN_IN_DAYS, _allowed, _health, _local,
-                                        _rail, _redirect, admin_side, cookies, not_found, players_base)
+from opendmt3.server.web.common import (FORWARDED, LANG_COOKIE, SIDE_KEY, SIGN_IN_DAYS, _allowed, _asks_as_this_pc,
+                                        _health, _rail, _redirect, admin_side, cookies, not_found, players_base)
 # The stage behind the players' pages' heads (core/stage.py's one composition, as SVG).
 from opendmt3.server.web import stage
 
@@ -159,7 +159,8 @@ class Site:
     """What the pages share: the database, the signer, the game server (for live cabinets), the words."""
 
     def __init__(self, data_dir, game_server=None, game_port=4725, downloads=None, game_folder=None, address=None,
-                 runner=None, admin_address=None, admin_on_site_port=True, admin_open=False, site_port=None):
+                 runner=None, admin_address=None, admin_on_site_port=True, admin_open=False, site_port=None,
+                 admin_local_only=False, admin_public=None):
         self.data_dir = data_dir
         # Where the admin pages are (ADMIN-SITE.md). admin_address: the admin site's address as this PC reaches it
         # (http://127.0.0.1:4731/, the server's --admin-port), None when it has none. admin_on_site_port: the site's own
@@ -171,6 +172,14 @@ class Site:
         self.admin_on_site_port = admin_on_site_port
         self.admin_open = admin_open
         self.site_port = site_port
+        # admin_local_only: only this PC reaches the admin site (in Docker, its port published on the PC's loopback
+        # alone: OPENDMT3_ADMIN_LOCAL_ONLY, __main__.py), though every visit comes from the Docker gateway there. The
+        # admin door then holds back none of them for wrong passwords (common._check_password): it relaxes limits,
+        # never signs anyone in.
+        self.admin_local_only = admin_local_only
+        # admin_public: the admin site's public address behind the proxy (./dmt3 expose --admin-public, as compose
+        # passes it: OPENDMT3_ADMIN_ADDRESS), which every way to the admin pages names as it is (admin_way).
+        self.admin_public = admin_public
         # A mark of this run of the server (GET /health gives it): a restart's page waits for a new one.
         self.run = secrets.token_hex(4)
         # Who started this server, which the Status tab's Stop asks (runner.py): given by whoever made the Site (the
@@ -200,13 +209,10 @@ class Site:
         # The launcher's update packages (build.sh's OUT_DIR/releases), handed to the launchers connected here.
         self.updates = os.path.join(data_dir, "updates")
         # Wrong passwords per ID at each address, per address for any IDs, per ID from anywhere, and every sign-in per
-        # address (services/limits.py).
-        self.wrong = limits.Recent(WINDOW, lambda: ADDRESSES_KEPT)
-        self.wrong_addresses = limits.Recent(WINDOW, lambda: ADDRESSES_KEPT)
-        self.wrong_ids = limits.Recent(WINDOW, lambda: ADDRESSES_KEPT)
-        self.sign_ins = limits.Recent(SIGN_IN_WINDOW, lambda: ADDRESSES_KEPT)
-        # The address table itself: address -> times of its recent wrong passwords, for any IDs.
-        self.failures = self.wrong_addresses.table
+        # address (Door, services/limits.py). Each site's door has its own: wrong passwords at the players' door never
+        # hold back the admin door, and the other way (an outsider's guesses at the players' port kept the owner out of
+        # the admin site).
+        self.players_door, self.admin_door = Door(), Door()
         # (the event loop, a semaphore on it) for hashed(): made on the loop that first needs it.
         self._gate = None
         # One-use sign-in links the launcher on this PC hands the browser: token -> (account id, expiry).
@@ -289,16 +295,26 @@ class Site:
         return entry[0]
 
     def admin_link(self, request):
-        """Where the players' site's footer sends a signed-in admin for the admin pages, only where they are within that
-        visitor's reach: the site's own /admin when its port serves them too; the admin site's address on this PC for a
-        visit from this PC; the same host on the admin port when the admin site listens for other PCs and the visit
-        came straight (not through a proxy, whose name is not the admin site's). None anywhere else: no link that
-        leads nowhere."""
+        """Where the players' site's footer sends a signed-in admin for the admin pages: the site's own /admin when its
+        port serves them too, else the way to the admin site that this visitor reaches (admin_way), or None: no link
+        that leads nowhere."""
         if self.admin_on_site_port:
             return "/admin"
+        return self.admin_way(request)
+
+    def admin_way(self, request):
+        """The admin site's address for this visit, the one the players' footer links and the players' port's old
+        addresses go on to (308), or None where it is out of the visitor's reach. Its public address behind the proxy,
+        when it has one (admin_public: for every visitor, as it is); else the address on this PC for a visit from this
+        PC (also by this PC's own name in a container: common._asks_as_this_pc, for this way alone, never a sign-in);
+        else, when the admin site is open to the network (admin_open), the address as this visit reached the server:
+        its scheme and host, on the admin port as the PC publishes it (admin_address's), for a visit that came straight.
+        A visit through the proxy (./dmt3 expose: the internet's) reaches the admin site only at its public address."""
         if self.admin_address is None:
             return None
-        if _local(request):
+        if self.admin_public:
+            return self.admin_public
+        if _asks_as_this_pc(request):
             return self.admin_address
         if self.admin_open and not any(name in request.headers for name in FORWARDED):
             host = request.url.hostname or "127.0.0.1"
@@ -465,6 +481,23 @@ class Site:
         # button after a sign-out; and it differs with the cookie that signs in.
         return HTMLResponse(html, status_code=status, headers=PAGE_HEADERS)
 
+    def door(self, request):
+        """The sign-in limits of the door the request came to: the admin site's own, or the players' site's (Door)."""
+        return self.admin_door if admin_side(request) else self.players_door
+
+
+class Door:
+    """One site's door's limits on sign-ins (services/limits.py): wrong passwords per ID at each address, per address
+    for any IDs, per ID from anywhere, and every sign-in per address. Each site has its own (Site.door)."""
+
+    def __init__(self):
+        self.wrong = limits.Recent(WINDOW, lambda: ADDRESSES_KEPT)
+        self.wrong_addresses = limits.Recent(WINDOW, lambda: ADDRESSES_KEPT)
+        self.wrong_ids = limits.Recent(WINDOW, lambda: ADDRESSES_KEPT)
+        self.sign_ins = limits.Recent(SIGN_IN_WINDOW, lambda: ADDRESSES_KEPT)
+        # The address table itself: address -> times of its recent wrong passwords, for any IDs.
+        self.failures = self.wrong_addresses.table
+
     def too_many(self, address):
         """True while the address has had ADDRESS_TRIES wrong passwords within WINDOW, for any IDs."""
         return self.wrong_addresses.count(limits.sender(address)) >= ADDRESS_TRIES
@@ -584,30 +617,47 @@ ADMIN_SITE_PAGES = ("/signin", "/signin/once/{token}", "/signout", "/owner", "/l
 # a form or a program may send to them.
 ELSEWHERE = ("/admin", "/admin/{rest:path}")
 EVERY_METHOD = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-# The admin site's own headers on every answer: no page of another site frames it, a file is never read as another kind,
-# and its addresses go to no other site in a Referer.
-ADMIN_HEADERS = ((b"x-frame-options", b"DENY"), (b"x-content-type-options", b"nosniff"),
-                 (b"referrer-policy", b"same-origin"))
+# Every answer of either site: no page of another site frames it (a page framed under another's could be clicked
+# through without its reader seeing it): X-Frame-Options for every browser, CSP's frame-ancestors for those that read
+# it first. No page of either site frames another of its own.
+FRAME_HEADERS = ((b"x-frame-options", b"DENY"), (b"content-security-policy", b"frame-ancestors 'none'"))
+# The admin pages' own headers besides, on every answer of the admin site and on the admin pages whichever listener
+# serves them (--admin-on-site-port's players' port too): a file is never read as another kind, and their addresses go
+# to no other site in a Referer.
+ADMIN_HEADERS = FRAME_HEADERS + ((b"x-content-type-options", b"nosniff"), (b"referrer-policy", b"same-origin"))
+# The admin pages' addresses on the players' port (with --admin-on-site-port they are served there), and the first
+# run's: what the players' site stamps with ADMIN_HEADERS.
+ADMIN_PATHS = ("/admin/", "/owner")
+
+
+def admin_path(path):
+    """True for an address of the admin pages (or the first run's) on the players' site: /admin, /admin/..., /owner."""
+    return path == "/admin" or path.startswith(ADMIN_PATHS)
 
 
 class Side:
-    """The admin site's outermost layer: each request marked as the admin site's in its scope (SIDE_KEY, which
-    common.admin_side reads), and each answer with the admin site's own headers (ADMIN_HEADERS)."""
+    """Either site's outermost layer: the admin site's requests marked as its own in their scope (SIDE_KEY, which
+    common.admin_side reads), and each answer with its headers: the admin site's own (ADMIN_HEADERS) on every answer of
+    the admin site and on the admin pages wherever they are served, the frame protection (FRAME_HEADERS) on every
+    other answer of the players' site."""
 
-    def __init__(self, app):
+    def __init__(self, app, admin_site=True):
         self.app = app
+        self.admin_site = admin_site
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        scope[SIDE_KEY] = "admin"
+        if self.admin_site:
+            scope[SIDE_KEY] = "admin"
+        stamp = ADMIN_HEADERS if self.admin_site or admin_path(scope["path"]) else FRAME_HEADERS
 
         async def stamped(message):
             if message["type"] == "http.response.start":
                 # In place of any the answer had of the same names.
                 headers = MutableHeaders(scope=message)
-                for name, value in ADMIN_HEADERS:
+                for name, value in stamp:
                     headers[name.decode()] = value.decode()
             await send(message)
 
@@ -755,12 +805,14 @@ def _make_app(site, admin_site):
     # the work an async handler hands over: the route made again around the counted handler, as it was otherwise.
     async def elsewhere(request):
         """/admin, /admin/... (and /owner) on the players' site when the admin pages have a site of their own: a visit
-        from the server PC goes on to the same address there (308, so a form's POST goes on as a POST: old bookmarks
-        and the guides' old addresses keep working on the PC), any other gets the players' site's page that is not
-        there."""
-        if site.admin_address and _local(request):
-            target = site.admin_address.rstrip("/") + request.url.path + (
-                "?" + request.url.query if request.url.query else "")
+        that reaches the admin site (from the server PC; from anywhere when it is open to the network or public) goes
+        on to the same address there (308, so a form's POST goes on as a POST: old bookmarks and the guides' old
+        addresses keep working), any other gets the players' site's page that is not there."""
+        # The way this visitor reaches the admin site (Site.admin_way: this PC, also by its own name in a container; the
+        # network's or the public address when it is open there): only a way, the admin site asks for its own sign-in.
+        way = site.admin_way(request)
+        if way:
+            target = way.rstrip("/") + request.url.path + ("?" + request.url.query if request.url.query else "")
             return RedirectResponse(target, status_code=308)
         return await not_found(site, request)
 
@@ -809,11 +861,12 @@ def _make_app(site, admin_site):
     # Shares, so a failure anywhere below is answered; Work outside Shares, so Shares counts what Work kept (a refused
     # request opens nothing: the connection is opened at its first use).
     # The admin site's requests are marked as its own outside every other layer (Side), so each of them reads the admin
-    # site's cookies, and every answer, a refusal or a failure too, carries its headers.
+    # site's cookies; and every answer of either site, a refusal or a failure too, carries its headers (Side).
     return Starlette(routes=routes, exception_handlers={404: missing, 405: wrong_method},
-                     middleware=([Middleware(Side)] if admin_site else []) + [
-                         Middleware(Compress), Middleware(NoStore), Middleware(Errors), Middleware(Logged, site=site),
-                         Middleware(Work), Middleware(Shares, site=site), Middleware(SignInWall)])
+                     middleware=[
+                         Middleware(Side, admin_site=admin_site), Middleware(Compress), Middleware(NoStore),
+                         Middleware(Errors), Middleware(Logged, site=site), Middleware(Work), Middleware(Shares, site=site),
+                         Middleware(SignInWall)])
 
 
 # The requests log's writer: one thread for the process, made at its first write (_writer).

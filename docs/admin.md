@@ -22,11 +22,17 @@ too, at `/admin/`, for a setup with one port for everything.
   admin site, from the server PC: opening the players' site there leads to it. `--add-player ID --admin` makes one
   from the command line.
 - **The players' site.** Its menu has no admin pages. For a signed-in admin, its footer has **Admin pages** wherever
-  they are within reach of that browser: on the server PC, or on another PC once the owner opened them to the network.
-  The admin pages' old addresses on the site's port (`http://<server>:4730/admin/...`) go on to the admin site from the
-  server PC, and are a page that is not there anywhere else.
+  they are within reach of that browser: on the server PC (in Docker too: a browser there opens the site by this PC's
+  own name, `127.0.0.1` or `localhost`), on any PC of the network once the owner opened them there, and at their
+  public address behind `--admin-public`. The admin pages' old addresses on the site's port
+  (`http://<server>:4730/admin/...`) go on to the admin site from the same places (308, a form's POST kept), and are
+  a page that is not there anywhere else.
 - **The API** answers on both ports with the same tokens ([api.md](api.md)).
-- **The launcher's built-in server** keeps the admin pages on its site's own port, at `/admin/`, in the same frame.
+- **The launcher's own server** has an admin site of its own too, on this PC alone (`http://127.0.0.1:4731/`, or the
+  next free port), which **Online**, **Admin pages** opens signed in as this PC's admin.
+- **Their sign-ins**: each site's door counts its own wrong passwords, so guesses at the players' site never hold
+  back the admin site's door, and the admin door never holds back a visit that only this PC can make (in Docker,
+  with the admin port on this PC alone). No page of either site can be shown inside another site's frame.
 
 **The frame.** The admin site is the server's control room: an opaque band with the mark, the pages across it as the
 game's leaning keys (the page showing lit in TECHNIKA 3's blue), the language, who is signed in and **Sign out**; under
@@ -77,10 +83,11 @@ API: `GET /api/v1/players` (with `?sort=` and `?order=`, and each player's `days
 
 Who is on the server (how many now: the rail). Every cabinet seen, by its address or the name given here, and who plays
 on each now;
-then every launcher that asked the server's API since it started: its player once it signed in (leading to their
-page), its PC's address, its version, and when it was last heard, lit while that was within ten minutes. A launcher
-names itself in each call (`openDMT3-launcher/<version>`); the server keeps what it hears in memory, so a restart
-starts the list again.
+then every launcher that signed in to the server since it started: its player (leading to their page), its PC's
+address, its version, and when it was last heard, lit while that was within ten minutes. A launcher names itself in
+each call (`openDMT3-launcher/<version>`); since any program can send that name, the calls that came without a
+sign-in are only a count under the list (by address, an IPv6 /64 as one, for the last day). The server keeps what it
+hears in memory, so a restart starts the list again.
 
 API: `GET /api/v1/cabinets?all=1`, `GET /api/v1/launchers`.
 

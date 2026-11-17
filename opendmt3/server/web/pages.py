@@ -248,8 +248,10 @@ def routes(site):
                 try:
                     # Its password is hashed on a worker thread (Site.hashed), as every password is.
                     made = form.get("login_id", "").strip().upper()
+                    # The first account only (first=True: refused once any is there, in the account's own
+                    # transaction): forms sent at once make one owner.
                     await site.hashed(_accounts_call, site, "create", made, form.get("password", ""),
-                                      form.get("dj_name", "").strip() or None, is_admin=True, who="owner")
+                                      form.get("dj_name", "").strip() or None, is_admin=True, who="owner", first=True)
                     response = _redirect("/signin")
                     response.delete_cookie(names.owner)
                     # The sign-in page that opens next says the account was made (read once there; strict: only a
@@ -257,6 +259,9 @@ def routes(site):
                     response.set_cookie(names.made, made, max_age=120, httponly=True, samesite="strict")
                     return response
                 except acc.AccountError as e:
+                    if getattr(e, "key", "") == "error.account.not_first":
+                        # Another form made the first account a moment ago: the first run is over, as for any visit.
+                        return _redirect("/signin")
                     error = w.error(e)
                     # The field the refusal is about, under which it is said (errors.py's keys).
                     field = ACCOUNT_FIELDS.get(getattr(e, "key", ""))

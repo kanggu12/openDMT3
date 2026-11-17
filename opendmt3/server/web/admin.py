@@ -184,7 +184,8 @@ def routes(site):
         # The server and who is on it: the cabinets (the game's connections) and the launchers that asked its API
         # (launchers.py), each PC's by its address.
         return site.render(request, "admin_cabinets.html", user=user, cabinets=_known_cabinets(site), notice=notice,
-                           error=error, launchers=site.launchers.view(), launchers_since=site.launchers.since)
+                           error=error, launchers=site.launchers.view(), anonymous=site.launchers.anonymous(),
+                           launchers_since=site.launchers.since)
 
     async def admin_status(request):
         """The server's state and numbers, what may want a look, the song list (what it holds; imported on its own
@@ -410,6 +411,8 @@ def routes(site):
         log = insights.requests_log(site, wanted, per=insights.REQUESTS_PAGE)
         links = {side: "/admin/log/requests?" + urlencode(dict(kept, page=wanted["page"] + step))
                  for side, step in (("newer", -1), ("older", 1))}
+        # The way to the last page there is, for a page past it (a bookmark kept while the log rolled on).
+        links["last"] = "/admin/log/requests?" + urlencode(dict(kept, page=log["last_page"]))
         return site.render(request, "admin_log_requests.html", user=user, wanted=wanted, links=links,
                            log=log, kinds=list(insights.requestlog.KINDS),
                            csv="/admin/log/requests.csv" + ("?" + urlencode(kept) if kept else ""),

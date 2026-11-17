@@ -98,6 +98,8 @@ TEXT = {
     "error.account.password": ("a password is {min} to {max} letters or digits",
                                "비밀번호는 영문자와 숫자로 {min}~{max}자입니다."),
     "error.account.dj": ("a DJ name is 1 to {max} characters", "DJ 이름은 1~{max}자입니다."),
+    # The first run's form when another made the first account a moment before (forms sent at once).
+    "error.account.not_first": ("the server has its first account already", "서버에 첫 계정이 이미 있습니다"),
     "error.account.taken": ("the ID {login_id} is taken", "이미 쓰이는 ID입니다: {login_id}"),
     # The server keeps an enabled admin: its last one is never disabled nor loses the rights (accounts.set_admin,
     # accounts.set_disabled), on the admin pages and through the API alike.

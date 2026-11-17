@@ -31,8 +31,9 @@
     </table>
     {% endif %}
   </div>
-  {# The launchers that asked this server since it started: whose (a signed call says it), from which PC, which
-     version, when last heard; lit while heard within the last ten minutes. #}
+  {# The launchers that signed in to this server since it started: whose, from which PC, which version, when last
+     heard; lit while heard within the last ten minutes. Calls that named a launcher without a sign-in (anyone can send
+     that name) are a count under them, never rows. #}
   <div class="card" id="launchers">
     <h3>{{ w("connected.launchers.title") }}</h3>
     {% if not launchers %}<p class="muted">{{ w("connected.launchers.none", since=(launchers_since|when)) }}</p>{% else %}
@@ -41,7 +42,7 @@
       <tbody>
       {% for l in launchers %}
         <tr class="{{ 'quiet' if not l.now }}">
-          <td><span class="dot{{ ' on' if l.now }}" aria-hidden="true"></span> {% if l.player %}<a href="/admin/players/{{ l.login_id }}">{{ l.dj_name }}</a> <code>{{ l.login_id }}</code>{% else %}<span class="muted">{{ w("connected.signed_out") }}</span>{% endif %}</td>
+          <td><span class="dot{{ ' on' if l.now }}" aria-hidden="true"></span> <a href="/admin/players/{{ l.login_id }}">{{ l.dj_name }}</a> <code>{{ l.login_id }}</code></td>
           <td data-label="{{ w('connected.pc') }}"><code>{{ l.address }}</code></td>
           <td data-label="{{ w('connected.version') }}">{{ l.version }}</td>
           <td class="muted" data-label="{{ w('connected.last') }}">{{ l.last_seen|when }}{% if l.now %} · {{ w("connected.now") }}{% endif %}</td>
@@ -51,6 +52,7 @@
     </table>
     <p class="muted small cut">{{ w("connected.since", since=(launchers_since|when)) }}</p>
     {% endif %}
+    {% if anonymous.count %}<p class="muted small">{{ w("connected.anonymous", n=anonymous.count) }}</p>{% endif %}
   </div>
 {% include "_admin_close.html" %}
 {% endblock %}

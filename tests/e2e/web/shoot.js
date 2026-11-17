@@ -223,13 +223,23 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
       // The bar's floating layers pressed, not only pictured: the toast the account just made left stands inside the bar
       // or on its strip right under it, its middle its own; on a phone MENU opens its sheet from under the bar to the
       // window's foot, across it, its middle its own, MENU saying it is open, and it closes again.
-      const bar = await page.evaluate(async () => {
+      // In one round (English, the desktop) its time too: kept while the keyboard is on it, gone six seconds after the
+      // keyboard leaves it (a toast once focused used to stay for good).
+      const bar = await page.evaluate(async (timed) => {
         const out = {}, b = document.querySelector('.bar').getBoundingClientRect();
         const t = document.querySelector('.toast[data-toast]');
         if (t) {
           const r = t.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
           out.toast = {open: t.matches(':popover-open'), mine: t.contains(hit), under: t.classList.contains('under'),
                        inBar: r.top >= b.top - 1 && r.bottom <= b.bottom + 1, onBar: Math.abs(r.top - b.bottom) <= 1};
+          if (timed && out.toast.open) {
+            t.querySelector('.toast-close').focus();
+            await new Promise(done => setTimeout(done, 6600));
+            out.toast.held = t.matches(':popover-open');
+            document.activeElement.blur();
+            await new Promise(done => setTimeout(done, 6600));
+            out.toast.let_go = !t.matches(':popover-open');
+          }
         }
         const key = document.querySelector('.menu-key');
         if (key && key.offsetWidth) {
@@ -244,9 +254,10 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
           out.sheet.closed = !sheet.matches(':popover-open');
         }
         return out;
-      });
+      }, lang === 'en' && width > 760);
       const toastFine = bar.toast && bar.toast.open && bar.toast.mine &&
-        ((!bar.toast.under && bar.toast.inBar) || (bar.toast.under && bar.toast.onBar));
+        ((!bar.toast.under && bar.toast.inBar) || (bar.toast.under && bar.toast.onBar)) &&
+        (!('held' in bar.toast) || (bar.toast.held && bar.toast.let_go));
       const sheetFine = width > 760 || (bar.sheet && Object.values(bar.sheet).every(Boolean));
       summary.bars += 1;
       if (!toastFine || !sheetFine) summary.bar_faults += 1;

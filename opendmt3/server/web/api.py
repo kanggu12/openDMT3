@@ -910,15 +910,16 @@ def routes(site):
         return JSONResponse({"cabinets": _cabinets_for(site, dict(row, is_admin=row["admin"]))})
 
     def api_launchers(request):
-        """The launchers that asked this server's API since it started (launchers.py), the one heard last first: the
-        admin's Cabinets page's twin. An admin's call (a read-only token may make it: it changes nothing)."""
+        """The launchers that signed in to this server's API since it started (launchers.py), the one heard last first,
+        and the count of calls that named a launcher without a sign-in: the admin's Cabinets page's twin. An admin's
+        call (a read-only token may make it: it changes nothing)."""
         row, refused = _caller(request)
         if refused:
             return refused
         if not row["is_admin"]:
             return _error(403, "admin_only", "an admin account's token is needed")
-        return JSONResponse({"launchers": site.launchers.view(), "since": site.launchers.since,
-                             "now_seconds": launchers.NOW})
+        return JSONResponse({"launchers": site.launchers.view(), "anonymous": site.launchers.anonymous(),
+                             "since": site.launchers.since, "now_seconds": launchers.NOW})
 
     async def api_cabinet_name(request):
         """POST {"name": ...}: the name the admin pages show for a cabinet (empty: its address again)."""

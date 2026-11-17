@@ -70,18 +70,50 @@ def shown_host(host):
 
 def admin_address(args):
     """The admin site's address on this PC (http://127.0.0.1:4731/), or None when the server has none (--admin-port
-    0, or no site at all)."""
+    0, or no site at all). In a container given the PC's side of the admin port (--admin-host-bind, --admin-host-port:
+    compose's ADMIN_BIND and ADMIN_PORT), that side's: the listener's own port there is the container's, which no
+    browser on the PC opens."""
     if not args.web_port or not args.admin_port:
         return None
+    bind, port = getattr(args, "admin_host_bind", None), getattr(args, "admin_host_port", None)
+    if sources.in_container() and (bind or port):
+        return "http://%s:%d/" % (shown_host(bind or "127.0.0.1"), port or args.admin_port)
     return "http://%s:%d/" % (shown_host(args.admin_host), args.admin_port)
 
 
+def admin_public(args):
+    """The admin pages' public address behind the proxy (--admin-address: ./dmt3 expose --admin-public gives
+    https://NAME:PORT/), ending in a slash, or None: the links and the redirects to the admin pages name it as it is
+    (behind Caddy the request's own scheme is not the visitor's)."""
+    address = (getattr(args, "admin_address", None) or "").strip()
+    return (address.rstrip("/") + "/") if address and admin_address(args) else None
+
+
+def loopback(host):
+    """True for an address of this PC's loopback alone (127.x, ::1, localhost)."""
+    return host.startswith("127.") or host in ("::1", "localhost")
+
+
 def admin_open(args):
-    """True when the admin site listens where other PCs reach it (an --admin-host that is not this PC's loopback), as the
-    server itself can tell: in a container it listens on every address of the container's own, and only the PC's own
-    port mapping (ADMIN_BIND) says who reaches it, so there it is never taken as open."""
-    loopback = args.admin_host.startswith("127.") or args.admin_host in ("::1", "localhost")
-    return bool(admin_address(args)) and not loopback and not sources.in_container()
+    """True when other PCs reach the admin site: outside a container, an --admin-host that is not this PC's loopback; in
+    a container, where the server listens on its own addresses and only the PC's port mapping says who reaches it, the
+    PC's side of it (--admin-host-bind, compose's ADMIN_BIND) when that is given and not a loopback address (none
+    given: never taken as open, as before compose said it)."""
+    if not admin_address(args):
+        return False
+    if sources.in_container():
+        bind = getattr(args, "admin_host_bind", None)
+        return bool(bind) and not loopback(bind)
+    return not loopback(args.admin_host)
+
+
+def admin_local_only(args):
+    """True when only this PC reaches the admin site though the server cannot tell it from a visit's address: in a
+    container (every visit comes from the gateway) whose PC side of the admin port is a loopback address (compose's
+    ADMIN_BIND 127.0.0.1). Outside a container the address itself says so (web.common._local); none given in a
+    container: not assumed."""
+    bind = getattr(args, "admin_host_bind", None)
+    return sources.in_container() and bool(admin_address(args)) and bool(bind) and loopback(bind)
 
 
 # An archive's password, from the environment (never on a command line others can read): ./dmt3 asks for it.
@@ -194,7 +226,7 @@ async def serve(args, data, until=None, notes=(), runner=None):
         site = Site(data, game_server=game, game_port=game.port, game_folder=game_folder,
                     address=args.site_address, runner=runner, admin_address=admin,
                     admin_on_site_port=args.admin_on_site_port, admin_open=admin_open(args),
-                    site_port=args.web_port)
+                    site_port=args.web_port, admin_local_only=admin_local_only(args), admin_public=admin_public(args))
         config = web_config(uvicorn, create_app(site), args)
         web = uvicorn.Server(config)
         web_task = asyncio.ensure_future(web.serve())
@@ -274,6 +306,19 @@ def parser():
                    default=(os.environ.get("OPENDMT3_ADMIN_ON_SITE_PORT") or "").strip().lower() in ON_WORDS,
                    help="the site's port serves the admin pages too, at /admin/ (one port for everything; or "
                         "OPENDMT3_ADMIN_ON_SITE_PORT=1)")
+    # In a container the server sees only its own addresses and port, and every visit comes from Docker's gateway:
+    # compose tells it the PC's side of the admin port, which says who reaches the admin pages and where (none of
+    # these outside compose: the listener's own address and port say it there).
+    p.add_argument("--admin-host-bind", metavar="ADDRESS", default=os.environ.get("OPENDMT3_ADMIN_HOST_BIND") or None,
+                   help="in a container, the address the PC publishes the admin port on (compose's ADMIN_BIND; or "
+                        "OPENDMT3_ADMIN_HOST_BIND): a loopback one keeps the admin pages to this PC, any other opens "
+                        "them to the network")
+    p.add_argument("--admin-host-port", type=int, default=int(os.environ.get("OPENDMT3_ADMIN_HOST_PORT") or 0) or None,
+                   help="in a container, the PC's port for the admin pages (compose's ADMIN_PORT; or "
+                        "OPENDMT3_ADMIN_HOST_PORT): the links and redirects to them name it")
+    p.add_argument("--admin-address", metavar="URL", default=os.environ.get("OPENDMT3_ADMIN_ADDRESS") or None,
+                   help="the admin pages' public address behind the proxy (./dmt3 expose --admin-public: "
+                        "https://NAME:PORT/; or OPENDMT3_ADMIN_ADDRESS): the links and redirects to them name it")
     p.add_argument("--webhook", metavar="URL", default=os.environ.get("OPENDMT3_WEBHOOK"),
                    help="a Discord or Slack webhook told when someone takes a chart's first place from another player "
                         "(or OPENDMT3_WEBHOOK)")

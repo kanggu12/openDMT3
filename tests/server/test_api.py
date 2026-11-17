@@ -1025,15 +1025,18 @@ class LaunchersTwinTest(ApiBase):
         answer = self.call("GET", "/api/v1/launchers", admin).json()
         self.assertEqual(answer["launchers"], [])
         self.assertEqual(answer["now_seconds"], 600)
-        # The launcher's first question, unsigned (the server's status), then its sign-in and a signed call.
+        # The launcher's first question, unsigned (the server's status): anyone can send that, so it is a count alone.
         self.call("GET", "/api/v1/status", headers=self.AGENT)
-        heard = self.call("GET", "/api/v1/launchers", admin).json()["launchers"]
-        self.assertEqual([(h["version"], h["login_id"], h["now"]) for h in heard], [("0.4.0", None, True)])
+        answer = self.call("GET", "/api/v1/launchers", admin).json()
+        self.assertEqual((answer["launchers"], answer["anonymous"]), ([], {"count": 1, "now": 1}))
         r = self.client.post("/api/v1/session", json={"login_id": "NOVA", "password": "pass1234"}, headers=self.AGENT)
         self.call("GET", "/api/v1/me", r.json()["token"], headers=self.AGENT)
-        heard = self.call("GET", "/api/v1/launchers", admin).json()["launchers"]
-        # The PC's unsigned line gives way to the signed one: one launcher, NOVA's.
-        self.assertEqual([(h["login_id"], h["dj_name"], h["version"]) for h in heard], [("NOVA", "DJ NOVA", "0.4.0")])
+        answer = self.call("GET", "/api/v1/launchers", admin).json()
+        heard = answer["launchers"]
+        # Its sign-in says whose it is: one launcher, NOVA's, with its version, and no anonymous one from that PC.
+        self.assertEqual([(h["login_id"], h["dj_name"], h["version"], h["now"]) for h in heard],
+                         [("NOVA", "DJ NOVA", "0.4.0", True)])
+        self.assertEqual(answer["anonymous"], {"count": 0, "now": 0})
         self.assertGreaterEqual(heard[0]["calls"], 2)
         # Another program's calls (no launcher's name) are not launchers.
         self.call("GET", "/api/v1/me", admin)
@@ -1052,19 +1055,47 @@ class LaunchersTwinTest(ApiBase):
         self.assertIn('<a class="item" href="/admin/cabinets#launchers">Launchers <b>1</b></a>', page)
         self.assertIn('<a href="/admin/players/NOVA">DJ NOVA</a>', page)
         self.assertIn("<td data-label=\"Version\">0.4.0</td>", page)
+        # A call that only names a launcher, from another address: a count under the launchers, not a row.
+        from starlette.testclient import TestClient
+        TestClient(self.app, client=("198.51.100.40", 50000)).get("/api/v1/status", headers=self.AGENT)
+        page = self.client.get("/admin/cabinets").text
+        self.assertIn("Addresses that asked without a sign-in in the last day: 1.", page)
+        self.assertIn('<a class="item" href="/admin/cabinets#launchers">Launchers <b>1</b></a>', page)
 
     def test_the_record_keeps_its_bounds(self):
         from opendmt3.server.web import launchers
         clock = [1000.0]
         record = launchers.Launchers(clock=lambda: clock[0])
         for n in range(launchers.MOST + 10):
-            record.heard("10.0.%d.%d" % (n // 250, n % 250), "0.4.0")
+            record.heard("10.0.%d.%d" % (n // 250, n % 250), "0.4.0", {"login_id": "P%d" % n, "dj_name": "P", "id": n})
             clock[0] += 1
         # At most MOST at once, the oldest heard gone first; one not heard for a day goes too.
         self.assertEqual(len(record.view()), launchers.MOST)
         self.assertNotIn("10.0.0.0", [row["address"] for row in record.view()])
         clock[0] += launchers.KEPT + 5
         self.assertEqual(record.view(), [])
+
+    def test_only_launchers_that_signed_in_are_rows_and_a_flood_of_anyone_elses_is_a_count(self):
+        from opendmt3.server.web import launchers
+        clock = [1000.0]
+        record = launchers.Launchers(clock=lambda: clock[0])
+        # Twenty addresses of one IPv6 /64: one sender, as the sign-in limits count it.
+        for n in range(20):
+            record.heard("2001:db8::%x" % (n + 1), "9.9.9-fake")
+        self.assertEqual(record.anonymous(), {"count": 1, "now": 1})
+        # The review's flood: anonymous calls naming a launcher, from more addresses than are kept.
+        for n in range(launchers.MOST + 44):
+            record.heard("127.0.%d.%d" % (n // 250, n % 250 + 1), "9.9.9-fake")
+        record.heard("198.51.100.7", "0.4.0", {"login_id": "NOVA", "dj_name": "DJ NOVA", "id": 2})
+        for n in range(launchers.MOST):
+            record.heard("127.1.%d.%d" % (n // 250, n % 250 + 1), "9.9.9-fake")
+        # The launcher that signed in is the one row, never pushed out by anyone's calls; theirs are a count, bounded.
+        self.assertEqual([(row["login_id"], row["version"]) for row in record.view()], [("NOVA", "0.4.0")])
+        self.assertEqual(record.anonymous()["count"], launchers.MOST)
+        # Here now: the signed one alone is a launcher in the rail; the count of the others, by itself.
+        clock[0] += launchers.NOW + 1
+        self.assertEqual(record.anonymous()["now"], 0)
+        self.assertEqual([row["now"] for row in record.view()], [False])
         # Only a launcher's own name counts as one.
         self.assertEqual(launchers.version_of("openDMT3-launcher/0.4.0"), "0.4.0")
         self.assertIsNone(launchers.version_of("curl/8.0"))
