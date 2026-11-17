@@ -67,7 +67,7 @@ release's server package (or a clone of the repository: `git clone`, then `./dmt
 ```sh
 curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0.zip
 unzip opendmt3-server-0.4.0.zip
-cd opendmt3-server-0.3.1
+cd opendmt3-server-0.4.0
 ./dmt3 setup
 ```
 

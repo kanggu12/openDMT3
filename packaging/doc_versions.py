@@ -23,7 +23,8 @@ ROOT = Path(__file__).resolve().parent.parent
 V = r"\d+\.\d+\.\d+(?:-(?:rc|alpha|beta)\.\d+)?"
 # Where a version is part of a download: a release file's name, a release's download address, the bug form's example.
 PATTERNS = [re.compile(r"(?<=opendmt3-launcher-)" + V + r"(?=-)"),
-            re.compile(r"(?<=opendmt3-server-)" + V + r"(?=[./-])"),
+            # Also at a line's end or before a space (the folder `cd opendmt3-server-0.4.0` goes into after unzipping).
+            re.compile(r"(?<=opendmt3-server-)" + V + r"(?![\w])"),
             re.compile(r"(?<=/releases/download/v)" + V + r"(?=/)"),
             # The Helm chart's and the checksums' names (opendmt3-0.3.1-helm-chart.tgz), and the server's image tag.
             re.compile(r"(?<=opendmt3-)" + V + r"(?=-helm-chart|-checksums)"),

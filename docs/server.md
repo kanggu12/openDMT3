@@ -106,7 +106,7 @@ nothing to install). From the release's server package:
 ```sh
 curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0.zip
 unzip opendmt3-server-0.4.0.zip
-cd opendmt3-server-0.3.1
+cd opendmt3-server-0.4.0
 ./dmt3 setup
 ```
 
@@ -300,7 +300,7 @@ shows song numbers):
 ```sh
 curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0.zip
 unzip opendmt3-server-0.4.0.zip
-cd opendmt3-server-0.3.1
+cd opendmt3-server-0.4.0
 python3 -m venv .venv
 .venv/bin/pip install starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0 python-multipart==0.0.20 pillow==11.3.0
 .venv/bin/python -m opendmt3.server --data data --catalog /path/to/your/client/data --setup-only

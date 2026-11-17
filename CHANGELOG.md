@@ -73,8 +73,8 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
   (`openDMT3.sqlite.v8-<date>-<time>.bak`). 0.3.1 refuses the upgraded database: that copy is the way back.
 - **Music** sounds as before at the same value, on the game's own curve, which the in-game panel follows.
   **Keysounds** start at 100 %, as loud as before: the game never applied its key sounds' setting.
-- The admin pages take TCP 4731 (`--admin-port`, `./dmt3 ports --admin`). With Docker, a `.env` that gives 4731 to
-  the site or the game moves them to the next free port at the first `./dmt3 up`, which says so.
+- The admin pages take TCP 4731 (`--admin-port`, `./dmt3 ports --admin`). With Docker, when the site or the game
+  already has 4731, the first `./dmt3 up` gives the admin pages the next free port and says so.
 
 ## [0.3.1] - 2026-11-17
 
