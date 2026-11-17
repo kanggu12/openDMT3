@@ -302,6 +302,12 @@ void touch_pointer(HWND w, UINT msg, WPARAM wp, LPARAM lp);
 /* The mouse's left button went down (1) or up (0) on the game's window: whether Windows made it from a finger or a
  * pen (the finger is a contact already, so that button is no point of its own). */
 void touch_button(int down);
+/* Whether the last press of the left button was made by Windows from a finger or a pen (touch_button's judgement). */
+int touch_button_from_finger(void);
+/* For the layer's handle: whether a pointer (a pointer message's id) is a finger or a pen, and a pointer message's
+ * place in the window's client pixels (`press`: the message is a press, which may teach how Windows gives places). */
+int touch_finger_or_pen(UINT32 id);
+POINT touch_client_point(HWND w, LPARAM l, int press);
 /* The game's own view of its keys this frame, the overlay's hold applied: the mouse's left button, its one point. */
 void touch_keys(const BYTE *keys);
 /* The overlay took Windows' first finger (drawn down for the bar: `every` 0) or every contact down now (its menu or

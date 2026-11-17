@@ -337,6 +337,20 @@ quiet=$(grep -oE "rested on the mark, [0-9.]+ s after the game's last press" "$O
 echo "  the bar came from the mark ${quiet:-?} s after the click on the game"
 python3 -c "import sys; sys.exit(0 if 1.5 <= float('${quiet:-0}') < 3 else 1)" || fail "the bar came ${quiet:-?} s after the click (1.5 s wanted)"
 away
+# The handle clicked, then held (a finger's tap and long press are the same press to the layer): after the game's
+# quiet, a click on it brings the bar at once (no rest of 150 ms: the press takes the rest back), and a press held on
+# it brings the bar 0.5 s after it began, the button still down. The bar gone and the mark back between the two.
+wait_s 1.5
+x "xdotool mousemove 960 10 click 1"
+wait_log "layer: bar shown \(a click on the handle\)" 3 || fail "a click on the handle did not bring the bar"
+grep -q "layer: a press on the handle" "$OUT/ingame.log" || fail "the click on the handle was not the overlay's"
+away; wait_s 1.5
+x "xdotool mousemove 960 10 mousedown 1"; wait_s 0.3
+grep -q "layer: bar shown (a press held on the handle)" "$OUT/ingame.log" && fail "the held handle brought the bar before 0.5 s"
+wait_s 0.6
+grep -q "layer: bar shown (a press held on the handle)" "$OUT/ingame.log" || fail "a press held on the handle did not bring the bar"
+x "xdotool mouseup 1"
+away
 show_bar; shot 03-bar
 wait_log "layer: bar shown \(the pointer rested at the top edge" 5 || fail "the bar did not come at the top edge"
 drew r1 bar || fail "the bar is not where it belongs, or something is in the middle"
@@ -658,6 +672,13 @@ win_state ClientApp | sed 's/^/  /'
 wait_more "hold: the game goes on" "$went" 5 || fail "brought back, the song did not go on"
 wait_s 2; shot 11d-back-in-song
 game_alive || fail "the game ended after minimise in a song"
+# A click on the handle in a song is the game's: after a quiet as long as the bar's own, no press of the handle's, and
+# the bar stays away (the press takes the pointer's rest back, as any press on the game).
+x "xdotool mousemove 960 700"; wait_s 1.6
+handles=$(seen "layer: a press on the handle")
+x "xdotool mousemove 960 10 click 1"; wait_s 0.6
+[ "$(seen "layer: a press on the handle")" = "$handles" ] || fail "a click on the handle in a song was taken from the game"
+bar_up && fail "a click on the handle in a song brought the bar"
 # The bar never on the screen while the song is played: a minute of it played all over the screen, the game's top band
 # and its very top edge included, held notes too, the pointer resting at the top edge (and on the mark) between notes a
 # little under the 1.5 s of quiet a rest needs (ingame/player.py). The song may end within the minute: the load of its
@@ -892,5 +913,5 @@ dumps=$(x "find /root/Desktop /w/drive_c/users/root/AppData/Roaming/openDMT3 -na
 textures "the game with NVIDIA NIS and SMAA Ultra"
 # Every other step held; the pacing not judged in its time is a failure all the same.
 [ -n "$unjudged" ] && fail "$unjudged"
-echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only and back to full screen; minimise and back; offline the chip in the corner beside FREE PLAY, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top; minimised in a song held and going on; the picture options run by the chain and shown, $added, $stepped"
+echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click, from a click and a press held on the handle; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only and back to full screen; minimise and back; offline the chip in the corner beside FREE PLAY, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top or on the handle; minimised in a song held and going on; the picture options run by the chain and shown, $added, $stepped"
 docker rm -f "$C" >/dev/null

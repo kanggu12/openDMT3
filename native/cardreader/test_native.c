@@ -677,6 +677,36 @@ static void test_gate(void)
     check(!gate_due(&g, 41040, 1) && gate_due(&g, 41060, 1), "gate: with no press yet, the rest counts running time");
 }
 
+/* The handle's press (#7 of the 0.4.0 list: a tap and a long press bring the bar, as a draw down does). */
+static void test_mark_press(void)
+{
+    MarkPress m;
+    /* A 1080-line area: a game line is 1.40625 pixels. */
+    const int h = 1080;
+    /* Not the overlay's: off the handle, within the game's quiet, or while a song plays (the finger is the game's). */
+    check(!mark_press_begin(&m, 0, 0, 1, 0, 5), "handle: a press beside it is the game's");
+    check(!mark_press_begin(&m, 0, 1, 0, 0, 5), "handle: a press soon after play is the game's");
+    check(!mark_press_begin(&m, 0, 1, 1, 1, 5), "handle: in a song a press on it is the game's");
+    check(!mark_press_due(&m, 10000) && !mark_press_end(&m, 1), "handle: a press of the game's brings nothing");
+    /* A tap: let go on it before the hold. */
+    check(mark_press_begin(&m, 1000, 1, 1, 0, 5), "handle: a press on it after the quiet is the overlay's");
+    check(!mark_press_due(&m, 1120) && mark_press_end(&m, 1) && !m.on, "handle: a tap brings the bar");
+    /* A long press: 500 ms on it, once; its release then brings nothing more. */
+    mark_press_begin(&m, 2000, 1, 1, 0, 5);
+    check(!mark_press_due(&m, 2499) && mark_press_due(&m, 2500) && !mark_press_due(&m, 2600),
+          "handle: held 500 ms it brings the bar, once");
+    check(!mark_press_end(&m, 1), "handle: let go after its hold brought the bar, nothing more");
+    /* Slid off: neither its time nor its release (even back on it) brings the bar. */
+    mark_press_begin(&m, 3000, 1, 1, 0, 5);
+    check(!mark_press_move(&m, 0, 8, h) && !mark_press_due(&m, 4000), "handle: slid off, its hold brings nothing");
+    mark_press_move(&m, 1, 6, h);
+    check(!mark_press_end(&m, 1), "handle: slid off and back, its release brings nothing");
+    /* Drawn down 24 game lines from where it began, off the handle on the way: the bar, once. */
+    mark_press_begin(&m, 5000, 1, 1, 0, 5);
+    check(!mark_press_move(&m, 0, 5 + 23.0f * 1.40625f, h) && mark_press_move(&m, 0, 5 + 24.0f * 1.40625f, h) &&
+          !mark_press_move(&m, 0, 200, h) && !mark_press_end(&m, 0), "handle: drawn down 24 lines it brings the bar");
+}
+
 static void test_pictures(void)
 {
     /* A square filled half: its edge pixels covered by half. */
@@ -2413,6 +2443,7 @@ int main(void)
     test_guard();
     test_keys();
     test_gate();
+    test_mark_press();
     test_bar_clock();
     test_slides();
     test_slot_index();

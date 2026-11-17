@@ -68,9 +68,9 @@ TEXT = {
     "play.how.3": ("NO ID CARD starts a game without a login.", "NO ID CARD를 누르면 로그인 없이 시작합니다."),
     "play.how.3.card": ("Your card is in: the game logs you in.", "카드가 꽂혀 있어 게임에 바로 로그인됩니다."),
     # How the overlay bar comes, as the in-game overlay has it (the handle at the game's top centre, OpenDMTQ's word).
-    "play.how.4": ("To quit: rest the pointer on the handle at the game's top centre or at its top edge (or draw a "
-                   "finger down from that edge), and press X on the overlay bar.",
-                   "끝낼 때는 포인터를 게임 맨 위 가운데 손잡이나 맨 위 가장자리에 두거나 그 가장자리에서 아래로 끌어, "
+    "play.how.4": ("To quit: tap the handle at the game's top centre (or rest the pointer on it or at the top edge), "
+                   "and press X on the overlay bar.",
+                   "끝낼 때는 게임 맨 위 가운데 손잡이를 탭하거나 포인터를 손잡이나 맨 위 가장자리에 둔 뒤, "
                    "오버레이 막대의 X를 누르세요."),
     "play.last": ("Last game", "지난 플레이"),
     "play.last.none": ("No game yet.", "아직 플레이 기록이 없습니다."),
@@ -260,10 +260,10 @@ TEXT = {
     "controls.tap": ("Click: a note or a button.", "클릭: 노트나 버튼."),
     "controls.drag": ("Drag: slide notes, and the song list.", "끌기: 슬라이드 노트, 곡 목록 넘기기."),
     "controls.hold": ("Hold: long notes.", "누르고 있기: 롱 노트."),
-    "controls.edge": ("Pointer resting on the handle at the game's top centre or at its top edge, or a finger drawn "
-                      "down from that edge: the overlay bar, with the menu and quitting.",
-                      "포인터를 게임 맨 위 가운데 손잡이나 맨 위 가장자리에 두기, 또는 그 가장자리에서 아래로 끌기: "
-                      "메뉴와 끝내기가 있는 오버레이 막대."),
+    "controls.edge": ("The handle at the game's top centre tapped or held, the pointer resting on it or at the top "
+                      "edge, or a finger drawn down from that edge: the overlay bar, with the menu and quitting.",
+                      "게임 맨 위 가운데 손잡이를 탭하거나 길게 누르기, 포인터를 손잡이나 맨 위 가장자리에 두기, "
+                      "그 가장자리에서 아래로 끌기: 메뉴와 끝내기가 있는 오버레이 막대."),
 
     # --------------------------------------------------------------------------------------------- game
     "game.sub": ("The client data, and how the cabinet is set up.", "클라이언트 데이터와 기체 설정입니다."),

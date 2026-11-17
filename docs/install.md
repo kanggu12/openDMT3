@@ -114,16 +114,18 @@ the notes come, and no key of the keyboard brings it:
   <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question hanging from the bar under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.8 ms on one line" width="100%">
 </p>
 
-- **The overlay bar.** Let the pointer rest at the very top edge of the game, or on the handle at its top center (a
-  short line along the edge with a small tab and an arrow pointing down, blue under the pointer), with its button up (or
-  draw a finger down from the top edge): the bar comes down over the game's own top bar, with openDMT3's mark at its
-  left and, at its right, the menu, **minimize**, **full screen** (or back to a window) and the **X**.
+- **The overlay bar.** Tap the handle at the game's top center (a short line along the edge with a small tab and an
+  arrow pointing down, blue under the pointer), or hold it half a second, or let the pointer rest on it or at the very
+  top edge of the game with its button up, or draw a finger down from the top edge: the bar comes down over the game's
+  own top bar, with openDMT3's mark at its left and, at its right, the menu, **minimize**, **full screen** (or back to a
+  window) and the **X**.
 - **When the bar comes and goes.** It comes only after the game has had no click or touch for 1.5 s, so a click or a
-  held note at the top of a song never brings it. It also comes down by itself for 3 s when the game's first screen
-  shows and after each switch between a window and full screen, so you see where it is. It slides down out of the game's
-  top edge, its foot first, in about a fifth of a second, and back up into it; a pointer that comes back while it goes
-  up turns it back from where it is, and with Windows' animation effects off it comes and goes at once. It stays 0.6 s
-  after the pointer leaves it; a click on the game takes it away at once.
+  held note at the top of a song never brings it. While a song plays, a tap on the handle is the game's. It also comes
+  down by itself for 3 s when the game's first screen shows and after each switch between a window and full screen, so
+  you see where it is. It slides down out of the game's top edge, its foot first, in about a fifth of a second, and back
+  up into it; a pointer that comes back while it goes up turns it back from where it is, and with Windows' animation
+  effects off it comes and goes at once. It stays 0.6 s after the pointer leaves it; a click on the game takes it away
+  at once.
 - **The quit question.** The X asks first, in a sheet that comes out from under the bar below the X: **Quit the game?**,
   with **KEEP PLAYING** first and **QUIT THE GAME** beside it, red once the pointer or the keys are on it, and during a
   song one more line, **A play in progress is not kept.** (the game sends a play's results when the play ends). The

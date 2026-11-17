@@ -989,6 +989,53 @@ void gate_stall(RevealGate *g, double now, double gap)
         g->rest_at += gap;
 }
 
+int mark_press_begin(MarkPress *m, double now, int on_mark, int quiet, int song, float y)
+{
+    /* The overlay's only on the handle, after the game's quiet, and outside a song (there every press is play). */
+    m->on = on_mark && quiet && !song;
+    /* A new press: nothing brought yet, still on the handle, its time and place for the hold and the draw down. */
+    m->fired = 0;
+    m->off = 0;
+    m->at = now;
+    m->y0 = y;
+    return m->on;
+}
+
+int mark_press_move(MarkPress *m, int on_mark, float y, int area_h)
+{
+    /* No press of the handle's, or one that brought the bar already. */
+    if (!m->on || m->fired)
+        return 0;
+    /* Drawn down from the handle as far as a swipe from the top edge goes (ui_swipe_down): the bar, even when the
+     * finger left the handle's box on its way down (it is small: a draw down soon leaves it). */
+    if (y - m->y0 >= 24.0f * ui_unit(area_h)) {
+        m->fired = 1;
+        return 1;
+    }
+    /* Off the handle: the player changed their mind; it stays off even when it comes back. */
+    if (!on_mark)
+        m->off = 1;
+    return 0;
+}
+
+int mark_press_due(MarkPress *m, double now)
+{
+    /* Held on the handle long enough, once. */
+    if (!m->on || m->fired || m->off || now - m->at < MARK_HOLD_MS)
+        return 0;
+    m->fired = 1;
+    return 1;
+}
+
+int mark_press_end(MarkPress *m, int on_mark)
+{
+    /* A tap: let go on the handle, never off it, before its hold brought the bar. */
+    int tap = m->on && !m->fired && !m->off && on_mark;
+    /* The press is over: the next one starts again. */
+    m->on = 0;
+    return tap;
+}
+
 void bar_clock_start(BarClock *b)
 {
     /* Not shown, never brought. */

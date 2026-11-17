@@ -159,6 +159,18 @@ static int finger_or_pen(UINT32 id)
     return k == KIND_TOUCH || k == KIND_PEN;
 }
 
+/* For the layer's handle (layer.c): whether a pointer is a finger or a pen, and a pointer message's place in the
+ * window's client pixels, read as this file reads them (the same scaling learnt at a press). */
+int touch_finger_or_pen(UINT32 id)
+{
+    return finger_or_pen(id);
+}
+
+POINT touch_client_point(HWND w, LPARAM l, int press)
+{
+    return client_point(w, l, press);
+}
+
 /* -------------------------------------------------------------------------------------------- the messages */
 
 /* Fingers down on the game now, for the log (the overlay's left out). */
@@ -252,6 +264,12 @@ void touch_button(int down)
      * mouse's button is no point of its own). Kept until the next press. */
     if (down)
         g_button_from_touch = ((DWORD)GetMessageExtraInfo() & FROM_TOUCH_MASK) == FROM_TOUCH_MARK;
+}
+
+int touch_button_from_finger(void)
+{
+    /* As touch_button judged the last press: a finger's or a pen's, not the mouse's own. */
+    return g_button_from_touch;
 }
 
 void touch_keys(const BYTE *keys)

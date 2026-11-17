@@ -5,14 +5,16 @@
  *   - a bar across the game's top band: openDMT3's mark at its left (the launcher's picture of it); at its right the
  *     menu's chip, then minimise, full screen (or back to a window) and the X, in the launcher's button shapes. It
  *     comes when the pointer, moved to the very top edge or onto the mark below with no button down, rests there and
- *     the game has had no press or release for 1.5 s (a click or a held note at the top of a song is play), or when a
- *     finger is drawn down from the top edge after such a quiet; by itself for 3 s when the game's first screen shows
+ *     the game has had no press or release for 1.5 s (a click or a held note at the top of a song is play), when a
+ *     finger is drawn down from the top edge after such a quiet, or when the mark is tapped, held 500 ms or drawn down
+ *     after such a quiet outside a song (logic.c MarkPress); by itself for 3 s when the game's first screen shows
  *     and after each switch between a window and full screen. No key brings it. It goes soon after the pointer
  *     leaves it. It slides down out of the game's top edge, its foot first, and back up into it (logic.h's slides:
  *     220 ms down, 170 ms up, turned back from where it is, at once with Windows' animation effects off);
  *   - the mark, the bar's handle: a rail along the top edge's middle with a small tab of the bar's glass hanging from it
- *     in the game's tab shape, a chevron in it pointing down; it goes down with the bar's foot, fading; clicks go
- *     through it to the game;
+ *     in the game's tab shape, a chevron in it pointing down; it goes down with the bar's foot, fading; a press on it
+ *     after the game's quiet is the overlay's (a tap or a long press brings the bar), in a song every press is the
+ *     game's;
  *   - the menu (Back to the game, Show FPS, Quit the game) under its chip and the chips beside it, and the question
  *     (Keep playing, Quit the game) under the X: sheets that slide out from under the bar's foot and back; the window's
  *     own close request asks the same question; arrow keys and Enter choose, Esc closes them. No other key of the
@@ -107,6 +109,15 @@ static int g_moved_x = -1, g_moved_y = -1;
 /* The pointer on the mark (it is lit then), and whether the press now held began after the game's quiet (a finger
  * drawn down from the top edge brings the bar only then). */
 static int g_on_mark, g_swipe_ok;
+/* A press on the mark, the bar's handle (logic.c MarkPress: a tap, a long press or a draw down brings the bar), by the
+ * mouse (g_mark_finger 0) or by Windows' first finger or pen (its pointer id); when a finger's tap brought the bar (the
+ * mouse press Windows makes of that finger may come after its lift, and is the overlay's too). */
+static MarkPress g_mark_press;
+static UINT32 g_mark_finger;
+static int g_mark_by_finger;
+static double g_mark_tap_at = -1e12;
+/* How long after a finger's press of the handle the mouse press Windows makes of it is still the handle's. */
+#define MARK_FINGER_ECHO_MS 600.0
 /* The toast's words and when it goes; how long it stays. */
 #define TOAST_MS 6000
 static char g_toast_words[192];
@@ -253,6 +264,89 @@ static void ask_bar_by_finger(void)
     if (!bar_shown())
         ingame_log("layer: bar shown (a finger drawn down from the top edge)");
     bar_clock_touch(&g_bar_clock, now_ms());
+}
+
+/* The handle's press brought the bar (a tap, a long press, a draw down): whole for 4 s, as a finger's, since a finger
+ * or a click has no rest on the bar to keep it (a pointer that comes onto it keeps it longer, as always). */
+static void handle_brings_bar(const char *why)
+{
+    if (g_quitting)
+        return;
+    if (!bar_shown())
+        ingame_log("layer: bar shown (%s)", why);
+    bar_clock_touch(&g_bar_clock, now_ms());
+}
+
+/* A press begins at (x, y) of the target: 1 when it lands on the handle while it shows, after the game's quiet and
+ * outside a song (logic.c mark_press_begin), and so is the overlay's until let go. */
+static int handle_pressed(float x, float y, int finger, UINT32 id)
+{
+    double now = now_ms();
+    int taken = mark_press_begin(&g_mark_press, now, g_mark.v > 0.0f && ui_on_mark(x, y, g_tw, g_th),
+                                 gate_quiet(&g_gate, now), sound_song_playing(), y);
+    if (!taken)
+        return 0;
+    /* Whose press it is: the mouse's, or that finger's (its moves and its lift come as pointer messages). */
+    g_mark_by_finger = finger;
+    g_mark_finger = id;
+    /* The game sees the button up until it is let go (hooks.c), as for every press of the overlay's; the pointer's rest
+     * there is taken back, as by any press (the press, not a rest under it, brings the bar). */
+    g_keys_waiting = 1;
+    g_gate.armed = 0;
+    ingame_log("layer: a %s on the handle", finger ? "finger" : "press");
+    return 1;
+}
+
+/* The handle's press moved to (x, y): drawn down far enough, the bar. */
+static void handle_moved(float x, float y)
+{
+    if (mark_press_move(&g_mark_press, ui_on_mark(x, y, g_tw, g_th), y, g_th))
+        handle_brings_bar("drawn down from the handle");
+}
+
+/* The handle's press let go at (x, y): a tap brings the bar. */
+static void handle_released(float x, float y)
+{
+    if (mark_press_end(&g_mark_press, ui_on_mark(x, y, g_tw, g_th))) {
+        /* The finger's tap: the mouse press Windows makes of it, perhaps only now, is the overlay's too. */
+        if (g_mark_by_finger)
+            g_mark_tap_at = now_ms();
+        handle_brings_bar(g_mark_by_finger ? "a tap on the handle" : "a click on the handle");
+    }
+}
+
+/* A finger's or a pen's pointer message, before the touch screen reads it: Windows' first contact pressing the handle,
+ * its moves and its lift. A press taken here is the overlay's to the touch screen too (layer_takes_press). */
+static void handle_pointer(HWND h, UINT msg, WPARAM w, LPARAM l)
+{
+    UINT32 id = LOWORD(w);
+    unsigned flags = HIWORD(w);
+    /* Down: only Windows' first contact (0x2000), a finger or a pen, not one cancelled. */
+    if (msg == WM_POINTERDOWN) {
+        if (g_mark_press.on || !(flags & 0x2000u) || (flags & 0x8000u) || !touch_finger_or_pen(id))
+            return;
+        POINT c = touch_client_point(h, l, 1);
+        float x, y;
+        to_target(c.x, c.y, &x, &y);
+        /* A press beside an open panel or on the bar is the layer's other rules' (pointer_pressed). */
+        if (g_card.open == CARD_NONE && !bar_shown())
+            handle_pressed(x, y, 1, id);
+        return;
+    }
+    /* The rest: only that finger's, while its press is held. */
+    if (!g_mark_press.on || !g_mark_by_finger || id != g_mark_finger)
+        return;
+    POINT c = touch_client_point(h, l, 0);
+    float x, y;
+    to_target(c.x, c.y, &x, &y);
+    /* On the screen still (0x0004) and not cancelled: a move. */
+    if (msg == WM_POINTERUPDATE && (flags & 0x0004u) && !(flags & 0x8000u))
+        handle_moved(x, y);
+    else if (msg == WM_POINTERUP)
+        handle_released(x, y);
+    else
+        /* Cancelled, lifted to hover, or taken away to another window: no tap. */
+        mark_press_end(&g_mark_press, 0);
 }
 
 /* The bar by itself for 3 s, so that a player sees where it is (the game's first screen, a switch). */
@@ -491,6 +585,9 @@ int layer_parts(LayerPart *out, int max, int w, int h)
         /* What the pointer is on now, with no move since the bar came (a chip it rests on lights up). */
         refresh_hover();
     }
+    /* The handle held long enough: the bar comes while the press is still held. */
+    if (mark_press_due(&g_mark_press, now))
+        handle_brings_bar(g_mark_by_finger ? "a finger held on the handle" : "a press held on the handle");
     /* While the bar shows, the pointer looked for ten times a second: on it, it stays whole 600 ms more; off it (perhaps
      * gone over the window's title bar, where the game hears no move), no chip is under the pointer. */
     int open = g_card.open != CARD_NONE;
@@ -1057,6 +1154,9 @@ static void pointer_moved(int cx, int cy, float x, float y, int held)
      * one parked on the bar's band is a pointer on it again (logic.c bar_clock_moved). */
     if (moved && !held)
         bar_clock_moved(&g_bar_clock);
+    /* The mouse's press of the handle, drawn on (a finger's comes as its pointer messages). */
+    if (g_mark_press.on && !g_mark_by_finger && held)
+        handle_moved(x, y);
     if (g_mouse_down && g_press_y >= 0 && g_pressed == HIT_NONE && g_swipe_ok && ui_swipe_down(g_press_y, y, g_th)) {
         ask_bar_by_finger();
         /* The finger was asking for the bar, not playing: the game sees the button up until it is let go, and the
@@ -1099,6 +1199,16 @@ static int pointer_pressed(float x, float y)
         g_keys_waiting = 1;
         return 1;
     }
+    /* The handle: the mouse's own press on it, or the mouse press Windows makes of a finger that pressed it (held now,
+     * or its tap just brought the bar). */
+    if (touch_button_from_finger()) {
+        if ((g_mark_press.on && g_mark_by_finger) || now_ms() - g_mark_tap_at < MARK_FINGER_ECHO_MS) {
+            g_keys_waiting = 1;
+            return 1;
+        }
+    } else if (handle_pressed(x, y, 0, 0)) {
+        return 1;
+    }
     /* A press on the game is play: no rest brings the bar for a while (logic.c RevealGate), and a bar that shows goes
      * (brought, or by itself), fading. */
     gate_press(&g_gate, now_ms(), 1);
@@ -1111,6 +1221,15 @@ static int pointer_released(float x, float y)
 {
     int was = g_pressed;
     g_pressed = HIT_NONE;
+    /* The mouse's press of the handle let go: a click brings the bar. */
+    if (was == HIT_NONE && g_mark_press.on && !g_mark_by_finger) {
+        handle_released(x, y);
+        return 1;
+    }
+    /* The mouse release Windows makes of a finger that pressed the handle: the overlay's, as its press was. */
+    if (was == HIT_NONE && touch_button_from_finger() &&
+        ((g_mark_press.on && g_mark_by_finger) || now_ms() - g_mark_tap_at < MARK_FINGER_ECHO_MS))
+        return 1;
     if (was == HIT_NONE) {
         /* A release on the game is play too. */
         gate_press(&g_gate, now_ms(), 0);
@@ -1193,8 +1312,10 @@ static LRESULT CALLBACK game_proc(HWND h, UINT msg, WPARAM w, LPARAM l)
     case WM_POINTERUPDATE:
     case WM_POINTERUP:
     case WM_POINTERCAPTURECHANGED:
-        /* A finger or a pen: the touch screen's contact (touch.c). The message goes on as before, so Windows still
-         * makes the first finger the mouse the game's menus and the overlay's chips are pressed with. */
+        /* Windows' first finger pressing the handle (a tap or a long press brings the bar), then the touch screen's
+         * contact (touch.c), which takes a press the handle took as the overlay's. The message goes on as before, so
+         * Windows still makes the first finger the mouse the game's menus and the overlay's chips are pressed with. */
+        handle_pointer(h, msg, w, l);
         touch_pointer(h, msg, w, l);
         break;
     case WM_CLOSE:
@@ -1306,7 +1427,11 @@ int layer_takes_press(int cx, int cy)
     /* The menu or the question up: a press anywhere answers it, or closes it beside its panel (pointer_pressed). */
     if (g_card.open != CARD_NONE)
         return 1;
-    /* Nothing of the layer's to land on while the bar is away (the mark lets presses through to the game). */
+    /* Windows' first finger pressing the handle (handle_pointer, just before): the overlay's until it is lifted. */
+    if (g_mark_press.on && g_mark_by_finger)
+        return 1;
+    /* Nothing else of the layer's to land on while the bar is away (the mark takes only presses after the game's quiet,
+     * outside a song). */
     if (!bar_shown())
         return 0;
     float x, y;

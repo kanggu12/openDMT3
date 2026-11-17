@@ -381,7 +381,7 @@ int ui_swipe_down(float start_y, float y, int area_h);
 /* The mark at the top centre that says where the bar is, the bar's handle (OpenDMTQ's word): a rail along the top edge
  * and a small tab in the game's own tab shape hanging from it, deeper while the pointer is on it (`lit`), within the
  * game's top 12 lines (the groove meter's chrome rim in a song). Its box is the rail's width and the tab's depth.
- * Clicks go through it to the game. */
+ * A press on it is the game's in a song; outside one, after the game's quiet, it is the overlay's (MarkPress). */
 Box ui_mark_box(int area_w, int area_h, int lit);
 /* Whether a point is on the mark, or near enough to rest there (its box and 10 game pixels round it). */
 int ui_on_mark(float x, float y, int area_w, int area_h);
@@ -415,6 +415,30 @@ int gate_quiet(const RevealGate *g, double now);
 /* The game drew no frame for `gap` ms before `now`: a press and a rest from before the pause move on by it, so each
  * stands as far back in the game's running time as it did. */
 void gate_stall(RevealGate *g, double now, double gap);
+
+/* A press on the mark, the bar's handle (a finger's tap or long press, or the mouse's click): the bar comes from it
+ * when it is let go on the handle before MARK_HOLD_MS (a tap), when it stays on the handle MARK_HOLD_MS (a long press),
+ * or when it is drawn down 24 game lines from where it began. The press is the overlay's (kept from the game until let
+ * go) only while the mark shows, after the game's quiet (gate_quiet: a press at the top of a song's play is play) and
+ * never while a song plays (a finger there is the game's, whatever it lands on). Slid off the handle, it changes its
+ * mind: neither its release nor its time brings the bar (a draw down still does). */
+#define MARK_HOLD_MS 500.0
+typedef struct {
+    int on;                /* a press on the handle is held, the overlay's */
+    int fired;             /* it brought the bar already: nothing more until it is let go */
+    int off;               /* it slid off the handle */
+    double at;             /* when it began */
+    float y0;              /* where it began, down the game area */
+} MarkPress;
+/* A press at (y) of the game area: `on_mark` on the handle while it shows, `quiet` the game's quiet, `song` a song's
+ * music playing. 1 when the press is the overlay's. */
+int mark_press_begin(MarkPress *m, double now, int on_mark, int quiet, int song, float y);
+/* The press moved to (y), on the handle or not: 1 when it is drawn down far enough to bring the bar (once). */
+int mark_press_move(MarkPress *m, int on_mark, float y, int area_h);
+/* Each frame while it is held: 1 when it has stayed on the handle MARK_HOLD_MS (once). */
+int mark_press_due(MarkPress *m, double now);
+/* Let go, on the handle or not: 1 for a tap that brings the bar. The press is over either way. */
+int mark_press_end(MarkPress *m, int on_mark);
 
 /* How long the bar stays, as OpenDMTQ's bar: whole for BAR_STAY_MS after the pointer was last on it (or after a rest
  * brought it), then it slides back up into the top edge (the layer's slides, below); a finger's bar whole for

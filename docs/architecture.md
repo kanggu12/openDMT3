@@ -317,7 +317,9 @@ first points) into the log, read from its memory in the PC build.
 
 - **The bar** comes when the pointer, moved to the game's very top edge or onto the mark at its top centre (the player's
   guide calls it the handle) with no button down, rests there 150 ms and the game has had no press or release for 1.5 s,
-  or when a finger is drawn down from the top edge after such a quiet. It comes by itself for 3 s when the game's first
+  when a finger is drawn down from the top edge after such a quiet, or when the mark is tapped, held 500 ms or drawn
+  down 24 game lines after such a quiet outside a song (`logic.c`'s `MarkPress`; that press is the overlay's, kept from
+  the game until let go, and in a song every press on the mark is the game's). It comes by itself for 3 s when the game's first
   screen shows and after each switch between a window and full screen. No key brings it.
 - **How long it stays**: whole 600 ms after the pointer was last on it (looked for ten times a second), 4 s after a
   finger, then it slides back up; a press on the game takes it away.
