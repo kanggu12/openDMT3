@@ -24,6 +24,8 @@ import time
 
 # The site's and the game's ports, as the server publishes them (compose.yaml).
 WEB_PORT, GAME_PORT = 4730, 4725
+# The admin pages' own port (a site of their own, docs/admin.md), on this PC unless the Access page opens it.
+ADMIN_PORT = 4731
 # The rules of an ID and a password, as the server's accounts take them (opendmt3/server/services/accounts.py).
 ID_MAX, PASSWORD_MIN, PASSWORD_MAX = 8, 6, 16
 # The smallest window the pages are drawn in; a smaller one is asked to grow, or the plain prompts are used.
@@ -44,6 +46,8 @@ class Answers:
         self.docker = None
         self.addresses = None
         self.address = None
+        # Who may open the admin pages: "no", this PC alone (the usual), or "yes", other PCs on its network too.
+        self.admin_network = "no"
         # How many accounts the server's database has: None when it cannot be told yet, False before looking.
         self.accounts = False
         self.admin = "BOSS"
@@ -361,6 +365,31 @@ class Address(Page):
         return out
 
 
+def admin_site(address):
+    """The admin pages' address at an address of this PC (the admin site's own port)."""
+    return "http://%s:%d/" % (address, ADMIN_PORT)
+
+
+class AdminAccess(Page):
+    name, title = "Access", "Who may open the admin pages"
+    keys = "Up/Down  choose"
+
+    def body(self, a, env):
+        return [plain("The admin pages are a site of their own, on port %d. Only this PC opens them, unless" % ADMIN_PORT),
+                plain("you let the other PCs on this network open them too (a server with no screen of its"),
+                plain("own is run from another PC that way).")]
+
+    def fields(self, a, env):
+        return [Choice("admin_network", "Admin pages", lambda: [("no", "This PC only"),
+                                                                ("yes", "This PC and the other PCs on its network")])]
+
+    def preview(self, a, env):
+        here = admin_site("127.0.0.1")
+        if a.admin_network != "yes":
+            return [good("The admin pages: %s (this PC only)" % here)]
+        return [good("The admin pages: " + admin_site(a.address or "127.0.0.1")), good("On this PC also " + here)]
+
+
 class AdminId(Page):
     name, title = "Admin", "The first admin account"
 
@@ -584,7 +613,7 @@ class Installer(Page):
 
 class Confirm(Page):
     name, title = "Confirm", "Ready to set up"
-    keys = "1-5  change that answer"
+    keys = "1-6  change that answer"
 
     def body(self, a, env):
         found = a.survey()
@@ -602,13 +631,15 @@ class Confirm(Page):
         installer = Installer().chosen(a, env) if a.installer != NONE else None
         rows = [("1", "Docker and ports", "ready"),
                 ("2", "Address", site(a.address or "127.0.0.1")),
-                ("3", "Admin", admin),
-                ("4", "Song list from", game),
-                ("5", "Installer", installer or "none for now")]
+                ("3", "Admin pages", "this PC and the other PCs on its network" if a.admin_network == "yes"
+                 else "this PC only"),
+                ("4", "Admin", admin),
+                ("5", "Song list from", game),
+                ("6", "Installer", installer or "none for now")]
         out = [plain("Nothing is done until Enter. Press a number to change that answer.")]
         for number, what, value in rows:
             out.append(plain("%s  %-17s %s" % (number, what, value)))
-            if number == "4":
+            if number == "5":
                 out += [plain("   %-17s %s" % ("", part)) for part in parts]
         if kept:
             out.append(plain("   %-17s %s" % ("Import again", "offered on the site's Song list tab" if kept[2]
@@ -677,20 +708,27 @@ class Done(Page):
                dim("      from other PCs:  not reachable at this address (./dmt3 setup again to choose another)") if alone
                else good("  from other PCs:  " + site(address)),
                plain()]
+        # The admin pages, a site of their own: on this PC, and the network's address too when it was opened to it.
+        here = admin_site("127.0.0.1")
+        opened = a.admin_network == "yes" and not alone
+        admin_where = (admin_site(address) + " (on this PC also %s)" % here) if opened else here + " (this PC only)"
+        out += [good("The admin pages:  " + admin_where), plain()]
         if a.accounts:
             out.append(plain("Sign in with the admin account you have."))
         else:
             out.append(plain("The admin account (the password is shown only this once):"))
             out.append(plain("  ID        " + a.admin.strip().upper()))
             out.append(plain("  password  " + (a.made_password or a.password or "(see the setup's log)")))
-        # The address chosen, so the site's pages and the message to send a player carry the one players reach.
+        # The admin pages first: the players' accounts are made there, and each account's message carries the site's
+        # address chosen above (the one players reach).
         out += [plain(),
                 plain("Next:"),
-                plain("  1. Open %s and sign in." % site(address))]
+                plain("  1. Open the admin pages, %s, and sign in." % (admin_site(address) if opened else
+                                                                     here + " on this PC"))]
         if not alone:
             # The accounts first: the Download page asks for a sign-in, and each account's message has it.
-            out += [plain("  2. Make the players' accounts on Admin, Players: each gives a message to send."),
-                    plain("  3. Send each player their message: it has the Download page and the steps.")]
+            out += [plain("  2. Make the players' accounts on Players: each gives a message to send."),
+                    plain("  3. Send each player their message: it has the site's Download page and the steps.")]
         return out
 
     def preview(self, a, env):
@@ -706,11 +744,12 @@ STEPS = [("image", "Server image"), ("data", "Data folder"), ("account", "Admin 
 
 def pages():
     """The wizard's pages, in order."""
-    return [Welcome(), Docker(), Address(), AdminId(), Password(), Game(), Installer(), Confirm(), Progress(), Done()]
+    return [Welcome(), Docker(), Address(), AdminAccess(), AdminId(), Password(), Game(), Installer(), Confirm(),
+            Progress(), Done()]
 
 
 # The pages the confirm page's numbers go back to, by their class.
-CHANGE = {"1": Docker, "2": Address, "3": AdminId, "4": Game, "5": Installer}
+CHANGE = {"1": Docker, "2": Address, "3": AdminAccess, "4": AdminId, "5": Game, "6": Installer}
 
 
 def step(at, ordered, a, forward=True):
@@ -748,6 +787,9 @@ def run_setup(a, env, redraw):
         # Kept before the server starts, so the server is given it: the message to send a player carries the address
         # chosen here, never the one the admin's own browser used (127.0.0.1 on the server PC).
         env.keep_address(a.address)
+    if hasattr(env, "keep_admin_network"):
+        # Who may open the admin pages, kept before the server starts: compose.yaml publishes their port by it.
+        env.keep_admin_network(a.admin_network == "yes")
     for key, what, cmd in env.plan(a):
         if key == "image":
             continue

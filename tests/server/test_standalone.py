@@ -280,6 +280,77 @@ class OperationsReviewTest(unittest.TestCase):
         self.assertEqual(rows["Game"], "TCP 4725")
 
 
+class AdminSiteTest(unittest.TestCase):
+    """The admin pages as a site of their own (docs/admin.md), in the server's own program: its port and who may open
+    it kept for the run, the firewall left closed for it unless the owner opens it to the network (then Windows'
+    question, as for the rest), and the owner's account made in the terminal on a PC without a screen."""
+
+    def setUp(self):
+        self.base = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, self.base)
+        self.data = os.path.join(self.base, "data")
+        os.makedirs(self.data)
+
+    def test_the_admin_sites_port_and_reach_are_kept_for_the_run(self):
+        # The server's own defaults (4731, this PC alone) need no argument.
+        argv = standalone.server_args(self.data)
+        self.assertNotIn("--admin-port", argv)
+        self.assertNotIn("--admin-host", argv)
+        quiet("--data", self.data, "setup", "--admin-port", "8731", "--admin-host", "0.0.0.0")
+        argv = standalone.server_args(self.data)
+        self.assertEqual(argv[argv.index("--admin-port") + 1], "8731")
+        self.assertEqual(argv[argv.index("--admin-host") + 1], "0.0.0.0")
+        # Back to this PC alone: nothing kept.
+        quiet("--data", self.data, "setup", "--admin-host", "127.0.0.1")
+        self.assertNotIn("--admin-host", standalone.server_args(self.data))
+
+    def test_the_firewall_leaves_the_admin_port_closed_unless_it_is_opened(self):
+        self.assertEqual(standalone.firewall_ports(self.data), [4725, 4730])
+        quiet("--data", self.data, "setup", "--admin-host", "0.0.0.0")
+        self.assertEqual(standalone.firewall_ports(self.data), [4725, 4730, 4731])
+        code, said = quiet("--data", self.data, "firewall")
+        if os.name != "nt":
+            self.assertIn("sudo ufw allow 4731/tcp", said)
+
+    def test_opening_the_admin_pages_on_windows_asks_for_their_rule(self):
+        asked = []
+        with mock.patch.object(standalone, "on_windows", return_value=True), \
+                mock.patch.object(standalone, "is_admin", return_value=False), \
+                mock.patch.object(standalone, "firewall_rules", return_value=[]), \
+                mock.patch.object(standalone, "elevated", side_effect=lambda argv: asked.append(argv)):
+            code, said = quiet("--data", self.data, "setup", "--admin-host", "0.0.0.0")
+        # Windows was asked for the admin port's rule alone; answered no, what stays is said, the setting kept.
+        self.assertEqual(code, 0, said)
+        self.assertEqual(len(asked), 1)
+        self.assertEqual(asked[0][asked[0].index("--ports") + 1], "4731")
+        self.assertIn("firewall", said)
+        self.assertIn("4731", said)
+        self.assertEqual(standalone.settings(self.data)["admin_host"], "0.0.0.0")
+        # Closed again: its rule, when there is one, taken out the same way.
+        with mock.patch.object(standalone, "on_windows", return_value=True), \
+                mock.patch.object(standalone, "is_admin", return_value=False), \
+                mock.patch.object(standalone, "firewall_rules", return_value=[4731]), \
+                mock.patch.object(standalone, "elevated", side_effect=lambda argv: asked.append(argv) or 0):
+            quiet("--data", self.data, "setup", "--admin-host", "127.0.0.1")
+        self.assertIn("--remove", asked[-1])
+
+    def test_the_owners_account_is_made_in_the_terminal_when_there_is_none(self):
+        # At a terminal: asked for the ID and the password (empty: made and printed), then made here.
+        with mock.patch.object(standalone, "at_terminal", return_value=True), \
+                mock.patch("builtins.input", return_value="nova"), \
+                mock.patch.object(standalone.getpass, "getpass", return_value=""):
+            code, said = quiet("--data", self.data, "setup")
+        self.assertEqual(code, 0, said)
+        self.assertIn("made NOVA", said)
+        self.assertFalse(standalone.first_account_needed(self.data))
+        # No terminal (a script): never asked; the way to make it is said, with the admin pages' address.
+        other = os.path.join(self.base, "other")
+        with mock.patch.object(standalone, "at_terminal", return_value=False):
+            code, said = quiet("--data", other, "setup")
+        self.assertIn("setup --admin ID", said)
+        self.assertIn("http://127.0.0.1:4731/", said)
+
+
 @unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
 class StartStopTest(unittest.TestCase):
     """A real server in the background on free ports: start, status, a stop request it answers by itself."""

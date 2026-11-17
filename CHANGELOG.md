@@ -65,6 +65,16 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - A tap on the overlay's handle at the game's top centre, or a press held on it half a second, brings the overlay bar,
   as a finger drawn down from the top edge does; while a song plays the press stays the game's.
 
+- The admin pages as a site of their own, on the distribution's side: `compose.yaml` publishes their port (4731,
+  `ADMIN_PORT` in `.env`) on this PC alone unless `./dmt3 setup --admin-network yes` opens it to the network
+  (`ADMIN_BIND`; the wizard asks); `./dmt3 ports --admin`; `./dmt3 status`, `up` and `check` say where they are;
+  `./dmt3 expose NAME --admin-public` puts them at `https://NAME:4731/` through Caddy (an address too), and without it
+  nothing of them is on the internet. The Helm chart gives them a Service of their own inside the cluster
+  (`kubectl port-forward`), or the site's port with `admin.onPublicPort`. The server's own program keeps their port
+  and reach (`setup --admin-port`, `--admin-host`), the Windows firewall leaves their port closed until they are
+  opened to the network (then it asks, as for the others), and `setup` makes the owner's account in the terminal
+  when there is none, so a PC with no screen needs no browser. `.env` says what each of its lines is.
+
 ### Changed
 
 - The admin pages open at **Status**; the Players list is for looking and every change to a player is on their own

@@ -1,12 +1,14 @@
 # Running a server
 
 For server owners. A server keeps the players' logins and the stages they clear, for the cabinets that connect to it,
-and runs a site with the rankings, the songs, each DJ's page, the launcher to download, and the admin pages. One
-process does both: the game connects on port 4725, people and launchers on port 4730.
+and runs the players' site with the rankings, the songs, each DJ's page and the launcher to download, and the admin
+pages, a site of their own for the owner. One process does all of it: the game connects on port 4725, players and
+launchers on port 4730, and the admin pages answer on port 4731, on the server PC alone unless you open them
+([The admin pages](#the-admin-pages)).
 
 To the server, each game that connects is a cabinet, the arcade's name for the machine: a PC playing through the
-launcher is one. The server knows each by the address it connects from, and the site's **Home** page and the
-**Admin**, **Cabinets** tab list them.
+launcher is one. The server knows each by the address it connects from, and the site's **Home** page and the admin
+pages' **Cabinets** list them.
 
 You do not need a server to play alone: the launcher has one inside for that ([Playing on your PC](install.md), the
 player's guide). Run one when others play from their own PCs, in one of these ways, each the same server:
@@ -68,13 +70,15 @@ On a Windows 10 or 11 PC of its own, without Docker, Python or the launcher: the
 It brings its own Python, the official 7-Zip, and the launcher's installer of the same release to hand out.
 
 1. Unpack the whole zip into a folder of your own (for example `C:\openDMT3-server`), and start
-   `opendmt3-server.exe`. The server runs in its window; on the first start your browser opens this PC's site, where
-   you make the owner's account.
+   `opendmt3-server.exe`. The server runs in its window; on the first start your browser opens the admin pages on this
+   PC (`http://127.0.0.1:4731/`), where you make the owner's account.
 2. Start **Open the firewall.cmd** (Windows asks for an administrator's yes): it opens TCP 4725 and 4730 for private
-   networks (`opendmt3-server firewall --public` for public ones too, `--remove` takes the rules out).
-3. The song list: **Admin**, **Song list** on the site (folders of this PC, an archive, or an upload), or
+   networks (`opendmt3-server firewall --public` for public ones too, `--remove` takes the rules out). The admin
+   pages' port, 4731, stays closed: they are for this PC, until `opendmt3-server setup --admin-host 0.0.0.0` opens
+   them to the network (Windows then asks for their rule the same way).
+3. The song list: the admin pages' **Song list** (folders of this PC, an archive, or an upload), or
    `opendmt3-server catalog D:\path\to\client\data` in a terminal in the folder.
-4. **Admin**, **Players** makes the players' accounts, and shows the address players open with a QR code.
+4. The admin pages' **Players** makes the players' accounts, and shows the address players open with a QR code.
 
 The data folder is `data` beside the program: the database, its backups, the log (`data\logs`, a new file every 2 MB,
 three kept), the settings and the installer the **Download** page hands out. **Start in the background.cmd** and
@@ -85,9 +89,9 @@ window. The same commands run with Python on Linux and macOS ([With Python](#wit
 | :--- | :--- |
 | `opendmt3-server` or `opendmt3-server run` | Runs the server in this window until it closes (Ctrl+C, or `stop` from another one); `--no-browser` |
 | `opendmt3-server start`, `stop`, `restart`, `status`, `logs` | In the background; stops the running one, however it was started; runs it again where it ran (its window, or the background); whether it runs and answers, with its addresses; the last lines of its log |
-| `opendmt3-server setup [--address A] [--game PATH] [--installer FILE] [--admin ID [--password P]] [--game-port N] [--web-port N]` | The players' address, the song list, the installer to hand out, the first account, the ports; each only when given |
+| `opendmt3-server setup [--address A] [--game PATH] [--installer FILE] [--admin ID [--password P]] [--game-port N] [--web-port N] [--admin-port N] [--admin-host ADDRESS]` | The players' address, the song list, the installer to hand out, the first account, the ports, who may open the admin pages (`--admin-host 0.0.0.0`: the network too; `127.0.0.1`: this PC again); each only when given. With no account yet and a person at the terminal, it asks for the owner's account and makes it there (a PC with no screen needs no browser) |
 | `opendmt3-server invite` | The address players open, with its QR code |
-| `opendmt3-server firewall [--remove] [--public] [--print]` | Opens the two ports in Windows' firewall as an administrator; elsewhere prints the commands for ufw and firewalld |
+| `opendmt3-server firewall [--remove] [--public] [--print]` | Opens the game's and the site's ports in Windows' firewall as an administrator (the admin pages' port too, only while they are opened to the network); elsewhere prints the commands for ufw and firewalld |
 | `opendmt3-server expose NAME` | The site over HTTPS behind Caddy on this PC ([Playing from outside your home](internet.md#on-windows-or-with-python)) |
 | `opendmt3-server catalog PATH [--save FILE]`, `add-player`, `backup`, `backups`, `restore NAME` | The server's own `--catalog`, `--add-player`, `--backup`, `--backups` and `--restore` on this data folder |
 | `opendmt3-server repair`, `remove [--delete-data]` | The checks with their fixes; removing the server ([Removing a server](#removing-a-server)) |
@@ -117,21 +121,24 @@ Enter on to the next:
 2. **Docker and ports**: Docker, Compose and the ports 4725 and 4730, each problem with its fix (`r` checks again).
 3. **This server's address**: the addresses this PC has, and the site and game addresses the other PCs use at the one
    you choose.
-4. **The first admin account**: its ID (1 to 8 letters or digits). A database that has accounts already makes none.
-5. **The admin's password**: typed twice, or left empty and made for you, shown once at the end.
-6. **The song list**: type or paste a path (Tab completes; a Windows path such as `C:\Games\...` works under WSL)
+4. **Who may open the admin pages**: this PC only (the usual), or the other PCs on its network too (a server PC with
+   no screen of its own is run from another PC that way).
+5. **The first admin account**: its ID (1 to 8 letters or digits). A database that has accounts already makes none.
+6. **The admin's password**: typed twice, or left empty and made for you, shown once at the end.
+7. **The song list**: type or paste a path (Tab completes; a Windows path such as `C:\Games\...` works under WSL)
    to your client data's folder (or a folder above it), an archive holding it, or a song list the launcher saved, or
    pick one found on the Desktop, in Downloads or Documents (Windows' too, under WSL) with Up and Down. It is looked
    at as you type, and says its one line: `Client data in a folder, original PC client, 177 songs: ready`, then the
    song list, the jackets and the DJ cards. An archive with a password gets a box for it. Links inside the client
    data's folder are followed: the folders they point into are mounted read-only too. Empty: none now.
-7. **The installer to hand out**: the one `./dmt3 build` left, a file (an
+8. **The installer to hand out**: the one `./dmt3 build` left, a file (an
    `opendmt3-launcher-0.3.1-windows-x64-setup.exe` downloaded from the
    [releases](https://github.com/kanggu12/openDMT3/releases/latest)), or none for now, with its version and size.
-8. **Confirm**: every answer on one page; a number goes back to change it.
-9. **Setting up**: the image, the data folder, the account, the song list, the jackets, the DJ cards, the installer,
-   the server and the check, each on its own line.
-10. **Done**: the site's address on this PC and for the other PCs, the admin's ID and password, and what to do next.
+9. **Confirm**: every answer on one page; a number goes back to change it.
+10. **Setting up**: the image, the data folder, the account, the song list, the jackets, the DJ cards, the installer,
+    the server and the check, each on its own line.
+11. **Done**: the site's address on this PC and for the other PCs, the admin pages' address, the admin's ID and
+    password, and what to do next.
 
 A terminal that cannot draw the pages (`TERM=dumb`, a window smaller than 64 by 20) gets the same pages as numbered
 prompts. With options, or from a script, `setup` asks nothing:
@@ -148,10 +155,13 @@ It does these, in order; run again, each one that is done already changes nothin
   name;
 - keeps the site's address as the players reach it (`--address ADDRESS`: this PC's address on the network, a name,
   or a whole `https://...` address behind a proxy), so the message to send a player carries it; with `--game-port`
-  and `--web-port`, the ports first ([Ports](#ports));
+  and `--web-port`, the ports first ([Ports](#ports)); with `--admin-network yes`, the admin pages on the other PCs
+  of the network too (`ADMIN_BIND=0.0.0.0` in `.env`; `--admin-network no` keeps them on this PC again);
 - makes the data folder;
 - makes the first (owner's) account `BOSS` with the admin pages and prints its password (`--admin ID` for another
-  ID, `--password` to give one; nothing is made when the database has accounts already);
+  ID, `--password` to give one; nothing is made when the database has accounts already): in Docker the admin pages'
+  first-run page never sees a visit from the server PC, so the account is made here, and no browser on the server PC
+  is needed;
 - imports the song list (`--game PATH`: the client data in a folder or an archive, or a song list the launcher
   saved);
 - puts the installer on the site's **Download** page (without `--installer`, the one `./dmt3 build` left, when there
@@ -207,7 +217,7 @@ read, such as WSL's Windows drives), and then root only reads: the data folder (
 by that folder's owner alone, never through a link left in it. The server's image has the official 7-Zip, with its
 license.
 
-**Admin**, **Song list** is the site's page for it:
+The admin pages' **Song list** is the page for it:
 
 - what the server takes and whether it has it, part by part;
 - **Found on the server PC**: the client data the server sees (the folder kept for it, and outside Docker its user's
@@ -218,8 +228,8 @@ license.
 
 When the server's own user can read the client data's folder, the wizard (or `--keep-game`) keeps it mounted read-only
 (`GAME_DIR`, and `GAME_LINKS` for the folder its links point into, in `.env` beside `compose.yaml`), so it is found
-there. **Admin**, **Status** has the **Song list** card: when each part was last read, how many there are, what is
-missing and why, and where it came from. The API's twins are `GET` and `POST /api/v1/server/song_list` and
+there. The admin pages' **Status** has the **Song list** card: when each part was last read, how many there are,
+what is missing and why, and where it came from. The API's twins are `GET` and `POST /api/v1/server/song_list` and
 `GET /api/v1/server/folders` ([api.md](api.md)).
 
 ### Every day
@@ -228,17 +238,17 @@ missing and why, and where it came from. The API's twins are `GET` and `POST /ap
 | :--- | :--- |
 | `./dmt3 up`, `./dmt3 down`, `./dmt3 restart` | Starts the server (getting its image first; `--no-build` to start the image as it is), stops it, restarts it |
 | `./dmt3 image [--build \| --published]` | The server's image: the published one of this version, pulled when it is not here; `--build` builds this copy's and keeps using it, `--published` goes back |
-| `./dmt3 ports [--game N] [--web N]` | The two ports ([Ports](#ports)) |
+| `./dmt3 ports [--game N] [--web N] [--admin N]` | The ports ([Ports](#ports)) |
 | `./dmt3 invite` | The address players open, with its QR code |
-| `./dmt3 expose NAME` | The site over HTTPS at NAME, with Caddy ([Playing from outside your home](internet.md)) |
+| `./dmt3 expose NAME [--admin-public]` | The site over HTTPS at NAME, with Caddy; the admin pages too, at `https://NAME:4731/`, only with `--admin-public` ([Playing from outside your home](internet.md)) |
 | `./dmt3 repair`, `./dmt3 remove [--delete-data]` | The image again and the container afresh, then `doctor`; removing the server, Caddy's volumes with the data ([Removing a server](#removing-a-server)) |
-| `./dmt3 status` | The container's state, then `check`, then the site's address |
+| `./dmt3 status` | The container's state, then `check`, then the site's address and the admin pages' (`./dmt3 up` says both too) |
 | `./dmt3 logs [-f] [-n LINES]` | The server's log |
 | `./dmt3 backup`, `./dmt3 backups`, `./dmt3 restore NAME` | The server's `--backup`, `--backups` and `--restore NAME` ([Backups](#backups)) |
 | `./dmt3 add-player ID [--password P] [--dj NAME] [--admin]` | The server's `--add-player` ([Players](#players)) |
-| `./dmt3 check` | The site answers `/health` and the game's port takes a connection |
+| `./dmt3 check` | The site and the admin pages answer `/health`, and the game's port takes a connection |
 | `./dmt3 catalog [PATH] [--save FILE]` | Imports the song list from the client data in a folder or an archive, or from a song list ([The song list](#the-song-list); the folder kept mounted when not given); `--save` saves one instead |
-| `./dmt3 doctor` | Docker, the server's image, the two ports and the data folder, each problem with its fix |
+| `./dmt3 doctor` | Docker, the server's image, the three ports and the data folder, each problem with its fix |
 | The new server package (or `git pull`), then `./dmt3 up` | Updates the server: the new version's image, and the data stays ([Updating the server](#updating-the-server)) |
 
 The commands that reach the database run the server's own command line ([Command line](#command-line)) in its
@@ -302,17 +312,18 @@ line, and exits; run it again for a new song list. To read an archive, the serve
 `OPENDMT3_7ZIP` names, else the official 7-Zip's `7zz` (the only one that opens RAR5), else a `7z` or `7za` on the
 PATH. Client data in a folder, or a song list, needs none.
 
-Then open the site at the address the server prints (`site on ...`) on the server PC: while the server has no account,
-that page makes the first one, the owner's. On a server PC without a browser,
-`.venv/bin/python -m opendmt3.server --data data --add-player BOSS --admin` makes it and prints its password. (In
-Docker, use `--add-player` as above: there the site never sees a visit from the server PC.) Put
+Then open the admin pages at `http://127.0.0.1:4731/` on the server PC: while the server has no account, their
+first-run page makes the first one, the owner's. On a server PC without a browser,
+`.venv/bin/python -m opendmt3.server --data data --add-player BOSS --admin` makes it and prints its password (the
+server's own program asks for it in the terminal: `opendmt3-server setup`). (In Docker, use `--add-player` as above:
+there the admin pages never see a visit from the server PC.) Put
 `opendmt3-launcher-0.3.1-windows-x64-setup.exe` in `data/downloads/`, under its own name, to hand it out.
 
 To update, see [Updating the server](#updating-the-server).
 
 ## Players
 
-Accounts are made by the owner, on **Admin**, **Players** or with `--add-player ID` (`--password`, `--dj NAME`,
+Accounts are made by the owner, on the admin pages' **Players** or with `--add-player ID` (`--password`, `--dj NAME`,
 `--admin`). Each account has an ID and a password for the site and the launcher, a DJ name for the game, and a card
 number the game logs in with. Send each player the site's address: its **Download** page hands the installer out with
 the steps, and the launcher asks for the same address, ID and password.
@@ -328,7 +339,7 @@ listed with when it was made and last used, and revoked there ([api.md](api.md#n
   another PC stays signed in.
 - **A disabled account** cannot log in at the cabinet or on the site, and its plays leave the rankings.
 
-## The site and the admin pages
+## The players' site
 
 | Page | Shows |
 | :--- | :--- |
@@ -339,7 +350,28 @@ listed with when it was made and last used, and revoked there ([api.md](api.md#n
 | **Download** | The installer (its size, when it was put there, its version), named after the server's address, with the address and the steps |
 | **Licenses** | openDMT3's license, the parts the server and the launcher it hands out are made with, and the fonts the site serves, with their licenses |
 
-**Admin** has a tab for each of its jobs (each in full, with what it keeps on disk: [admin.md](admin.md)):
+## The admin pages
+
+The admin pages are a site of their own, with their own sign-in (an account with admin rights), on their own port:
+
+- **On the server PC, always**: `http://127.0.0.1:4731/`. Their first-run page, which makes the owner's account,
+  answers this PC alone; the players' site sends a visit from this PC there.
+- **From the other PCs of the network**, only when you open them: `./dmt3 setup --admin-network yes` (Docker, it keeps
+  `ADMIN_BIND=0.0.0.0` in `.env`), `opendmt3-server setup --admin-host 0.0.0.0` (the server's own program; on Windows
+  it asks to open their port in the firewall), or `--admin-host 0.0.0.0` on the server's command line. Then
+  `http://<server>:4731/`.
+- **From the internet**, only with `./dmt3 expose NAME --admin-public`: `https://NAME:4731/` through Caddy, over HTTPS
+  ([Playing from outside your home](internet.md#the-admin-pages)). Without it nothing of the admin pages is on the
+  internet.
+- **On Kubernetes**, inside the cluster: `kubectl port-forward` ([On Kubernetes](kubernetes.md#the-admin-pages)).
+- **In the launcher**: the launcher's own server has them on this PC too.
+
+Their port is `ADMIN_PORT` in `.env` (`./dmt3 ports --admin N`), `opendmt3-server setup --admin-port N`, or
+`--admin-port` ([Ports](#ports)). The players' site and the admin pages keep their sign-ins apart: signing in to one
+never signs in to the other. The API stays on the site's port for every program, an admin's calls with an admin's
+token; the admin port answers it too.
+
+They have a page for each job (each in full, with what it keeps on disk: [admin.md](admin.md)):
 
 | Tab | Does |
 | :--- | :--- |
@@ -350,8 +382,8 @@ listed with when it was made and last used, and revoked there ([api.md](api.md#n
 | **Logs** | Changes and the game's recent messages; every play, filtered by player, days and title, 50 a page, as CSV |
 | **Backups** | Make, upload, download, restore, delete |
 
-- **Sign-in and language.** Every page asks for a sign-in, in English or Korean (the visitor picks), except the
-  sign-in page and **Licenses**.
+- **Sign-in and language.** Every page of both sites asks for a sign-in, in English or Korean (the visitor picks),
+  except the sign-in pages and **Licenses**; the admin pages let in an account with admin rights alone.
 - **Long lists** show their first rows and say how many there are: a board or a ranking its first 100, a DJ's best
   scores their first 20.
 - **The notice** set on **Status** (one line, up to 200 characters) shows at the top of every page; it is kept in
@@ -385,9 +417,9 @@ Guests (NO ID CARD) see neither. The game shows a new choice from the player's n
 
 ## Backups
 
-The server backs its database up once a day into `data/backups/` and keeps a week of them. **Admin**, **Backups** backs
-up now, downloads a backup, and puts the database back to one; the current database is backed up first, so a restore
-can be undone. From the command line: `--backup`, `--backups` and `--restore NAME`.
+The server backs its database up once a day into `data/backups/` and keeps a week of them. The admin pages'
+**Backups** backs up now, downloads a backup, and puts the database back to one; the current database is backed up
+first, so a restore can be undone. From the command line: `--backup`, `--backups` and `--restore NAME`.
 
 **Upload a backup** on the same tab brings a database file from elsewhere (a backup downloaded from another server,
 or the `openDMT3.sqlite` of a server that is stopped), up to 256 MB. It is written into `data/backups/` as it comes and
@@ -441,27 +473,33 @@ first place from another player. In Docker, add `OPENDMT3_WEBHOOK: URL` under th
 
 ## Ports
 
-The game connects on TCP 4725 and speaks its own protocol there, the server first; the site, the admin pages and the
-launcher's API share 4730. The launcher asks the site for the game's port, so players type only the site's address.
-Other ports are set once, and every part uses them:
+The game connects on TCP 4725 and speaks its own protocol there, the server first; the players' site and the
+launcher's API share 4730; the admin pages have 4731, on the server PC alone unless you open them. The launcher asks
+the site for the game's port, so players type only the site's address. Other ports are set once, and every part uses
+them:
 
-- **Docker**: `./dmt3 ports --game 5725 --web 8080` (or `./dmt3 setup --game-port 5725 --web-port 8080`) keeps them
-  in `.env` as `GAME_PORT` and `WEB_PORT`; `compose.yaml` publishes them and the server listens on the same numbers,
-  and a running server starts again on them.
-- **On Windows and with Python**: `opendmt3-server setup --game-port 5725 --web-port 8080`, then a restart.
+- **Docker**: `./dmt3 ports --game 5725 --web 8080 --admin 8731` (or `./dmt3 setup --game-port 5725 --web-port 8080`)
+  keeps them in `.env` as `GAME_PORT`, `WEB_PORT` and `ADMIN_PORT`; `compose.yaml` publishes them (the game's and the
+  site's on the same numbers the server listens on; the admin pages' on `127.0.0.1` alone, or every address with
+  `ADMIN_BIND=0.0.0.0`, to 4731 inside), and a running server starts again on them.
+- **On Windows and with Python**: `opendmt3-server setup --game-port 5725 --web-port 8080 --admin-port 8731`, then a
+  restart.
+- **On Kubernetes**: `game.service.port` (or `game.service.nodePort`), which the server then listens on too;
+  `admin.service.port` for the admin pages' Service.
+- **Python by hand**: `--port`, `--web-port` and `--admin-port` (or `OPENDMT3_GAME_PORT`, `OPENDMT3_WEB_PORT` and
+  `OPENDMT3_ADMIN_PORT`).
 
 The players' address moves with the site's port: an address setup kept on the old port (`http://192.168.0.5:4730/`)
 is kept on the new one, so the invite and its QR code, the start banner, `status`, the message to send a player and
 `GET /api/v1/server/invite` all say where the site is now. An address through a proxy (`https://...`) stays as it
 was given.
-- **On Kubernetes**: `game.service.port` (or `game.service.nodePort`), which the server then listens on too.
-- **Python by hand**: `--port` and `--web-port` (or `OPENDMT3_GAME_PORT` and `OPENDMT3_WEB_PORT`).
 
 ## Over the internet
 
 [Playing from outside your home](internet.md) has the name, the router's forwards and HTTPS: `./dmt3 expose NAME`
-puts Caddy in front of the site with a certificate it gets and renews by itself, and the server's own command line
-writes the same settings for a Caddy beside it (`opendmt3-server expose NAME`). By hand, with Caddy or another reverse
+puts Caddy in front of the site with a certificate it gets and renews by itself (the admin pages too, at
+`https://NAME:4731/`, only with `--admin-public`), and the server's own command line writes the same settings for a
+Caddy beside it (`opendmt3-server expose NAME`). By hand, with Caddy or another reverse
 proxy on the server PC: the site behind it on the server PC only (`--web-host 127.0.0.1`), the proxy's forwarded
 headers believed from its address alone (`--proxy 127.0.0.1`), the game's port opened as it is.
 
@@ -558,6 +596,8 @@ openDMT3 makes these files readable by their owner only (on Linux and macOS).
 | `--host ADDRESS` | The address to listen on: `0.0.0.0` for other PCs (`127.0.0.1` by default) |
 | `--web-host ADDRESS` | The site's address to listen on, when not `--host`'s: `127.0.0.1` behind a proxy on the server PC |
 | `--port N`, `--web-port N` | The game's port (4725, `OPENDMT3_GAME_PORT`) and the site's (4730, `OPENDMT3_WEB_PORT`; 0 for no site) |
+| `--admin-port N`, `--admin-host ADDRESS` | The admin pages' port (4731, `OPENDMT3_ADMIN_PORT`; 0 for none) and the address they listen on (`127.0.0.1`, this PC alone, `OPENDMT3_ADMIN_HOST`; `0.0.0.0` for the network too) |
+| `--admin-on-site-port` | The admin pages on the site's port too, at `/admin/` (one port for both, as behind one Ingress; `OPENDMT3_ADMIN_ON_SITE_PORT`) |
 | `--catalog PATH` | Imports the song list (with its jackets and the DJ cards) from the client data in a folder or in an archive (`OPENDMT3_ARCHIVE_PASSWORD` for its password), or from a song list, each part one line, then starts. Run as root on a data folder someone else owns, root only reads: the data folder is written as its owner |
 | `--catalog PATH --save FILE` | Saves the song list from `PATH` into `FILE` (a folder: `openDMT3-song-list.zip` in it) instead, checked as a server takes it, and exits; the server's data is not touched |
 | `--game FOLDER` | The folder holding the client data, which the admin's **Song list** tab finds and imports again (`OPENDMT3_GAME`; in Docker, `GAME_DIR`) |

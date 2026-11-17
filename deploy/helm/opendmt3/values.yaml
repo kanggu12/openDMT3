@@ -40,6 +40,13 @@ admin:
   existingSecret: ""
   # The password, 6 to 16 letters and digits. Used only when existingSecret is empty; the release's values hold it.
   password: ""
+  # The admin pages, a site of their own on their own port (docs/admin.md): a Service of their own inside the
+  # cluster (ClusterIP), reached with kubectl port-forward (the chart's notes say how). true: the site's port serves
+  # them too, at /admin/, for one Ingress for both (the Ingress then puts them where the site is).
+  onPublicPort: false
+  service:
+    # The admin Service's port (the server's admin listener is 4731).
+    port: 4731
 
 game:
   service:

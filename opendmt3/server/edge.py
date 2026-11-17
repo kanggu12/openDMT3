@@ -62,11 +62,13 @@ def is_address(name):
     return True
 
 
-def caddyfile(name, upstream, email=None, ca=None, ca_root=None, local_ca=False):
+def caddyfile(name, upstream, email=None, ca=None, ca_root=None, local_ca=False, admin=None):
     """The Caddyfile for the site at https://NAME/ in front of `upstream` (host:port of the site): its certificate
     from Let's Encrypt (email: the address it writes to about the certificate), from another ACME authority `ca`
     ("staging" for Let's Encrypt's staging one; ca_root: that authority's root certificate when it is a private one,
-    as a test's is), or from Caddy's own local authority (local_ca), for a closed network."""
+    as a test's is), or from Caddy's own local authority (local_ca), for a closed network. admin: (Caddy's port for
+    it, the admin listener's host:port) puts the admin pages behind Caddy too (./dmt3 expose --admin-public), at the
+    same name on a port of their own, with the same certificate; without it nothing of the admin site is here."""
     name = check_name(name, local_ca)
     if local_ca and (ca or email):
         raise EdgeError("--local-ca signs the certificate itself: no ACME authority or e-mail goes with it")
@@ -97,4 +99,12 @@ def caddyfile(name, upstream, email=None, ca=None, ca_root=None, local_ca=False)
         # server believes them from this proxy only (--proxy).
         "    reverse_proxy %s" % upstream,
         "}", ""]
+    if admin:
+        port, admin_upstream = admin
+        # The admin site: the same name on its own port (HTTPS only: nothing plain is served there), its certificate
+        # the site's, then the admin listener, which believes this proxy's forwarded headers as the site does.
+        lines += ["%s:%d {" % (name, port)]
+        if local_ca:
+            lines.append("    tls internal")
+        lines += ["    reverse_proxy %s" % admin_upstream, "}", ""]
     return "\n".join(lines)

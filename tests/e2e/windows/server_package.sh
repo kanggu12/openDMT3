@@ -81,8 +81,11 @@ PY
   r=$?; step "status: $(head -1 /out/status.txt)" $r
   srv invite > /out/invite.txt 2>&1; grep -q "Players open http://127.0.0.1:4730/" /out/invite.txt
   r=$?; step "invite prints the address and its QR code" $r
-  srv firewall --print > /out/firewall.txt 2>&1; grep -q "localport=4725" /out/firewall.txt && grep -q "localport=4730" /out/firewall.txt
-  r=$?; step "firewall --print: the two rules" $r
+  srv firewall --print > /out/firewall.txt 2>&1; grep -q "localport=4725" /out/firewall.txt && grep -q "localport=4730" /out/firewall.txt \
+    && ! grep -q "localport=4731" /out/firewall.txt
+  r=$?; step "firewall --print: the two rules, the port of the admin pages left closed" $r
+  get http://127.0.0.1:4731/health > /out/admin-health.txt 2>&1; grep -q "\"ok\":true" /out/admin-health.txt
+  r=$?; step "the admin pages answer on this PC: $(tail -1 /out/admin-health.txt)" $r
   if [ -f /in/launcher.nupkg ]; then
     python3 -c "import zipfile; z = zipfile.ZipFile(\"/in/launcher.nupkg\"); [z.extract(n, \"/w/drive_c/launcher-pkg\") for n in z.namelist() if n.startswith(\"lib/app/\")]"
     l="C:\\launcher-pkg\\lib\\app\\openDMT3-cmd.exe"
@@ -93,6 +96,17 @@ PY
   fi
   srv stop > /out/stop.txt 2>&1; grep -q "The server stopped." /out/stop.txt
   r=$?; step "stop: the server stopped by itself" $r
+  # The admin pages opened to the network, then closed again: setup keeps it, and the rules of the firewall follow
+  # (the admin port among them only while it is open).
+  srv setup --admin-host 0.0.0.0 > /out/admin-open.txt 2>&1
+  srv firewall --print > /out/firewall-open.txt 2>&1; grep -q "localport=4731" /out/firewall-open.txt \
+    && grep -q "4731" /out/admin-open.txt
+  r1=$?
+  srv setup --admin-host 127.0.0.1 > /out/admin-close.txt 2>&1
+  srv firewall --print > /out/firewall-closed.txt 2>&1; ! grep -q "localport=4731" /out/firewall-closed.txt
+  r2=$?
+  [ $r1 = 0 ] && [ $r2 = 0 ]
+  r=$?; step "setup --admin-host 0.0.0.0 opens the rule of the admin pages, 127.0.0.1 closes it again ($(head -1 /out/admin-open.txt))" $r
   ! get http://127.0.0.1:4730/health > /dev/null 2>&1
   r=$?; step "nothing answers after the stop" $r
   # The same program in the foreground (the double click), stopped from another process.

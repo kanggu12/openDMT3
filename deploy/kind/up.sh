@@ -7,7 +7,7 @@
 #   deploy/kind/up.sh          the cluster stays up afterwards (kubectl --context kind-odt3-srv-kind ...)
 #   deploy/kind/up.sh --down   the cluster is deleted at the end, passed or not
 #
-# Ports 14725 and 14730 on 127.0.0.1 must be free (cluster.yaml maps them).
+# Ports 14725 and 14730 (cluster.yaml maps them) and 14732 (the admin pages' port-forward) on 127.0.0.1 must be free.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 # The cluster's name (its node's container carries it): OPENDMT3_E2E_NAME's -kind, so two runs at once name their own.
@@ -33,8 +33,9 @@ finish() {
 }
 trap finish EXIT
 
-# The ports first: a cluster cannot start onto a port another program holds, and nothing else is ever stopped for it.
-for port in 14725 14730; do
+# The ports first: a cluster cannot start onto a port another program holds, nor the admin pages' port-forward, and
+# nothing else is ever stopped for it.
+for port in 14725 14730 14732; do
   if ss -ltnH "sport = :$port" | grep -q .; then
     if ! kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
       echo "FAIL port $port on this PC is in use"; failed=1; exit
@@ -87,6 +88,17 @@ sys.exit(0 if r["kind"] == "kubernetes" and r["can"] == []
          and r["commands"]["remove_data"].endswith("delete pvc dmt3-opendmt3-data") else 1)'
 }
 check "the Server tab names the cluster's commands with this release's names, and no button" runner
+# The admin pages: a site of their own, inside the cluster only. kubectl port-forward brings them to this PC (as the
+# chart's notes say), and the site's NodePort serves none of them.
+admin_site() {
+  local port=14732 forward ok=1
+  kubectl --context "$CTX" -n "$NS" port-forward svc/dmt3-opendmt3-admin "$port:4731" >/dev/null 2>&1 &
+  forward=$!
+  for _ in $(seq 30); do curl -fsS -m 5 "http://127.0.0.1:$port/health" 2>/dev/null | grep -q '"ok": *true' && { ok=0; break; }; sleep 1; done
+  kill "$forward" 2>/dev/null; wait "$forward" 2>/dev/null
+  [ "$ok" = 0 ] && [ "$(curl -s -o /dev/null -w '%{http_code}' -m 10 "$site/admin")" = 404 ]
+}
+check "the admin pages answer through kubectl port-forward, and the site's port serves none of them" admin_site
 # A new pod (an update) finds the account kept on the volume and makes none again.
 again() {
   kubectl --context "$CTX" -n "$NS" rollout restart deploy/dmt3-opendmt3 >/dev/null \

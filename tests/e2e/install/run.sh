@@ -65,6 +65,10 @@ docker run --rm --name "$C" -v "$OUT/files:/files:ro" -v "$OUT:/out" -e VERSION=
   python3 -c "import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:4730/health\", timeout=5).read().decode())" > /out/health.txt 2>&1
   grep -q "\"ok\":true" /out/health.txt
   r=$?; step "/health: $(cat /out/health.txt)" $r
+  # The admin pages, a site of their own, on this PC (their own port and /health).
+  python3 -c "import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:4731/health\", timeout=5).read().decode())" > /out/admin-health.txt 2>&1
+  grep -q "\"ok\":true" /out/admin-health.txt
+  r=$?; step "the admin pages answer on this PC: $(cat /out/admin-health.txt)" $r
   as "cat /files/opendmt3-server-$VERSION-linux-installer.sh | sh" > /out/update.txt 2>&1
   as "opendmt3-server status" > /out/status.txt 2>&1
   r=$?; step "the installer again while it runs: stopped, put in place, running again" $r

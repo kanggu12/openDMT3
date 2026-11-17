@@ -7,13 +7,16 @@ router, and put the site behind HTTPS, which the sign-ins need on the internet. 
 
 ## What players reach
 
-A server has two ports, and both are reached from outside:
+Players reach two ports from outside:
 
 - **The game's port**, TCP 4725. The game speaks its own protocol there, the server first, so it is not HTTP and no
   web proxy can carry it: it is forwarded as it is.
-- **The site's port**, 4730: the site, the admin pages and the launcher's API, all on one port. On the internet it
-  goes behind [Caddy](https://caddyserver.com), which answers HTTPS on 443 (and plain HTTP on 80, sent on to HTTPS),
-  gets the certificate from Let's Encrypt and renews it by itself.
+- **The site's port**, 4730: the players' site and the launcher's API. On the internet it goes behind
+  [Caddy](https://caddyserver.com), which answers HTTPS on 443 (and plain HTTP on 80, sent on to HTTPS), gets the
+  certificate from Let's Encrypt and renews it by itself.
+
+The admin pages, a site of their own on port 4731, stay on the server PC: nothing of them is on the internet unless
+you put them there too ([The admin pages](#the-admin-pages)).
 
 The launcher asks the site for the game's port, so players type only the site's address.
 
@@ -22,8 +25,9 @@ The launcher asks the site for the game's port, so players type only the site's 
 - **A name.** A domain of yours, or a free dynamic DNS name (your router may offer one: ASUS `*.asuscomm.com`, ipTIME
   `*.iptime.org`; else DuckDNS or No-IP). It follows your public address when it changes. A certificate needs a
   name: a bare address does not get one from Let's Encrypt.
-- **Port forwards** on the router to the server PC: TCP 80, TCP 443 (and UDP 443 for HTTP/3) and TCP 4725. With two
-  routers in a row, each needs the forwards, the first pointing at the second.
+- **Port forwards** on the router to the server PC: TCP 80, TCP 443 (and UDP 443 for HTTP/3) and TCP 4725 (and TCP
+  4731 for the admin pages, only with `--admin-public`). With two routers in a row, each needs the forwards, the first
+  pointing at the second.
 - **NAT loopback** (hairpinning) for players on your own network who use the public name: most routers have it.
 
 ## With Docker
@@ -55,6 +59,29 @@ none again.
   certificate then needs the router to forward 80 and 443 from outside to these); `expose` then names them in its
   line for the router ("forward TCP 80 to this PC's 8080 and TCP 443 to its 8443").
 
+## The admin pages
+
+Without more, `./dmt3 expose` leaves the admin pages where they were: on the server PC at `http://127.0.0.1:4731/`
+(or the other PCs of your network, when `./dmt3 setup --admin-network yes` opened them), and nothing of them behind
+Caddy. To run the server from anywhere:
+
+```sh
+./dmt3 expose dmt3.example.org --email you@example.org --admin-public
+```
+
+The admin pages are then at `https://dmt3.example.org:4731/`, through Caddy, over HTTPS with the site's certificate:
+their own port on the same name, with their own sign-in (an account with admin rights). Forward TCP 4731 on the router
+too, as `expose` says. The server PC opens them at that address too (the name must lead there: NAT loopback, as for
+players on your own network): port 4731 of this PC is Caddy's HTTPS then, so `http://127.0.0.1:4731/` no longer
+answers. `./dmt3 expose dmt3.example.org` without `--admin-public` takes them off the internet again, and
+`./dmt3 expose --off` takes both.
+
+With an address as the name (`./dmt3 expose 192.168.0.5 --local-ca --admin-public`, a closed network), the admin
+pages are at `https://192.168.0.5:4731/`, with the address's certificate.
+
+The server's own program (below) keeps the admin pages on the PC, or the network with
+`opendmt3-server setup --admin-host 0.0.0.0`; `--admin-public` is `./dmt3`'s.
+
 ## On Windows or with Python
 
 The server's own command line writes the same settings for a Caddy you run beside it:
@@ -81,6 +108,9 @@ and to connect to TCP 4725.
   `/health` and the launcher's updates when the server hands them out.
   Repeated wrong passwords are slowed down for each ID at each address, for each address and for each ID.
   Accounts are made by an admin; nobody makes their own.
-- **The admin pages and the API**: an admin's sign-in, or a named token on every request ([The API](api.md)).
+- **The admin pages**: on the server PC (and your network when you opened them there) unless `--admin-public` puts
+  them at `https://NAME:4731/`; then an admin's sign-in, over HTTPS, slowed down after wrong passwords as the site's
+  is.
+- **The API**: on the site's port, a named token on every request, an admin's for the admin calls ([The API](api.md)).
 - **The game's port**: the game's own protocol, which carries a player's card number and no password, as the
   original service's did. A card number logs its player in by itself: [What to keep private](server.md#what-to-keep-private).

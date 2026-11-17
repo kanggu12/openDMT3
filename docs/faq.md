@@ -13,23 +13,31 @@ For server owners: short answers, each with the guide that has the rest. Problem
 
 Each runs the same server, with the same database in its data folder.
 
-## Why two ports, not one?
+## Why two ports for the players, not one?
 
 The game speaks its own protocol on TCP 4725, and in it the server speaks first. A web port waits for the browser to
 speak first, so one port for both would hold every cabinet's login until the server was sure no browser was there.
-The site, the admin pages and the launcher's API share the other port, 4730. The launcher asks the site for the
-game's port, so players type only the site's address.
+The players' site and the launcher's API share the other port, 4730. The launcher asks the site for the game's port,
+so players type only the site's address. The admin pages have a third, 4731, for the owner alone.
+
+## Where are the admin pages?
+
+A site of their own: `http://127.0.0.1:4731/` on the server PC, and nowhere else until you open them. To the other
+PCs of your network: `./dmt3 setup --admin-network yes` or `opendmt3-server setup --admin-host 0.0.0.0`. Over the
+internet, over HTTPS: `./dmt3 expose NAME --admin-public`, at `https://NAME:4731/`. On Kubernetes:
+`kubectl port-forward`. A server PC with no screen needs no browser for the owner's account: `./dmt3 setup` makes it,
+and `opendmt3-server setup` asks for it in the terminal ([The admin pages](server.md#the-admin-pages)).
 
 ## Can I use other ports?
 
-Yes, set once and used everywhere: `./dmt3 ports --game 5725 --web 8080` with Docker,
-`opendmt3-server setup --game-port 5725 --web-port 8080` on Windows or with Python, `game.service.port` with the Helm
-chart. The server listens on the same numbers it publishes, so the site tells launchers the game's port they reach,
+Yes, set once and used everywhere: `./dmt3 ports --game 5725 --web 8080 --admin 8731` with Docker,
+`opendmt3-server setup --game-port 5725 --web-port 8080 --admin-port 8731` on Windows or with Python,
+`game.service.port` with the Helm chart. The server listens on the same numbers it publishes, so the site tells launchers the game's port they reach,
 and the players' address setup kept moves to the new site port with it (an `https://` address through a proxy stays).
 
 ## How do players find my server?
 
-**Admin**, **Players** shows the address players open, with a QR code to scan from the screen
+The admin pages' **Players** shows the address players open, with a QR code to scan from the screen
 (`./dmt3 invite` and `opendmt3-server invite` print the same). Making an account there gives the message to send the
 player: the address, the ID, the password and the steps. The players' address is the one `setup --address` kept;
 without it, this PC's address on its network.

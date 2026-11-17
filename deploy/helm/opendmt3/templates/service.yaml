@@ -46,7 +46,8 @@ spec:
   selector:
     {{- include "opendmt3.selectorLabels" . | nindent 4 }}
   ports:
-    # The site, the admin pages, the API and the launcher's updates: plain HTTP, HTTPS is the Ingress's.
+    # The players' site, the API and the launcher's updates: plain HTTP, HTTPS is the Ingress's (the admin pages have a
+    # Service of their own, below).
     - name: site
       protocol: TCP
       port: {{ .Values.site.service.port }}
@@ -54,3 +55,21 @@ spec:
       {{- if and (eq .Values.site.service.type "NodePort") .Values.site.service.nodePort }}
       nodePort: {{ .Values.site.service.nodePort }}
       {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "opendmt3.fullname" . }}-admin
+  labels:
+    {{- include "opendmt3.labels" . | nindent 4 }}
+spec:
+  # The admin pages, inside the cluster only, whatever the site's Service is: kubectl port-forward brings them to the
+  # owner's PC (admin.onPublicPort puts them on the site's port instead).
+  type: ClusterIP
+  selector:
+    {{- include "opendmt3.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: admin
+      protocol: TCP
+      port: {{ .Values.admin.service.port }}
+      targetPort: admin

@@ -5,7 +5,9 @@
 #   1. Caddy's local authority (a closed network): ./dmt3 setup, expose NAME --local-ca, up; ./dmt3 check answers
 #      through Caddy; the root saved with --root-cert verifies the site's certificate; plain HTTP is sent to HTTPS; an
 #      admin signs in through the API over HTTPS; the site's own port is not published.
-#   1b. An address as the site's name: HTTPS answers with no name in the handshake, its certificate the address's.
+#      The admin pages stay on this PC (none behind Caddy), then expose --admin-public puts them at https://NAME:ADMIN/.
+#   1b. An address as the site's name: HTTPS answers with no name in the handshake, its certificate the address's (the
+#      admin pages' too).
 #   2. An ACME authority: Pebble (Let's Encrypt's test authority, every challenge taken as passed) on the project's
 #      network, named with --ca and --ca-root; Caddy gets a certificate it signed.
 #   3. expose --off: Caddy goes, the site is on its own port again.
@@ -15,20 +17,20 @@
 #   tests/e2e/expose/run.sh OUT_DIR [IMAGE]
 #
 # IMAGE is the server image to run (default: built from this tree as <name>-expose:test). Ports (each checked free
-# first): EXPOSE_PORTS="GAME SITE HTTP HTTPS", by default 14725 14730 14780 14743.
+# first): EXPOSE_PORTS="GAME SITE HTTP HTTPS ADMIN", by default 14725 14730 14780 14743 14731.
 set -u
 OUT=$(realpath -m "${1:?usage: tests/e2e/expose/run.sh OUT_DIR [IMAGE]}")
 REPO=$(cd "$(dirname "$0")/../../.." && pwd)
 # The names this run's containers, network, volumes and image take (two runs at once each name their own).
 NAME_PREFIX=${OPENDMT3_E2E_NAME:-odt3-srv}
 IMAGE=${2:-$NAME_PREFIX-expose:test}
-read -r GAME SITE HTTP HTTPS <<< "${EXPOSE_PORTS:-14725 14730 14780 14743}"
+read -r GAME SITE HTTP HTTPS ADMIN <<< "${EXPOSE_PORTS:-14725 14730 14780 14743 14731}"
 export COMPOSE_PROJECT_NAME=$NAME_PREFIX-expose
 PEBBLE=$NAME_PREFIX-pebble
 NAME=dmt3.test
 failed=0
 step() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1"; failed=$((failed + 1)); fi; }
-for port in $GAME $SITE $HTTP $HTTPS; do
+for port in $GAME $SITE $HTTP $HTTPS $ADMIN; do
   # A port another program listens on is never taken over.
   if ss -ltnH "sport = :$port" | grep -q .; then echo "port $port is in use: EXPOSE_PORTS names others"; exit 1; fi
 done
@@ -42,11 +44,12 @@ else
 fi
 cd "$OUT/tree"
 # The copy's own ports, kept in its .env by its own ./dmt3 ports, as an owner whose 80 and 443 are taken does it.
-./dmt3 ports --game "$GAME" --web "$SITE" --http "$HTTP" --https "$HTTPS" > "$OUT/ports.txt" 2>&1 \
+./dmt3 ports --game "$GAME" --web "$SITE" --admin "$ADMIN" --http "$HTTP" --https "$HTTPS" > "$OUT/ports.txt" 2>&1 \
   || { cat "$OUT/ports.txt"; exit 1; }
 cleanup() {
   docker rm -f "$PEBBLE" >/dev/null 2>&1
-  (cd "$OUT/tree" && docker compose -f compose.yaml -f packaging/docker/edge.yaml down -v --remove-orphans >/dev/null 2>&1)
+  (cd "$OUT/tree" && docker compose -f compose.yaml -f packaging/docker/edge.yaml -f packaging/docker/edge-admin.yaml \
+     down -v --remove-orphans >/dev/null 2>&1)
 }
 trap cleanup EXIT
 cleanup
@@ -82,13 +85,30 @@ grep -q "\"address\":\"https://$NAME/\"" "$OUT/invite.json"
 r=$?; step "an admin signs in over HTTPS, and the invite carries https://$NAME/" $r
 ! curl -s --max-time 3 "http://127.0.0.1:$SITE/health" > /dev/null
 r=$?; step "the site's own port is not published while it is exposed" $r
+# The admin pages without --admin-public: on this PC alone, plain HTTP on their own port, nothing of them behind Caddy
+# (no HTTPS at the name and the admin port), and the players' site serves none of them over the internet.
+admin_where=$(docker compose -f compose.yaml -f packaging/docker/edge.yaml port server 4731 2>/dev/null)
+curl -sf --max-time 5 "http://127.0.0.1:$ADMIN/health" > /dev/null && [[ "$admin_where" == 127.0.0.1:* ]] \
+  && ! curl -s --max-time 5 --cacert "$OUT/local-root.crt" --resolve "$NAME:$ADMIN:127.0.0.1" \
+       "https://$NAME:$ADMIN/health" > /dev/null \
+  && [ "$(https /admin --cacert "$OUT/local-root.crt" -o /dev/null -w '%{http_code}')" = 404 ]
+r=$?; step "without --admin-public the admin pages stay on this PC ($admin_where), none behind Caddy" $r
+# With --admin-public: the admin site at https://NAME:ADMIN/ through Caddy, its certificate the name's.
+./dmt3 expose "$NAME" --local-ca --admin-public > "$OUT/expose-admin.txt" 2>&1 \
+  && grep -q "The admin pages: https://$NAME:$ADMIN/" "$OUT/expose-admin.txt"
+r=$?; step "./dmt3 expose $NAME --local-ca --admin-public" $r
+for _ in $(seq 60); do ./dmt3 check > "$OUT/check-admin.txt" 2>&1 && break; sleep 1; done
+code=$(curl -s --max-time 10 --cacert "$OUT/local-root.crt" --resolve "$NAME:$ADMIN:127.0.0.1" \
+  -o "$OUT/health-admin.json" -w '%{http_code}' "https://$NAME:$ADMIN/health")
+[ "$code" = 200 ] && grep -q "the admin pages answer https://$NAME:$ADMIN/ through Caddy" "$OUT/check-admin.txt"
+r=$?; step "the admin pages answer at https://$NAME:$ADMIN/ through Caddy (curl --cacert: $code), ./dmt3 check says so" $r
 
 # ---- 1b. An address as the site's name (a closed network with no names): a client sends no name in the handshake
 # for an address, so Caddy must be told which certificate to give then. The address is one no container has, as a
 # LAN's is behind Docker's port publishing; curl connects to this PC's HTTPS port in its place.
 ADDRESS=192.168.0.5
-./dmt3 expose "$ADDRESS" --local-ca > "$OUT/expose-address.txt" 2>&1
-r=$?; step "./dmt3 expose $ADDRESS --local-ca" $r
+./dmt3 expose "$ADDRESS" --local-ca --admin-public > "$OUT/expose-address.txt" 2>&1
+r=$?; step "./dmt3 expose $ADDRESS --local-ca --admin-public" $r
 for _ in $(seq 60); do ./dmt3 check > "$OUT/check-address.txt" 2>&1 && break; sleep 1; done
 grep -q "through Caddy" "$OUT/check-address.txt"
 r=$?; step "./dmt3 check over HTTPS at an address: $(grep -m1 "https://" "$OUT/check-address.txt" | sed 's/^ *//')" $r
@@ -97,6 +117,10 @@ code=$(curl -s --max-time 10 --cacert "$OUT/local-root.crt" --connect-to "$ADDRE
   -o "$OUT/health-address.json" -w '%{http_code}' "https://$ADDRESS/health")
 [ "$code" = 200 ] && grep -q '"ok":true' "$OUT/health-address.json"
 r=$?; step "https://$ADDRESS/ answers, its certificate the address's, with no name sent (curl --cacert: $code)" $r
+code=$(curl -s --max-time 10 --cacert "$OUT/local-root.crt" --connect-to "$ADDRESS:$ADMIN:127.0.0.1:$ADMIN" \
+  -o /dev/null -w '%{http_code}' "https://$ADDRESS:$ADMIN/health")
+[ "$code" = 200 ]
+r=$?; step "https://$ADDRESS:$ADMIN/, the admin pages at the address, with no name sent (curl --cacert: $code)" $r
 
 # ---- 2. An ACME authority: Pebble on the project's network, every challenge taken as passed
 docker run -d --name "$PEBBLE" --network "${COMPOSE_PROJECT_NAME}_default" --network-alias pebble \

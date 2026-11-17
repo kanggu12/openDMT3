@@ -13,6 +13,8 @@ the game's port and the site in one pod and the data on one volume. The other wa
 - **The game's Service.** TCP 4725, a `LoadBalancer` by default, so cabinets outside the cluster reach it. With
   `externalTrafficPolicy: Local` the server sees each cabinet's own address, which it tells cabinets apart by.
 - **The site's Service.** Port 4730 inside the cluster, for an Ingress or `kubectl port-forward`.
+- **The admin pages' Service.** Port 4731, always inside the cluster only (ClusterIP), for `kubectl port-forward`
+  ([The admin pages](#the-admin-pages)).
 - **An Ingress**, when asked for: the site at a host name, over HTTPS.
 
 The pod runs as the image's own user (4725), with a read-only root file system, and answers `/health` for its probes.
@@ -57,7 +59,7 @@ kubectl -n opendmt3 exec deploy/dmt3-opendmt3 -- python -m opendmt3.server --dat
 The server needs only the song list from your client data ([The song list](server.md#the-song-list)). Save it with
 the launcher (**Game**, **Save the song list...**) or with `./dmt3 catalog PATH --save FILE`, then do one of these:
 
-- On the site: **Admin**, **Song list**, upload the file.
+- On the admin pages: **Song list**, upload the file.
 - With the API: `POST /api/v1/server/song_list` with the file as the body ([api.md](api.md)).
 - Copy it into the pod and import it there:
 
@@ -143,8 +145,8 @@ The chart's [values.yaml](https://github.com/kanggu12/openDMT3/blob/main/deploy/
 
 ## Backups
 
-The server backs its database up once a day onto its volume and keeps a week of them. **Admin**, **Backups** makes,
-downloads and restores them. From the command line:
+The server backs its database up once a day onto its volume and keeps a week of them. The admin pages' **Backups**
+makes, downloads and restores them. From the command line:
 
 ```sh
 kubectl -n opendmt3 exec deploy/dmt3-opendmt3 -c server -- python -m opendmt3.server --data /data --backup
@@ -172,6 +174,23 @@ start (a copy of it is kept first). Then copy the new launcher's installer into 
 `helm uninstall dmt3 -n opendmt3` removes the server and keeps the volume. `kubectl -n opendmt3 delete pvc
 dmt3-opendmt3-data` removes the data too.
 
+## The admin pages
+
+The admin pages are a site of their own, on port 4731, with a Service of their own inside the cluster
+(`dmt3-opendmt3-admin`, ClusterIP: never a LoadBalancer or a NodePort, whatever the site's Service is). From your PC:
+
+```sh
+kubectl -n opendmt3 port-forward svc/dmt3-opendmt3-admin 4731:4731
+```
+
+then open `http://127.0.0.1:4731/` and sign in with an account that has admin rights (the chart's notes print the
+same line). The site's port answers none of them.
+
+`admin.onPublicPort: true` serves them on the site's port too, at `/admin/` (the server's `--admin-on-site-port`), so
+the site's Ingress puts them at `https://dmt.example.org/admin/`: one address for both, over HTTPS. Their sign-in is
+then on the internet; without it, nothing of them leaves the cluster. `admin.service.port` sets the admin Service's
+port.
+
 ## The admin's Server tab
 
 The cluster starts the server and keeps it running, so the tab asks it nothing: it has no Restart, Stop or Remove
@@ -195,6 +214,8 @@ with [deploy/kind/values.yaml](https://github.com/kanggu12/openDMT3/blob/main/de
 - `/health` and the sign-in page on `http://127.0.0.1:14730/`;
 - the game's port on `127.0.0.1:14725`;
 - the first account from the chart's Secret signing in through the API, with the admin pages;
+- the Server tab's runner, the cluster's commands with the release's names;
+- the admin pages through `kubectl port-forward`, and none of them on the site's port;
 - after a restart, the same account, with none made again;
 - `helm test`, which asks `/health` from inside the cluster.
 

@@ -111,6 +111,10 @@ spec:
             - --webhook
             - {{ . | quote }}
             {{- end }}
+            {{- if .Values.admin.onPublicPort }}
+            # The admin pages on the site's port too, at /admin/ (one Ingress for both).
+            - --admin-on-site-port
+            {{- end }}
             {{- range .Values.extraArgs }}
             - {{ . | quote }}
             {{- end }}
@@ -121,6 +125,9 @@ spec:
               value: {{ include "opendmt3.gamePort" . | quote }}
             # Who runs the server, for the admin's Server tab (web/runner.py): the cluster, which owns its life, so the
             # tab asks nothing and names the cluster's commands with these names (never ./dmt3's).
+            # The admin listener on every address of the pod, so its Service (inside the cluster) reaches it.
+            - name: OPENDMT3_ADMIN_HOST
+              value: "0.0.0.0"
             - name: OPENDMT3_RUNNER
               value: "kubernetes"
             - name: OPENDMT3_KUBE_NAMESPACE
@@ -144,6 +151,10 @@ spec:
             # The site and the launcher's API.
             - name: site
               containerPort: 4730
+              protocol: TCP
+            # The admin pages, a site of their own, reached through their own Service inside the cluster.
+            - name: admin
+              containerPort: 4731
               protocol: TCP
           # /health answers 200 while the server and its database work (the image's own HEALTHCHECK asks the same).
           readinessProbe:

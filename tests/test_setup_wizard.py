@@ -62,8 +62,8 @@ class FakeEnv:
         self.outputs = outputs or {}
         self.checked = check if check is not None else [(True, "the site answers")]
         self.kept, self.ran = [], []
-        # The address kept for the server, and how many times Docker was looked at.
-        self.address, self.looks = None, 0
+        # The address kept for the server, the admin pages' reach kept for it, and how many times Docker was looked at.
+        self.address, self.admin_network, self.looks = None, None, 0
 
     def docker_checks(self):
         self.looks += 1
@@ -116,6 +116,9 @@ class FakeEnv:
     def keep_address(self, address):
         self.address = address
 
+    def keep_admin_network(self, open_to_network):
+        self.admin_network = open_to_network
+
     def stream(self, cmd, on_line):
         self.ran.append(cmd[0])
         code, text = self.outputs.get(cmd[0], (0, ""))
@@ -144,8 +147,8 @@ def looked(pg, a, env, times=4):
 class PagesTest(unittest.TestCase):
     def test_the_pages_in_order_one_question_each(self):
         names = [p.name for p in wizard.pages()]
-        self.assertEqual(names, ["Welcome", "Docker", "Address", "Admin", "Password", "Game", "Installer", "Confirm",
-                                 "Setup", "Done"])
+        self.assertEqual(names, ["Welcome", "Docker", "Address", "Access", "Admin", "Password", "Game", "Installer",
+                                 "Confirm", "Setup", "Done"])
         a, env = wizard.Answers(), FakeEnv()
         for p in wizard.pages():
             looked(p, a, env) if not isinstance(p, wizard.Progress) else None
@@ -193,6 +196,17 @@ class PagesTest(unittest.TestCase):
                                              ("The game: 192.168.0.20:4725", "ok")])
         a.address = "127.0.0.1"
         self.assertIn("Only this PC", p.preview(a, env)[-1][0])
+
+    def test_who_may_open_the_admin_pages_is_one_question(self):
+        p, a, env = page(wizard.AdminAccess), wizard.Answers(), FakeEnv()
+        a.address = "192.168.0.20"
+        # This PC alone unless the owner says otherwise: the admin site's address on this PC.
+        self.assertEqual(a.admin_network, "no")
+        self.assertEqual(p.preview(a, env), [("The admin pages: http://127.0.0.1:4731/ (this PC only)", "ok")])
+        a.admin_network = "yes"
+        self.assertEqual(p.preview(a, env), [("The admin pages: http://192.168.0.20:4731/", "ok"),
+                                             ("On this PC also http://127.0.0.1:4731/", "ok")])
+        self.assertEqual([f.attr for f in p.fields(a, env)], ["admin_network"])
 
     def test_the_admins_id_is_checked_by_the_accounts_rules(self):
         p, a, env = page(wizard.AdminId), wizard.Answers(), FakeEnv()
@@ -316,12 +330,13 @@ class PagesTest(unittest.TestCase):
         looked(page(wizard.Game), a, env)
         body = [text for text, _ in page(wizard.Confirm).body(a, env)]
         self.assertIn("2  Address           http://192.168.0.20:4730/", body)
-        self.assertIn("3  Admin             BOSS, password made for you", body)
+        self.assertIn("3  Admin pages       this PC only", body)
+        self.assertIn("4  Admin             BOSS, password made for you", body)
         # Where the song list comes from (the look's path), its line and its parts under it.
-        self.assertIn("4  Song list from    /games/no-cards", body)
+        self.assertIn("5  Song list from    /games/no-cards", body)
         self.assertTrue(any("DJ cards: not yet" in line for line in body))
-        self.assertIn("5  Installer         none for now", body)
-        self.assertEqual(sorted(wizard.CHANGE), ["1", "2", "3", "4", "5"])
+        self.assertIn("6  Installer         none for now", body)
+        self.assertEqual(sorted(wizard.CHANGE), ["1", "2", "3", "4", "5", "6"])
 
     def test_paths_typed_or_pasted_become_this_pcs(self):
         self.assertEqual(wizard.clean_path('  "/games/made up"  '), "/games/made up")
@@ -383,14 +398,22 @@ class SetupRunTest(unittest.TestCase):
         done = [text for text, _ in page(wizard.Done).body(a, env)]
         self.assertIn("  password  1a2b3c4d", done)
         self.assertIn("  from other PCs:  http://192.168.0.20:4730/", done)
+        # The admin pages, a site of their own: on this PC alone, as chosen (kept for the server before it starts).
+        self.assertIn("The admin pages:  http://127.0.0.1:4731/ (this PC only)", done)
+        self.assertEqual(env.admin_network, False)
         # The address chosen is kept for the server before it starts, and is the one to open: the accounts first
         # (each gives its message), then the messages, which carry the Download page.
         self.assertEqual(env.address, "192.168.0.20")
         self.assertLess(env.ran.index("build"), env.ran.index("server"))
         self.assertEqual(done[done.index("Next:") + 1:], [
-            "  1. Open http://192.168.0.20:4730/ and sign in.",
-            "  2. Make the players' accounts on Admin, Players: each gives a message to send.",
-            "  3. Send each player their message: it has the Download page and the steps."])
+            "  1. Open the admin pages, http://127.0.0.1:4731/ on this PC, and sign in.",
+            "  2. Make the players' accounts on Players: each gives a message to send.",
+            "  3. Send each player their message: it has the site's Download page and the steps."])
+        # Opened to the network: the admin pages from the other PCs too.
+        a.admin_network = "yes"
+        done = [text for text, _ in page(wizard.Done).body(a, env)]
+        self.assertIn("The admin pages:  http://192.168.0.20:4731/ (on this PC also http://127.0.0.1:4731/)", done)
+        self.assertIn("  1. Open the admin pages, http://192.168.0.20:4731/, and sign in.", done)
 
     def test_an_address_of_this_pc_alone_is_said_as_one_no_other_pc_reaches(self):
         env = FakeEnv()
@@ -399,7 +422,8 @@ class SetupRunTest(unittest.TestCase):
         done = [text for text, _ in page(wizard.Done).body(a, env)]
         self.assertIn("      from other PCs:  not reachable at this address (./dmt3 setup again to choose another)", done)
         # Nobody else to make an account for or to send a message to: the one step is to sign in.
-        self.assertEqual(done[done.index("Next:") + 1:], ["  1. Open http://127.0.0.1:4730/ and sign in."])
+        self.assertEqual(done[done.index("Next:") + 1:],
+                         ["  1. Open the admin pages, http://127.0.0.1:4731/ on this PC, and sign in."])
         self.assertNotIn("Download page", "\n".join(done))
 
     def test_no_page_says_friends_or_names_a_key_the_plain_prompts_do_not_have(self):
@@ -471,14 +495,16 @@ class PlainPromptsTest(unittest.TestCase):
         return code, printed, a
 
     def test_a_whole_setup_answered_with_numbers_and_lines(self):
-        # Welcome, Docker, the second address, the ID, (two passwords), the game folder, none, start, done.
+        # Welcome, Docker, the second address, the admin pages from the network too, the ID, (two passwords), the game
+        # folder, none, start, done.
         env = FakeEnv(outputs={"catalog": (0, "song list: 3 songs\njackets: 2 of 3 songs\n"
                                               "DJ cards: 4 icons, 5 plates, 6 patterns\n")})
-        code, printed, a = self.run_plain(["", "", "1", "nova", "/games/made-up", "2", "", ""], env=env,
+        code, printed, a = self.run_plain(["", "", "1", "2", "nova", "/games/made-up", "2", "", ""], env=env,
                                           secrets=("pass1234", "pass1234"))
         self.assertEqual(code, 0)
-        self.assertEqual((a.address, a.admin, a.password, a.game, a.installer),
-                         ("192.168.0.20", "nova", "pass1234", "/games/made-up", wizard.NONE))
+        self.assertEqual((a.address, a.admin_network, a.admin, a.password, a.game, a.installer),
+                         ("192.168.0.20", "yes", "nova", "pass1234", "/games/made-up", wizard.NONE))
+        self.assertTrue(env.admin_network)
         text = "\n".join(printed)
         for title in ("Set up an openDMT3 server", "Docker and ports", "This server's address", "The song list",
                       "Ready to set up", "Setting up", "Your server is running"):
@@ -492,7 +518,7 @@ class PlainPromptsTest(unittest.TestCase):
         self.assertIn("  ID        NOVA", text)
 
     def test_b_goes_back_and_a_wrong_answer_is_asked_again(self):
-        code, printed, a = self.run_plain(["", "b", "", "", "1", "BO SS", "BOSS"])
+        code, printed, a = self.run_plain(["", "b", "", "", "1", "", "BO SS", "BOSS"])
         self.assertEqual(code, 1)
         text = "\n".join(printed)
         # Back from Docker to Welcome: the welcome page twice.
@@ -583,8 +609,12 @@ class ScreenKeysTest(unittest.TestCase):
         s.act("down")
         self.assertEqual(s.a.address, "192.168.0.20")
         s.at = [p.name for p in s.ordered].index("Confirm")
-        s.act("4")
+        s.act("5")
         self.assertEqual(s.page.name, "Game")
+        # The admin pages' reach, a choice of its own, moves the same way.
+        s.at = [p.name for p in s.ordered].index("Access")
+        s.act("down")
+        self.assertEqual(s.a.admin_network, "yes")
 
     def test_enter_says_what_it_does_on_the_page_it_is_pressed_on(self):
         broken = [("docker", True, "docker is installed", None),

@@ -43,6 +43,13 @@ GAME_PORT, WEB_PORT = 4725, 4730
 # Their names in .env, where ./dmt3 ports (and setup --game-port/--web-port) keeps other ones: compose.yaml publishes
 # and the server listens on the same number inside and out, so the site tells launchers the port they reach.
 GAME_PORT_ENV, WEB_PORT_ENV = "GAME_PORT", "WEB_PORT"
+# The admin pages, a site of their own (docs/admin.md): its port on this PC (ADMIN_PORT in .env, 4731 unless ./dmt3
+# ports keeps another; the listener inside the container keeps 4731, compose.yaml maps the one to the other), and who
+# may open it (ADMIN_BIND in .env: 127.0.0.1, this PC alone, unless the owner opens it to the network, 0.0.0.0).
+ADMIN_PORT, ADMIN_INSIDE = 4731, 4731
+ADMIN_PORT_ENV, ADMIN_BIND_ENV = "ADMIN_PORT", "ADMIN_BIND"
+# What ADMIN_BIND is when the owner opens the admin pages to the network.
+EVERY_ADDRESS = "0.0.0.0"
 # The server's own command line inside the container, for `exec` (a `run` gets it from the image's entry point).
 SERVER_CLI = ["python", "-m", "opendmt3.server", "--data", "/data"]
 # The setup wizard, beside the Docker files: plain Python too, loaded only when ./dmt3 setup asks nothing.
@@ -72,6 +79,11 @@ LINKS_LOOKED_AT = 20000
 # The site over HTTPS at a name (./dmt3 expose): Caddy beside the server, in a second Compose file read after
 # compose.yaml while .env names the site (EDGE_NAME), with its Caddyfile in .edge/ (not kept by git).
 EDGE_FILE = os.path.join(ROOT, "packaging", "docker", "edge.yaml")
+# The admin site behind Caddy too (./dmt3 expose --admin-public, EDGE_ADMIN=public in .env): a third Compose file,
+# read after edge.yaml, which gives the admin port to Caddy's own HTTPS for it (on this port inside the container's
+# network, where the admin listener has 4731 already).
+EDGE_ADMIN_FILE = os.path.join(ROOT, "packaging", "docker", "edge-admin.yaml")
+EDGE_ADMIN_PORT = 4732
 EDGE_DIR = os.path.join(ROOT, ".edge")
 # Caddy's service in that file, and where its own local authority's root certificate is inside it.
 EDGE_SERVICE = "edge"
@@ -79,6 +91,25 @@ EDGE_ROOT_CERT = "/data/caddy/pki/authorities/local/root.crt"
 # The players' address setup kept, while the site is exposed (its address is then https://NAME/): expose --off gives
 # it back.
 BEFORE_EXPOSE = "SITE_ADDRESS_BEFORE_EXPOSE"
+# What each variable of .env is, written as a comment above it when ./dmt3 first writes it (a person opening .env
+# reads what each line does; Compose and ./dmt3 skip comments).
+ENV_NOTES = {
+    "SITE_ADDRESS": "The site's address as players reach it (./dmt3 setup --address): the invite and the messages carry it.",
+    "GAME_PORT": "The game's port on this PC, the same inside the container (./dmt3 ports --game).",
+    "WEB_PORT": "The players' site's port on this PC, the same inside the container (./dmt3 ports --web).",
+    "ADMIN_PORT": "The admin pages' port on this PC (./dmt3 ports --admin); 4731 inside the container.",
+    "ADMIN_BIND": "Who may open the admin pages: 127.0.0.1 this PC alone, 0.0.0.0 other PCs on the network too "
+                  "(./dmt3 setup --admin-network).",
+    "HTTP_PORT": "Caddy's plain HTTP port on this PC while the site is exposed (./dmt3 ports --http).",
+    "HTTPS_PORT": "Caddy's HTTPS port on this PC while the site is exposed (./dmt3 ports --https).",
+    "EDGE_NAME": "The site's name over HTTPS through Caddy (./dmt3 expose NAME).",
+    "EDGE_ADMIN": "public: the admin pages over HTTPS through Caddy too, at the name and the admin port "
+                  "(./dmt3 expose NAME --admin-public).",
+    "SITE_ADDRESS_BEFORE_EXPOSE": "The players' address before ./dmt3 expose, given back by ./dmt3 expose --off.",
+    "GAME_DIR": "Your client data's folder, kept mounted read-only for the Song list tab (./dmt3 setup --keep-game).",
+    "GAME_LINKS": "The folder the client data's links point into, mounted read-only beside it.",
+    "OPENDMT3_IMAGE": "The server image this clone runs (./dmt3 image --build or --published chose it).",
+}
 # An archive's password, passed to the server's container by name only (never on a command line others can read).
 PASSWORD_ENV = "OPENDMT3_ARCHIVE_PASSWORD"
 
@@ -140,9 +171,26 @@ def web_port():
 
 def compose(*args, files=()):
     """A docker compose command on this clone's compose.yaml, and on edge.yaml after it while the site is exposed (or
-    when named in files, as a removal names it to take Caddy's volumes), then the other files named."""
-    named = [COMPOSE_FILE] + ([EDGE_FILE] if exposed() and EDGE_FILE not in files else []) + list(files)
+    when named in files, as a removal names it to take Caddy's volumes), edge-admin.yaml after that while the admin
+    pages are exposed too, then the other files named."""
+    named = [COMPOSE_FILE] + ([EDGE_FILE] if exposed() and EDGE_FILE not in files else []) + (
+        [EDGE_ADMIN_FILE] if exposed() and admin_public() and EDGE_ADMIN_FILE not in files else []) + list(files)
     return ["docker", "compose"] + [part for name in named for part in ("-f", name)] + list(args)
+
+
+def admin_port():
+    """The admin pages' port on this PC: the one .env keeps (./dmt3 ports --admin), else 4731."""
+    return int(read_env().get(ADMIN_PORT_ENV) or ADMIN_PORT)
+
+
+def admin_open():
+    """True when the owner opened the admin pages to other PCs on the network (ADMIN_BIND=0.0.0.0)."""
+    return read_env().get(ADMIN_BIND_ENV) == EVERY_ADDRESS
+
+
+def admin_public():
+    """True when the admin pages are behind Caddy too, at the site's name (./dmt3 expose NAME --admin-public)."""
+    return read_env().get("EDGE_ADMIN") == "public"
 
 
 def exposed():
@@ -473,10 +521,16 @@ def write_env(values):
             done.add(name)
             if values[name] is not None:
                 lines.append("%s=%s" % (name, env_value(values[name])))
+            elif lines and name in ENV_NOTES and lines[-1] == "# " + ENV_NOTES[name]:
+                # Taken out: its note above it goes with it.
+                lines.pop()
             continue
         lines.append(line)
     for name, value in values.items():
         if name not in done and value is not None:
+            if name in ENV_NOTES:
+                # A new line says what it is, above it.
+                lines.append("# " + ENV_NOTES[name])
             lines.append("%s=%s" % (name, env_value(value)))
     with open(ENV_FILE + ".new", "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
@@ -505,7 +559,9 @@ def site_lines():
     opens. None while the site's port is not published (the server is down)."""
     if exposed():
         # Behind Caddy the site is its name's alone: its own port is not published.
-        return "The site: https://%s/ (through Caddy)." % exposed() if is_running() else None
+        if not is_running():
+            return None
+        return "The site: https://%s/ (through Caddy).\n%s" % (exposed(), admin_line())
     code, out = run(compose("port", SERVICE, str(web_port())), capture=True)
     if code != 0 or not out.strip():
         return None
@@ -517,8 +573,25 @@ def site_lines():
         first = lan_addresses()[0][0]
         kept = None if first.startswith("127.") else "http://%s:%d/" % (first, port)
     if not kept or kept == here or "//127." in kept or "//localhost" in kept:
-        return "The site: %s (this PC only)." % here
-    return "The site: %s (on this PC also %s)." % (kept, here)
+        site_line = "The site: %s (this PC only)." % here
+    else:
+        site_line = "The site: %s (on this PC also %s)." % (kept, here)
+    return site_line + "\n" + admin_line()
+
+
+def admin_line():
+    """Where the admin pages are, as ./dmt3 says it under the site's line: through Caddy at the name and the admin
+    port (expose --admin-public), on this PC alone (the usual), or on the network too (ADMIN_BIND=0.0.0.0)."""
+    port = admin_port()
+    if exposed() and admin_public():
+        return "The admin pages: https://%s:%d/ (through Caddy)." % (exposed(), port)
+    here = "http://127.0.0.1:%d/" % port
+    if not admin_open():
+        return "The admin pages: %s (this PC only)." % here
+    first = lan_addresses()[0][0]
+    if first.startswith("127."):
+        return "The admin pages: %s (other PCs too, at this PC's address on the network)." % here
+    return "The admin pages: http://%s:%d/ (on this PC also %s)." % (first, port, here)
 
 
 def default_installer():
@@ -709,7 +782,11 @@ def cmd_setup(args):
         say("  accounts in the database: %d (no first account is made)" % accounts)
     if getattr(args, "game_port", None) or getattr(args, "web_port", None):
         # Before anything starts: every step after this runs on these ports.
-        cmd_ports(argparse.Namespace(game=args.game_port, web=args.web_port, http=None, https=None))
+        cmd_ports(argparse.Namespace(game=args.game_port, web=args.web_port, admin=None, http=None, https=None))
+    if getattr(args, "admin_network", None):
+        # Who may open the admin pages, before the server starts with it: this PC alone (the usual: nothing kept), or
+        # other PCs on the network too.
+        keep_admin_network(args.admin_network == "yes")
     if args.address:
         # Before the server starts, so it starts knowing the address its players reach it at.
         keep_address(args.address)
@@ -719,7 +796,7 @@ def cmd_setup(args):
             # Got first, above.
             continue
         if key == "server" and args.game and args.keep_game and os.path.isdir(args.game):
-            # Before the server starts, so it starts with the game folder mounted (Admin, Song list, Import).
+            # Before the server starts, so it starts with the game folder mounted (the admin pages' Song list, Import).
             keep_game(args.game)
         say("== %s" % what)
         if run(cmd)[0] != 0:
@@ -731,6 +808,13 @@ def cmd_setup(args):
         # The address players reach it at first (the one to open and to send), then this PC's own.
         say(site_lines() or "The site: http://127.0.0.1:%d/ (this PC only)." % web_port())
     return 0
+
+
+def keep_admin_network(open_to_network):
+    """ADMIN_BIND in .env: the admin pages on other PCs of the network too (0.0.0.0), or on this PC alone (the usual,
+    so nothing is kept)."""
+    write_env({ADMIN_BIND_ENV: EVERY_ADDRESS if open_to_network else None})
+    say("  the admin pages: %s" % ("this PC and other PCs on its network" if open_to_network else "this PC only"))
 
 
 def keep_game(folder):
@@ -814,7 +898,8 @@ def cmd_expose(args):
         # .env names no site any more: Compose reads compose.yaml alone, and Caddy, no longer in it, goes. The players'
         # address is the one setup kept before expose (none when there was none).
         before = read_env().get(BEFORE_EXPOSE)
-        write_env({"EDGE_NAME": None, "SITE_ADDRESS": before or None, BEFORE_EXPOSE: None})
+        # The admin pages leave Caddy too: on this PC (or the network, as ADMIN_BIND says) on their own port again.
+        write_env({"EDGE_NAME": None, "EDGE_ADMIN": None, "SITE_ADDRESS": before or None, BEFORE_EXPOSE: None})
         if before:
             say("The players' address is %s again." % before)
         say("The site is on its own port again, %d." % web_port())
@@ -834,8 +919,12 @@ def cmd_expose(args):
         ca_root = "/etc/caddy/ca-root.pem"
     try:
         name = edge.check_name(args.name, args.local_ca)
+        # With --admin-public, a second site at the same name: Caddy's HTTPS on EDGE_ADMIN_PORT (the admin port on
+        # this PC, edge-admin.yaml), in front of the admin listener at 4731 in the container's network.
+        admin = (EDGE_ADMIN_PORT, "127.0.0.1:%d" % ADMIN_INSIDE) if args.admin_public else None
         text = edge.caddyfile(name, "127.0.0.1:%d" % web_port(), email=args.email,
-                              ca="staging" if args.staging else args.ca, ca_root=ca_root, local_ca=args.local_ca)
+                              ca="staging" if args.staging else args.ca, ca_root=ca_root, local_ca=args.local_ca,
+                              admin=admin)
     except edge.EdgeError as e:
         die(str(e))
     os.makedirs(EDGE_DIR, exist_ok=True)
@@ -845,8 +934,12 @@ def cmd_expose(args):
     # The address setup kept is kept aside, once (a second expose keeps the first one's), for expose --off.
     env = read_env()
     aside = {BEFORE_EXPOSE: env["SITE_ADDRESS"]} if not exposed() and env.get("SITE_ADDRESS") else {}
-    write_env(dict({"EDGE_NAME": name, "SITE_ADDRESS": "https://%s/" % name}, **aside))
+    # EDGE_ADMIN: the admin pages behind Caddy too (edge-admin.yaml read from now on), or not (none of the admin site
+    # reaches the internet: it stays on this PC, or the network as ADMIN_BIND says).
+    write_env(dict({"EDGE_NAME": name, "SITE_ADDRESS": "https://%s/" % name,
+                    "EDGE_ADMIN": "public" if args.admin_public else None}, **aside))
     say("The players' address: https://%s/" % name)
+    say(admin_line())
     say("Caddy's settings: %s" % os.path.join(EDGE_DIR, "Caddyfile"))
     if is_running():
         # The server again with the site on this PC only, and Caddy beside it.
@@ -863,27 +956,32 @@ def cmd_expose(args):
     # Players reach Caddy on 80 and 443 from outside; when ./dmt3 ports put it on others here, the router maps them.
     caddy = ("forward TCP 80 and 443 (Caddy)" if (http, https) == (80, 443) else
              "forward TCP 80 to this PC's %d and TCP 443 to its %d (Caddy)" % (http, https))
-    say("On the router: %s and TCP %d (the game) to this PC%s." % (
-        caddy, game_port(), "" if not args.local_ca else "; on a closed network, players' PCs trust Caddy's root "
-                                                       "certificate once (./dmt3 expose --root-cert FILE saves it)"))
+    # The admin pages' HTTPS port too, only when they are behind Caddy (--admin-public).
+    admin = " and TCP %d (the admin pages, HTTPS)" % admin_port() if args.admin_public else ""
+    say("On the router: %s%s and TCP %d (the game) to this PC%s." % (
+        caddy, admin, game_port(), "" if not args.local_ca else "; on a closed network, players' PCs trust Caddy's root "
+                                                              "certificate once (./dmt3 expose --root-cert FILE saves "
+                                                              "it)"))
     return 0
 
 
 def cmd_ports(args):
     """./dmt3 ports: the game's port and the site's (and Caddy's, while the site is exposed), kept in .env and used by
     every command, compose.yaml and the server alike; a running server starts again on the new ones."""
-    wanted = {GAME_PORT_ENV: args.game, WEB_PORT_ENV: args.web, "HTTP_PORT": args.http, "HTTPS_PORT": args.https}
+    wanted = {GAME_PORT_ENV: args.game, WEB_PORT_ENV: args.web, ADMIN_PORT_ENV: getattr(args, "admin", None),
+              "HTTP_PORT": args.http, "HTTPS_PORT": args.https}
     for name, value in wanted.items():
         if value is not None and not 1 <= value <= 65535:
             die("%d is no TCP port (1 to 65535)" % value)
     changes = {name: (None if value == default else str(value)) for (name, value), default in
-               zip(wanted.items(), (GAME_PORT, WEB_PORT, 80, 443)) if value is not None}
+               zip(wanted.items(), (GAME_PORT, WEB_PORT, ADMIN_PORT, 80, 443)) if value is not None}
     old_web = web_port()
     if changes:
         write_env(changes)
     env = read_env()
-    numbers = [game_port(), web_port()] + ([int(env.get("HTTP_PORT") or 80), int(env.get("HTTPS_PORT") or 443)]
-                                           if exposed() else [])
+    # The admin port is this PC's in every case (on its own, or Caddy's for the admin site with --admin-public).
+    numbers = [game_port(), web_port(), admin_port()] + (
+        [int(env.get("HTTP_PORT") or 80), int(env.get("HTTPS_PORT") or 443)] if exposed() else [])
     if len(set(numbers)) != len(numbers):
         # Undone: two parts on one port would leave one of them unreachable.
         write_env({name: env.get(name) if name not in changes else None for name in changes})
@@ -903,8 +1001,8 @@ def cmd_ports(args):
             text = f.read().replace("reverse_proxy 127.0.0.1:%d" % old_web, "reverse_proxy 127.0.0.1:%d" % web_port())
         with open(path, "w", encoding="utf-8") as f:
             f.write(text)
-    say("The game's port: %d (TCP). The site's port: %d (the site, the admin pages and the API)." % (
-        game_port(), web_port()))
+    say("The game's port: %d (TCP). The site's port: %d (the players' site and the API). The admin pages' port: %d."
+        % (game_port(), web_port(), admin_port()))
     if exposed():
         say("Caddy: HTTP %s, HTTPS %s." % (env.get("HTTP_PORT") or 80, env.get("HTTPS_PORT") or 443))
     if changes and is_running():
@@ -1019,12 +1117,18 @@ def cmd_invite(args):
 
 
 def cmd_up(args):
-    """./dmt3 up: the image first (./dmt3 image, unless --no-build), then the server from it."""
+    """./dmt3 up: the image first (./dmt3 image, unless --no-build), then the server from it; then where the site and
+    the admin pages are."""
     if not args.no_build:
         code = cmd_image(args)
         if code:
             return code
-    return run(simple_command(args, False))[0]
+    code = run(simple_command(args, False))[0]
+    if code == 0:
+        where = site_lines()
+        if where:
+            say(where)
+    return code
 
 
 def cmd_check(args):
@@ -1050,15 +1154,33 @@ def cmd_check(args):
             failed += not check_health(host, port_here)
         else:
             failed += not check_connect(host, port_here)
+    if exposed() and admin_public():
+        # The admin pages through Caddy too: its HTTPS for them, published at the admin port.
+        code, out = run(compose("port", SERVICE, str(EDGE_ADMIN_PORT)), capture=True)
+        if code != 0 or not out.strip():
+            problem("the admin pages' HTTPS port is not published: the server is not running", "./dmt3 up")
+            failed += 1
+        else:
+            failed += not check_https(published(out)[0], published(out)[1], exposed(), "the admin pages",
+                                      admin_port())
+    else:
+        # The admin pages on their own port (on this PC, or the network as ADMIN_BIND says), which answer /health too.
+        code, out = run(compose("port", SERVICE, str(ADMIN_INSIDE)), capture=True)
+        if code != 0 or not out.strip():
+            problem("the admin pages are not published: the server is not running", "./dmt3 up")
+            failed += 1
+        else:
+            failed += not check_health(*published(out), what="the admin pages")
     return 1 if failed else 0
 
 
-def check_health(host, port):
-    """GET /health; True when it answers 200 (a 503 carries the reason)."""
+def check_health(host, port, what="the site"):
+    """GET /health; True when it answers 200 (a 503 carries the reason). what: the site or the admin pages, as the
+    line says it."""
     url = "http://%s:%d/health" % (host if ":" not in host else "[%s]" % host, port)
     try:
         with urllib.request.urlopen(url, timeout=5) as reply:
-            ok("the site answers %s (%d)" % (url, reply.status))
+            ok("%s %s %s (%d)" % (what, "answer" if what.endswith("pages") else "answers", url, reply.status))
             return True
     except urllib.error.HTTPError as e:
         # The server's own reason, such as a database it cannot write.
@@ -1069,10 +1191,12 @@ def check_health(host, port):
     return False
 
 
-def check_https(host, port, name):
+def check_https(host, port, name, what="the site", shown_port=None):
     """GET https://NAME/health through Caddy on this PC (host:port, the name sent in the handshake and the Host line);
     True when the site answers 200. Says who signed the certificate, and whether this PC trusts it (Caddy's local
-    authority and a staging one are trusted only where their root is put)."""
+    authority and a staging one are trusted only where their root is put). what and shown_port: the admin pages at
+    https://NAME:PORT/, as the line says it."""
+    shown = "https://%s%s/" % (name, ":%d" % shown_port if shown_port else "")
     trusted = True
     for context in (ssl.create_default_context(), ssl._create_unverified_context()):
         try:
@@ -1086,14 +1210,15 @@ def check_https(host, port, name):
             # Not one this PC trusts: asked again without the check, to see whether the site answers at all.
             trusted = False
         except OSError as e:
-            problem("https://%s/ does not answer on this PC (%s:%d: %s)" % (name, host, port, e),
+            problem("%s does not answer on this PC (%s:%d: %s)" % (shown, host, port, e),
                     "./dmt3 logs (Caddy's lines say what the authority answered)")
             return False
     if " 200 " not in first + " ":
-        problem("https://%s/health answered %s" % (name, first), "./dmt3 logs")
+        problem("%shealth answered %s" % (shown, first), "./dmt3 logs")
         return False
-    ok("the site answers https://%s/ through Caddy (%s)" % (
-        name, "certificate from %s" % issuer.get("organizationName", issuer.get("commonName", "?")) if trusted
+    ok("%s %s %s through Caddy (%s)" % (
+        what, "answer" if what.endswith("pages") else "answers", shown,
+        "certificate from %s" % issuer.get("organizationName", issuer.get("commonName", "?")) if trusted
         else "a certificate this PC does not trust: Caddy's local authority, or a staging one"))
     return True
 
@@ -1148,7 +1273,7 @@ def doctor_checks():
         out.append(("image", False, "the server image %s is not here yet" % image,
                     "./dmt3 up (it gets the image first: the published one, or --build builds this clone's)"))
     running = is_running()
-    for port in (game_port(), web_port()):
+    for port in (game_port(), web_port(), admin_port()):
         if running:
             # The ports are the running server's own.
             out.append(("port", True, "port %d is the server's" % port, None))
@@ -1356,6 +1481,11 @@ class FrontDoor:
         """The address chosen on the wizard's Address page, kept for the server (keep_address)."""
         keep_address(address)
 
+    def keep_admin_network(self, open_to_network):
+        """Who may open the admin pages, chosen on the wizard's Access page, kept for compose.yaml (ADMIN_BIND); no
+        line printed: the wizard's page shows it."""
+        write_env({ADMIN_BIND_ENV: EVERY_ADDRESS if open_to_network else None})
+
     def stream(self, cmd, on_line):
         """A command, each line of its output to on_line as it comes; (exit code, every line)."""
         lines = []
@@ -1448,7 +1578,7 @@ COMMANDS = [
     ("add-player", "make an account; its password is printed"),
     ("check", "the running server answers /health and its game port takes a connection"),
     ("invite", "the address players open, with its QR code"),
-    ("ports", "the game's port and the site's (4725 and 4730 unless changed here)"),
+    ("ports", "the game's port, the site's and the admin pages' (4725, 4730 and 4731 unless changed here)"),
     ("expose", "the site over HTTPS at a name, with Caddy and a certificate it gets by itself; --off undoes it"),
     ("doctor", "what the server needs, with the fix for each problem"),
     ("repair", "get the image again and make the server's container afresh (the data stays)"),
@@ -1492,6 +1622,9 @@ def parser():
     p["setup"].add_argument("--no-start", action="store_true", help="set up without starting the server")
     p["setup"].add_argument("--game-port", type=int, metavar="PORT", help="the game's port (4725), as ./dmt3 ports")
     p["setup"].add_argument("--web-port", type=int, metavar="PORT", help="the site's port (4730), as ./dmt3 ports")
+    p["setup"].add_argument("--admin-network", choices=("yes", "no"),
+                            help="whether other PCs on the network may open the admin pages too (no: this PC only, "
+                                 "the usual)")
     p["catalog"].add_argument("game", nargs="?", metavar="PATH",
                               help="your client data's folder (or one above it), an archive holding it, or a song "
                                    "list the launcher saved (the folder kept mounted, GAME_DIR in .env, when not "
@@ -1518,6 +1651,7 @@ def parser():
     p["ports"].add_argument("--game", type=int, metavar="PORT", help="the game's port (TCP; 4725 by default)")
     p["ports"].add_argument("--web", type=int, metavar="PORT",
                             help="the site's port, for the site, the admin pages and the API (4730 by default)")
+    p["ports"].add_argument("--admin", type=int, metavar="PORT", help="the admin pages' port on this PC (4731 by default)")
     p["ports"].add_argument("--http", type=int, metavar="PORT", help="Caddy's plain HTTP port while exposed (80)")
     p["ports"].add_argument("--https", type=int, metavar="PORT", help="Caddy's HTTPS port while exposed (443)")
     p["expose"].add_argument("name", nargs="?", help="the site's name (dmt3.example.org), which leads to this PC")
@@ -1529,6 +1663,9 @@ def parser():
     authority.add_argument("--local-ca", action="store_true",
                            help="Caddy's own local authority, for a closed network: players' PCs trust its root once")
     p["expose"].add_argument("--ca-root", metavar="FILE", help="with --ca: that authority's root certificate")
+    p["expose"].add_argument("--admin-public", action="store_true",
+                             help="the admin pages over HTTPS too, at https://NAME:ADMIN_PORT/ (without it they stay "
+                                  "on this PC, or the network)")
     p["expose"].add_argument("--off", action="store_true", help="back to the site on its own port")
     p["expose"].add_argument("--root-cert", metavar="FILE",
                              help="save Caddy's local authority's root certificate (for --local-ca) into FILE")

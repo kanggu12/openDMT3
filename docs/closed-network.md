@@ -36,6 +36,20 @@ From a PC with internet, onto a USB stick or a share:
 
 Players install the launcher from the site's **Download** page and connect to the address you chose.
 
+## The admin pages from another PC
+
+The admin pages are a site of their own on port 4731, on the server PC alone at first. When the server PC has no
+screen of its own, or you run it from another PC at the party, open them to the network:
+
+- **Docker**: `./dmt3 setup --admin-network yes` (the wizard asks the same), then they are at
+  `http://192.168.0.5:4731/` too; `--admin-network no` keeps them on the server PC again.
+- **The server's own program**: `opendmt3-server setup --admin-host 0.0.0.0`, then a restart; on Windows it asks to
+  open their port in the firewall, as for the others. `--admin-host 127.0.0.1` closes them again.
+
+The owner's account is made without a browser either way: `./dmt3 setup` makes it (its password printed), and
+`opendmt3-server setup` asks for it in the terminal. Over HTTPS, `./dmt3 expose 192.168.0.5 --local-ca --admin-public`
+puts them at `https://192.168.0.5:4731/` (below).
+
 ## HTTPS on a closed network
 
 Let's Encrypt cannot reach a closed network, so its certificates are out. Two ways instead:
@@ -45,7 +59,8 @@ Let's Encrypt cannot reach a closed network, so its certificates are out. Two wa
   own. With an address, the certificate is the address's, and Caddy gives it to every visitor that names no site in
   its handshake (a browser opening `https://192.168.0.5/` names none). Each player's PC trusts that authority's root
   once: `./dmt3 expose --root-cert dmt3-root.crt` saves it; on Windows, open the file, **Install Certificate**,
-  **Local Machine**, and put it in **Trusted Root Certification Authorities**.
+  **Local Machine**, and put it in **Trusted Root Certification Authorities**. With `--admin-public` the admin pages
+  are at `https://192.168.0.5:4731/` with the same certificate.
 - **Your network's own ACME authority** (step-ca, for example): `./dmt3 expose dmt3.lan --ca
   https://ca.lan/acme/acme/directory --ca-root ca-root.crt`. Caddy then gets and renews the certificate from it as
   from Let's Encrypt, and players' PCs that trust your authority trust the site.
@@ -55,7 +70,7 @@ Without either, the site works the same over plain HTTP at the server's address.
 ## Players at a LAN party
 
 - The server PC's address must stay the same: give it a fixed address on the router, or set one on the PC.
-- `./dmt3 invite` (or `opendmt3-server invite`) prints the address with a QR code; **Admin**, **Players** shows the
-  same, to put on a screen.
+- `./dmt3 invite` (or `opendmt3-server invite`) prints the address with a QR code; the admin pages' **Players**
+  shows the same, to put on a screen.
 - Cabinets behind one router share its address: the game's port takes up to 16 of them from one address, and 64 in
   all ([Many players at once](server.md#many-players-at-once)).

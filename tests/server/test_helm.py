@@ -78,9 +78,11 @@ class ChartTest(unittest.TestCase):
             args += ["--set", value]
         helm(*args)
 
-    def test_the_defaults_make_one_server_its_volume_and_two_services(self):
+    def test_the_defaults_make_one_server_its_volume_and_three_services(self):
         text = render()
-        self.assertEqual(sorted(kinds(text)), ["Deployment", "PersistentVolumeClaim", "Pod", "Service", "Service"])
+        # The game's, the site's and the admin pages' Services.
+        self.assertEqual(sorted(kinds(text)), ["Deployment", "PersistentVolumeClaim", "Pod", "Service", "Service",
+                                               "Service"])
         # One server, the old pod gone before the new one starts: SQLite on one volume.
         self.assertIn("replicas: 1", text)
         self.assertIn("type: Recreate", text)
@@ -101,7 +103,7 @@ class ChartTest(unittest.TestCase):
     def test_every_part_on_adds_the_account_the_ingress_and_the_arguments(self):
         text = render(*EVERYTHING)
         self.assertEqual(sorted(kinds(text)), ["Deployment", "Ingress", "PersistentVolumeClaim", "Pod", "Secret",
-                                               "Service", "Service"])
+                                               "Service", "Service", "Service"])
         self.assertIn("name: first-account", text)
         # The password reaches the init container from the Secret, never in its command.
         self.assertIn("secretKeyRef:", text)
@@ -141,6 +143,30 @@ class ChartTest(unittest.TestCase):
         server = render("persistence.existingClaim=my-data").split("containers:", 1)[1]
         self.assertRegex(server, r"- name: OPENDMT3_KUBE_CLAIM\n\s+value: \"my-data\"")
         self.assertNotIn("OPENDMT3_KUBE_CLAIM", render("persistence.enabled=false"))
+
+
+    def test_the_admin_site_is_inside_the_cluster_unless_it_is_on_the_public_port(self):
+        text = render()
+        # Its own port on the server, on every address of the pod so its Service reaches it.
+        server = text.split("kind: Deployment", 1)[1].split("containers:", 1)[1]
+        self.assertRegex(server, r"- name: admin\n\s+containerPort: 4731")
+        self.assertRegex(server, r"- name: OPENDMT3_ADMIN_HOST\n\s+value: \"0.0.0.0\"")
+        # A Service of its own, inside the cluster only, whatever type the site's Service is.
+        admin = [doc for doc in text.split("\n---") if "name: dmt3-opendmt3-admin\n" in doc]
+        self.assertEqual(len(admin), 1)
+        self.assertIn("type: ClusterIP", admin[0])
+        self.assertIn("targetPort: admin", admin[0])
+        self.assertNotIn("nodePort", render("site.service.type=NodePort", "site.service.nodePort=30730").split(
+            "name: dmt3-opendmt3-admin", 1)[1].split("\n---")[0])
+        # The site's port never serves the admin pages unless asked (a single Ingress for both).
+        self.assertNotIn("--admin-on-site-port", text)
+        self.assertIn("- --admin-on-site-port", render("admin.onPublicPort=true"))
+        # The way in from the owner's PC, in the notes (helm prints them after an install; read as the chart has them).
+        with open(os.path.join(CHART, "templates", "NOTES.txt"), encoding="utf-8") as f:
+            notes = f.read()
+        self.assertIn('port-forward svc/{{ include "opendmt3.fullname" . }}-admin 4731:{{ .Values.admin.service.port }}',
+                      notes)
+        self.assertIn("http://127.0.0.1:4731/", notes)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ the data folder: setup and expose write them, run reads them. The rest is the se
 import argparse
 import asyncio
 import contextlib
+import getpass
 import json
 import logging
 import logging.handlers
@@ -41,6 +42,11 @@ from opendmt3.server.services import qr
 PROG = "opendmt3-server"
 # The two ports the server listens on by default: the game's, then the site's (server/__main__.py).
 GAME_PORT, WEB_PORT = 4725, 4730
+# The admin pages, a site of their own (docs/admin.md): their port, and the address they listen on (this PC alone
+# unless the owner opens them to the network: setup --admin-host 0.0.0.0), the server's own defaults.
+ADMIN_PORT, ADMIN_HOST = 4731, "127.0.0.1"
+# The ID the owner's account is offered when it is made in the terminal (as ./dmt3 setup's).
+OWNER = "BOSS"
 # In the data folder: the running server's record (its process and ports), the request to stop it, the settings a run
 # starts with, and the log folder.
 RUNNING, STOP, SETTINGS, LOGS = "server-running.json", "server-stop.request", "settings.json", "logs"
@@ -119,7 +125,14 @@ def settings(data):
     kept = read_json(os.path.join(data, SETTINGS), {})
     return {"site_address": kept.get("site_address"), "game_port": int(kept.get("game_port") or GAME_PORT),
             "web_port": int(kept.get("web_port") or WEB_PORT), "game": kept.get("game"),
-            "proxy": kept.get("proxy"), "webhook": kept.get("webhook")}
+            "proxy": kept.get("proxy"), "webhook": kept.get("webhook"),
+            # The admin pages' port and address (None for the server's own defaults, 4731 on this PC alone).
+            "admin_port": int(kept.get("admin_port") or ADMIN_PORT), "admin_host": kept.get("admin_host") or ADMIN_HOST}
+
+
+def admin_opened(kept):
+    """True when the owner opened the admin pages to other PCs (an address other than this PC's own)."""
+    return kept["admin_host"] not in ("127.0.0.1", "localhost", "::1")
 
 
 def keep(data, **changes):
@@ -262,6 +275,11 @@ def server_args(data):
         argv += ["--game", kept["game"]]
     if kept["webhook"]:
         argv += ["--webhook", kept["webhook"]]
+    # The admin pages' port and address, only when the owner chose others than the server's own (4731, this PC).
+    if kept["admin_port"] != ADMIN_PORT:
+        argv += ["--admin-port", str(kept["admin_port"])]
+    if kept["admin_host"] != ADMIN_HOST:
+        argv += ["--admin-host", kept["admin_host"]]
     return argv
 
 
@@ -390,9 +408,10 @@ def cmd_run(args):
                     break
                 await asyncio.sleep(0.1)
             if not task.done():
-                # The first start, at the PC: the owner's first-run page, where the owner's account is made.
+                # The first start, at the PC: the admin pages, a site of their own on this PC, where the owner's
+                # account is made (their first-run page).
                 import webbrowser
-                webbrowser.open("http://127.0.0.1:%d/" % kept["web_port"])
+                webbrowser.open("http://127.0.0.1:%d/" % kept["admin_port"])
         await task
 
     first = True
@@ -586,6 +605,21 @@ def cmd_setup(args):
         address = site_address(args.address, settings(data)["web_port"])
         keep(data, site_address=address)
         say("the players' address: %s" % address)
+    if args.admin_port or args.admin_host:
+        was = settings(data)
+        # The server's own defaults are kept as none, so a run passes nothing for them.
+        keep(data, **{"admin_port": None if (args.admin_port or was["admin_port"]) == ADMIN_PORT
+                      else args.admin_port or was["admin_port"],
+                      "admin_host": None if (args.admin_host or was["admin_host"]) == ADMIN_HOST
+                      else args.admin_host or was["admin_host"]})
+        now = settings(data)
+        say("the admin pages: port %d, %s" % (now["admin_port"], "other PCs on the network too" if admin_opened(now)
+                                             else "this PC only"))
+        if on_windows() and (admin_opened(now), now["admin_port"]) != (admin_opened(was), was["admin_port"]):
+            # Windows' firewall follows: the admin port's rule added when they are opened to the network, taken out
+            # when they are closed again (or moved), with the administrator's question the firewall command asks.
+            firewall_follow(data, [was["admin_port"]] if admin_opened(was) else [],
+                            [now["admin_port"]] if admin_opened(now) else [])
     if args.game:
         # The song list (with its jackets and the DJ cards), read now; a folder is kept so the admin's Song list tab
         # can read it again.
@@ -604,6 +638,12 @@ def cmd_setup(args):
         shutil.copyfile(args.installer, os.path.join(data, "downloads", name if handed.RELEASED.match(name)
                                                      else INSTALLER))
         say("the Download page hands out %s" % os.path.basename(args.installer))
+    if not args.admin and first_account_needed(data) and at_terminal():
+        # No account yet, and a person at this terminal: the owner's account made here, so a PC with no screen of its
+        # own needs no browser (the admin pages' first-run page answers this PC alone).
+        say("The owner's account, with the admin pages (Enter takes what is in brackets):")
+        args.admin = (input("  ID [%s]: " % OWNER).strip() or OWNER).upper()
+        args.password = getpass.getpass("  password (6 to 16 letters or digits; empty: one is made): ").strip() or None
     if args.admin:
         if not first_account_needed(data):
             say("accounts are there already: no first account is made (%s add-player makes one)" % PROG)
@@ -613,12 +653,20 @@ def cmd_setup(args):
             if code:
                 return code
     if not (args.game or settings(data)["game"]):
-        say("The song list: %s catalog PATH reads it from your client data (a folder or an archive), or the site's "
-            "Admin, Song list tab." % PROG)
+        say("The song list: %s catalog PATH reads it from your client data (a folder or an archive), or the admin "
+            "pages' Song list." % PROG)
     if first_account_needed(data):
-        say("The owner's account: start the server and open http://127.0.0.1:%d/ on this PC." % settings(data)[
-            "web_port"])
+        say("The owner's account: %s setup --admin ID makes it here (its password printed), or start the server and "
+            "open the admin pages, http://127.0.0.1:%d/, on this PC." % (PROG, settings(data)["admin_port"]))
     return 0
+
+
+def at_terminal():
+    """True when a person types at this program (its input and output a terminal), not a script."""
+    try:
+        return sys.stdin.isatty() and sys.stdout.isatty()
+    except (AttributeError, ValueError):
+        return False
 
 
 def cmd_catalog(args):
@@ -682,7 +730,9 @@ def firewall_ports(data):
     """The ports the firewall opens for this data folder's server: the game's, and the site's, or Caddy's 80 and 443
     while the site is behind it (expose)."""
     kept = settings(data)
-    return [kept["game_port"]] + ([80, 443] if kept["proxy"] else [kept["web_port"]])
+    # The admin pages' port only when the owner opened them to the network: on this PC alone it needs no rule.
+    return [kept["game_port"]] + ([80, 443] if kept["proxy"] else [kept["web_port"]]) + (
+        [kept["admin_port"]] if admin_opened(kept) else [])
 
 
 def firewall_rules(ports):
@@ -695,6 +745,25 @@ def firewall_rules(ports):
         if done.returncode == 0:
             found.append(port)
     return found
+
+
+def firewall_follow(data, close, open_):
+    """Windows' firewall after the admin pages' reach changed: the rules of `close` taken out (those there are) and
+    those of `open_` added, each with the administrator's question the firewall command asks. A no (or a failure)
+    leaves things as they were, said as such, and never stops the setting: the server runs with it either way."""
+    there = firewall_rules(close) if close else []
+    for ports, remove in ((there, True), (open_, False)):
+        if not ports:
+            continue
+        try:
+            left = cmd_firewall(argparse.Namespace(data=data, remove=remove, public=False, print=False,
+                                                   ports=",".join(str(p) for p in ports)))
+        except Refused:
+            left = 1
+        if left:
+            say("Windows' firewall %s TCP %s: %s firewall%s does it later." % (
+                "still opens" if remove else "does not open", ", ".join(str(p) for p in ports), PROG,
+                " --remove" if remove else ""))
 
 
 def is_admin():
@@ -904,7 +973,7 @@ def cmd_remove(args):
     # The ports the firewall's rules may be for, read while the data folder (its settings) is still there: the game's,
     # the site's, and Caddy's 80 and 443 (an expose before, or now). Only the rules there are are taken out.
     kept = settings(data)
-    ports = sorted({kept["game_port"], kept["web_port"], 80, 443})
+    ports = sorted({kept["game_port"], kept["web_port"], kept["admin_port"], 80, 443})
     if args.delete_data and os.path.isdir(data):
         kept = None
         database = os.path.join(data, "openDMT3.sqlite")
@@ -984,6 +1053,10 @@ def parser():
     c["setup"].add_argument("--password", help="its password (made and printed when not given)")
     c["setup"].add_argument("--game-port", type=int, help="the game's port (4725)")
     c["setup"].add_argument("--web-port", type=int, help="the site's port (4730)")
+    c["setup"].add_argument("--admin-port", type=int, help="the admin pages' port (4731)")
+    c["setup"].add_argument("--admin-host", metavar="ADDRESS",
+                            help="the address the admin pages listen on: 127.0.0.1, this PC only (the usual), or "
+                                 "0.0.0.0, other PCs on the network too (Windows' firewall then opens their port)")
     c["catalog"].add_argument("path", metavar="PATH", help="your client data's folder, an archive holding it, or a "
                                                            "saved song list")
     c["catalog"].add_argument("--save", metavar="FILE", help="save the song list into FILE instead of importing it")

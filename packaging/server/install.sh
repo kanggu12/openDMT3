@@ -167,10 +167,12 @@ install() {
   esac
   say ""
   say "Next:"
+  say "  $cmd setup --admin BOSS        the owner's account, with the admin pages (its password printed)"
   say "  $cmd start                     the server, in the background"
   say "  $cmd setup --game PATH         the song list from your client data (a folder or an archive)"
   say "  $cmd firewall                  the commands that open its ports"
   say "  $cmd --help                    every command"
+  say "The admin pages: http://127.0.0.1:4731/ on this PC ($cmd setup --admin-host 0.0.0.0 opens them to the network)."
 }
 
 main() {

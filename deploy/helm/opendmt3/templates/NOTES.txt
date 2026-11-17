@@ -8,6 +8,13 @@ The site:
   then open http://127.0.0.1:4730/
 {{- end }}
 
+The admin pages, a site of their own inside the cluster:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "opendmt3.fullname" . }}-admin 4731:{{ .Values.admin.service.port }}
+  then open http://127.0.0.1:4731/
+{{- if .Values.admin.onPublicPort }}
+  (and at /admin/ on the site's port, admin.onPublicPort)
+{{- end }}
+
 The game's port, for the cabinets (the launcher's Online page takes this address):
   kubectl -n {{ .Release.Namespace }} get svc {{ include "opendmt3.fullname" . }}-game
 {{- if .Values.admin.enabled }}
@@ -19,7 +26,7 @@ The first account, with the admin pages:
   kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "opendmt3.fullname" . }} -- python -m opendmt3.server --data /data --add-player BOSS --admin
 {{- end }}
 
-The song list: on the site, Admin, Song list, upload the song list the launcher saved. Or copy it in and import it:
+The song list: on the admin pages, Song list, upload the song list the launcher saved. Or copy it in and import it:
   kubectl -n {{ .Release.Namespace }} cp openDMT3-song-list.zip <pod>:/data/openDMT3-song-list.zip
   kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "opendmt3.fullname" . }} -- python -m opendmt3.server --data /data --catalog /data/openDMT3-song-list.zip --setup-only
 
