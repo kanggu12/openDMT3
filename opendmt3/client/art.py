@@ -231,14 +231,17 @@ def logo(width, scale=1.0, label="LAUNCHER", accent=theme.BLUE_HI, version=None)
     # Larger than the label: the version is read, not just seen (12 px at 100 % scaling).
     room = version_font(12).getlength("v0.0.0") if shown else 0
     label_w = int(max(tiny.getlength(label), room)) + int(6 * scale)
+    pad = int(6 * scale) + max(1, int(round(1.4 * scale)))   # chrome_text's room around its letters
+    # The label and the version start 4 px after the 3's last pixel (chrome_text's picture keeps `pad` of room right
+    # of it): one lockup, not a name and a block set apart.
+    after = int(round(4 * scale)) - pad
     # DMT3 as large as the width allows beside its label.
     size = int(round(44 * scale))
     while size > 12:
         big, baseline = chrome_text([("DMT", CHROME), ("3", lit_chrome(accent))], size, scale)
-        if big.width + label_w <= width:
+        if big.width + after + label_w <= width:
             break
         size -= 1
-    pad = int(6 * scale) + max(1, int(round(1.4 * scale)))   # chrome_text's room around its letters
     cap = 0.688 * size                                        # the face's capital height (OS/2), DMT3's letters
     # OPEN: capitals 0.345 of DMT3's, spaced 0.2 of their size apart (the family logo's measures).
     o_size = max(6, int(round(0.345 * cap / 0.688)))
@@ -251,7 +254,7 @@ def logo(width, scale=1.0, label="LAUNCHER", accent=theme.BLUE_HI, version=None)
     d_cap_top = o_base + 0.25 * cap
     d_top = int(round(d_cap_top + cap - baseline))
     # The version's size: the largest from 12 px down to 9 px that fits beside DMT3, else 12 px on a line below.
-    beside = width - big.width - int(3 * scale) - 1
+    beside = width - (big.width + after) - 1
     vfont, below = None, False
     if shown:
         for points in (12, 11, 10, 9):
@@ -284,10 +287,10 @@ def logo(width, scale=1.0, label="LAUNCHER", accent=theme.BLUE_HI, version=None)
     img.alpha_composite(big, (0, max(0, d_top)), (0, max(0, -d_top)))
     # The label sits on the big letters' baseline, after them.
     foot_y = d_top + baseline
-    draw.text((big.width + int(3 * scale), foot_y), label, font=tiny, fill=_rgb(accent) + (255,), anchor="ls")
+    draw.text((big.width + after, foot_y), label, font=tiny, fill=_rgb(accent) + (255,), anchor="ls")
     if shown and not below:
         # Over the label, a line apart, in the text colour (readable at a glance, unlike the faint footers).
-        draw.text((big.width + int(3 * scale), foot_y - int(round(13 * scale))), shown, font=vfont,
+        draw.text((big.width + after, foot_y - int(round(13 * scale))), shown, font=vfont,
                   fill=_rgb(theme.TEXT) + (255,), anchor="ls")
     elif shown:
         # Too long to stand beside DMT3: under the mark, lined up with OPEN.
