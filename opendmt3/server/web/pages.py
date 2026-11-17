@@ -31,10 +31,8 @@ from opendmt3.server.web import control
 from opendmt3.server.web import session as sess
 from opendmt3.server.web import strings
 # The cookies' names and the helpers the admin pages and the API use too (common.py).
-from opendmt3.server.web.common import (ACCOUNT_FIELDS, COOKIE, DB_ERRORS, LANG_COOKIE, LICENCE_FACES, MADE_COOKIE,
-                                 OWNER_COOKIE,
-                                 SIGN_IN_DAYS,
-                                 SIGNIN_COOKIE, _accounts_call, _cabinets_for, _card, _check_password, _dj, _dj_places,
+from opendmt3.server.web.common import (ACCOUNT_FIELDS, DB_ERRORS, LANG_COOKIE, LICENCE_FACES, SIGN_IN_DAYS,
+                                 _accounts_call, admin_side, cookies, _cabinets_for, _card, _check_password, _dj, _dj_places,
                                  _download, _installer, _licence_texts, _local, _local_path, _mode_asked, _mode_name,
                                  _modes, _month_name, _month_rankings, _new_records, _not_found, _rankings, _recent,
                                  _redirect, _song, _song_number, _songs, _songs_found, LICENCE_PARTS, _own_licence)
@@ -78,20 +76,22 @@ def routes(site):
         try that failed, the ID typed stays in its box (never the password). `field` is the field `error` is about
         ("id" or "password"; None: the whole form, said above its key); `banned` a banned account's reason, shown in
         place of the form."""
-        token = request.cookies.get(SIGNIN_COOKIE) or secrets.token_urlsafe(24)
+        # The site's own cookies (common.cookies): the admin site's door keeps its token apart from the players'.
+        names = cookies(request)
+        token = request.cookies.get(names.signin) or secrets.token_urlsafe(24)
         # The owner's account made a moment ago on the first-run page (its cookie, read once): the page says so and
         # has the ID typed, so what is left is the password.
-        made = _made_id(request.cookies.get(MADE_COOKIE)) if not error else None
+        made = _made_id(request.cookies.get(names.made)) if not error else None
         response = site.render(request, "signin.html", status=status, user=None, target=target, error=error,
                                field=field, banned=banned, signin_token=token, login_id=login_id or made or "",
                                made=made,
                                # Right after a player deleted their own account (the account page sends them here).
                                gone=request.query_params.get("gone") == "1" and not error)
-        response.set_cookie(SIGNIN_COOKIE, token, max_age=3600, httponly=True, samesite="strict",
+        response.set_cookie(names.signin, token, max_age=3600, httponly=True, samesite="strict",
                             secure=request.url.scheme == "https")
-        if MADE_COOKIE in request.cookies:
+        if names.made in request.cookies:
             # Said once.
-            response.delete_cookie(MADE_COOKIE)
+            response.delete_cookie(names.made)
         return response
 
     def _made_id(text):
@@ -103,10 +103,18 @@ def routes(site):
         """True while the server has no account yet (the owner's first-run page comes first), on a worker thread."""
         return not _accounts_call(site, "has_any")
 
+    def _first_run():
+        """Where the first run is for a visit from this PC to the site that asked: this site's own /owner, or the admin
+        site's when the admin pages have a site of their own (the owner's account is made there)."""
+        if site.admin_address and not site.admin_on_site_port:
+            return site.admin_address.rstrip("/") + "/owner"
+        return "/owner"
+
     async def signin(request):
         w = strings.words(site.language(request))
-        # Only paths on this site, never another address someone put in a link.
-        target = _local_path(request.query_params.get("next"))
+        admin = admin_side(request)
+        # Only paths on this site, never another address someone put in a link; the admin site's top is its Status page.
+        target = _local_path(request.query_params.get("next"), "/admin/status" if admin else "/")
         # The form read first, on the loop (it comes over the network); everything else on worker threads.
         form = await request.form() if request.method == "POST" else None
         try:
@@ -117,11 +125,11 @@ def routes(site):
             typed = form.get("login_id", "").strip() if form is not None else ""
             return await threaded(_signin_page, request, target, 503, w("signin.down"), typed)
         if empty and _local(request):
-            return _redirect("/owner")
+            return _redirect("/owner" if admin else _first_run())
         if form is None:
             return await threaded(_signin_page, request, target)
         login_id = form.get("login_id", "").strip()
-        token = request.cookies.get(SIGNIN_COOKIE, "")
+        token = request.cookies.get(cookies(request).signin, "")
         if not token or not hmac.compare_digest(form.get("csrf", ""), token):
             # Not posted from this site's own sign-in page: nobody is signed in, the page asks again.
             return await threaded(_signin_page, request, target, 400, w("form.expired"), login_id)
@@ -149,27 +157,36 @@ def routes(site):
                                       None, reason)
             # One sentence for a wrong ID and a wrong password, under the password (the ID stays typed).
             return await threaded(_signin_page, request, target, 401, w("signin.wrong"), login_id, "password")
+        if admin and not row["is_admin"]:
+            # The right password of an account without admin rights: told so, after the check (never before it, so the
+            # door says nothing of an account to someone who does not know its password), for the whole form.
+            return await threaded(_signin_page, request, target, 403, w("admin.signin.rights"), login_id)
         response = _signed_in(request, row, target)
         # The form's token is used up with the sign-in.
-        response.delete_cookie(SIGNIN_COOKIE)
+        response.delete_cookie(cookies(request).signin)
         return response
 
     def _signed_in(request, row, target):
         """Go on to `target` signed in as `row` (the sign-in cookie, tied to the account's password and to its round
-        of sign-ins, which a sign-out ends)."""
+        of sign-ins, which a sign-out ends). The site's own cookie (common.cookies), of its own kind: the admin site's
+        strict (only a request that starts on the admin site carries it), the players' lax (a link from elsewhere to a
+        page of theirs arrives signed in)."""
+        names = cookies(request)
         response = _redirect(target)
-        cookie = site.signer.sign({"kind": "web", "uid": row["id"], "pw": sess.password_mark(row["password"]),
+        cookie = site.signer.sign({"kind": names.kind, "uid": row["id"], "pw": sess.password_mark(row["password"]),
                                    "g": row["session_generation"]})
-        response.set_cookie(COOKIE, cookie, max_age=SIGN_IN_DAYS * 86400, httponly=True, samesite="lax",
-                            secure=request.url.scheme == "https")
+        response.set_cookie(names.session, cookie, max_age=SIGN_IN_DAYS * 86400, httponly=True,
+                            samesite="strict" if admin_side(request) else "lax", secure=request.url.scheme == "https")
         return response
 
     def signin_once(request):
         """The link the launcher on this PC opens (Site.once): signs the player in and shows their page, or the
-        page asked for. Only a visit from this PC counts, and each link works once."""
+        page asked for. Only a visit from this PC counts, and each link works once. On the admin site, only a link made
+        for it (Site.once(..., admin=True)), for an account with admin rights, which opens the Status page."""
         if not _local(request):
             return _redirect("/signin")
-        account_id = site.redeem(request.path_params["token"])
+        admin = admin_side(request)
+        account_id = site.redeem(request.path_params["token"], admin=admin)
         row = None
         if account_id is not None:
             store = site.accounts()
@@ -177,10 +194,10 @@ def routes(site):
                 row = store.db.execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone()
             finally:
                 store.db.close()
-        if row is None or row["disabled"]:
+        if row is None or row["disabled"] or (admin and not row["is_admin"]):
             return _redirect("/signin")
-        # Only paths on this site; the player's own page otherwise.
-        target = _local_path(request.query_params.get("next"), "/dj/%d" % row["id"])
+        # Only paths on this site; the player's own page otherwise (the Status page on the admin site).
+        target = _local_path(request.query_params.get("next"), "/admin/status" if admin else "/dj/%d" % row["id"])
         response = _signed_in(request, row, target)
         # The site in the launcher's language.
         if request.query_params.get("lang") in ("en", "ko"):
@@ -202,7 +219,8 @@ def routes(site):
             return _redirect("/")
         await threaded(_end_sign_ins, request)
         response = _redirect("/signin")
-        response.delete_cookie(COOKIE)
+        # This site's own cookie (the round that ended takes the other site's sign-ins of the account with it).
+        response.delete_cookie(cookies(request).session)
         return response
 
     async def owner(request):
@@ -221,7 +239,8 @@ def routes(site):
         # What was typed comes back in its fields after a refusal (never the password).
         typed = {"login_id": (form.get("login_id", "") if form is not None else "").strip().upper()[:8],
                  "dj_name": (form.get("dj_name", "") if form is not None else "").strip()[:acc.DJ_NAME_MAX]}
-        token = request.cookies.get(OWNER_COOKIE, "")
+        names = cookies(request)
+        token = request.cookies.get(names.owner, "")
         if form is not None:
             if not token or not hmac.compare_digest(form.get("csrf", ""), token):
                 error = w("form.expired")
@@ -232,10 +251,10 @@ def routes(site):
                     await site.hashed(_accounts_call, site, "create", made, form.get("password", ""),
                                       form.get("dj_name", "").strip() or None, is_admin=True, who="owner")
                     response = _redirect("/signin")
-                    response.delete_cookie(OWNER_COOKIE)
+                    response.delete_cookie(names.owner)
                     # The sign-in page that opens next says the account was made (read once there; strict: only a
                     # request that starts on this site carries it).
-                    response.set_cookie(MADE_COOKIE, made, max_age=120, httponly=True, samesite="strict")
+                    response.set_cookie(names.made, made, max_age=120, httponly=True, samesite="strict")
                     return response
                 except acc.AccountError as e:
                     error = w.error(e)
@@ -248,7 +267,7 @@ def routes(site):
             password_min=acc.PASSWORD_MIN, password_max=acc.PASSWORD_MAX,
             password_pattern="[A-Za-z0-9]{%d,%d}" % (acc.PASSWORD_MIN, acc.PASSWORD_MAX)))
         # Strict: the browser sends it only with requests that start on this site.
-        response.set_cookie(OWNER_COOKIE, token, max_age=3600, httponly=True, samesite="strict")
+        response.set_cookie(names.owner, token, max_age=3600, httponly=True, samesite="strict")
         return response
 
     async def language(request):

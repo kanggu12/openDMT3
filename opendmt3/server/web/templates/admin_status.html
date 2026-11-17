@@ -11,16 +11,19 @@
     {% endfor %}
   </div>
   {% endif %}
-  {# Who is here: four figures on the grid's four columns (the server's own four are in the card under the table). #}
+  {# Who is here: four figures on the grid's four columns (the server's own four are in the card under the table). A date
+     keeps a row of its own on a phone (date): it never breaks inside itself. #}
   <div class="card">
+    <h3>{{ w("status.now") }}</h3>
     <div class="stats">
-      <div class="stat"><span class="value small-value">{{ server.started|when if server.started else "-" }}</span><span class="label">{{ w("status.started") }}</span></div>
+      <div class="stat date"><span class="value small-value">{{ server.started|when if server.started else "-" }}</span><span class="label">{{ w("status.started") }}</span></div>
       <div class="stat"><span class="value">{{ server.connected }}</span><span class="label">{{ w("status.connected") }}</span></div>
       <div class="stat"><span class="value">{{ server.cabinets }}</span><span class="label">{{ w("status.cabinets") }}</span></div>
       <div class="stat"><span class="value">{{ server.accounts.all - server.accounts.disabled }}</span><span class="label">{{ w("status.accounts", n=server.accounts.disabled) if server.accounts.disabled else w("status.accounts.all") }}</span></div>
     </div>
   </div>
   <div class="card">
+    <h3>{{ w("status.use") }}</h3>
     <table class="table">
       <thead><tr><th></th><th class="num">{{ w("status.today") }}</th><th class="num">{{ w("status.week") }}</th><th class="num">{{ w("status.month") }}</th></tr></thead>
       <tbody>
@@ -33,10 +36,11 @@
     </table>
   </div>
   <div class="card">
+    <h3>{{ w("status.facts") }}</h3>
     <div class="stats">
       <div class="stat"><span class="value small-value">{{ server.version }}</span><span class="label">{{ w("status.version") }}</span></div>
       <div class="stat"><span class="value small-value">{{ "{:,}".format(server.database_bytes // 1024) }} KB</span><span class="label">{{ w("status.database") }}</span></div>
-      <div class="stat"><span class="value small-value">{{ server.last_backup|when if server.last_backup else w("status.no_backup") }}</span><span class="label">{{ w("status.last_backup") }}</span></div>
+      <div class="stat date"><span class="value small-value">{{ server.last_backup|when if server.last_backup else w("status.no_backup") }}</span><span class="label">{{ w("status.last_backup") }}</span></div>
       <div class="stat"><span class="value small-value">{{ server.game_port }}</span><span class="label">{{ w("status.game_port") }}</span></div>
     </div>
   </div>
@@ -138,8 +142,9 @@
     </form>
     {% endif %}
   </div>
-  {# Maintenance: on or off here; while it is on the game server refuses card logins (services/maintenance.py). #}
-  <div class="card">
+  {# Maintenance: on or off here; while it is on the game server refuses card logins (services/maintenance.py). The
+     rail's MAINTENANCE comes here. #}
+  <div class="card" id="maintenance">
     <h3>{{ w("maintenance.title") }}</h3>
     <form method="post" action="/admin/status" class="form row maintenance">
       <input type="hidden" name="csrf" value="{{ csrf }}">

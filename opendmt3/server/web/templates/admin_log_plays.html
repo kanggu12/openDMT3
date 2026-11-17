@@ -14,6 +14,7 @@
   </div>
   {# What the filter leaves, counted (every page of it), and all of it as a file. #}
   <div class="card">
+    <h3>{{ w("log.found") }}</h3>
     <div class="stats">
       <div class="stat"><span class="value">{{ "{:,}".format(log.totals.plays) }}</span><span class="label">{{ w("songs.plays") }}</span></div>
       <div class="stat"><span class="value">{{ "{:,}".format(log.totals.players) }}</span><span class="label">{{ w("songs.players") }}</span></div>
@@ -22,6 +23,7 @@
     </div>
   </div>
   <div class="card">
+    <h3>{{ w("log.lines") }}</h3>
     {% if not log.plays %}<p class="muted">{{ w("log.plays.none") }}</p>{% else %}
     <table class="table">
       <thead><tr><th>{{ w("log.when") }}</th><th>{{ w("rankings.dj") }}</th><th>{{ w("songs.song") }}</th><th class="num">{{ w("song.score") }}</th></tr></thead>
@@ -29,7 +31,7 @@
       {% for p in log.plays %}
         {# On a phone the row is a block and the headers are gone: each cell says what it is. #}
         <tr><td class="muted when">{{ p.at|when }}</td><td data-label="{{ w('rankings.dj') }}">{{ p.dj }} <code>{{ p.login_id }}</code></td>
-          <td data-label="{{ w('songs.song') }}"><a href="/songs/{{ p.song }}">{{ p.title }}</a> <span class="muted small">{{ w("song.chart.level" if p.level else "song.chart", mode=p.mode_name, n=p.pattern, level=p.level) }}</span></td>
+          <td data-label="{{ w('songs.song') }}"><a href="{{ players }}/songs/{{ p.song }}">{{ p.title }}</a> <span class="muted small">{{ w("song.chart.level" if p.level else "song.chart", mode=p.mode_name, n=p.pattern, level=p.level) }}</span></td>
           <td class="num" data-label="{{ w('song.score') }}">{{ "{:,}".format(p.score) }}</td></tr>
       {% endfor %}
       </tbody>

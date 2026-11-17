@@ -20,21 +20,28 @@
 @font-face { font-family: "DMT3 Wide"; src: url("/static/fonts/dmt3-text-bold-hangul.woff2?v={{ version }}") format("woff2"); font-display: swap; unicode-range: U+1100-11FF, U+3130-318F, U+AC00-D7A3; }
 </style>
 </head>
-{# Each section in one of the game's colours: rankings in POP's pink, songs in STAR's lime, the console in amber. #}
-{% set section = 'console' if path.startswith('/admin') or path.startswith('/owner') else ('pop' if path.startswith('/rankings') or path.startswith('/dj/') else ('star' if path.startswith('/songs') else 'technika')) %}
-<body class="lang-{{ lang }}" data-section="{{ section }}">
+{# Each section in one of the game's colours: rankings in POP's pink, songs in STAR's lime, the rest (and the admin
+   site's console) in the title screen's blue. #}
+{% set section = 'technika' if console else ('pop' if path.startswith('/rankings') or path.startswith('/dj/') else ('star' if path.startswith('/songs') else 'technika')) %}
+{% from "_mark.html" import mark %}
+<body class="lang-{{ lang }}{{ ' console' if console }}" data-section="{{ section }}">
 {# The keyboard's first stop: straight to the page, past the bar and its menu (shown only while it has the focus). #}
 <a class="skip" href="#main">{{ w("nav.skip") }}</a>
-{# The front door (sign-in, first run: `door` set by the page) keeps only the language in its bar: no plate under it, and
-   the small mark steps aside for the page's big one. #}
-{% set sections = [("/", "nav.home", path == "/"), ("/rankings", "nav.rankings", path.startswith("/rankings") or path.startswith("/dj/")), ("/songs", "nav.songs", path.startswith("/songs")), ("/download", "nav.download", path.startswith("/download")), ("/admin", "nav.admin", path.startswith("/admin"))] %}
+{# The frame: the admin site's console (_console.html: its own band, keys and rail), or the players' bar. The front door
+   (sign-in, first run: `door` set by the page) keeps only the language in its bar: no plate under it, and the small
+   mark steps aside for the page's big one. #}
+{% if console %}
+{% include "_console.html" %}
+{% else %}
+{# The players' sections; the admin pages are a site of their own (the footer's way to them, for an admin). #}
+{% set sections = [("/", "nav.home", path == "/"), ("/rankings", "nav.rankings", path.startswith("/rankings") or path.startswith("/dj/")), ("/songs", "nav.songs", path.startswith("/songs")), ("/download", "nav.download", path.startswith("/download"))] %}
 <header class="bar{{ ' door-bar' if door }}">
-  <a class="brand" href="/" aria-label="openDMT3"{% if door %} tabindex="-1" aria-hidden="true"{% endif %}><span class="logo" aria-hidden="true"><span class="o">OPEN</span><span class="m">DMT<b>3</b></span><span class="s">SERVER</span></span></a>
+  <a class="brand" href="/" aria-label="openDMT3"{% if door %} tabindex="-1" aria-hidden="true"{% endif %}>{{ mark("SERVER") }}</a>
   {% if user %}
   {# The menu: the item of the page showing is lit and says so to screen readers (aria-current). On a phone it moves
      into the sheet MENU opens; the bar then says where one is. #}
   <nav class="menu" aria-label="{{ w('nav.sections') }}">
-    {% for href, key, on in sections if key != "nav.admin" or user.is_admin %}
+    {% for href, key, on in sections %}
     <a href="{{ href }}" class="{{ 'on' if on }}"{% if on %} aria-current="page"{% endif %}>{{ w(key) }}</a>
     {% endfor %}
   </nav>
@@ -55,7 +62,7 @@
    with the sections, the language, one's own account and Sign out. A popover: Esc or a tap outside it closes it. #}
 <div id="menu-sheet" class="menu-sheet" popover aria-label="{{ w('nav.menu') }}">
   <nav class="sheet-sections" aria-label="{{ w('nav.sections') }}">
-    {% for href, key, on in sections if key != "nav.admin" or user.is_admin %}
+    {% for href, key, on in sections %}
     <a href="{{ href }}" class="{{ 'on' if on }}"{% if on %} aria-current="page"{% endif %}>{{ w(key) }}</a>
     {% endfor %}
   </nav>
@@ -65,6 +72,7 @@
     <form method="post" action="/signout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ w("nav.signout") }}</button></form>
   </div>
 </div>
+{% endif %}
 {% endif %}
 {# What a change just did, or why it did not: a toast in the bar's place (site.js puts it inside the bar where its words fit,
    else on a strip of the bar's glass right under it), over a dialog too (a popover is drawn over the page's top layer).
@@ -82,10 +90,11 @@
   <p class="toast-words"></p><a class="toast-go" href="#"></a>
   <button class="toast-close" type="button" aria-label="{{ w('toast.close') }}">&times;</button>
 </div>
-{# Maintenance (Admin, Status): the cabinets cannot log in while it is on; said on every page, beside the notice. #}
-{% if site_maintenance %}<div class="site-notice maintenance" role="status"><span class="label">{{ w("maintenance.bar") }}</span><span class="text">{{ w("maintenance.bar.text") }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
-{# The admin's notice (Admin, Status), one line on every page. #}
-{% if site_notice %}<div class="site-notice" role="status"><span class="label">{{ w("notice.bar") }}</span><span class="text">{{ site_notice }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
+{# Maintenance (Admin, Status): the cabinets cannot log in while it is on; said on every page of the players' site, beside
+   the notice (the admin site's rail says maintenance, and its Status page holds the notice). #}
+{% if site_maintenance and not console %}<div class="site-notice maintenance" role="status"><span class="label">{{ w("maintenance.bar") }}</span><span class="text">{{ w("maintenance.bar.text") }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
+{# The admin's notice (Admin, Status), one line on every page of the players' site. #}
+{% if site_notice and not console %}<div class="site-notice" role="status"><span class="label">{{ w("notice.bar") }}</span><span class="text">{{ site_notice }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
 <main id="main" tabindex="-1">
 {% block main %}{% endblock %}
 </main>
@@ -93,6 +102,9 @@
   {# OpenDMTQ's two lines with openDMT3's names, one above the other. #}
   <div class="notice-lines"><p>{{ w("footer.notice") }}</p><p>{{ w("footer.rights") }}</p></div>
   <p><a href="/licenses"{% if path == '/licenses' %} aria-current="page"{% endif %}>{{ w("footer.licenses") }}</a></p>
+  {# The way between the two sites: the admin site's back to the players' (their address), the players' to the admin
+     pages for a signed-in admin where those are within reach (Site.admin_link). #}
+  {% if console %}<p><a href="{{ players ~ '/' }}">{{ w("footer.players") }}</a></p>{% elif admin_link %}<p><a href="{{ admin_link }}">{{ w("footer.admin") }}</a></p>{% endif %}
   <p class="ver">openDMT3 {{ version }}</p>
 </footer>
 <dialog class="ask" id="ask" aria-labelledby="ask-question">

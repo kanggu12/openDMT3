@@ -24,6 +24,7 @@
     <p class="requests-file"><a class="btn small" href="{{ csv }}" download>{{ w("requests.csv") }}</a> <span class="muted small">{{ w("requests.kept", mb=log_mb, days=log_days, size=log.bytes|size) }}</span></p>
   </div>
   <div class="card">
+    <h3>{{ w("log.lines") }}</h3>
     {% if not log.requests %}<p class="muted">{{ w("requests.none") }}</p>{% else %}
     <p class="muted small">{{ w("requests.found", n="{:,}".format(log.found), kept=log.kept, shown=log.requests|length) }}</p>
     <table class="table requests">

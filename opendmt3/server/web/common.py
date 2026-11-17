@@ -7,6 +7,7 @@ underscore and all, as the web package's own. Each that needs the Site takes it 
 no longer a closure over it.
 """
 
+import collections
 import contextlib
 import csv
 import datetime
@@ -43,7 +44,21 @@ OWNER_COOKIE = "opendmt3_owner"
 # The ID of the owner's account the first-run page just made, for the sign-in page that opens after it to say so once.
 MADE_COOKIE = "opendmt3_made"
 SIGNIN_COOKIE = "opendmt3_signin"
+# The admin site's own (its own port, app.py create_admin_app): a browser sends one host's cookies to every port of it,
+# so each of the admin site's has a name of its own, and neither site reads the other's. The language is one choice
+# for both (LANG_COOKIE).
+ADMIN_COOKIE = "opendmt3_admin"
+ADMIN_SIGNIN_COOKIE = "opendmt3_admin_signin"
+ADMIN_OWNER_COOKIE = "opendmt3_admin_owner"
+ADMIN_MADE_COOKIE = "opendmt3_admin_made"
 SIGN_IN_DAYS = 30
+# Where a request's scope says which site it came to (app.py's Side sets it on the admin site's requests).
+SIDE_KEY = "opendmt3.side"
+# Each site's cookies by what they keep: the sign-in, the sign-in form's token, the first run's form token, and the ID
+# the first run just made; with the kind a sign-in cookie of that site says it is (one site's never opens the other).
+Cookies = collections.namedtuple("Cookies", "session signin owner made kind")
+PLAYERS_COOKIES = Cookies(COOKIE, SIGNIN_COOKIE, OWNER_COOKIE, MADE_COOKIE, "web")
+ADMIN_COOKIES = Cookies(ADMIN_COOKIE, ADMIN_SIGNIN_COOKIE, ADMIN_OWNER_COOKIE, ADMIN_MADE_COOKIE, "admin")
 # How the admin's Status page names the installer the downloads folder (Site.downloads) should hold when it has none:
 # the Download page offers the one there (downloads.installer_path), /download/windows hands it out.
 INSTALLER = downloads.PATTERN
@@ -119,6 +134,17 @@ def _local(request):
     if request.client is None or request.client.host not in ("127.0.0.1", "::1"):
         return False
     return (request.url.hostname or "").lower() in ("127.0.0.1", "localhost", "::1")
+
+
+def admin_side(request):
+    """True for a request to the admin site (its own port), False for one to the players' site (scope or Request)."""
+    scope = request if isinstance(request, dict) else request.scope
+    return scope.get(SIDE_KEY) == "admin"
+
+
+def cookies(request):
+    """The cookies' names of the site the request came to (PLAYERS_COOKIES or ADMIN_COOKIES)."""
+    return ADMIN_COOKIES if admin_side(request) else PLAYERS_COOKIES
 
 
 def _local_path(target, default="/"):
@@ -536,6 +562,21 @@ def _cabinets(site):
     return out
 
 
+def _rail(site, request):
+    """The admin site's state rail, under its band on every admin page (the control room's first look): whether the game
+    server is on and its port, the cabinets connected and the launchers heard now (launchers.NOW), maintenance, how long
+    the server has run, and the players' site's address. All from memory and the files every page reads anyway: no
+    query, so every admin page can carry it."""
+    game = site.game_server
+    # A copy of the links (GameServer.live), as the Status page counts them: only those that said who they are.
+    cabinets = sum(1 for link in game.live() if link["online"]) if game is not None else 0
+    launchers = sum(1 for row in site.launchers.view() if row["now"])
+    up = int(time.time() - game.started) if game is not None else None
+    address, _ = _players_address(site, request)
+    return {"game": game is not None, "game_port": site.game_port, "cabinets": cabinets, "launchers": launchers,
+            "maintenance": maintenance.read(site.data_dir) is not None, "up": up, "address": address}
+
+
 def _cabinets_for(site, row):
     """The cabinets connected now, as the account `row` may see them: an admin all of it, a player only who
     plays on each (the DJ name). A cabinet's address and a player's login ID (half of what signs them in) are
@@ -796,12 +837,33 @@ def _players_address(site, request):
     """(the site's address a player is told, whether another PC reaches it): the one the server was given
     (--site-address, which ./dmt3 setup keeps as its owner chose it), else the one this request came to. An address of
     this PC alone (127.0.0.1, localhost) is one no other PC reaches, whichever of the two it is."""
-    address = site.address or str(request.base_url)
+    address = site.address or _players_here(site, request)
     if not address.endswith("/"):
         # As a browser shows a site's top: with its slash.
         address += "/"
     host = (urllib.parse.urlsplit(address).hostname or "").lower()
     return address, host not in ("127.0.0.1", "localhost", "::1")
+
+
+def _players_here(site, request):
+    """The players' site at the address this request came by: the request's own on the players' site; on the admin site
+    (its own port), the same host on the site's port (Site.site_port), where the players' site is from there."""
+    if not admin_side(request) or not site.site_port:
+        return str(request.base_url)
+    host = request.url.hostname or "127.0.0.1"
+    # An IPv6 address goes in brackets in an address, as a browser shows it.
+    if ":" in host:
+        host = "[%s]" % host
+    return "%s://%s:%d/" % (request.url.scheme, host, site.site_port)
+
+
+def players_base(site, request):
+    """What a page puts before a players' page's path (/dj/3, /songs/12): nothing on the players' site (the same
+    address), the players' site's address on the admin site (_players_address: the one the owner chose, else this host on
+    the site's port)."""
+    if not admin_side(request):
+        return ""
+    return _players_address(site, request)[0].rstrip("/")
 
 
 def _message(site, request, w, login_id, password):
@@ -1066,9 +1128,13 @@ def _reset_plays(site, who, account=None):
     return gone, kept
 
 
-def _host_port(request):
+def _host_port(site, request):
     """The address the page was opened at, with its port (the scheme's own when the address has none): what the player
-    types in the launcher, and what the installer's name carries."""
+    types in the launcher, and what the installer's name carries. Asked on the admin site (the API's twin on its port),
+    the players' site's (_players_address): the launcher connects to that one, never to the admin pages."""
+    if admin_side(request):
+        parts = urllib.parse.urlsplit(_players_address(site, request)[0])
+        return parts.hostname or "127.0.0.1", parts.port or (443 if parts.scheme == "https" else 80)
     host = request.url.hostname or "127.0.0.1"
     return host, request.url.port or (443 if request.url.scheme == "https" else 80)
 
@@ -1077,7 +1143,7 @@ def _download(site, request):
     """What the Download page says: the installer's facts (downloads.facts: its size, when it was put there and its
     version; None when there is no installer to hand out), the address the launcher asks for, and the name the
     installer is handed out under (both from the address this request came to)."""
-    host, port = _host_port(request)
+    host, port = _host_port(site, request)
     # The file handed out, and its facts: its version goes into the name it is handed out under as well.
     path = downloads.installer_path(site.downloads)
     facts = downloads.facts(path) if path else None
@@ -1092,7 +1158,9 @@ def _installer(site, request):
     path = downloads.installer_path(site.downloads)
     if path is None:
         return None
-    end = preset.tail(str(request.base_url).rstrip("/"), request.url.netloc)
+    # The players' site's address (on the admin site's port too: the launcher it installs connects there).
+    base = _players_address(site, request)[0] if admin_side(request) else str(request.base_url)
+    end = preset.tail(base.rstrip("/"), urllib.parse.urlsplit(base).netloc)
 
     def body():
         # Read in pieces on Starlette's thread pool (a plain generator), then the end.
@@ -1105,7 +1173,7 @@ def _installer(site, request):
         yield end
 
     return StreamingResponse(body(), media_type="application/octet-stream", headers={
-        "Content-Disposition": 'attachment; filename="%s"' % downloads.download_name(*_host_port(request),
+        "Content-Disposition": 'attachment; filename="%s"' % downloads.download_name(*_host_port(site, request),
                                                                                       downloads.version(path)),
         "Content-Length": str(os.path.getsize(path) + len(end))})
 

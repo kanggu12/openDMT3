@@ -7,6 +7,7 @@
   {% include "_job.html" %}
   {# Every form names this page: the page also shows at the upload's own address, after an upload. #}
   <div class="card">
+    <h3>{{ w("backups.make") }}</h3>
     <form method="post" action="/admin/backups" class="form row">
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="make">
       <p class="muted small">{{ w("backups.hint", keep=keep) }}</p>
@@ -26,6 +27,7 @@
     <p class="muted small">{{ w("backups.upload.hint", mb=upload_mb) }}</p>
   </div>
   <div class="card">
+    <h3>{{ w("backups.list") }}</h3>
     {% if not backups %}<p class="muted">{{ w("backups.none") }}</p>{% else %}
     <table class="table">
       <thead><tr><th>{{ w("backups.when") }}</th><th>{{ w("backups.kind") }}</th><th class="num wide-only">{{ w("backups.size") }}</th><th></th></tr></thead>

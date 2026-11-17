@@ -32,14 +32,14 @@ import secrets
 import threading
 import time
 import zlib
-from urllib.parse import parse_qs, quote
+from urllib.parse import parse_qs, quote, urlsplit
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from starlette.applications import Starlette
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware import Middleware
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -70,7 +70,8 @@ from opendmt3.server.web import strings
 from opendmt3.server.web.api import _error, api_unknown
 # Site reads the cookies the pages set, so their names come from common.py, where all the cookies' names are; the
 # wall's redirect, the 404 handler's error page, a 405's Allow and the health check come from there too.
-from opendmt3.server.web.common import COOKIE, LANG_COOKIE, SIGN_IN_DAYS, _allowed, _health, _redirect, not_found
+from opendmt3.server.web.common import (FORWARDED, LANG_COOKIE, SIDE_KEY, SIGN_IN_DAYS, _allowed, _health, _local,
+                                        _rail, _redirect, admin_side, cookies, not_found, players_base)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # The wide face the site shares with the launcher, kept once in the client's assets (opendmt3/client/assets/fonts):
@@ -156,8 +157,18 @@ class Site:
     """What the pages share: the database, the signer, the game server (for live cabinets), the words."""
 
     def __init__(self, data_dir, game_server=None, game_port=4725, downloads=None, game_folder=None, address=None,
-                 runner=None):
+                 runner=None, admin_address=None, admin_on_site_port=True, admin_open=False, site_port=None):
         self.data_dir = data_dir
+        # Where the admin pages are (ADMIN-SITE.md). admin_address: the admin site's address as this PC reaches it
+        # (http://127.0.0.1:4731/, the server's --admin-port), None when it has none. admin_on_site_port: the site's own
+        # port serves the admin pages too (--admin-on-site-port; True for a Site made without an admin site, as every
+        # Site was before it, so a caller that starts no admin listener keeps its admin pages). admin_open: the admin
+        # site listens where other PCs reach it (--admin-host 0.0.0.0, not in a container), so the players' footer may
+        # send an admin on another PC there. site_port: the players' site's port, for the admin site's links to it.
+        self.admin_address = admin_address
+        self.admin_on_site_port = admin_on_site_port
+        self.admin_open = admin_open
+        self.site_port = site_port
         # A mark of this run of the server (GET /health gives it): a restart's page waits for a new one.
         self.run = secrets.token_hex(4)
         # Who started this server, which the Status tab's Stop asks (runner.py): given by whoever made the Site (the
@@ -202,8 +213,8 @@ class Site:
         self.onces_lock = threading.Lock()
         self.templates = Environment(loader=FileSystemLoader(os.path.join(HERE, "templates")),
                                      autoescape=select_autoescape(["html"]))
-        # Times are stored as seconds; pages show them as a date and a time on the server's clock.
-        self.templates.filters["when"] = lambda t: time.strftime("%Y-%m-%d %H:%M", time.localtime(t)) if t else ""
+        # Times are stored as seconds; pages show them as a date and a time on the server's clock (_when).
+        self.templates.filters["when"] = _when
         # A day without the year, for the activity chart's weeks.
         self.templates.filters["day"] = lambda t: time.strftime("%m/%d", time.localtime(t))
         # An hour and its minutes, for the charts of the last day.
@@ -249,24 +260,48 @@ class Site:
     def activity(self):
         return act.Activity(self.connect())
 
-    def once(self, account_id):
+    def once(self, account_id, admin=False):
         """A one-use sign-in for an account, for the launcher on this PC to open in the browser
-        (/signin/once/<token>): it works once, for ONCE_SECONDS, and only for a visit from this PC."""
+        (/signin/once/<token>): it works once, for ONCE_SECONDS, and only for a visit from this PC. admin: one for the
+        admin site (its own port, an admin's account), which the players' site never takes, nor the other way round."""
         token = secrets.token_urlsafe(24)
         now = time.monotonic()
         with self.onces_lock:
             # Expired links go first, so unused ones never pile up.
             self.onces = {t: v for t, v in self.onces.items() if v[1] > now}
-            self.onces[token] = (account_id, now + ONCE_SECONDS)
+            self.onces[token] = (account_id, now + ONCE_SECONDS, bool(admin))
         return token
 
-    def redeem(self, token):
-        """The account a one-use sign-in is for, or None (unknown, used or expired); it is used up either way."""
+    def redeem(self, token, admin=False):
+        """The account a one-use sign-in is for, or None (unknown, used, expired, or made for the other site); it is
+        used up either way."""
         with self.onces_lock:
             entry = self.onces.pop(token, None)
         if entry is None or entry[1] < time.monotonic():
             return None
+        # Which site the link was made for (a link kept from before admin links were told apart: the players').
+        if (entry[2] if len(entry) > 2 else False) != bool(admin):
+            return None
         return entry[0]
+
+    def admin_link(self, request):
+        """Where the players' site's footer sends a signed-in admin for the admin pages, only where they are within that
+        visitor's reach: the site's own /admin when its port serves them too; the admin site's address on this PC for a
+        visit from this PC; the same host on the admin port when the admin site listens for other PCs and the visit
+        came straight (not through a proxy, whose name is not the admin site's). None anywhere else: no link that
+        leads nowhere."""
+        if self.admin_on_site_port:
+            return "/admin"
+        if self.admin_address is None:
+            return None
+        if _local(request):
+            return self.admin_address
+        if self.admin_open and not any(name in request.headers for name in FORWARDED):
+            host = request.url.hostname or "127.0.0.1"
+            # An IPv6 address in brackets, as an address carries it.
+            return "%s://%s:%d/" % (request.url.scheme, "[%s]" % host if ":" in host else host,
+                                     urlsplit(self.admin_address).port)
+        return None
 
     # --------------------------------------------------------------------------------- requests
 
@@ -275,21 +310,24 @@ class Site:
 
     def account(self, request):
         """The signed-in account for this request, or None (no cookie, a bad one, an old password, a sign-out since
-        the cookie was made). Looked up once a request (the sign-in wall, the page and its template all ask)."""
-        cookie = request.cookies.get(COOKIE, "")
+        the cookie was made). Looked up once a request (the sign-in wall, the page and its template all ask). Each site
+        reads its own cookie (common.cookies): the admin site's, of an account that has admin rights now."""
+        names = cookies(request)
+        cookie = request.cookies.get(names.session, "")
         work = REQUEST.get()
         if work is not None and cookie in work.accounts:
             # Asked already in this request, with the same cookie: the same answer.
             return work.accounts[cookie]
-        row = self._account(cookie)
+        row = self._account(cookie, names.kind)
         if work is not None:
             work.accounts[cookie] = row
         return row
 
-    def _account(self, cookie):
-        """account()'s lookup of the account a sign-in cookie names, in the database."""
+    def _account(self, cookie, kind="web"):
+        """account()'s lookup of the account a sign-in cookie names, in the database. kind: the cookie's own kind, the
+        players' site's ("web") or the admin site's ("admin"): one site's cookie never opens the other."""
         data = self.signer.unsign(cookie, SIGN_IN_DAYS * 86400)
-        if not data or data.get("kind") != "web":
+        if not data or data.get("kind") != kind:
             return None
         store = self.accounts()
         try:
@@ -301,6 +339,9 @@ class Site:
         # The account's round of sign-ins when the cookie was made (cookies from before rounds counted as 0): a
         # sign-out starts the next round, which ends this cookie wherever a copy of it is.
         if data.get("g", 0) != row["session_generation"]:
+            return None
+        if kind == "admin" and not row["is_admin"]:
+            # Its admin rights taken since: the admin site's sign-in ends with them.
             return None
         return row
 
@@ -358,7 +399,9 @@ class Site:
         Home)."""
         language = self.language(request)
         shown = notice.read(self.data_dir)
-        key = (language, seconds, shown["text"] if shown else None, maintenance.read(self.data_dir) is not None)
+        # The admin site's in its own frame.
+        key = (language, seconds, shown["text"] if shown else None, maintenance.read(self.data_dir) is not None,
+               admin_side(request))
         page = self._busy_pages.get(key)
         if page is not None:
             return page
@@ -374,10 +417,11 @@ class Site:
 
     def _busy_made(self, key):
         """busy_page()'s page made, on a worker thread, and kept (the table emptied once it holds BUSY_PAGES_KEPT)."""
-        language, seconds, text, on = key
+        language, seconds, text, on, side = key
         page = self.templates.get_template("error.html").render(
             w=strings.words(language), lang=language, user=None, version=__version__, path="/", here="/", csrf="",
-            site_notice=text, site_maintenance=on, busy=seconds)
+            site_notice=text, site_maintenance=on, busy=seconds, console=side, admin_site=side, players="", rail=None,
+            admin_link=None)
         with self._busy_lock:
             if len(self._busy_pages) >= BUSY_PAGES_KEPT:
                 self._busy_pages.clear()
@@ -385,8 +429,9 @@ class Site:
         return page
 
     def csrf(self, request):
-        """The form token for this sign-in: an HMAC of the cookie, so it changes with every sign-in."""
-        cookie = request.cookies.get(COOKIE, "")
+        """The form token for this sign-in: an HMAC of the cookie (the site's own: common.cookies), so it changes with
+        every sign-in."""
+        cookie = request.cookies.get(cookies(request).session, "")
         return hmac.new(self.signer.secret, ("csrf:" + cookie).encode(), "sha256").hexdigest()[:32]
 
     def render(self, request, name, status=200, **context):
@@ -398,10 +443,20 @@ class Site:
         # The page as asked for, query and all: where the language switch comes back to. A page shown in answer to a
         # form posted elsewhere (an upload's) names its own address instead.
         here = context.pop("here", None) or request.url.path + ("?" + request.url.query if request.url.query else "")
+        side = admin_side(request)
+        path = request.url.path
+        # The admin frame (the console: base.html): every page of the admin site, and the admin pages on the site's own
+        # port when it serves them too (--admin-on-site-port, or a Site made without an admin site).
+        console = side or (self.admin_on_site_port and (path == "/admin" or path.startswith("/admin/")))
         html = self.templates.get_template(name).render(
-            w=w, lang=self.language(request), user=user, version=__version__, path=request.url.path, here=here,
+            w=w, lang=self.language(request), user=user, version=__version__, path=path, here=here,
             csrf=self.csrf(request), site_notice=shown["text"] if shown else None,
-            site_maintenance=maintenance.read(self.data_dir) is not None, **context)
+            site_maintenance=maintenance.read(self.data_dir) is not None, console=console, admin_site=side,
+            # What goes before a players' page's path in a link (nothing on the players' site), the server's state for
+            # the console's rail (a signed-in admin's only), and the players' footer's way to the admin pages (an
+            # admin's, where they are within reach: admin_link).
+            players=players_base(self, request), rail=_rail(self, request) if console and user else None,
+            admin_link=self.admin_link(request) if not console and user and user["is_admin"] else None, **context)
         # A page is the signed-in visitor's own: never kept by a cache on the way, nor by the browser for its Back
         # button after a sign-out; and it differs with the cookie that signs in.
         return HTMLResponse(html, status_code=status, headers=PAGE_HEADERS)
@@ -460,6 +515,20 @@ class Site:
         return _whole_seconds(self.wrong_ids.wait(_id_key(login_id), ID_TRIES))
 
 
+# A word joiner (U+2060): no line breaks next to it, and nothing drawn. After each hyphen of a date it keeps the date
+# whole on its line (a browser breaks after a hyphen otherwise, "2026-11-" over "17 09:30"); the font needs no glyph
+# for it (an invisible character), so the date looks as it did.
+JOINER = "\u2060"
+
+
+def _when(t):
+    """A time as the pages show it: the date and the time on the server's clock, "2026-11-17 09:30", which never breaks
+    inside the date (JOINER after each hyphen) nor inside the time (a colon between digits never breaks); "" for none."""
+    if not t:
+        return ""
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime(t)).replace("-", "-" + JOINER)
+
+
 def _size_words(n):
     """Bytes as a page says them: whole KB under a megabyte, then MB and GB with one decimal."""
     if n is None:
@@ -487,13 +556,72 @@ def _whole_seconds(wait):
 
 
 def create_app(site):
-    """The ASGI app for one Site."""
+    """The players' site's ASGI app for one Site (the site's port, --web-port): the admin pages too while the site's
+    port serves them (Site.admin_on_site_port); otherwise their addresses there answer as elsewhere() says."""
+    return _make_app(site, admin_site=False)
+
+
+def create_admin_app(site):
+    """The admin site's ASGI app for one Site (its own port, --admin-port: ADMIN-SITE.md): the admin pages, its own
+    door (the sign-in, the first run, the language), the pictures and the Licenses page they show, and the API as on
+    the site's port. Its requests are marked as the admin site's (Side), so every part reads its own cookies
+    (common.cookies) and draws its own frame (base.html's console)."""
+    return _make_app(site, admin_site=True)
+
+
+# The players' site's pages the admin site serves too (pages.py, player_pages.py), by their routes' paths: its door (the
+# sign-in, a one-use sign-in from the launcher on this PC, the sign-out, the first run, the language), the pictures its
+# pages show (a song's, the DJ card's choices, a player's own), the Licenses page its footer names, robots.txt and the
+# icon; and the page of one player.
+ADMIN_SITE_PAGES = ("/signin", "/signin/once/{token}", "/signout", "/owner", "/lang/{code}", "/jackets/{number:int}.png",
+                    "/cards/{kind}/{number:int}.png", "/licenses", "/robots.txt", "/favicon.ico",
+                    "/admin/players/{login_id}", "/pictures/{player:int}.png")
+# The players' site's addresses that are the admin site's when it has one of its own (elsewhere()), and every method
+# a form or a program may send to them.
+ELSEWHERE = ("/admin", "/admin/{rest:path}")
+EVERY_METHOD = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+# The admin site's own headers on every answer: no page of another site frames it, a file is never read as another kind,
+# and its addresses go to no other site in a Referer.
+ADMIN_HEADERS = ((b"x-frame-options", b"DENY"), (b"x-content-type-options", b"nosniff"),
+                 (b"referrer-policy", b"same-origin"))
+
+
+class Side:
+    """The admin site's outermost layer: each request marked as the admin site's in its scope (SIDE_KEY, which
+    common.admin_side reads), and each answer with the admin site's own headers (ADMIN_HEADERS)."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        scope[SIDE_KEY] = "admin"
+
+        async def stamped(message):
+            if message["type"] == "http.response.start":
+                # In place of any the answer had of the same names.
+                headers = MutableHeaders(scope=message)
+                for name, value in ADMIN_HEADERS:
+                    headers[name.decode()] = value.decode()
+            await send(message)
+
+        await self.app(scope, receive, stamped)
+
+
+def _make_app(site, admin_site):
+    """create_app's and create_admin_app's app: the routes of the site it is for, inside the layers every request goes
+    through."""
 
     # ---------------------------------------------------------------------------------- sign-in wall
 
-    # The Licenses page, robots.txt and the site's icon are for anyone, as the fonts and the sign-in page are.
+    # The Licenses page, robots.txt and the site's icon are for anyone, as the fonts and the sign-in page are. On the
+    # players' site of a server whose admin pages are elsewhere, their addresses too: elsewhere() answers them before
+    # any sign-in.
+    split = not admin_site and not site.admin_on_site_port
     open_paths = ("/signin", "/signout", "/owner", "/lang/", "/static/", "/fonts/", "/health", "/api/", "/updates/",
-                  "/licenses", "/robots.txt", "/favicon.ico")
+                  "/licenses", "/robots.txt", "/favicon.ico") + (("/admin",) if split else ())
 
     class SignInWall:
         """Every page but the open ones sends a visitor without a sign-in to /signin, then back.
@@ -527,7 +655,10 @@ def create_app(site):
                         await self._refuse(scope, receive, send, 413, "request too large")
                         return
                     receive = _replay(body, receive)
-            if scope["type"] == "http" and not scope["path"].startswith(open_paths):
+            # The admin site's top only sends on to its Status page (which asks for a sign-in): open, so the sign-in
+            # that follows comes back to the Status page itself.
+            if scope["type"] == "http" and not scope["path"].startswith(open_paths) and not (
+                    admin_site and scope["path"] == "/"):
                 request = Request(scope)
                 # The account looked up on a worker thread (a query: never on the loop); the request keeps it (Work).
                 if await threaded(site.account, request) is None:
@@ -618,9 +749,36 @@ def create_app(site):
 
     # Each area's plain handlers count their processor time to their request (work.charged), as threaded() does for
     # the work an async handler hands over: the route made again around the counted handler, as it was otherwise.
+    async def elsewhere(request):
+        """/admin, /admin/... (and /owner) on the players' site when the admin pages have a site of their own: a visit
+        from the server PC goes on to the same address there (308, so a form's POST goes on as a POST: old bookmarks
+        and the guides' old addresses keep working on the PC), any other gets the players' site's page that is not
+        there."""
+        if site.admin_address and _local(request):
+            target = site.admin_address.rstrip("/") + request.url.path + (
+                "?" + request.url.query if request.url.query else "")
+            return RedirectResponse(target, status_code=308)
+        return await not_found(site, request)
+
+    if admin_site:
+        # The admin site: its door and pictures (ADMIN_SITE_PAGES), the admin pages, the page of one player, the API;
+        # its top is the Status page.
+        chosen = ([Route("/", lambda request: _redirect("/admin/status"))]
+                  + [r for r in pages.routes(site) if r.path in ADMIN_SITE_PAGES] + admin.routes(site)
+                  + [r for r in player_pages.routes(site) if r.path in ADMIN_SITE_PAGES] + api.routes(site))
+    elif split:
+        # The players' site beside an admin site of its own: no admin page here; the first run is the admin site's when
+        # it has one (the owner's account), and their addresses answer as elsewhere() says.
+        moved = site.admin_address is not None
+        chosen = ([r for r in pages.routes(site) if not (moved and r.path == "/owner")]
+                  + [r for r in player_pages.routes(site) if not r.path.startswith("/admin/")] + api.routes(site)
+                  + [Route(path, elsewhere, methods=EVERY_METHOD) for path in ELSEWHERE + (("/owner",) if moved else ())])
+    else:
+        # One port for everything, as before the admin site had its own.
+        chosen = pages.routes(site) + admin.routes(site) + player_pages.routes(site) + api.routes(site)
     areas = [route if not isinstance(route, Route) or asyncio.iscoroutinefunction(route.endpoint)
              else Route(route.path, charged(route.endpoint), methods=route.methods, name=route.name)
-             for route in pages.routes(site) + admin.routes(site) + player_pages.routes(site) + api.routes(site)]
+             for route in chosen]
     routes = [Route("/health", health)] + areas + [
         Mount("/static", VersionedFiles(directory=os.path.join(HERE, "static")), name="static"),
         Mount("/fonts", VersionedFiles(directory=FONTS), name="fonts"),
@@ -646,10 +804,12 @@ def create_app(site):
     # sign-in wall. NoStore is outside the rest, so their own answers under /api/ carry it too; Errors outside Work and
     # Shares, so a failure anywhere below is answered; Work outside Shares, so Shares counts what Work kept (a refused
     # request opens nothing: the connection is opened at its first use).
+    # The admin site's requests are marked as its own outside every other layer (Side), so each of them reads the admin
+    # site's cookies, and every answer, a refusal or a failure too, carries its headers.
     return Starlette(routes=routes, exception_handlers={404: missing, 405: wrong_method},
-                     middleware=[Middleware(Compress), Middleware(NoStore), Middleware(Errors),
-                                 Middleware(Logged, site=site), Middleware(Work), Middleware(Shares, site=site),
-                                 Middleware(SignInWall)])
+                     middleware=([Middleware(Side)] if admin_site else []) + [
+                         Middleware(Compress), Middleware(NoStore), Middleware(Errors), Middleware(Logged, site=site),
+                         Middleware(Work), Middleware(Shares, site=site), Middleware(SignInWall)])
 
 
 # The requests log's writer: one thread for the process, made at its first write (_writer).
@@ -794,11 +954,13 @@ class _Turns:
 
 def _share_keys(scope):
     """The keys a request counts for in Shares, each with its requests at once and seconds a minute: the caller (a
-    sign-in by its cookie, or a token; a hash of it, never the secret itself) when it brings one, then its address."""
+    sign-in by its cookie, the site's own: common.cookies, or a token; a hash of it, never the secret itself) when it
+    brings one, then its address."""
     request = Request(scope)
     keys = []
     header = request.headers.get("authorization", "")
-    credential = header[7:].strip() if header.lower().startswith("bearer ") else request.cookies.get(COOKIE, "")
+    credential = header[7:].strip() if header.lower().startswith("bearer ") else request.cookies.get(
+        cookies(scope).session, "")
     if credential:
         keys.append(("caller:" + hashlib.sha256(credential.encode("utf-8", "replace")).hexdigest()[:24],
                      CALLER_AT_ONCE, CALLER_SECONDS))

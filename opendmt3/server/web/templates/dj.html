@@ -17,7 +17,7 @@
       <div class="stat"><span class="value">{{ dj.summary.plays }}</span><span class="label">{{ w("dj.plays") }}</span></div>
       <div class="stat"><span class="value">{{ dj.summary.songs }}</span><span class="label">{{ w("dj.songs") }}</span></div>
       <div class="stat"><span class="value">{{ dj.summary.charts }}</span><span class="label">{{ w("dj.charts") }}</span></div>
-      <div class="stat"><span class="value small-value">{{ dj.summary.last|when if dj.summary.last else "-" }}</span><span class="label">{{ w("dj.last") }}</span></div>
+      <div class="stat date"><span class="value small-value">{{ dj.summary.last|when if dj.summary.last else "-" }}</span><span class="label">{{ w("dj.last") }}</span></div>
     </div>
     {# The DJ's place in each mode's ranking by total ("3 / 12"), each a way to that ranking. #}
     {% if places %}

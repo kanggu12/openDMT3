@@ -1047,8 +1047,9 @@ class LaunchersTwinTest(ApiBase):
         self.assertEqual(r.status_code, 200)
         self.sign_in(self.client, "BOSS")
         page = self.client.get("/admin/cabinets").text
-        # The page's first card says who is on now; the launchers' card names NOVA's launcher, lit, with its version.
-        self.assertIn("Launchers heard in the last 10 minutes: 1", page)
+        # The rail over every admin page counts the launchers heard now; the launchers' card names NOVA's launcher, lit,
+        # with its version.
+        self.assertIn('<a class="item" href="/admin/cabinets#launchers">Launchers <b>1</b></a>', page)
         self.assertIn('<a href="/admin/players/NOVA">DJ NOVA</a>', page)
         self.assertIn("<td data-label=\"Version\">0.4.0</td>", page)
 

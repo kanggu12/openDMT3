@@ -602,10 +602,11 @@ class StopTheRealServerTest(unittest.TestCase):
         made = subprocess.run([sys.executable, "-m", "opendmt3.server", "--data", data, "--add-player", "BOSS",
                                "--password", "pass1234", "--admin"], env=env, capture_output=True, timeout=60)
         self.assertEqual(made.returncode, 0, made.stderr)
-        game, web = free_port(), free_port()
+        # The admin site's port free too: tests on other processes start servers of their own at the same time.
+        game, web, admin = free_port(), free_port(), free_port()
         server = subprocess.Popen([sys.executable, "-m", "opendmt3.server", "--data", data, "--port", str(game),
-                                   "--web-port", str(web)], env=env, stdout=subprocess.PIPE,
-                                  stderr=subprocess.STDOUT)
+                                   "--web-port", str(web), "--admin-port", str(admin)], env=env,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         base = "http://127.0.0.1:%d" % web
 
         def up(seconds=20):

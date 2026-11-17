@@ -1,7 +1,8 @@
 """Run the openDMT3 server: the game server and the site in one process.
 
   python -m opendmt3.server [--data DIR] [--host 0.0.0.0] [--port 4725] [--web-host ADDRESS] [--web-port 4730]
-                            [--proxy ADDRESS] [--verbose]
+                            [--admin-host ADDRESS] [--admin-port 4731] [--admin-on-site-port] [--proxy ADDRESS]
+                            [--verbose]
   python -m opendmt3.server --data DIR [--catalog PATH] [--add-player ID ...] [--setup-only]
   python -m opendmt3.server --catalog PATH --save FILE   (save the song list from PATH into FILE, and exit)
   python -m opendmt3.server ... --game FOLDER   (the client data the admin's Song list tab finds and imports again)
@@ -13,10 +14,12 @@ OPENDMT3_ARCHIVE_PASSWORD.
   python -m opendmt3.server --data DIR --backup | --backups | --restore NAME
 
 The game connects on --port; people open the site on --web-port (0 turns the site off), at --web-host (the same
-address as --host unless given: 127.0.0.1 keeps the site for a reverse proxy on this PC). DIR holds the
+address as --host unless given: 127.0.0.1 keeps the site for a reverse proxy on this PC). The admin pages are a site of
+their own on --admin-port (0: none), at --admin-host (127.0.0.1 unless given: this PC alone); --admin-on-site-port
+serves them on the site's port too, at /admin/ (one port for everything). DIR holds the
 database, the site's signing secret, backups/ (one a day while it runs, a week kept) and downloads/ (put a release's
 opendmt3-launcher-<version>-windows-x64-setup.exe there, as it is, to hand it out).
-On a first start with no account, open the site from this PC to make the owner's account.
+On a first start with no account, open the admin pages (or the site) from this PC to make the owner's account.
 """
 
 import argparse
@@ -32,6 +35,10 @@ from opendmt3.core import errors
 from opendmt3.server.services import accounts, activity, backups, catalog, notify, records, songlist, sources
 
 WEB_PORT = 4730
+# The admin pages' own port (ADMIN-SITE.md): the players' site's next.
+ADMIN_PORT = 4731
+# The words an environment variable says "on" with (OPENDMT3_ADMIN_ON_SITE_PORT), in any case.
+ON_WORDS = ("1", "true", "yes", "on")
 
 
 def web_host(args):
@@ -45,6 +52,36 @@ def web_config(uvicorn, app, args):
     everyone's sign-ins) and an HTTPS visit would look like plain HTTP."""
     return uvicorn.Config(app, host=web_host(args), port=args.web_port, log_level="warning",
                           proxy_headers=bool(args.proxy), forwarded_allow_ips=args.proxy or "")
+
+
+def admin_config(uvicorn, app, args):
+    """The admin site's server settings: its own address and port (--admin-host, --admin-port), and the same proxy as
+    the site's (./dmt3 expose --admin-public puts the admin site behind the same proxy, on a port of its own)."""
+    return uvicorn.Config(app, host=args.admin_host, port=args.admin_port, log_level="warning",
+                          proxy_headers=bool(args.proxy), forwarded_allow_ips=args.proxy or "")
+
+
+def shown_host(host):
+    """An address to listen on as an address to open on this PC: every address (0.0.0.0, ::) is on the loopback one
+    too, the name the owner's first-run page asks for (web.common._local); an IPv6 address goes in brackets."""
+    host = {"0.0.0.0": "127.0.0.1", "::": "::1"}.get(host, host)
+    return "[%s]" % host if ":" in host else host
+
+
+def admin_address(args):
+    """The admin site's address on this PC (http://127.0.0.1:4731/), or None when the server has none (--admin-port
+    0, or no site at all)."""
+    if not args.web_port or not args.admin_port:
+        return None
+    return "http://%s:%d/" % (shown_host(args.admin_host), args.admin_port)
+
+
+def admin_open(args):
+    """True when the admin site listens where other PCs reach it (an --admin-host that is not this PC's loopback), as the
+    server itself can tell: in a container it listens on every address of the container's own, and only the PC's own
+    port mapping (ADMIN_BIND) says who reaches it, so there it is never taken as open."""
+    loopback = args.admin_host.startswith("127.") or args.admin_host in ("::1", "localhost")
+    return bool(admin_address(args)) and not loopback and not sources.in_container()
 
 
 # An archive's password, from the environment (never on a command line others can read): ./dmt3 asks for it.
@@ -117,7 +154,11 @@ def banner_rows(args, game_port):
     behind = bool(args.web_host) and (shown.startswith("127.") or shown in ("[::1]", "localhost"))
     # In a container that loopback is the container's own: the PC's 127.0.0.1 does not reach it.
     here = None if sources.in_container() and behind else "http://%s:%d/" % (shown, args.web_port)
-    return banner.rows(args.site_address, here, game_port)
+    # The admin pages' own address on this PC, when the server has them on a port of their own. Not in a container:
+    # there the server sees its own address and port only, never what the PC maps to them (ADMIN_PORT, ADMIN_BIND, or
+    # Caddy's HTTPS port with ./dmt3 expose --admin-public); ./dmt3 up and status name the PC's.
+    admin = None if sources.in_container() else admin_address(args)
+    return banner.rows(args.site_address, here, game_port, admin=admin)
 
 
 async def serve(args, data, until=None, notes=(), runner=None):
@@ -137,35 +178,52 @@ async def serve(args, data, until=None, notes=(), runner=None):
     # One backup a day, the week's kept (backups.py); checked hourly while the server runs.
     tasks = [asyncio.ensure_future(backups.keep_daily(os.path.join(data, "openDMT3.sqlite"), data))]
     web = None
+    # The admin site's own server beside the site's (None without one), each a task of its own.
+    servers = []
     # The banner's task: it ends once it has printed, so it is never one of the tasks whose end ends the server.
     announcing = None
     if args.web_port:
         # The site needs its own libraries; the game server alone does not.
         import uvicorn
-        from opendmt3.server.web.app import Site, create_app
+        from opendmt3.server.web.app import Site, create_admin_app, create_app
         # The game folder only when it is there: an empty mount point offers no button.
         game_folder = args.game if args.game and os.path.isdir(args.game) else None
+        # Where the admin pages are (ADMIN-SITE.md): a site of their own on --admin-port (the site's port answers
+        # their old addresses), and on the site's port too with --admin-on-site-port.
+        admin = admin_address(args)
         site = Site(data, game_server=game, game_port=game.port, game_folder=game_folder,
-                    address=args.site_address, runner=runner)
+                    address=args.site_address, runner=runner, admin_address=admin,
+                    admin_on_site_port=args.admin_on_site_port, admin_open=admin_open(args),
+                    site_port=args.web_port)
         config = web_config(uvicorn, create_app(site), args)
         web = uvicorn.Server(config)
         web_task = asyncio.ensure_future(web.serve())
         tasks.append(web_task)
+        servers.append((web, web_task))
         # An address to open on this PC: a server on every address (0.0.0.0, ::) is on the loopback one too,
         # the name the owner's first-run page asks for (web.common._local).
         shown = {"0.0.0.0": "127.0.0.1", "::": "[::1]"}.get(web_host(args), web_host(args))
         logging.getLogger("opendmt3.server").info("site on http://%s:%d/", shown, args.web_port)
+        admin_web = None
+        if admin:
+            # The admin site: the same Site (one database, one signer, one game server), its own app and listener.
+            admin_web = uvicorn.Server(admin_config(uvicorn, create_admin_app(site), args))
+            admin_task = asyncio.ensure_future(admin_web.serve())
+            tasks.append(admin_task)
+            servers.append((admin_web, admin_task))
+            logging.getLogger("opendmt3.server").info("admin pages on %s", admin)
 
         async def announce():
-            # Once uvicorn listens: the addresses then work.
-            while not web.started:
+            # Once uvicorn listens (and the admin site's too): the addresses then work.
+            while not web.started or (admin_web is not None and not admin_web.started):
                 await asyncio.sleep(0.05)
             said = list(notes)
             first = connection.execute("SELECT COUNT(*) FROM accounts").fetchone()[0] == 0
             if first and not sources.in_container():
-                # The first-run page answers a visit from this PC itself (in a container no visit is one).
-                said.insert(0, "First start: open http://%s:%d/ on this PC to make the owner's account."
-                            % (shown, args.web_port))
+                # The first-run page answers a visit from this PC itself (in a container no visit is one): the admin
+                # site's when the server has one, else the site's.
+                said.insert(0, "First start: open %s on this PC to make the owner's account."
+                            % (admin or "http://%s:%d/" % (shown, args.web_port)))
             banner.show(__version__, banner_rows(args, game.port), said)
         announcing = asyncio.ensure_future(announce())
     try:
@@ -174,10 +232,12 @@ async def serve(args, data, until=None, notes=(), runner=None):
         else:
             stopper = asyncio.ensure_future(until())
             await asyncio.wait(tasks + [stopper], return_when=asyncio.FIRST_COMPLETED)
-            if web is not None:
-                # The site's own way to stop: it answers what it has started, then its task ends.
-                web.should_exit = True
-                await asyncio.wait([web_task], timeout=10)
+            if servers:
+                # The sites' own way to stop (the players' and the admin's): each answers what it has started, then
+                # its task ends.
+                for server, _ in servers:
+                    server.should_exit = True
+                await asyncio.wait([task for _, task in servers], timeout=10)
             for task in tasks + [stopper]:
                 task.cancel()
             # Each cancelled task is let finish its cancellation before the database closes under it.
@@ -202,7 +262,18 @@ def parser():
                    help="the site's address to listen on, when not --host's (127.0.0.1 behind a reverse proxy on "
                         "this PC)")
     p.add_argument("--web-port", type=int, default=int(os.environ.get("OPENDMT3_WEB_PORT") or WEB_PORT),
-                   help="the site's port, for the site, the admin pages and the API (0: no site; or OPENDMT3_WEB_PORT)")
+                   help="the site's port, for the players' site and the API (0: no site, and no admin pages; or "
+                        "OPENDMT3_WEB_PORT)")
+    # The admin pages, a site of their own (ADMIN-SITE.md): on this PC alone unless the owner opens them.
+    p.add_argument("--admin-port", type=int, default=int(os.environ.get("OPENDMT3_ADMIN_PORT") or ADMIN_PORT),
+                   help="the admin pages' own port (0: none; or OPENDMT3_ADMIN_PORT)")
+    p.add_argument("--admin-host", metavar="ADDRESS", default=os.environ.get("OPENDMT3_ADMIN_HOST") or "127.0.0.1",
+                   help="the address the admin pages listen on: 127.0.0.1, this PC alone (the usual), or 0.0.0.0 for "
+                        "the other PCs too (or OPENDMT3_ADMIN_HOST)")
+    p.add_argument("--admin-on-site-port", action="store_true",
+                   default=(os.environ.get("OPENDMT3_ADMIN_ON_SITE_PORT") or "").strip().lower() in ON_WORDS,
+                   help="the site's port serves the admin pages too, at /admin/ (one port for everything; or "
+                        "OPENDMT3_ADMIN_ON_SITE_PORT=1)")
     p.add_argument("--webhook", metavar="URL", default=os.environ.get("OPENDMT3_WEBHOOK"),
                    help="a Discord or Slack webhook told when someone takes a chart's first place from another player "
                         "(or OPENDMT3_WEBHOOK)")

@@ -97,12 +97,16 @@ class MaintenanceSiteTest(ApiBase):
         self.assertIn("On since ", page)
         self.assertEqual(maintenance.read(self.tmp)["by"], "BOSS")
         self.assertEqual(self.changes()[0], "started maintenance")
-        # Every page says so, beside the notice (before it), a player's and the sign-in page too.
+        # Every page of the players' site says so, beside the notice (before it), a player's and the sign-in page too;
+        # the admin pages' rail says it in pink.
         self.call("POST", "/api/v1/notice", self.token("BOSS"), json={"text": "Back at nine"})
-        for path in ("/", "/rankings", "/admin/players", "/account"):
+        for path in ("/", "/rankings", "/account"):
             page = self.client.get(path).text
             self.assertIn(self.BAR, page, path)
             self.assertLess(page.index(self.BAR), page.index('<div class="site-notice" role="status">'), path)
+        page = self.client.get("/admin/players").text
+        self.assertNotIn(self.BAR, page)
+        self.assertIn('<a class="item bad" href="/admin/status#maintenance">Maintenance <b>On</b></a>', page)
         self.assertIn("The game cannot log in until maintenance ends.", self.client.get("/").text)
         from starlette.testclient import TestClient
         stranger = TestClient(self.app, client=("203.0.113.9", 50000))

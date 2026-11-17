@@ -32,7 +32,7 @@
         <div><dt>{{ w("me.account.since") }}</dt><dd>{{ p.created_at|when }}</dd></div>
         <div><dt>{{ w("player.card") }}</dt><dd><code>…{{ p.card_end }}</code></dd></div>
       </dl>
-      <p class="muted small">{{ w("player.next_login") }} · {% if not p.disabled %}<a href="/dj/{{ p.player }}">{{ w("player.dj_page") }}</a>{% else %}{{ w("player.dj_page.hidden") }}{% endif %} · <a href="/admin/log/plays?player={{ p.player }}">{{ w("player.plays_log") }}</a></p>
+      <p class="muted small">{{ w("player.next_login") }} · {% if not p.disabled %}<a href="{{ players }}/dj/{{ p.player }}">{{ w("player.dj_page") }}</a>{% else %}{{ w("player.dj_page.hidden") }}{% endif %} · <a href="/admin/log/plays?player={{ p.player }}">{{ w("player.plays_log") }}</a></p>
     </div>
   </div>
 
@@ -162,7 +162,7 @@
       {% if not p.recent %}<p class="muted">{{ w("dj.none") }}</p>{% endif %}
       <ul class="plays compact">
       {% for r in p.recent %}
-        <li><a class="song" href="/songs/{{ r.song }}">{{ r.title }}</a>
+        <li><a class="song" href="{{ players }}/songs/{{ r.song }}">{{ r.title }}</a>
           <span class="muted">{{ w("song.chart.level" if r.level else "song.chart", mode=r.mode_name, n=r.pattern, level=r.level) }} · {{ r.at|when }}</span>
           <span class="score">{{ "{:,}".format(r.score) }}</span></li>
       {% endfor %}

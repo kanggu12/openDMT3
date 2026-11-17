@@ -8,7 +8,7 @@
     <h3>{{ w("server.title") }}</h3>
     <div class="stats">
       <div class="stat"><span class="value small-value">{{ server.version }}</span><span class="label">{{ w("status.version") }}</span></div>
-      <div class="stat"><span class="value small-value">{{ server.started|when if server.started else "-" }}</span><span class="label">{{ w("status.started") }}</span></div>
+      <div class="stat date"><span class="value small-value">{{ server.started|when if server.started else "-" }}</span><span class="label">{{ w("status.started") }}</span></div>
       <div class="stat"><span class="value">{{ server.connected }}</span><span class="label">{{ w("status.connected") }}</span></div>
       <div class="stat"><span class="value small-value">{{ w("server.kind." + runner.kind) }}</span><span class="label">{{ w("server.runs") }}</span></div>
     </div>

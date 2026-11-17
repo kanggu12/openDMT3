@@ -184,8 +184,7 @@ def routes(site):
         # The server and who is on it: the cabinets (the game's connections) and the launchers that asked its API
         # (launchers.py), each PC's by its address.
         return site.render(request, "admin_cabinets.html", user=user, cabinets=_known_cabinets(site), notice=notice,
-                           error=error, launchers=site.launchers.view(), launchers_since=site.launchers.since,
-                           game_port=site.game_port)
+                           error=error, launchers=site.launchers.view(), launchers_since=site.launchers.since)
 
     async def admin_status(request):
         """The server's state and numbers, what may want a look, the song list (what it holds; imported on its own

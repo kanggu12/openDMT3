@@ -1,7 +1,8 @@
 /* openDMT3's site, in the launcher's theme: gunmetal surfaces (the same family as OpenDMTQ, the sister project
    for TECHNIKA Q), panels with the game's cut corner, titles standing upright in heavy wide chrome letters like the
    TECHNIKA 3 logo, and colour only where it means something: each section in one of the game's colours (the title
-   screen's blue, STAR MIXING's lime, the console's amber), lime for "fine", amber for "look", pink for errors. */
+   screen's blue, POP MIXING's pink, STAR MIXING's lime), lime for "fine", amber for "look", pink for errors. The admin
+   pages are a site of their own with its own frame, the console (its section below), in the title screen's blue. */
 
 /* The faces (DMT3 Wide, DMT3 Text and the bold Hangul that joins DMT3 Wide) are declared in templates/base.html, so
    their addresses carry the version as every static address does (a browser keeps them for a year). */
@@ -37,17 +38,20 @@
   --quick: 0.14s;
   color-scheme: dark;
 }
-/* The game's colours by section: rankings in POP's pink, songs in STAR's lime, the console in amber. */
+/* The game's colours by section: rankings in POP's pink, songs in STAR's lime (the rest, the admin site too, in the title
+   screen's blue). */
 /* The sections whose colour is light take the dark ink's tick. */
-body:is([data-section="console"], [data-section="pop"], [data-section="star"]) {
+body:is([data-section="pop"], [data-section="star"]) {
   --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.4l3.2 3.2L13 4.8' fill='none' stroke='%230b0e12' stroke-width='2.2' stroke-linecap='square'/%3E%3C/svg%3E"); }
-body[data-section="console"] { --accent: var(--amber); --accent-light: #e3961f; --accent-deep: #4f3306; --accent-fill: var(--amber); --accent-ink: var(--ink); }
 body[data-section="pop"] { --accent: var(--pink); --accent-light: #e8338a; --accent-deep: #5c0c35; --accent-fill: var(--pink); --accent-ink: var(--ink); }
 body[data-section="star"] { --accent: var(--lime); --accent-light: #8fcc12; --accent-deep: #2c4406; --accent-fill: var(--lime); --accent-ink: var(--ink); }
 
 /* A finger needs room: on a touch screen every field and small key is 44 px at least. */
 @media (pointer: coarse) { :root { --ctl: 44px; --ctl-sm: 44px; } }
 * { box-sizing: border-box; }
+/* What a page leaves hidden stays hidden, whatever display its class gives it (a field's error under an upload, a key a
+   script shows): the browser's own hiding is weaker than any class's display. */
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body {
   min-height: 100vh; display: flex; flex-direction: column;
@@ -100,6 +104,11 @@ body.lang-ko h3 { font: 600 14px/1.4 var(--text-face); letter-spacing: 0; text-t
 .logo .m b { font-weight: 400; background: linear-gradient(180deg, #fff 0%, #e9eefc 38%, var(--blue-hi) 60%, var(--blue-hi) 100%);
              -webkit-background-clip: text; background-clip: text; color: transparent; }
 .logo .s { font: 400 8px/1 var(--wide); letter-spacing: 0.08em; color: var(--blue-hi); margin-bottom: 3px; }
+/* Where a version is shown (the admin site's mark: _mark.html), it stands over the role word, beside DMT3 under the
+   slab's end, in light text a little larger than the role word: it is read, not just seen (the launcher's art.logo). */
+.logo .tail { display: grid; justify-items: start; gap: 3px; margin-bottom: 3px; }
+.logo .tail .s { margin-bottom: 0; }
+.logo .tail .v { font: 400 10px/1 var(--wide); font-style: normal; letter-spacing: 0.04em; color: var(--chalk); }
 .menu { display: flex; align-items: stretch; gap: 4px; }
 .menu a { position: relative; display: flex; align-items: center; padding: 8px 12px; font: 400 12px/1 var(--wide);
           letter-spacing: 0.04em; color: var(--ash); }
@@ -232,19 +241,15 @@ body.lang-ko .facts dt { font: 600 12px/1.4 var(--text-face); letter-spacing: 0;
 .facts dd { margin: 2px 0 0; font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
 .facts.wide { gap: 14px 40px; }
 
-/* Who is on the server now (the Cabinets page's first card): a line each with a lamp, lit while there is someone. */
-.now-line { display: grid; gap: 6px; }
-.lamp-line { display: flex; align-items: center; gap: 10px; margin: 0; }
-.lamp-line::before { content: ""; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--faint); }
-.lamp-line.on::before { background: var(--lime); box-shadow: 0 0 8px rgba(180, 240, 42, 0.7); }
 /* The launchers' table: a lamp before each, lit while heard lately. */
 .table.launchers .dot { display: inline-block; vertical-align: 1px; margin-right: 6px; }
 /* The home page's one main key, under its hero's words. */
 .hero-key { margin: 16px 0 0; }
 
 /* ------------------------------------------------------------------------------------------ page head */
-/* A page that works rather than shows (the admin pages, one's own account, the download): a low head, the kicker and
-   the page's name in chrome, no sentence under it, the section's colour only in the kicker and a faint wash at the end. */
+/* A page that works rather than shows (one's own account, the download): a low head, the kicker and the page's name in
+   chrome, no sentence under it, the section's colour only in the kicker and a faint wash at the end. (The admin site's
+   pages have the console's title row: .console-head.) */
 .page-head { border-bottom: 1px solid var(--seam);
              background: linear-gradient(90deg, var(--field) 45%, color-mix(in srgb, var(--accent-deep) 40%, var(--field)) 100%); }
 .page-head-text { max-width: 1180px; margin: 0 auto; padding: 24px 32px 20px; }
@@ -256,7 +261,7 @@ body.lang-ko .page-head h1 { font: 700 28px/1.2 var(--text-face); letter-spacing
 /* A name that is a player's (their page): the text face, as names are everywhere. */
 .page-head h1:not(.word) { font: 700 28px/1.2 var(--text-face); }
 
-/* An area of several pages (the admin pages, one's own account): their menu down the left on a wide screen, as the
+/* An area of several pages (one's own account): their menu down the left on a wide screen, as the
    launcher's own menu column (the one showing on a slab with a rule of the section's colour beside its name), the page
    beside it; on a narrow screen the menu is a strip of one row under the head. */
 .side-area { display: grid; grid-template-columns: 188px minmax(0, 1fr); gap: 24px; max-width: 1180px; margin: 0 auto;
@@ -748,6 +753,89 @@ body.lang-en .signin h2 { font: 400 20px/1.3 var(--wide); letter-spacing: 0.01em
 .held-lift { color: var(--hint); font-size: 13px; }
 .signin .held + .form-actions { margin-top: 20px; }
 
+/* -------------------------------------------------------------------------------------------- console */
+/* The admin site's frame (_console.html, ADMIN-SITE.md): the server's control room, in the launcher's family. Its own
+   surfaces: an opaque band a step darker than the cards (nothing scrolls under a control room's panel), a live state
+   rail under it on every page, the pages' names as the game's leaning mode keys, title rows, and opaque cards with the
+   launcher's dark tab head at their top left; no perforated metal, no hero, no shards. TECHNIKA 3's blue lights
+   openDMT3's own parts (the page showing, the main keys); amber, lime and pink keep their meanings. */
+body.console { background-image: none; background-color: #0e1114; }
+.bar.console { min-height: 60px; padding: 0 32px; flex-wrap: nowrap; background: #0a0c0f;
+               -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* The door keeps only the language over the page, as the players' does. */
+.bar.console.door-bar { background: transparent; border-bottom-color: transparent; }
+/* The keys: leaning metal tabs side by side, the page showing lit in TECHNIKA 3's blue with white words. */
+.console .menu { gap: 2px; }
+.console .menu a { height: 34px; padding: 0 16px; font: 400 11px/1 var(--wide); letter-spacing: 0.06em;
+                   text-transform: uppercase; white-space: nowrap; color: var(--ash); background: var(--rail);
+                   clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
+body.lang-ko .console .menu a { font: 600 13px/1 var(--text-face); letter-spacing: 0; text-transform: none; }
+.console .menu a::after { display: none; }
+.console .menu a:hover { color: var(--chalk); background: var(--rail-up); }
+.console .menu a.on { color: #fff; background: var(--blue); }
+.console .menu a:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+/* The rail: the server's state in one line of small capitals, the values in the chalk (pink while something is off
+   that should be on, or on that keeps players out), the players' site's address at its right end. */
+.rail { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 24px; padding: 8px 32px; background: #101317;
+        border-bottom: 1px solid var(--seam); font: 400 10px/1.4 var(--wide); letter-spacing: 0.08em;
+        text-transform: uppercase; color: var(--ash); }
+body.lang-ko .rail { font: 600 12px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
+.rail .item { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; color: var(--ash); }
+.rail a.item:hover { color: var(--chalk); text-decoration: none; }
+.rail .item b { font-weight: 400; color: var(--chalk); }
+body.lang-ko .rail .item b { font-weight: 700; }
+.rail .item.bad b { color: var(--pink); }
+.rail .addr { margin-left: auto; color: var(--faint); font: 12px/1.4 ui-monospace, Consolas, monospace; letter-spacing: 0;
+              text-transform: none; }
+.rail .addr:hover { color: var(--chalk); }
+/* The game server's lamp as the launcher's discs: grooves round a hub, lit lime while the game server is on. */
+.disc { flex: none; width: 15px; height: 15px; border-radius: 50%;
+        background: radial-gradient(circle, var(--lime) 0 2.4px, #0a0c0f 2.9px 3.8px, #3a434e 4.2px 4.8px, #1a1f25 5.2px 5.9px,
+                    #4b5561 6.3px 7px, transparent 7.4px);
+        box-shadow: 0 0 7px rgba(180, 240, 42, 0.45); }
+.disc.off { background: radial-gradient(circle, var(--faint) 0 2.4px, #0a0c0f 2.9px 3.8px, #3a434e 4.2px 4.8px,
+                                        #1a1f25 5.2px 5.9px, #4b5561 6.3px 7px, transparent 7.4px); box-shadow: none; }
+/* A page's title row: its name in chrome, its one main key at the right. */
+.console-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; width: 100%;
+                max-width: 1180px; margin: 0 auto; padding: 26px 32px 0; }
+.console-head h1 { flex: 1; min-width: 0; margin: 0; padding-bottom: 2px; font: 400 28px/1.1 var(--wide);
+                   letter-spacing: -0.01em; overflow-wrap: anywhere; background: var(--chrome); -webkit-background-clip: text;
+                   background-clip: text; color: transparent; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7)); }
+body.lang-ko .console-head h1 { font: 700 26px/1.25 var(--text-face); letter-spacing: -0.02em; }
+.console-main { width: 100%; max-width: 1180px; margin: 0 auto; padding: 18px 32px 40px; }
+.console-main > .card:last-child { margin-bottom: 0; }
+/* The cards are opaque (a control room's panels), with a tab head: the card's name on a dark leaning tab at its top left. */
+body.console .card { background: var(--deck); -webkit-backdrop-filter: none; backdrop-filter: none; }
+body.console .card:has(> h3:first-child) { padding-top: 42px; }
+body.console .card > h3:first-child { position: absolute; left: 0; top: 0; height: 24px; margin: 0; padding: 0 26px 0 12px;
+                                      font: 400 10px/1 var(--wide); letter-spacing: 0.1em; color: var(--chalk);
+                                      background: var(--rail); clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%); }
+body.lang-ko.console .card > h3:first-child { font: 600 12px/1 var(--text-face); letter-spacing: 0; }
+body.console .card > h3:first-child::after { display: none; }
+body.console .foot { background: #0a0c0f; }
+/* Between a laptop and a phone: the name beside the badge goes, the keys come closer, then they take a row of their own
+   under the mark (every name still in sight). */
+@media (max-width: 1240px) {
+  .console .tools .who-name { display: none; }
+  .console .menu a { padding: 0 12px; }
+}
+@media (max-width: 1100px) {
+  .bar.console:not(.door-bar) { flex-wrap: wrap; row-gap: 10px; padding: 10px 24px; }
+  .bar.console:not(.door-bar) .menu { order: 3; flex: 1 1 100%; flex-wrap: wrap; }
+}
+@media (max-width: 760px) {
+  /* The phone's band: the mark, where one is and MENU (the players' bar's own rules, below, hide the keys and tools). */
+  .bar.console, .bar.console:not(.door-bar) { flex-wrap: nowrap; padding: 0 16px; gap: 12px; min-height: 56px; }
+  .rail { padding: 8px 16px; gap: 6px 16px; }
+  /* The players' site's address is in the sheet's way there. */
+  .rail .addr { display: none; }
+  .console-head { padding: 18px 16px 0; }
+  .console-head h1 { font-size: 24px; }
+  body.lang-ko .console-head h1 { font-size: 22px; }
+  .console-main { padding: 14px 16px 32px; }
+  body.console .card { padding-left: 18px; padding-right: 18px; }
+}
+
 /* --------------------------------------------------------------------------------------------- dialog */
 /* The game's popup over the page: the page blurred and dimmed behind, a glass panel with the cut corner, its title on a
    tab hanging from the top edge in the dialog's colour, the question right under it, the buttons saying what they do. */
@@ -839,6 +927,8 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
   .board td, .board th, .songs td, .songs th { padding: 8px 6px; }
   .podium { grid-template-columns: 1fr; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* A date's figure has the row to itself: two columns are narrower than a date and its time. */
+  .stats .stat.date { grid-column: 1 / -1; }
   .tabs a { padding: 9px 14px; }
   .charts { grid-template-columns: 1fr; }
   .hero h1.title { font-size: 26px; }

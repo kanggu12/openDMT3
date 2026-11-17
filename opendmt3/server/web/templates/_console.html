@@ -1,0 +1,62 @@
+{# The admin site's frame, the console (ADMIN-SITE.md): the server's control room, in the launcher's family. An opaque
+   band a step darker than the players' glass bar (nothing scrolls under it), with the family's mark (ADMIN its role
+   word, the server's version over it), the pages' names as the game's leaning mode keys (the page showing lit in
+   TECHNIKA 3's blue), the language, who is signed in and Sign out. On a phone: the mark, where one is and MENU with its
+   sheet, as on the players' site. The same classes as the players' bar (.bar, .brand, .menu, .where, .menu-key, .tools),
+   so site.js and the site's checks know both. Under the band, for a signed-in admin, the rail: the server's state. #}
+{% from "_mark.html" import mark %}
+{# The pages by their address under /admin/, each with its name (the Cabinets page shows the launchers too: Connected). #}
+{% set pages = [("status", "admin.status"), ("players", "admin.players"), ("cabinets", "admin.connected"), ("song_list", "admin.song_list"), ("backups", "admin.backups"), ("log", "admin.log"), ("server", "admin.server")] %}
+{# The page showing, from its address: /admin/players/NOVA is the Players page's, /admin/log/plays the Logs'. #}
+{% set current = path.split("/")[2].split(".")[0] if path.startswith("/admin/") else "" %}
+<header class="bar console{{ ' door-bar' if door }}">
+  <a class="brand" href="/admin/status" aria-label="openDMT3 ADMIN"{% if door %} tabindex="-1" aria-hidden="true"{% endif %}>{{ mark("ADMIN", version) }}</a>
+  {% if user %}
+  <nav class="menu" aria-label="{{ w('admin.title') }}">
+    {% for key, name in pages %}
+    {# The page itself is the page showing; a page under it (a player's, a log's) is in it. #}
+    <a href="/admin/{{ key }}" class="{{ 'on' if current == key }}"{% if current == key %} aria-current="{{ 'page' if path == '/admin/' ~ key else 'true' }}"{% endif %}>{{ w(name) }}</a>
+    {% endfor %}
+  </nav>
+  {% for key, name in pages if key == current %}<span class="where" aria-hidden="true">{{ w(name) }}</span>{% endfor %}
+  <button class="menu-key" type="button" popovertarget="menu-sheet" aria-controls="menu-sheet" aria-expanded="false">{{ w("nav.menu") }}</button>
+  {% endif %}
+  <div class="tools">
+    {# The language switch comes back to this page (next=, checked to be a path of this site). #}
+    <span class="langs"><a href="/lang/ko?next={{ here|urlencode }}" lang="ko" class="{{ 'on' if lang == 'ko' }}">KOR</a><a href="/lang/en?next={{ here|urlencode }}" lang="en" class="{{ 'on' if lang == 'en' }}">ENG</a></span>
+    {% if user %}
+    {# Who is signed in here: a name, not a way anywhere (one's own account page is the players' site's). #}
+    <span class="who" title="{{ w('admin.signed_in') }}"><span class="badge">{% if user.picture %}<img src="/pictures/{{ user.id }}.png?v={{ user.picture }}" alt="" width="26" height="26">{% else %}{{ user.dj_name[:1] }}{% endif %}</span><span class="who-name">{{ user.dj_name }}</span></span>
+    <form method="post" action="/signout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small">{{ w("nav.signout") }}</button></form>
+    {% endif %}
+  </div>
+</header>
+{% if user %}
+{# The phone's menu: the pages as large rows, then who is signed in, the language, the players' site and Sign out. #}
+<div id="menu-sheet" class="menu-sheet" popover aria-label="{{ w('nav.menu') }}">
+  <nav class="sheet-sections" aria-label="{{ w('admin.title') }}">
+    {% for key, name in pages %}
+    <a href="/admin/{{ key }}" class="{{ 'on' if current == key }}"{% if current == key %} aria-current="{{ 'page' if path == '/admin/' ~ key else 'true' }}"{% endif %}>{{ w(name) }}</a>
+    {% endfor %}
+  </nav>
+  <div class="sheet-tools">
+    <span class="who"><span class="badge">{% if user.picture %}<img src="/pictures/{{ user.id }}.png?v={{ user.picture }}" alt="" width="26" height="26">{% else %}{{ user.dj_name[:1] }}{% endif %}</span><span class="sheet-who"><span class="who-name">{{ user.dj_name }}</span><span class="who-sub">{{ w("admin.signed_in") }}</span></span></span>
+    <span class="langs"><a href="/lang/ko?next={{ here|urlencode }}" lang="ko" class="{{ 'on' if lang == 'ko' }}">KOR</a><a href="/lang/en?next={{ here|urlencode }}" lang="en" class="{{ 'on' if lang == 'en' }}">ENG</a></span>
+    <a class="btn" href="{{ players ~ '/' }}">{{ w("footer.players") }}</a>
+    <form method="post" action="/signout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">{{ w("nav.signout") }}</button></form>
+  </div>
+</div>
+{% endif %}
+{% if rail %}
+{# The rail: what the server is doing, on every page, before anything else. The game server's lamp is a disc (grooves
+   round a hub lit lime while it is on); maintenance in pink while it is on (the cabinets cannot log in); the players'
+   site's address at the right end. The counts go to the page that lists them, maintenance to the page that switches it. #}
+<div class="rail">
+  <span class="item{{ ' bad' if not rail.game }}"><span class="disc{{ ' off' if not rail.game }}" aria-hidden="true"></span>{{ w("rail.game") }} <b>{{ w("rail.on") if rail.game else w("rail.off") }}{% if rail.game %} · {{ rail.game_port }}{% endif %}</b></span>
+  <a class="item" href="/admin/cabinets">{{ w("rail.cabinets") }} <b>{{ rail.cabinets }}</b></a>
+  <a class="item" href="/admin/cabinets#launchers">{{ w("rail.launchers") }} <b>{{ rail.launchers }}</b></a>
+  <a class="item{{ ' bad' if rail.maintenance }}" href="/admin/status#maintenance">{{ w("rail.maintenance") }} <b>{{ w("rail.on") if rail.maintenance else w("rail.off") }}</b></a>
+  {% if rail.up is not none %}<span class="item">{{ w("rail.up") }} <b>{{ w("common.hours", h=rail.up // 3600, m=(rail.up % 3600) // 60) if rail.up >= 3600 else w("common.minutes", m=rail.up // 60) }}</b></span>{% endif %}
+  <a class="addr" href="{{ rail.address }}" title="{{ w('footer.players') }}" aria-label="{{ w('footer.players') }}: {{ rail.address }}">{{ rail.address }}</a>
+</div>
+{% endif %}

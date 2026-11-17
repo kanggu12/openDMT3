@@ -294,7 +294,9 @@ class StartStopTest(unittest.TestCase):
             game, web = free_port(), free_port()
             quiet("--data", data, "setup", "--game-port", str(game), "--web-port", str(web))
             # The child is this same Python with this tree's package.
-            with mock.patch.dict(os.environ, {"PYTHONPATH": os.pathsep.join([os.getcwd()] + sys.path)}):
+            # The admin site's port a free one too (the server's own default, 4731, may be another test's now).
+            with mock.patch.dict(os.environ, {"PYTHONPATH": os.pathsep.join([os.getcwd()] + sys.path),
+                                              "OPENDMT3_ADMIN_PORT": str(free_port())}):
                 code, said = quiet("--data", data, "start")
             if "is taken by another program" not in said:
                 break
@@ -330,7 +332,9 @@ class StartStopTest(unittest.TestCase):
         for _ in range(5):
             game, web = free_port(), free_port()
             quiet("--data", data, "setup", "--game-port", str(game), "--web-port", str(web))
-            with mock.patch.dict(os.environ, {"PYTHONPATH": os.pathsep.join([os.getcwd()] + sys.path)}):
+            # The admin site's port a free one too (the server's own default, 4731, may be another test's now).
+            with mock.patch.dict(os.environ, {"PYTHONPATH": os.pathsep.join([os.getcwd()] + sys.path),
+                                              "OPENDMT3_ADMIN_PORT": str(free_port())}):
                 code, said = quiet("--data", data, "start")
             if "is taken by another program" not in said:
                 break

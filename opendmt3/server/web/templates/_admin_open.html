@@ -1,16 +1,11 @@
-{# The admin pages' frame, opened: a low head (the console's amber kicker and the page's name in chrome, nothing else),
-   then the area with its menu down the left on a wide screen (as the launcher's), a strip of one row under the head on
-   a narrow one. `tab` names the page showing; a page of one player, `heading`, its own name in the head. Closed by
-   _admin_close.html. #}
-{# The Cabinets page shows every client on the server, the launchers too: its name in the menu and the head says so. #}
+{# An admin page's opening, in the console (base.html's frame for the admin site): the page's title row (its name in
+   chrome, a player's page their name: `heading`; its one main key at the right when it has one: `main_key`, (address,
+   words)), then the column its cards stand in. No hero, no shards: the band and the rail above say where one is.
+   `tab` names the page; closed by _admin_close.html. #}
+{# The Cabinets page shows every client on the server, the launchers too: its name says so. #}
 {% set names = {"cabinets": "admin.connected"} %}
-<section class="page-head">
-  <div class="page-head-text"><p class="kicker">{{ w("nav.admin") }}</p><h1 class="word">{{ heading or w(names.get(tab, "admin." + tab)) }}</h1></div>
+<section class="console-head">
+  <h1 class="word">{{ heading or w(names.get(tab, "admin." + tab)) }}</h1>
+  {% if main_key %}<a class="btn primary" href="{{ main_key[0] }}">{{ main_key[1] }}</a>{% endif %}
 </section>
-<div class="side-area">
-  <nav class="side-nav" aria-label="{{ w('admin.title') }}">
-    {% for key in ("status", "players", "cabinets", "song_list", "backups", "log", "server") %}
-    <a href="/admin/{{ key }}" class="{{ 'on' if tab == key }}"{% if tab == key %} aria-current="{{ 'page' if not heading else 'true' }}"{% endif %}>{{ w(names.get(key, "admin." + key)) }}</a>
-    {% endfor %}
-  </nav>
-  <div class="side-main">
+<div class="console-main">

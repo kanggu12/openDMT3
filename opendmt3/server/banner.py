@@ -1,6 +1,6 @@
 """What the server prints once it is up, however it was started (python -m opendmt3.server, the Windows server
 package, the container's log, ./dmt3 up): a text logo, its version, and the addresses in a box (the players', this
-PC's, the game's port), with a line for the first start.
+PC's, the admin pages', the game's port), with a line for the first start.
 
 ASCII alone, so every Windows console font draws it. Colour only where it is seen as colour: a terminal, unless
 NO_COLOR is set (https://no-color.org); a file, a pipe and a container's log get the same text plain.
@@ -81,8 +81,8 @@ def show(version, rows, notes=(), stream=None):
     stream.flush()
 
 
-def rows(players, here, game_port):
+def rows(players, here, game_port, admin=None):
     """The box's rows: the players' address (when one is known), this PC's (when it opens there: None when it does
-    not), and the game's port."""
-    return ([("Players", players)] if players else []) + ([("This PC", here)] if here else []) + [
-        ("Game", "TCP %d" % game_port)]
+    not), the admin pages' own (when the server has them on a port of their own), and the game's port."""
+    return ([("Players", players)] if players else []) + ([("This PC", here)] if here else []) + (
+        [("Admin", admin)] if admin else []) + [("Game", "TCP %d" % game_port)]

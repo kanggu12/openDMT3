@@ -2,12 +2,7 @@
 {% block title %}{{ w("admin.connected") }} · {{ w("admin.title") }} · {% endblock %}
 {% block main %}
 {% set tab = "cabinets" %}{% include "_admin_open.html" %}
-  {# Who is on the server now, at a glance: the cabinets connected to the game's port, the launchers heard lately. #}
-  {% set on_cabinets = cabinets|selectattr("connected")|list|length %}{% set on_launchers = launchers|selectattr("now")|list|length %}
-  <div class="card now-line">
-    <p class="lamp-line{{ ' on' if on_cabinets }}">{{ w("connected.cabinets", n=on_cabinets, port=game_port) }}</p>
-    <p class="lamp-line{{ ' on' if on_launchers }}">{{ w("connected.launchers", n=on_launchers) }}</p>
-  </div>
+  {# How many are connected now is the rail's, over every admin page; here, each of them. #}
   <div class="card" id="cabinets">
     <h3>{{ w("admin.cabinets") }}</h3>
     {% if not cabinets %}<p class="muted">{{ w("cabinets.none") }}</p>{% else %}

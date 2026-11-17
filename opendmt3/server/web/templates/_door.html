@@ -1,6 +1,8 @@
 {# The front door of the site (the sign-in, the first run): the server's mark big in the middle and its one line under it;
-   the page's card follows. The bar above keeps only the language (base.html, door). #}
+   the page's card follows. The bar above keeps only the language (base.html, door). The admin site's door has its own
+   mark (ADMIN, the server's version over it) and line. #}
+{% from "_mark.html" import mark %}
 <div class="door">
-  <span class="logo door-mark" aria-hidden="true"><span class="o">OPEN</span><span class="m">DMT<b>3</b></span><span class="s">SERVER</span></span>
-  <p class="door-line">{{ w("site.tagline") }}</p>
+  {{ mark("ADMIN", version, "door-mark") if console else mark("SERVER", none, "door-mark") }}
+  <p class="door-line">{{ w("admin.door") if console else w("site.tagline") }}</p>
 </div>

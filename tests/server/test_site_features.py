@@ -788,9 +788,12 @@ class NoticeTest(SiteBase):
         page = self.set_notice("Closed on <b>Sunday</b>\nfor a backup").text
         self.assertIn("The notice is on every page now.", page)
         shown = '<span class="text">Closed on &lt;b&gt;Sunday&lt;/b&gt; for a backup</span>'
-        # Every page: the admin's, the public ones, a page that is not there, and the sign-in page.
-        for path in ("/admin/status", "/", "/rankings", "/songs", "/download", "/account", "/nowhere"):
+        # Every page of the players' site: the public ones, a page that is not there, and the sign-in page; the admin
+        # pages hold it in the Status page's own card instead (their console has its rail).
+        for path in ("/", "/rankings", "/songs", "/download", "/account", "/nowhere"):
             self.assertIn(shown, self.client.get(path).text, path)
+        self.assertNotIn(shown, self.client.get("/admin/status").text)
+        self.assertIn('value="Closed on &lt;b&gt;Sunday&lt;/b&gt; for a backup"', self.client.get("/admin/status").text)
         stranger = TestClient(self.app, client=("198.51.100.70", 50000))
         self.assertIn(shown, stranger.get("/signin").text)
         # Not the API's other answers, not the health check: the notice's own call is its twin (GET /api/v1/notice).
@@ -1044,7 +1047,8 @@ class HomeSongsDownloadTest(SiteBase):
         moment = time.mktime((2026, 11, 2, 9, 30, 0, 0, 0, -1))
         os.utime(path, (moment, moment))
         page = browser.get("/download").text
-        self.assertIn("3.0 MB, put on this server 2026-11-02 09:30", page)
+        # The date whole on its line: a word joiner after each hyphen (app._when).
+        self.assertIn("3.0 MB, put on this server 2026-\u206011-\u206002 09:30", page)
         self.assertNotIn("Version", page.split('class="muted small file-facts"', 1)[1].split("</p>", 1)[0])
         # Step 1 names the file as it comes, with this server's address in it.
         # The key and its facts only: what to do after the download is the guides' (no steps, no Windows tip).
@@ -1188,11 +1192,20 @@ class FrameTest(SiteBase):
 
     def test_the_menu_marks_the_page_showing(self):
         self.admin()
-        for path, lit in (("/", "/"), ("/rankings", "/rankings"), ("/songs", "/songs"), ("/download", "/download"),
-                          ("/admin/status", "/admin")):
+        # The players' bar: its four sections, no admin pages (they are a site of their own, with the console's keys).
+        for path, lit in (("/", "/"), ("/rankings", "/rankings"), ("/songs", "/songs"), ("/download", "/download")):
             menu = self.client.get(path).text.split('<nav class="menu"', 1)[1].split("</nav>", 1)[0]
             self.assertEqual(re.findall(r'<a href="([^"]+)" class="on" aria-current="page">', menu), [lit], path)
             self.assertEqual(menu.count("aria-current"), 1, path)
+            self.assertNotIn("/admin", menu, path)
+        # The console's keys: the page showing lit, a page under one (a player's, a log's) in it.
+        for path, lit, current in (("/admin/status", "/admin/status", "page"), ("/admin/log/plays", "/admin/log", "true"),
+                                   ("/admin/players/BOSS", "/admin/players", "true")):
+            page = self.client.get(path).text
+            self.assertIn('<header class="bar console">', page, path)
+            menu = page.split('<nav class="menu"', 1)[1].split("</nav>", 1)[0]
+            self.assertEqual(re.findall(r'<a href="([^"]+)" class="on" aria-current="(\w+)">', menu), [(lit, current)],
+                             path)
 
     def test_the_language_switch_comes_back_to_the_page_and_nowhere_else(self):
         self.make()
