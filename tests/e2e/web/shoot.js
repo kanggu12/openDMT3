@@ -53,7 +53,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
                    filters: 0, filter_faults: 0, messages: 0,
                    message_faults: 0, looks: 0, look_faults: 0, tokens: 0, token_faults: 0, uploads: 0,
                    upload_faults: 0, song_lists: 0, song_list_faults: 0, drops: 0, drop_faults: 0, maintenances: 0,
-                   maintenance_faults: 0};
+                   maintenance_faults: 0, form_faults: 0, bars: 0, bar_faults: 0};
   // What the layout's measure finds on the page showing (measure.js), and its line and place in the summary.
   // The layout's measure, then the page's floating layers opened one by one (measure.js: layers), together.
   const measure = async () => {
@@ -127,7 +127,8 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
   };
   let round = 0;
   for (const lang of ['en', 'ko']) {
-    for (const [width, height] of [[1280, 860], [390, 844]]) {
+    // A desktop, a phone and the narrowest phone looked after (360: a key that fit 390 ran past it).
+    for (const [width, height] of [[1280, 860], [390, 844], [360, 740]]) {
       round += 1;
       await page.setViewport({width, height});
       await page.goto(base + '/lang/' + lang, {waitUntil: 'networkidle0'});
@@ -191,6 +192,37 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
         !message.local;
       if (!messageFine) summary.message_faults += 1;
       console.log(lang, width, 'message to send', messageFine ? 'ok' : 'FAULT', JSON.stringify(message));
+      // The bar's floating layers pressed, not only pictured: the toast the account just made left stands inside the bar
+      // or on its strip right under it, its middle its own; on a phone MENU opens its sheet from under the bar to the
+      // window's foot, across it, its middle its own, MENU saying it is open, and it closes again.
+      const bar = await page.evaluate(async () => {
+        const out = {}, b = document.querySelector('.bar').getBoundingClientRect();
+        const t = document.querySelector('.toast[data-toast]');
+        if (t) {
+          const r = t.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          out.toast = {open: t.matches(':popover-open'), mine: t.contains(hit), under: t.classList.contains('under'),
+                       inBar: r.top >= b.top - 1 && r.bottom <= b.bottom + 1, onBar: Math.abs(r.top - b.bottom) <= 1};
+        }
+        const key = document.querySelector('.menu-key');
+        if (key && key.offsetWidth) {
+          key.click();
+          await new Promise(done => setTimeout(done, 200));
+          const sheet = document.getElementById('menu-sheet'), r = sheet.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          out.sheet = {open: sheet.matches(':popover-open'), mine: sheet.contains(hit), top: Math.abs(r.top - b.bottom) <= 1,
+                       foot: Math.abs(r.bottom - innerHeight) <= 1, across: r.left === 0 && Math.abs(r.right - innerWidth) <= 1,
+                       said: key.getAttribute('aria-expanded') === 'true'};
+          sheet.hidePopover();
+          out.sheet.closed = !sheet.matches(':popover-open');
+        }
+        return out;
+      });
+      const toastFine = bar.toast && bar.toast.open && bar.toast.mine &&
+        ((!bar.toast.under && bar.toast.inBar) || (bar.toast.under && bar.toast.onBar));
+      const sheetFine = width > 760 || (bar.sheet && Object.values(bar.sheet).every(Boolean));
+      summary.bars += 1;
+      if (!toastFine || !sheetFine) summary.bar_faults += 1;
+      console.log(lang, width, 'toast and menu sheet', toastFine && sheetFine ? 'ok' : 'FAULT', JSON.stringify(bar));
       // The Status page's list of what to look at, made so for a moment: every other account disabled through the
       // API (the seeded server has a backup, a song list and an installer), the page measured, then all enabled again.
       const others = await page.evaluate(async () => {
@@ -287,7 +319,8 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
       await page.goto(base + '/admin/backups', {waitUntil: 'networkidle0'});
       await (await page.$('form.upload input[type=file]')).uploadFile('/tmp/backup.sqlite');
       await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('form.upload button.send')]);
-      const uploaded = await page.evaluate(() => ({ok: (document.querySelector('p.alert.ok') || {}).textContent || '',
+      // What the upload did is said in the toast in the bar's place.
+      const uploaded = await page.evaluate(() => ({ok: (document.querySelector('.toast[data-toast]:not(.bad) .toast-words') || {}).textContent || '',
                                                    rows: document.querySelectorAll('table.table tbody tr').length}));
       record(lang, width, '/admin/backups (uploaded)', await measure());
       await page.screenshot({path: `/out/${lang}-_admin_backups-uploaded-${width}.png`, fullPage: true});
@@ -320,8 +353,9 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
       await page.goto(base + '/admin/song_list', {waitUntil: 'networkidle0'});
       await (await page.$('form.upload input[type=file]')).uploadFile('/out/openDMT3-song-list.zip');
       await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('form.upload button.send')]);
-      const taken = await page.evaluate(() => ({ok: (document.querySelector('p.alert.ok') || {}).textContent || '',
-                                                 bad: (document.querySelector('p.alert.bad:not([hidden])') || {}).textContent || ''}));
+      // What the import did, or why it did not, is said in the toast in the bar's place.
+      const taken = await page.evaluate(() => ({ok: (document.querySelector('.toast[data-toast]:not(.bad) .toast-words') || {}).textContent || '',
+                                                 bad: (document.querySelector('.toast.bad[data-toast] .toast-words') || {}).textContent || ''}));
       record(lang, width, '/admin/song_list (uploaded)', await measure());
       await page.screenshot({path: `/out/${lang}-_admin_song_list-uploaded-${width}.png`, fullPage: true});
       summary.song_lists += 1;
@@ -351,7 +385,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
       // Signed out for the next round (its form needs the page's token, so through the page's own button).
       await page.goto(base + '/', {waitUntil: 'networkidle0'});
       await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}),
-                         page.click('form[action="/signout"] button')]);
+                         page.evaluate(() => document.querySelector('form[action="/signout"]').requestSubmit())]);
     }
   }
   await browser.close();

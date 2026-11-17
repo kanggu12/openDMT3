@@ -6,7 +6,7 @@
   {% if message %}
   <div class="card">
     <h3><label for="message">{{ w("admin.message") }}</label></h3>
-    <span class="slot keyed"><textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea><button type="button" class="slot-key" data-copy="message" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" hidden>{{ w("form.copy") }}</button></span>
+    <span class="field-slot keyed"><textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea><button type="button" class="slot-key" data-copy="message" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" hidden>{{ w("form.copy") }}</button></span>
     {# The address in it is one only this PC reaches: which address to send in its place. #}
     {% if message_local %}<p class="alert look message-local">{{ w("admin.message.local", address=message_local) }}</p>{% endif %}
   </div>
@@ -28,7 +28,7 @@
       </div>
       <div class="field">
         <label class="label" for="make-password">{{ w("account.password") }}<span class="opt">{{ w("form.optional") }}</span></label>
-        <span class="slot keyed"><input id="make-password" name="password" type="password" maxlength="16" pattern="[A-Za-z0-9]{6,16}" autocomplete="new-password" data-invalid="{{ w('owner.hint.password', min=6, max=16) }}" aria-describedby="{{ 'make-password-error' if field == 'password' else 'make-password-hint' }}"{% if field == "password" %} aria-invalid="true" autofocus{% endif %}><button type="button" class="slot-key" data-reveal="make-password" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w('account.password') }}" hidden>{{ w("me.password.show") }}</button></span>
+        <span class="field-slot keyed"><input id="make-password" name="password" type="password" maxlength="16" pattern="[A-Za-z0-9]{6,16}" autocomplete="new-password" data-invalid="{{ w('owner.hint.password', min=6, max=16) }}" aria-describedby="{{ 'make-password-error' if field == 'password' else 'make-password-hint' }}"{% if field == "password" %} aria-invalid="true" autofocus{% endif %}><button type="button" class="slot-key" data-reveal="make-password" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w('account.password') }}" hidden>{{ w("me.password.show") }}</button></span>
         {% if field == "password" %}<span class="field-error" id="make-password-error" role="alert">{{ error }}</span>{% else %}<p class="field-hint" id="make-password-hint">{{ w("admin.make.hint.password") }}</p>{% endif %}
       </div>
       <div class="field fit"><span class="label" aria-hidden="true"></span><label class="check"><input type="checkbox" name="is_admin">{{ w("account.admin") }}</label></div>

@@ -7,10 +7,16 @@ The admin pages are part of the site, at `http://<server>:4730/admin/` (the laun
 its window shows). Only an account with admin rights opens them; to anyone else they answer as a page that is not
 there. The first account, made on the server PC's own first-run page or with `--add-player ID --admin`, has them.
 
-Every page is in English or Korean (the KOR / ENG buttons at the top; a cookie keeps the choice), works with the
-keyboard alone, and names its charts and their parts for a screen reader. A question asked before something that
-cannot be undone (a delete, a reset, a restore, stopping the server) opens in the site's own dialog, which starts on
-Cancel.
+**Admin** opens at **Status**. The pages' menu runs down the left (on a tablet a band under the page's name, on a
+phone a grid of four): Status, Players, Connected (the cabinets and the launchers), Song list, Backups, Logs, Server.
+
+Every page is in English or Korean (the KOR / ENG buttons at the top; a cookie keeps the choice; on a phone they are
+in the bar's **MENU**), works with the keyboard alone, and names its charts and their parts for a screen reader. A
+question asked before something that cannot be undone (a delete, a reset, a restore, stopping the server) opens in the
+site's own dialog, which starts on Cancel. What a change did, or why it did not, is said in a toast in the bar's place
+(done goes by itself, a refusal stays until closed), and a form sent from low on a page comes back to its own place; a
+field's own mistake is said under that field. A long job (a song list's import, a restore) that ends while you are on
+another page is told by a toast with the way to it.
 
 ## Players
 
@@ -23,12 +29,11 @@ and counts from the highest first, and a second click the other way. The list st
 `last_play`, `plays` (every stage cleared) and `plays_14_days`, in UTF-8 with its mark (a spreadsheet opens Korean
 names as they are), times in ISO 8601 on the server's clock.
 
-Each row also has a new password, rename, admin rights, disable or enable, reset plays and delete; under the list,
-reset every play. A new password, a reset and a delete ask first; a reset backs the database up first.
-
-A player's ID opens their own page (`/admin/players/<ID>`): MAX points (set, added to, taken from, or unlimited), the
-level the game shows, a ban with its reason, their DJ card and picture, a new password, a new DJ name, and every change
-made to them. Its API twin is `GET /api/v1/players/{login_id}` with a call for each control.
+The list is for looking; every change to a player is on their own page, which a player's ID or name opens
+(`/admin/players/<ID>`): MAX points (set, added to, taken from, or unlimited), the level the game shows, a ban with its
+reason, their DJ card and picture, a new password, a new DJ name, admin rights, reset plays, delete, and every change
+made to them. A new password, a reset and a delete ask first; a reset backs the database up first. Under the list,
+reset every play. Its API twin is `GET /api/v1/players/{login_id}` with a call for each control.
 
 A ban ends the player's sign-ins at once, as a new password does: on the site, in the launcher, and their API tokens.
 Lifting it does not bring them back: the player signs in again. Their card number stays, so the card logs in at the
@@ -38,9 +43,16 @@ back while it is disabled.
 API: `GET /api/v1/players` (with `?sort=` and `?order=`, and each player's `days`, `plays` and `last_play`),
 `GET /api/v1/players.csv`.
 
-## Cabinets
+## Connected
 
-Every cabinet seen, by its address or the name given here, and who plays on each now.
+Who is on the server: at the top the cabinets connected to the game's port now and the launchers heard in the last ten
+minutes, each with its lamp. Then every cabinet seen, by its address or the name given here, and who plays on each now;
+then every launcher that asked the server's API since it started: its player once it signed in (leading to their
+page), its PC's address, its version, and when it was last heard, lit while that was within ten minutes. A launcher
+names itself in each call (`openDMT3-launcher/<version>`); the server keeps what it hears in memory, so a restart
+starts the list again.
+
+API: `GET /api/v1/cabinets?all=1`, `GET /api/v1/launchers`.
 
 ## Status
 
@@ -123,7 +135,7 @@ Three views:
 At the top, the last 24 hours as 48 half hours: requests answered (or sent on) in blue, those refused or failed in
 pink on top of them, with a key, a tip for each half hour, and **As a table**. Under it a filter: a word of the path,
 the address or the account's ID, and the kind of answer (answered 2xx, sent on 3xx, refused 4xx, failed 5xx). Then the
-newest 200 requests the filter leaves, each with when, the method and path, the status, how long the answer took, the
+newest requests the filter leaves, 50 a page with newer and older pages, each with when, the method and path, the status, how long the answer took, the
 address (a click filters by it) and the ID signed in. **Download CSV** gives every request the log keeps that the
 filter leaves: `at`, `method`, `path`, `status`, `ms`, `address`, `who`.
 

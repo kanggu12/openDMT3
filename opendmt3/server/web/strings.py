@@ -17,6 +17,7 @@ TEXT = {
     "nav.admin": ("ADMIN", "ADMIN"),
     "nav.signout": ("Sign out", "로그아웃"),
     "nav.menu": ("MENU", "메뉴"),
+    "nav.skip": ("Skip to the page", "본문으로 건너뛰기"),
     "nav.sections": ("Sections", "메뉴"),
     "toast.close": ("Close", "닫기"),
     "toast.open": ("Open", "열기"),

@@ -57,6 +57,11 @@ body {
   background-image: radial-gradient(circle, rgba(255, 255, 255, 0.045) 1px, transparent 1.3px);
   background-size: 6px 6px; background-attachment: fixed;
 }
+/* Skip to the page: the keyboard's first stop, out of sight until it has the focus, then over the bar's mark. */
+.skip { position: absolute; left: 16px; top: -64px; z-index: 30; padding: 10px 16px; color: var(--chalk); background: var(--deck-top);
+        box-shadow: var(--glass-rim); font-weight: 600; }
+.skip:focus { top: 8px; outline: 2px solid var(--cyan); outline-offset: 2px; text-decoration: none; }
+main:focus { outline: none; }
 /* A form sent from low on a page comes back to its own place (its action's #anchor): clear of the sticky bar. */
 [id] { scroll-margin-top: calc(var(--bar-h, 62px) + 16px); }
 /* A word longer than its line (a path, an address) breaks rather than run past its box, in every language. */
@@ -365,9 +370,9 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 .form { display: grid; gap: 16px; }
 .form.stack { max-width: 440px; }
 /* A field: its label, the slot, then a hint or what is wrong, 6 px apart. A label that wraps its field reads the same. */
-.field, .form label:not(.check):not(.drop):not(.choice) { display: grid; gap: 6px; min-width: 0; align-content: start; }
+.field, .form label:not(.check):not(.drop):not(.choice):not(.label) { display: grid; gap: 6px; min-width: 0; align-content: start; }
 /* The label: what goes in, 13 px semibold in the ash's grey, a sentence's case in English (never capitals). */
-.field > .label, .form label:not(.check):not(.drop):not(.choice) { font: 600 13px/18px var(--text-face); color: var(--ash); }
+.field > .label, .form label:not(.check):not(.drop):not(.choice):not(.label) { font: 600 13px/18px var(--text-face); color: var(--ash); }
 .field > .label { display: flex; align-items: baseline; gap: 8px; min-height: 18px; margin: 0; }
 /* "Optional" after a label: the field may stay empty. */
 .label .opt { font-weight: 400; color: var(--hint); }
@@ -427,7 +432,7 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 /* Not usable now: no shade, quieter edge and words, the pointer says no; its label goes quiet with it. */
 :is(input, select, textarea):where(:not([type="checkbox"], [type="radio"], [type="range"], [type="file"])):disabled {
   color: var(--faint); background-color: var(--slot-off); border-color: var(--slot-off-edge); box-shadow: none; cursor: not-allowed; }
-.field:has(> :disabled) > .label, .field:has(.slot > :disabled) > .label { color: var(--faint); }
+.field:has(> :disabled) > .label, .field:has(.field-slot > :disabled) > .label { color: var(--faint); }
 input:disabled::placeholder { color: transparent; }
 /* To read and copy, not to change (a token shown once, a message to send): the well without its edge's light or shade. */
 :is(input, textarea)[readonly] { border-color: var(--slot-off-edge); box-shadow: none; }
@@ -442,16 +447,19 @@ input::-ms-reveal, input::-ms-clear { display: none; }
 input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
 /* Many lines: the same slot, its words with room, growing with them (site.js) up to twelve lines, then scrolling inside;
    no browser grip in its corner. */
-textarea { height: auto; min-height: 96px; max-height: calc(12 * 1.6em + 22px); padding: 10px 12px; line-height: 1.6; resize: none; overflow-y: auto; }
+textarea { height: auto; min-height: 96px; padding: 10px 12px; line-height: 1.6; resize: none; overflow-y: auto; }
+textarea:not([readonly]) { max-height: calc(12 * 1.6em + 22px); }
+/* Text to copy (a message to send, a token) shows whole, however many lines it wraps to on a phone (site.js fits it). */
+textarea[readonly] { min-height: 0; overflow-y: hidden; }
 
 /* A slot with something of its own inside: a key at its right end (Show, Copy, a stepper), a mark at its left (search,
    the sign-in's), a unit. The field keeps room for them, so its words never run under them. */
-.slot { position: relative; display: block; min-width: 0; }
-.slot.keyed > :is(input, textarea) { padding-right: 82px; }
-.slot.keyed.two > input { padding-right: 112px; }
-.slot.marked > input { padding-left: 40px; }
-.slot.marked > input.lg { padding-left: 44px; }
-.slot.united > input { padding-right: 56px; }
+.field-slot { position: relative; display: block; min-width: 0; }
+.field-slot.keyed > :is(input, textarea) { padding-right: 82px; }
+.field-slot.keyed.two > input { padding-right: 112px; }
+.field-slot.marked > input { padding-left: 40px; }
+.field-slot.marked > input.lg { padding-left: 44px; }
+.field-slot.united > input { padding-right: 56px; }
 /* A key inside a slot: small quiet metal with the keys' lean (two corners cut), 5 px in from the slot's edge. */
 .slot-key { position: absolute; top: 5px; bottom: 5px; right: 5px; display: inline-flex; align-items: center; justify-content: center;
             min-width: 64px; padding: 0 10px; border: 0; margin: 0; font: 600 12px/1 var(--text-face); white-space: nowrap;
@@ -462,19 +470,19 @@ textarea { height: auto; min-height: 96px; max-height: calc(12 * 1.6em + 22px); 
 .slot-key:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
 .slot-key:disabled { color: var(--faint); background: var(--slot-off); cursor: not-allowed; }
 /* A key inside a text area stands at its top right. */
-.slot.keyed > textarea + .slot-key { bottom: auto; height: 32px; }
+.field-slot.keyed > textarea + .slot-key { bottom: auto; height: 32px; }
 /* Two keys at the end (a stepper's minus and plus): square, side by side. */
 .slot-key.step { min-width: 0; width: 32px; padding: 0; font: 600 16px/1 var(--text-face); }
 .slot-key.step.minus { right: 41px; }
 /* A unit after a number (MB, points): the hint's ink at the slot's right end, not a key. */
-.slot > .unit { position: absolute; top: 0; bottom: 0; right: 12px; display: flex; align-items: center; color: var(--hint);
+.field-slot > .unit { position: absolute; top: 0; bottom: 0; right: 12px; display: flex; align-items: center; color: var(--hint);
                 font-size: 13px; pointer-events: none; }
 /* A mark at the slot's left (a magnifier for search; the sign-in's person and lock): the faint ink, the keyboard's cyan
    while the field has the focus. */
-.slot > .mark { position: absolute; left: 13px; top: 50%; width: 16px; height: 16px; margin-top: -8px; fill: none; stroke: var(--faint);
+.field-slot > .mark { position: absolute; left: 13px; top: 50%; width: 16px; height: 16px; margin-top: -8px; fill: none; stroke: var(--faint);
                 stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; transition: stroke var(--quick); }
-.slot > .mark.lg { left: 15px; width: 18px; height: 18px; margin-top: -9px; }
-.slot:focus-within > .mark { stroke: var(--cyan); }
+.field-slot > .mark.lg { left: 15px; width: 18px; height: 18px; margin-top: -9px; }
+.field-slot:focus-within > .mark { stroke: var(--cyan); }
 
 /* A list to pick from: closed, a slot with a chevron at its right end, drawn the same on every system. */
 select { padding-right: 38px; cursor: pointer; text-overflow: ellipsis;

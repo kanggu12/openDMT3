@@ -11,6 +11,8 @@
 //                 and a menu whose words would not fit the narrowest phone looked after (360 px wide);
 //   askew         a button whose words are not in its middle or are larger than it (a link made to look like a button
 //                 lost the box that centres its words, and they rose to its top edge beside two buttons that kept it);
+//   forms         a field with no label, a slot not of the forms' heights (34, 42, 44, 48), the browser's own list or
+//                 tick, a rule in a bracketed placeholder, a field marked wrong with no words under it (FORMS.md);
 //   spacing       boxes (a card, a button, a field, a tag, an alert: anything with a fill, a border or a shadow) that
 //                 touch or overlap a box beside them in the same parent; words nearer a box's edge than its padding;
 //                 a gap between two boxes beside each other that is off the site's scale (whole steps of 2 px up to
@@ -125,7 +127,8 @@ const layout = page => page.evaluate(() => {
     const s = getComputedStyle(e);
     return ['auto', 'scroll'].includes(s.overflowX) || e.matches('.door, .lost-code');
   };
-  const outside = 'dialog, dialog *, .shards, .shards *, .tip, svg, svg *, script, style, option, .visually-hidden';
+  const outside = 'dialog, dialog *, .shards, .shards *, .tip, svg, svg *, script, style, option, .visually-hidden, ' +
+    '.toast, .toast *, .menu-sheet, .menu-sheet *';
   const boxes = [...document.querySelectorAll('body *')].filter(e => !e.matches(outside) && shown(e) && isBox(e) &&
     getComputedStyle(e).position !== 'fixed');
   const steps = new Set([0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 36, 40, 48, 56, 64]);
@@ -135,8 +138,8 @@ const layout = page => page.evaluate(() => {
     // Its next box in the same parent, on the same row or in the same column.
     for (let next = box.nextElementSibling; next; next = next.nextElementSibling) {
       if (!boxed.has(next)) continue;
-      // A key laid inside its field (Show, Copy, a stepper: a .slot's .slot-key) sits over it by design.
-      if (box.parentElement.matches('.slot') && (box.matches('.slot-key') || next.matches('.slot-key'))) continue;
+      // A key laid inside its field (Show, Copy, a stepper: a .field-slot's .slot-key) sits over it by design.
+      if (box.parentElement.matches('.field-slot') && (box.matches('.slot-key') || next.matches('.slot-key'))) continue;
       const n = next.getBoundingClientRect();
       const sideBySide = n.top < r.bottom - 1 && n.bottom > r.top + 1;
       const stacked = n.left < r.right - 1 && n.right > r.left + 1;
@@ -183,8 +186,30 @@ const layout = page => page.evaluate(() => {
                    ' than its padding (' + Math.round(near[0][1]) + ' of ' + parseFloat(near[0][2]) + ' px)');
     }
   }
+  // ---- forms (FORMS.md): every field a person types in or picks from has its label, the slot's own heights, the
+  // site's own list and tick (never the browser's), no rule written as a placeholder in brackets, and a field marked
+  // wrong has its words under it.
+  const forms = [];
+  for (const f of document.querySelectorAll('input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea')) {
+    if (!shown(f) || f.closest('dialog')) continue;
+    const labelled = (f.labels && f.labels.length > 0) || f.getAttribute('aria-label') || f.getAttribute('aria-labelledby');
+    if (!labelled) forms.push(name(f) + ' has no label');
+    const h = Math.round(f.getBoundingClientRect().height);
+    if (f.tagName !== 'TEXTAREA' && ![34, 42, 44, 48].includes(h)) forms.push(name(f) + ' is ' + h + ' px tall');
+    if (f.tagName === 'SELECT' && !['none', 'base-select'].includes(getComputedStyle(f).appearance)) forms.push(name(f) + ' is the browser\'s own list');
+    if (/^\(.*\)$/.test(f.getAttribute('placeholder') || '')) forms.push(name(f) + ' says its rule in a placeholder');
+  }
+  for (const c of document.querySelectorAll('input[type=checkbox], input[type=radio]')) {
+    if (!shown(c) || c.closest('.choice, .seg, dialog')) continue;
+    if (getComputedStyle(c).appearance !== 'none') forms.push(name(c) + ' is the browser\'s own tick');
+  }
+  for (const f of document.querySelectorAll('[aria-invalid="true"]')) {
+    const said = (f.getAttribute('aria-describedby') || '').split(/\s+/).map(id => document.getElementById(id)).filter(Boolean);
+    if (!said.some(e => e.matches('.field-error'))) forms.push(name(f) + ' is marked wrong with no words under it');
+  }
   return {page: document.documentElement.scrollWidth - width, els, cut: cut.slice(0, 6),
-          unlabelled: unlabelled.slice(0, 6), menu, askew: askew.slice(0, 6), spacing: [...new Set(spacing)].slice(0, 8)};
+          unlabelled: unlabelled.slice(0, 6), menu, askew: askew.slice(0, 6), spacing: [...new Set(spacing)].slice(0, 8),
+          forms: forms.slice(0, 6)};
 });
 
 // The page's floating layers (the charts' and the DJ's weeks' tips), each opened as a person opens it, by pointing at
@@ -242,6 +267,7 @@ const record = (summary, lang, width, path, over) => {
   if (over.askew.length > 0) { summary.askew += 1; faults.push('BUTTON ASKEW'); }
   if (over.spacing.length > 0) { summary.spacing = (summary.spacing || 0) + 1; faults.push('SPACING'); }
   if (over.layers && over.layers.length > 0) { summary.layer_faults = (summary.layer_faults || 0) + 1; faults.push('LAYER'); }
+  if (over.forms && over.forms.length > 0) { summary.form_faults = (summary.form_faults || 0) + 1; faults.push('FORM'); }
   console.log(lang, width, path, faults.length ? faults.join(', ') : 'ok', JSON.stringify(over));
 };
 

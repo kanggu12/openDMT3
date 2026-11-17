@@ -21,20 +21,21 @@ OUT=$(realpath -m "${1:?usage: run.sh OUT_DIR}")
 REPO=${OPENDMT3_REPO:-$(cd "$(dirname "$0")/../../.." && pwd)}
 # 29 pages (the sign-in page, 21 signed in with two players' own pages, the players page with a message to send, the Status page with a line to
 # look at, the songs page filtered, the account page with a token just made, the backups page after an upload, the
-# Song list tab after a song list's upload, the Status page with maintenance off) x 2 widths x 2 languages; eight
+# Song list tab after a song list's upload, the Status page with maintenance off) x 3 widths (1280, 390, 360) x 2
+# languages; eight
 # questions (a player deleted, a player's plays reset, a new password, every play reset, a backup deleted, a token
 # revoked, a player banned, one's own account deleted), one message, one list to look at, one songs filter, one token, one upload of each kind and one maintenance
-# off and on each round.
-EXPECTED_PAGES=116
-EXPECTED_DIALOGS=32
-EXPECTED_ROUNDS=4
-# The empty server (empty.js): the first-run page in 2 languages x 2 widths and once refused in each language, the
-# sign-in page after the owner was made, a wrong password in each language, 20 pages x 2 widths x 2 languages, the
-# players page with an account made x 2 x 2, and a plain player's 4 pages x 2 x 2; its states that must hold: the
-# first run (4) and refused (2), the owner made (1), a wrong password (2), the Download page and the Status page of
-# the empty server (4 each), the message (4), a plain player (4).
-EXPECTED_EMPTY_PAGES=109
-EXPECTED_EMPTY_STATES=25
+# off and on, and the toast and the phone's menu sheet pressed each round.
+EXPECTED_PAGES=174
+EXPECTED_DIALOGS=48
+EXPECTED_ROUNDS=6
+# The empty server (empty.js): the first-run page in 2 languages x 3 widths and once refused in each language, the
+# sign-in page after the owner was made, a wrong password in each language, 20 pages x 3 widths x 2 languages, the
+# players page with an account made x 3 x 2, and a plain player's 4 pages x 3 x 2; its states that must hold: the
+# first run (6) and refused (2), the owner made (1), a wrong password (2), the Download page and the Status page of
+# the empty server (6 each), the message (6), a plain player (6).
+EXPECTED_EMPTY_PAGES=161
+EXPECTED_EMPTY_STATES=35
 # Names of this run's own (odt3-*, with its process number), so two runs at once (the self-test's and another's, or
 # CI's) never stop each other's server or use each other's image; each goes when its run ends.
 # (odt3-web-*, or the name OPENDMT3_E2E_NAME gives in its place, so whoever runs several at once tells theirs apart.)
@@ -71,7 +72,7 @@ done
 # The upload field's words in both languages, from the site's own table, for the browser to hold the page to.
 WORDS=$(cd "$REPO" && python3 -I -c 'import json, sys; sys.path.insert(0, "."); from opendmt3.server.web.strings import TEXT
 print(json.dumps({k: TEXT[k] for k in ("upload.none", "upload.choose", "upload.change")}))') || { echo "FAIL: the words"; exit 1; }
-timeout 900 docker run --rm --name "$NAME-browser-$$" --network "$NET" -e SITE=http://site:4730 -e NODE_PATH=/usr/src/app/node_modules -e WORDS="$WORDS" \
+timeout 1500 docker run --rm --name "$NAME-browser-$$" --network "$NET" -e SITE=http://site:4730 -e NODE_PATH=/usr/src/app/node_modules -e WORDS="$WORDS" \
   -v "$REPO/tests/e2e/web:/w:ro" -v "$OUT/shots:/out" -w /usr/src/app zenika/alpine-chrome:with-puppeteer node /w/shoot.js \
   > "$OUT/shoot.txt" 2>&1
 status=$?
@@ -84,7 +85,7 @@ for _ in $(seq 60); do
     >/dev/null 2>&1 && break
   sleep 0.5
 done
-timeout 900 docker run --rm --name "$NAME-empty-browser-$$" --network "container:$EMPTY" -e NODE_PATH=/usr/src/app/node_modules \
+timeout 1500 docker run --rm --name "$NAME-empty-browser-$$" --network "container:$EMPTY" -e NODE_PATH=/usr/src/app/node_modules \
   -v "$REPO/tests/e2e/web:/w:ro" -v "$OUT/shots:/out" -w /usr/src/app zenika/alpine-chrome:with-puppeteer node /w/empty.js \
   > "$OUT/empty.txt" 2>&1
 empty_status=$?
@@ -124,7 +125,8 @@ for what, key in (("pages stick out", "sticking"), ("pages cut words off", "cut"
                   ("pages have a button's words out of its middle", "askew"),
                   ("pages have boxes touching, words nearer than their padding, a gap off the scale or words on the "
                    "bare page", "spacing"), ("pages have a floating layer off the screen or under something",
-                                             "layer_faults")):
+                                             "layer_faults"),
+                  ("pages have a form part out of its design (FORMS.md)", "form_faults")):
     if s[key] + e[key]:
         problems.append("%s: %d" % (what, s[key] + e[key]))
 if empty_status:
@@ -135,6 +137,8 @@ if s["filters"] != rounds or s["filter_faults"]:
     problems.append("the songs filter: %d of %d runs misbehaved" % (s["filter_faults"], s["filters"]))
 if s["messages"] != rounds or s["message_faults"]:
     problems.append("the message to send: %d of %d runs misbehaved" % (s["message_faults"], s["messages"]))
+if s["bars"] != rounds or s["bar_faults"]:
+    problems.append("the toast and the phone's menu sheet: %d of %d runs misbehaved" % (s["bar_faults"], s["bars"]))
 if s["looks"] != rounds or s["look_faults"]:
     problems.append("the list to look at: %d of %d runs misbehaved" % (s["look_faults"], s["looks"]))
 # Two upload fields a round, the Backups tab's and the Song list tab's.

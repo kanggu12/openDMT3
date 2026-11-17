@@ -103,7 +103,7 @@
           {% set wrong = fields[key] if mine and key in fields else None %}
           <div class="field">
             <label class="label" for="pw-{{ key }}">{{ w(label) }}</label>
-            <span class="slot keyed"><input id="pw-{{ key }}" name="{{ key }}" type="password" maxlength="{{ password_max }}" autocomplete="{{ auto }}" required data-missing="{{ w('me.password.missing') }}"{% if key != "current" %} minlength="{{ password_min }}" data-invalid="{{ w('me.password.rules', min=password_min, max=password_max) }}"{% endif %}{% if wrong %} aria-invalid="true" autofocus aria-describedby="pw-{{ key }}-error"{% elif key == "new" %} aria-describedby="password-rules"{% endif %}><button type="button" class="slot-key" data-reveal="pw-{{ key }}" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w(label) }}" hidden>{{ w("me.password.show") }}</button></span>
+            <span class="field-slot keyed"><input id="pw-{{ key }}" name="{{ key }}" type="password" maxlength="{{ password_max }}" autocomplete="{{ auto }}" required data-missing="{{ w('me.password.missing') }}"{% if key != "current" %} minlength="{{ password_min }}" data-invalid="{{ w('me.password.rules', min=password_min, max=password_max) }}"{% endif %}{% if wrong %} aria-invalid="true" autofocus aria-describedby="pw-{{ key }}-error"{% elif key == "new" %} aria-describedby="password-rules"{% endif %}><button type="button" class="slot-key" data-reveal="pw-{{ key }}" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w(label) }}" hidden>{{ w("me.password.show") }}</button></span>
             {% if wrong %}<span class="field-error" id="pw-{{ key }}-error" role="alert">{{ wrong }}</span>{% elif key == "new" %}<p class="field-hint" id="password-rules">{{ w("me.password.hint", min=password_min, max=password_max) }}</p>{% endif %}
           </div>
           {% endfor %}
@@ -125,7 +125,7 @@
         {% if made %}
         <div class="field made-token">
           <label class="label" for="made-token">{{ w("me.tokens.made", name=made.name) }}</label>
-          <span class="slot keyed"><textarea id="made-token" class="message token" readonly rows="2">{{ made.token }}</textarea><button type="button" class="slot-key" data-copy="made-token" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" hidden>{{ w("form.copy") }}</button></span>
+          <span class="field-slot keyed"><textarea id="made-token" class="message token" readonly rows="2">{{ made.token }}</textarea><button type="button" class="slot-key" data-copy="made-token" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" hidden>{{ w("form.copy") }}</button></span>
         </div>
         {% endif %}
         {% set wrong = fields.token_name if fields.form == "token_make" else None %}
@@ -167,7 +167,7 @@
           <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="delete_me">
           <div class="field grow">
             <label class="label" for="delete-current">{{ w("me.password.current") }}</label>
-            <span class="slot keyed"><input id="delete-current" name="current" type="password" maxlength="{{ password_max }}" autocomplete="current-password" required data-missing="{{ w('me.password.missing') }}" {% if wrong %} aria-describedby="delete-current-error"{% endif %}{% if wrong %} aria-invalid="true" autofocus{% endif %}><button type="button" class="slot-key" data-reveal="delete-current" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w('me.password.current') }}" hidden>{{ w("me.password.show") }}</button></span>
+            <span class="field-slot keyed"><input id="delete-current" name="current" type="password" maxlength="{{ password_max }}" autocomplete="current-password" required data-missing="{{ w('me.password.missing') }}" {% if wrong %} aria-describedby="delete-current-error"{% endif %}{% if wrong %} aria-invalid="true" autofocus{% endif %}><button type="button" class="slot-key" data-reveal="delete-current" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w('me.password.current') }}" hidden>{{ w("me.password.show") }}</button></span>
             {% if wrong %}<span class="field-error" id="delete-current-error" role="alert">{{ wrong }}</span>{% endif %}
           </div>
           <button class="btn danger">{{ w("me.delete.yes") }}</button>

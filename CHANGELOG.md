@@ -8,6 +8,13 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ### Added
 
+- **Connected** on the admin pages: the launchers on the server beside its cabinets (whose, from which PC, which
+  version, when last heard), and `GET /api/v1/launchers`.
+- The site's forms in one design: labels above their fields, hints and mistakes under them, Show inside a password,
+  the site's own lists and ticks; the sign-in page as the site's front door, with Remember my ID on this browser.
+- Toasts in the bar's place for what a change did, over a dialog too, and for a long job that ended elsewhere; on a
+  phone the bar is one row with **MENU**.
+
 - The Windows server package, `opendmt3-server-<version>-windows-x64.zip`: the server on a Windows PC of its own,
   without Docker, Python or the launcher, with the launcher's installer of the same release to hand out, start and
   stop from any window, a firewall helper, repair and removal.
@@ -54,6 +61,10 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ### Changed
 
+- **Admin** opens at **Status**, with the admin pages' menu down the left; the Players list is for looking and every
+  change to a player is on their own page. Pages that work rather than show have a low head; the phone's heroes are low.
+- No how-to blocks on the site's pages (the Download page is the key and its facts; the guides keep the steps).
+- The requests log shows 50 requests a page; `GET /api/v1/log/requests` takes `?per=` and `?page=`.
 - Motion clarity is offered from a screen's highest refresh rate at its size: on Windows 11's dynamic refresh rate,
   which gives programs 60 Hz while the monitor runs faster, the row no longer hides, and its hint says what to change
   in Windows' display settings. The in-game log names each screen's rate now, its highest and whether it is dynamic.

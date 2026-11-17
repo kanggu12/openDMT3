@@ -23,6 +23,8 @@
 {# Each section in one of the game's colours: rankings in POP's pink, songs in STAR's lime, the console in amber. #}
 {% set section = 'console' if path.startswith('/admin') or path.startswith('/owner') else ('pop' if path.startswith('/rankings') or path.startswith('/dj/') else ('star' if path.startswith('/songs') else 'technika')) %}
 <body class="lang-{{ lang }}" data-section="{{ section }}">
+{# The keyboard's first stop: straight to the page, past the bar and its menu (shown only while it has the focus). #}
+<a class="skip" href="#main">{{ w("nav.skip") }}</a>
 {# The front door (sign-in, first run: `door` set by the page) keeps only the language in its bar: no plate under it, and
    the small mark steps aside for the page's big one. #}
 {% set sections = [("/", "nav.home", path == "/"), ("/rankings", "nav.rankings", path.startswith("/rankings") or path.startswith("/dj/")), ("/songs", "nav.songs", path.startswith("/songs")), ("/download", "nav.download", path.startswith("/download")), ("/admin", "nav.admin", path.startswith("/admin"))] %}
@@ -84,7 +86,7 @@
 {% if site_maintenance %}<div class="site-notice maintenance" role="status"><span class="label">{{ w("maintenance.bar") }}</span><span class="text">{{ w("maintenance.bar.text") }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
 {# The admin's notice (Admin, Status), one line on every page. #}
 {% if site_notice %}<div class="site-notice" role="status"><span class="label">{{ w("notice.bar") }}</span><span class="text">{{ site_notice }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
-<main>
+<main id="main" tabindex="-1">
 {% block main %}{% endblock %}
 </main>
 <footer class="foot">
