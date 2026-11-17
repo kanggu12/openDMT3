@@ -5,6 +5,8 @@
 /data/
 # Compose's variables for this PC: the game folder kept mounted into the server (./dmt3 setup writes it).
 /.env
+# Caddy's settings for the site over HTTPS (./dmt3 expose writes them).
+/.edge/
 
 __pycache__/
 *.pyc

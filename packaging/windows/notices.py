@@ -104,6 +104,16 @@ ROLES = {
     "starlette": "the site the launcher runs for playing on this PC", "uvicorn": "the same site's web server",
     "jinja2": "the same site's pages", "python-multipart": "the same site's uploads",
 }
+# The same for the Windows server package (server.spec), which carries the server alone.
+SERVER_ROLES = {
+    "pillow": "the pictures (jackets, DJ cards); the image libraries in it are listed with their licences in its text",
+    "pyinstaller": "its bootloader, which starts opendmt3-server.exe, and its loader",
+    "starlette": "the site", "uvicorn": "the site's web server", "jinja2": "the site's pages",
+    "python-multipart": "the site's uploads",
+}
+# What a library of Python's own does in the server package, where it differs from the launcher's words above.
+SERVER_WHERE = {"SQLite": "in Python's sqlite3, where the server keeps its players and records",
+                "zlib": "in Python's zlib"}
 
 
 def _key(name):
@@ -206,8 +216,10 @@ class Notices:
     """The rows of NOTICES.txt and the texts they name, written into one folder; problems are kept, not raised, so
     one run says every one."""
 
-    def __init__(self, folder):
+    def __init__(self, folder, carrier="openDMT3's launcher for Windows"):
         self.folder = folder
+        # What carries the parts, for the first line of NOTICES.txt.
+        self.carrier = carrier
         self.rows = []
         self.problems = []
         # Each file written: its name -> its content. The same text under the same name (the site's copy of a font's
@@ -255,7 +267,7 @@ class Notices:
 
     def write(self):
         """NOTICES.txt; then every file in the folder is named by a row, and every name is a file in it."""
-        lines = ["openDMT3's launcher for Windows carries these programs and parts, each under its own licence. The",
+        lines = ["%s carries these programs and parts, each under its own licence. The" % self.carrier,
                  "full texts are in this folder. openDMT3's own code is under the MIT License (openDMT3-LICENSE.txt).",
                  ""]
         for what, licence, texts in self.rows:
@@ -291,7 +303,10 @@ def gather(dist, repo, modules, installed=None, owners=None, python_root=None, k
     # Made afresh: a text left from an earlier build would be named by no row.
     shutil.rmtree(folder, ignore_errors=True)
     os.makedirs(folder)
-    notes = Notices(folder)
+    # The server package's folder holds the server alone (server.spec): its own words for the parts.
+    server = os.path.isfile(os.path.join(dist, "opendmt3-server.exe"))
+    notes = Notices(folder, "openDMT3's server package for Windows" if server else "openDMT3's launcher for Windows")
+    roles = SERVER_ROLES if server else ROLES
     if installed is None:
         installed = {_key(d.metadata["Name"]): d for d in importlib.metadata.distributions()}
     if owners is None:
@@ -300,8 +315,10 @@ def gather(dist, repo, modules, installed=None, owners=None, python_root=None, k
     inside, names = contents(dist)
 
     # openDMT3 itself, first: the rest is what it is built with.
-    notes.row("openDMT3 %s: the launcher, the site it runs for playing on this PC, and the installer's dialogs"
-              % _version_of(repo), "MIT", [notes.copy("openDMT3-LICENSE.txt", os.path.join(repo, "LICENSE"))])
+    notes.row("openDMT3 %s: %s" % (_version_of(repo), "the server (the game server and the site) for a PC of its own"
+                                   if server else "the launcher, the site it runs for playing on this PC, and the "
+                                                  "installer's dialogs"),
+              "MIT", [notes.copy("openDMT3-LICENSE.txt", os.path.join(repo, "LICENSE"))])
 
     # Python, with what its own LICENSE.txt covers: its C runtime's terms, bzip2's and Tcl/Tk's.
     runtime = sorted(n for n in names if n.lower().startswith("vcruntime") and n.lower().endswith(".dll"))
@@ -327,6 +344,7 @@ def gather(dist, repo, modules, installed=None, owners=None, python_root=None, k
         if not _has(names, files):
             continue
         said = (" " + version()) if version else ""
+        where = SERVER_WHERE.get(name, where) if server else where
         notes.row("%s%s, %s" % (name, said, where), licence, [notes.copy(text, os.path.join(kept, text))])
 
     # The Python packages the build holds.
@@ -344,11 +362,12 @@ def gather(dist, repo, modules, installed=None, owners=None, python_root=None, k
         if "Apache-2.0" in licence and not any("TERMS AND CONDITIONS FOR USE" in content for _, content in own):
             texts.append(notes.copy(APACHE[0], os.path.join(kept, APACHE[1])))
         texts += [notes.text("%s-%s" % (name, path), content) for path, content in sboms(dist)]
-        role = ROLES.get(key)
+        role = roles.get(key)
         notes.row("%s %s%s" % (name, dist.version, (": " + role) if role else ""), licence, texts)
 
     # openDMT3's parts made by others, with the texts the build put beside them.
-    sevenzip = os.path.join(inside, "opendmt3", "client", "bin", "7-Zip")
+    # The launcher's 7-Zip, or the server package's (server.spec).
+    sevenzip = os.path.join(inside, "opendmt3", "server" if server else "client", "bin", "7-Zip")
     if os.path.isdir(sevenzip):
         try:
             with open(os.path.join(sevenzip, "readme.txt"), encoding="utf-8", errors="replace") as f:
@@ -356,8 +375,9 @@ def gather(dist, repo, modules, installed=None, owners=None, python_root=None, k
                 release = f.readline().strip()
         except OSError:
             release = "7-Zip"
-        notes.row("%s for Windows (7z.exe, 7z.dll): the launcher lists, tests and unpacks the game's archives with it"
-                  % release, "GNU LGPL, with the unRAR license restriction and BSD licences for some code",
+        notes.row("%s for Windows (7z.exe, 7z.dll): the %s with it"
+                  % (release, "server reads the song list from the client data's archives" if server
+                     else "launcher lists, tests and unpacks the game's archives"), "GNU LGPL, with the unRAR license restriction and BSD licences for some code",
                   [notes.copy("7-Zip-License.txt", os.path.join(sevenzip, "License.txt"))])
     cabinet = os.path.join(inside, "opendmt3", "core", "cabinet", "bin")
     if os.path.isfile(os.path.join(cabinet, "CRT_R1.dll")):
@@ -401,7 +421,8 @@ def gather(dist, repo, modules, installed=None, owners=None, python_root=None, k
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("dist", help="PyInstaller's folder of the launcher (dist/openDMT3)")
+    parser.add_argument("dist", help="PyInstaller's folder of the launcher (dist/openDMT3) or of the server package "
+                                     "(dist/opendmt3-server)")
     parser.add_argument("repo", help="the repository it was built from")
     args = parser.parse_args(argv)
     # Both programs: what is inside either is in the folder people install.

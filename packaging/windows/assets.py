@@ -3,8 +3,8 @@
   python packaging/windows/assets.py OUT_DIR VERSION
 
 Writes openDMT3.ico (the program and installer icon), splash.png (shown while Velopack updates), setup-splash.png
-(shown while the installer unpacks itself), and version.txt and setup-version.txt (the file properties Windows
-shows for the launcher and the installer).
+(shown while the installer unpacks itself), and version.txt, setup-version.txt and server-version.txt (the file
+properties Windows shows for the launcher, the installer and the server package's program).
 """
 
 import os
@@ -78,6 +78,8 @@ def main():
     setup_splash(os.path.join(out, "setup-splash.png"), version)
     version_file(os.path.join(out, "version.txt"), version)
     version_file(os.path.join(out, "setup-version.txt"), version, "openDMT3 setup")
+    # The Windows server package's program (server.spec).
+    version_file(os.path.join(out, "server-version.txt"), version, "openDMT3 server")
 
 
 if __name__ == "__main__":

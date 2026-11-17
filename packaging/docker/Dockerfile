@@ -50,5 +50,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OPENDMT3_IN_CONTAINER=1 MALLOC_
 VOLUME /data
 # 4725: the game connects here. 4730: the site and the launcher's API.
 EXPOSE 4725 4730
-HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4730/health', timeout=4)"
+# The site's port: OPENDMT3_WEB_PORT when compose.yaml gives another one (./dmt3 ports), else 4730.
+HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/health' % (os.environ.get('OPENDMT3_WEB_PORT') or 4730), timeout=4)"
 ENTRYPOINT ["python", "-m", "opendmt3.server", "--data", "/data", "--host", "0.0.0.0"]

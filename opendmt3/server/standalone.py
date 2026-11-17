@@ -247,8 +247,11 @@ def server_args(data):
         # Behind a proxy on this PC: the site is reached through it alone, and its forwarded headers are believed
         # from this PC's own address only.
         argv += ["--web-host", "127.0.0.1", "--proxy", kept["proxy"]]
-    if kept["site_address"]:
-        argv += ["--site-address", kept["site_address"]]
+    # The players' address: the one kept, else this PC's address on its network, so the message to send a player and
+    # the invite carry an address other PCs reach even before setup --address (none when this PC has no network).
+    address = players_address(data)
+    if "//127.0.0.1:" not in address:
+        argv += ["--site-address", address]
     if kept["game"]:
         argv += ["--game", kept["game"]]
     if kept["webhook"]:
@@ -299,15 +302,15 @@ def first_account_needed(data):
         return True
 
 
-def banner(data, web_port, background):
-    """What a run says once the server is up: where players go, where the owner goes, how it stops."""
-    here = "http://127.0.0.1:%d/" % web_port
-    say("openDMT3 server %s, data in %s" % (__version__, os.path.abspath(data)))
-    say("Players: %s" % players_address(data))
-    say("On this PC: %s%s" % (here, " (the first start: open it to make the owner's account)"
-                                if first_account_needed(data) else ""))
-    if not background:
-        say("It runs while this window is open. To stop it: close the window, press Ctrl+C, or run %s stop." % PROG)
+def show_banner(data):
+    """The server's banner as the running one printed it (server/banner.py), for start, whose server prints its own into
+    its log folder."""
+    from opendmt3.server import banner
+    kept = settings(data)
+    banner.show(__version__, banner.rows(players_address(data), "http://127.0.0.1:%d/" % kept["web_port"],
+                                         kept["game_port"]),
+                ["First start: open http://127.0.0.1:%d/ on this PC to make the owner's account." % kept["web_port"]]
+                if first_account_needed(data) else [])
 
 
 def cmd_run(args):
@@ -341,16 +344,18 @@ def cmd_run(args):
             await asyncio.sleep(POLL_SECONDS)
 
     async def serve():
-        task = asyncio.ensure_future(server_cli.serve(server_args_namespace(data), data, until=until_asked))
-        # The banner once the site answers, so its addresses are ones that work.
-        for _ in range(100):
-            # Asked from a thread: the site answers on this same loop, which must not wait on the question.
-            if task.done() or await asyncio.to_thread(health, kept["web_port"], 0.5):
-                break
-            await asyncio.sleep(0.1)
-        if not task.done():
-            banner(data, kept["web_port"], args.background)
-            if not args.background and not args.no_browser and first_account_needed(data):
+        # The banner (server/banner.py) comes from the server once its site answers, with how this run stops.
+        notes = [] if args.background else [
+            "It runs while this window is open. To stop it: close the window, press Ctrl+C, or run %s stop." % PROG]
+        task = asyncio.ensure_future(server_cli.serve(server_args_namespace(data), data, until=until_asked,
+                                                      notes=notes))
+        if not args.background and not args.no_browser and first_account_needed(data):
+            for _ in range(100):
+                # Asked from a thread: the site answers on this same loop, which must not wait on the question.
+                if task.done() or await asyncio.to_thread(health, kept["web_port"], 0.5):
+                    break
+                await asyncio.sleep(0.1)
+            if not task.done():
                 # The first start, at the PC: the owner's first-run page, where the owner's account is made.
                 import webbrowser
                 webbrowser.open("http://127.0.0.1:%d/" % kept["web_port"])
@@ -403,7 +408,7 @@ def cmd_start(args):
     port = settings(data)["web_port"]
     for _ in range(300):
         if health(port, timeout=0.5) and running(data):
-            banner(data, port, background=True)
+            show_banner(data)
             say("It runs in the background (process %d): %s stop stops it, %s logs shows its log."
                 % (process.pid, PROG, PROG))
             return 0
@@ -687,6 +692,115 @@ def cmd_expose(args):
     return 0
 
 
+# ---------------------------------------------------------------------------------------------- repair, remove
+
+# The Windows package's list of its own files with their SHA-256 (server.sh writes it), which repair checks.
+MANIFEST = "files.sha256"
+
+
+def damaged(folder):
+    """The package's files that are missing or changed against its list, as paths relative to the folder; None when
+    the folder has no list (a copy of the repository)."""
+    import hashlib
+    try:
+        with open(os.path.join(folder, MANIFEST), encoding="utf-8") as f:
+            listed = [line.rstrip("\r\n").split("  ", 1) for line in f if line.strip()]
+    except OSError:
+        return None
+    bad = []
+    for digest, name in listed:
+        path = os.path.join(folder, *name.split("/"))
+        try:
+            with open(path, "rb") as f:
+                ok = hashlib.sha256(f.read()).hexdigest() == digest
+        except OSError:
+            ok = False
+        if not ok:
+            bad.append(name)
+    return bad
+
+
+def cmd_repair(args):
+    """The program's files against the package's list (the Windows package), the libraries the server needs (a copy
+    run with Python), and the data folder: what is wrong, and the one thing that fixes it. 0 when nothing is."""
+    folder = package_folder()
+    bad = damaged(folder)
+    problems = 0
+    if bad is None:
+        # Run with Python: the site's libraries are what the server needs beside the code.
+        missing = []
+        for module in ("starlette", "jinja2", "uvicorn", "multipart", "PIL"):
+            try:
+                __import__(module)
+            except ImportError:
+                missing.append(module)
+        if missing:
+            problems += 1
+            say("missing libraries: %s (fix: the one-line install again, or pip install -r its list)" % ", ".join(
+                missing))
+        else:
+            say("ok    the server's libraries are there")
+    elif bad:
+        problems += 1
+        say("damaged or missing in %s: %s" % (folder, ", ".join(bad[:10]) + (" and %d more" % (len(bad) - 10)
+                                                                           if len(bad) > 10 else "")))
+        say("        fix: stop the server, unpack the zip of this version again over this folder (the data folder "
+            "stays as it is)")
+    else:
+        say("ok    the package's files are as they were made")
+    data = os.path.abspath(args.data)
+    try:
+        os.makedirs(data, exist_ok=True)
+        probe = os.path.join(data, ".write-test")
+        with open(probe, "w") as f:
+            f.write("ok")
+        os.remove(probe)
+        say("ok    the data folder %s can be written" % data)
+    except OSError as e:
+        problems += 1
+        say("the data folder %s cannot be written (%s)" % (data, e))
+    for port in (settings(data)["game_port"], settings(data)["web_port"]):
+        if running(data) or port_free(port):
+            say("ok    port %d is free or the server's" % port)
+        else:
+            problems += 1
+            say("port %d is taken by another program (fix: stop it, or %s setup --game-port/--web-port)" % (port, PROG))
+    return 1 if problems else 0
+
+
+def cmd_remove(args):
+    """Stop the server and take its firewall rules out; with --delete-data delete its data folder too, after a backup
+    kept beside it. The package itself is a folder: deleting it removes the rest (nothing else was put on this PC)."""
+    data = os.path.abspath(args.data)
+    if args.delete_data and not args.yes:
+        if not sys.stdin.isatty() or input("Delete the server's data in %s (accounts, plays, backups)? A backup is "
+                                           "kept beside it first. [y/N] " % data).strip().lower() not in ("y", "yes"):
+            say("Nothing was removed.")
+            return 1
+    cmd_stop(args)
+    if os.name == "nt":
+        # The rules firewall made, by their names (Windows asks for an administrator's yes).
+        cmd_firewall(argparse.Namespace(data=data, remove=True, public=False, print=False))
+    if args.delete_data and os.path.isdir(data):
+        kept = None
+        database = os.path.join(data, "openDMT3.sqlite")
+        if os.path.exists(database):
+            from opendmt3.server import db
+            from opendmt3.server.services import backups
+            db.connect(database).close()
+            name = backups.make(database, data, "manual")
+            kept = os.path.join(os.path.dirname(data), "opendmt3-backup-%s.sqlite" % time.strftime("%Y%m%d-%H%M%S"))
+            shutil.copyfile(os.path.join(data, "backups", name), kept)
+        shutil.rmtree(data)
+        if kept:
+            say("the last backup, kept: %s" % kept)
+        say("The server's data is deleted.")
+    where = package_folder() if frozen() else "this copy"
+    say("The server is stopped%s. To remove it, delete %s." % ("" if args.delete_data else " and its data kept in %s"
+                                                               % data, where))
+    return 0
+
+
 # ---------------------------------------------------------------------------------------------- the command line
 
 COMMANDS = [
@@ -701,6 +815,8 @@ COMMANDS = [
     ("firewall", "open the server's ports in the firewall (Windows asks for an administrator's yes)"),
     ("expose", "the site over HTTPS at a name, behind Caddy on this PC"),
     ("add-player", "make an account; its password is printed"),
+    ("repair", "check the program's files, the data folder and the ports, with the fix for each problem"),
+    ("remove", "stop the server and take its firewall rules out; --delete-data deletes its data too"),
     ("backup", "back the database up now"),
     ("backups", "list the backups"),
     ("restore", "put the database back to a backup (the current one is backed up first)"),
@@ -747,10 +863,22 @@ def parser():
     c["add-player"].add_argument("--dj", metavar="NAME", help="its DJ name (the ID when not given)")
     c["add-player"].add_argument("--admin", action="store_true", help="with the admin pages")
     c["restore"].add_argument("name", help="a backup's name, as backups lists it")
+    c["remove"].add_argument("--delete-data", action="store_true",
+                             help="delete the data folder too, after a backup kept beside it")
+    c["remove"].add_argument("--yes", action="store_true", help="do not ask before --delete-data")
     return p
 
 
+def plain_output():
+    """Output to a file or a pipe in UTF-8 (Windows would write its own code page there, which has no block letters
+    for the QR code); a console keeps its own (Python writes Unicode to it directly)."""
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure") and not stream.isatty():
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv=None):
+    plain_output()
     p = parser()
     args = p.parse_args(argv)
     args.data = args.data or default_data()
@@ -760,7 +888,7 @@ def main(argv=None):
         args.data = args.data or default_data()
     jobs = {"run": cmd_run, "start": cmd_start, "stop": cmd_stop, "status": cmd_status, "logs": cmd_logs,
             "setup": cmd_setup, "catalog": cmd_catalog, "invite": cmd_invite, "firewall": cmd_firewall,
-            "expose": cmd_expose}
+            "expose": cmd_expose, "repair": cmd_repair, "remove": cmd_remove}
     try:
         return jobs.get(args.command, cmd_passthrough)(args)
     except Refused as e:

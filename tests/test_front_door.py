@@ -76,7 +76,7 @@ class ArgumentsTest(unittest.TestCase):
     def test_the_commands_are_the_ones_the_guides_name(self):
         self.assertEqual([n for n, _ in dmt3.COMMANDS],
                          ["setup", "catalog", "image", "up", "down", "restart", "status", "logs", "backup", "backups",
-                          "restore", "add-player", "check", "doctor", "build", "test"])
+                          "restore", "add-player", "check", "invite", "ports", "expose", "doctor", "repair", "remove", "build", "test"])
 
     def test_restore_needs_a_name_and_an_unknown_command_is_refused(self):
         with contextlib.redirect_stderr(io.StringIO()):
@@ -217,6 +217,149 @@ class ImageTest(unittest.TestCase):
         step = dmt3.setup_plan(args_of("setup", "--build"), accounts=1)[0]
         self.assertEqual(step[0], "image")
         self.assertEqual(step[2][1:], [os.path.join(ROOT, "dmt3"), "image", "--build"])
+
+
+class ExposeTest(unittest.TestCase):
+    """./dmt3 expose: the Caddyfile and .env, and every Compose command reading edge.yaml while the site is exposed."""
+
+    def setUp(self):
+        # .env and the Caddyfile's folder are the test's own; nothing runs Docker.
+        self.env, self.ran = {}, []
+        self.edge = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, self.edge)
+        patches = [mock.patch.object(dmt3, "write_env", side_effect=self.write),
+                   mock.patch.object(dmt3, "read_env", side_effect=lambda: dict(self.env)),
+                   mock.patch.object(dmt3, "EDGE_DIR", self.edge),
+                   mock.patch.object(dmt3, "is_running", return_value=True),
+                   mock.patch.object(dmt3, "run", side_effect=lambda cmd, capture=False: self.ran.append(cmd) or (0, "")),
+                   mock.patch.object(dmt3, "say")]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def write(self, values):
+        for name, value in values.items():
+            if value is None:
+                self.env.pop(name, None)
+            else:
+                self.env[name] = value
+
+    def test_expose_writes_the_caddyfile_and_starts_caddy_beside_the_server(self):
+        self.assertEqual(dmt3.cmd_expose(args_of("expose", "dmt3.example.org", "--email", "me@example.org")), 0)
+        with open(os.path.join(self.edge, "Caddyfile"), encoding="utf-8") as f:
+            caddy = f.read()
+        # Caddy shares the server's network: the site at 127.0.0.1:4730.
+        self.assertIn("dmt3.example.org {\n    reverse_proxy 127.0.0.1:4730", caddy)
+        self.assertEqual(self.env, {"EDGE_NAME": "dmt3.example.org", "SITE_ADDRESS": "https://dmt3.example.org/"})
+        edge_compose = ["docker", "compose", "-f", dmt3.COMPOSE_FILE, "-f", dmt3.EDGE_FILE]
+        # The server again with edge.yaml, then Caddy started again to read its new Caddyfile.
+        self.assertEqual(self.ran, [edge_compose + ["up", "-d", "--no-build", "--pull", "never"],
+                                    edge_compose + ["restart", "edge"]])
+
+    def test_off_goes_back_to_compose_yaml_alone_and_caddy_goes(self):
+        self.env.update(EDGE_NAME="dmt3.example.org", SITE_ADDRESS="https://dmt3.example.org/")
+        self.assertEqual(dmt3.cmd_expose(args_of("expose", "--off")), 0)
+        self.assertEqual(self.env, {})
+        self.assertEqual(self.ran, [COMPOSE + ["up", "-d", "--no-build", "--pull", "never", "--remove-orphans"]])
+
+    def test_a_private_authority_brings_its_root(self):
+        root = os.path.join(self.edge, "given-root.pem")
+        with open(root, "w") as f:
+            f.write("-----BEGIN CERTIFICATE-----\n")
+        dmt3.cmd_expose(args_of("expose", "dmt3.lan", "--ca", "https://ca.lan/acme/directory", "--ca-root", root))
+        with open(os.path.join(self.edge, "Caddyfile"), encoding="utf-8") as f:
+            caddy = f.read()
+        self.assertIn("acme_ca https://ca.lan/acme/directory", caddy)
+        # Where edge.yaml mounts .edge/ in Caddy's container.
+        self.assertIn("acme_ca_root /etc/caddy/ca-root.pem", caddy)
+        self.assertTrue(os.path.isfile(os.path.join(self.edge, "ca-root.pem")))
+
+    def test_an_address_needs_the_local_authority(self):
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            dmt3.cmd_expose(args_of("expose", "192.168.0.5"))
+        dmt3.cmd_expose(args_of("expose", "192.168.0.5", "--local-ca"))
+        self.assertEqual(self.env["SITE_ADDRESS"], "https://192.168.0.5/")
+
+    def test_edge_yaml_puts_caddy_in_the_servers_network(self):
+        with open(dmt3.EDGE_FILE, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn('network_mode: "service:server"', text)
+        self.assertIn('command: ["--web-host", "127.0.0.1", "--proxy", "127.0.0.1"]', text)
+        # The site's own port is not published beside Caddy's.
+        self.assertIn("ports: !override", text)
+        self.assertNotIn("4730:4730", text)
+        self.assertIn("- ./.edge:/etc/caddy:ro", text)
+
+
+class EnvFileTest(unittest.TestCase):
+    """.env saved by Notepad (a byte-order mark, CRLF, spaces around = ) reads as the same variables."""
+
+    def test_a_notepad_env_reads_the_same_and_is_tidied(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, folder)
+        path = os.path.join(folder, ".env")
+        with open(path, "wb") as f:
+            f.write("\ufeffGAME_DIR = '/srv/game'\r\n# a note\r\nSITE_ADDRESS= http://192.168.0.5:4730/ \r\n".encode())
+        with mock.patch.object(dmt3, "ENV_FILE", path):
+            self.assertEqual(dmt3.read_env(), {"GAME_DIR": "/srv/game", "SITE_ADDRESS": "http://192.168.0.5:4730/"})
+            dmt3.tidy_env()
+            with open(path, "rb") as f:
+                self.assertEqual(f.read(), b"GAME_DIR='/srv/game'\n# a note\nSITE_ADDRESS=http://192.168.0.5:4730/\n")
+            # Written again, the variables stay and nothing else moves.
+            dmt3.write_env({"EDGE_NAME": "dmt3.example.org"})
+            self.assertEqual(dmt3.read_env()["GAME_DIR"], "/srv/game")
+            self.assertEqual(dmt3.read_env()["EDGE_NAME"], "dmt3.example.org")
+
+
+class PortsTest(unittest.TestCase):
+    """./dmt3 ports: kept in .env, read by every command; two parts never on one port."""
+
+    def setUp(self):
+        self.env, self.ran = {}, []
+        patches = [mock.patch.object(dmt3, "write_env", side_effect=lambda v: [self.env.pop(k, None) if x is None else
+                                                                             self.env.__setitem__(k, x)
+                                                                             for k, x in v.items()]),
+                   mock.patch.object(dmt3, "read_env", side_effect=lambda: dict(self.env)),
+                   mock.patch.object(dmt3, "is_running", return_value=True),
+                   mock.patch.object(dmt3, "run", side_effect=lambda cmd, capture=False: self.ran.append(cmd) or (0, "")),
+                   mock.patch.object(dmt3, "say")]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_new_ports_are_kept_and_the_server_starts_again_on_them(self):
+        self.assertEqual(dmt3.cmd_ports(args_of("ports", "--game", "5725", "--web", "8080")), 0)
+        self.assertEqual(self.env, {"GAME_PORT": "5725", "WEB_PORT": "8080"})
+        self.assertEqual((dmt3.game_port(), dmt3.web_port()), (5725, 8080))
+        self.assertEqual(self.ran, [COMPOSE + ["up", "-d", "--no-build", "--pull", "never"]])
+        # The usual one again: nothing kept for it.
+        dmt3.cmd_ports(args_of("ports", "--web", "4730"))
+        self.assertEqual(self.env, {"GAME_PORT": "5725"})
+
+    def test_one_port_for_two_parts_is_refused_and_undone(self):
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            dmt3.cmd_ports(args_of("ports", "--game", "4730"))
+        self.assertEqual(self.env, {})
+
+    def test_remove_keeps_the_data_unless_asked_and_asked_again(self):
+        # .env and the Caddyfile that a removal with the data deletes are the test's own (none), never the clone's.
+        folder = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, folder)
+        with mock.patch.object(dmt3, "has_image", return_value=False), \
+                mock.patch.object(dmt3, "ENV_FILE", os.path.join(folder, ".env")), \
+                mock.patch.object(dmt3, "EDGE_DIR", folder):
+            self.assertEqual(dmt3.cmd_remove(args_of("remove")), 0)
+            self.assertEqual(self.ran, [COMPOSE + ["down", "--remove-orphans"]])
+            self.ran.clear()
+            # --delete-data with no --yes and no terminal to ask at: nothing goes.
+            with mock.patch.object(dmt3, "ask", return_value=False):
+                self.assertEqual(dmt3.cmd_remove(args_of("remove", "--delete-data")), 1)
+            self.assertEqual(self.ran, [])
+            # With --yes: a backup read out first, then the volume with the rest.
+            with mock.patch.object(dmt3, "last_backup_out", return_value="/clone/opendmt3-backup.sqlite") as backup:
+                self.assertEqual(dmt3.cmd_remove(args_of("remove", "--delete-data", "--yes")), 0)
+            backup.assert_called_once()
+            self.assertEqual(self.ran, [COMPOSE + ["down", "--remove-orphans", "-v"]])
 
 
 class SetupTest(unittest.TestCase):
@@ -570,8 +713,11 @@ class PiecesTest(unittest.TestCase):
         self.assertIn("image: ${%s:-%s}" % (dmt3.IMAGE_ENV, dmt3.published_image()), text)
         from opendmt3 import __version__
         self.assertEqual(dmt3.published_image(), "ghcr.io/kanggu12/opendmt3-server:" + __version__)
-        for port in (dmt3.GAME_PORT, dmt3.WEB_PORT):
-            self.assertIn('"%d:%d"' % (port, port), text)
+        # Each port the same inside and out, the one .env keeps (./dmt3 ports) or the usual one, told to the server.
+        for name, port in ((dmt3.GAME_PORT_ENV, dmt3.GAME_PORT), (dmt3.WEB_PORT_ENV, dmt3.WEB_PORT)):
+            self.assertIn('"${%s:-%d}:${%s:-%d}"' % (name, port, name, port), text)
+        self.assertIn("OPENDMT3_GAME_PORT: ${GAME_PORT:-4725}", text)
+        self.assertIn("OPENDMT3_WEB_PORT: ${WEB_PORT:-4730}", text)
         # The game folder kept mounted: read-only, at its own path, and told to the server.
         self.assertIn("OPENDMT3_GAME: ${GAME_DIR:-}", text)
         # The site's address for players, told to the server (its --site-address reads it).

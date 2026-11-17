@@ -114,10 +114,15 @@ spec:
             {{- range .Values.extraArgs }}
             - {{ . | quote }}
             {{- end }}
+          env:
+            # The server listens on the game's port as the cabinets reach it (opendmt3.gamePort), and the site tells
+            # launchers that one.
+            - name: OPENDMT3_GAME_PORT
+              value: {{ include "opendmt3.gamePort" . | quote }}
           ports:
             # The game's port, for the cabinets.
             - name: game
-              containerPort: 4725
+              containerPort: {{ include "opendmt3.gamePort" . }}
               protocol: TCP
             # The site and the launcher's API.
             - name: site

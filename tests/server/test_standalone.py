@@ -34,12 +34,21 @@ def free_port():
 
 class SettingsTest(unittest.TestCase):
     def setUp(self):
-        self.data = tempfile.mkdtemp()
-        self.addCleanup(__import__("shutil").rmtree, self.data)
+        # The data folder inside a folder of the test's own: a removal keeps its last backup beside it.
+        base = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, base)
+        self.data = os.path.join(base, "data")
+        os.makedirs(self.data)
 
     def test_a_new_data_folder_runs_on_the_usual_ports_for_every_pc(self):
-        argv = standalone.server_args(self.data)
-        self.assertEqual(argv, ["--data", self.data, "--host", "0.0.0.0", "--port", "4725", "--web-port", "4730"])
+        # This PC's address on its network stands in for the players' address until one is kept.
+        with mock.patch.object(standalone, "lan_addresses", return_value=["192.168.0.7"]):
+            argv = standalone.server_args(self.data)
+        self.assertEqual(argv, ["--data", self.data, "--host", "0.0.0.0", "--port", "4725", "--web-port", "4730",
+                                "--site-address", "http://192.168.0.7:4730/"])
+        # A PC with no network: no address for players is made up.
+        with mock.patch.object(standalone, "lan_addresses", return_value=[]):
+            self.assertNotIn("--site-address", standalone.server_args(self.data))
 
     def test_setup_keeps_the_address_and_the_ports(self):
         code, _ = quiet("--data", self.data, "setup", "--address", "192.168.0.5", "--web-port", "14830")
@@ -120,6 +129,36 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("sudo ufw allow 4725/tcp", said)
         self.assertIn("sudo firewall-cmd --permanent --add-port=4730/tcp", said)
+
+    def test_repair_finds_a_changed_file_of_the_package(self):
+        package = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, package)
+        import hashlib
+        with open(os.path.join(package, "opendmt3-server.exe"), "wb") as f:
+            f.write(b"MZ as built")
+        with open(os.path.join(package, standalone.MANIFEST), "w") as f:
+            f.write("%s  opendmt3-server.exe\n%s  _internal/gone.dll\n" % (hashlib.sha256(b"MZ as built").hexdigest(),
+                                                                         "0" * 64))
+        self.assertEqual(standalone.damaged(package), ["_internal/gone.dll"])
+        with mock.patch.object(standalone, "package_folder", return_value=package):
+            code, said = quiet("--data", self.data, "repair")
+        self.assertEqual(code, 1)
+        self.assertIn("unpack the zip of this version again", said)
+
+    def test_remove_keeps_the_data_unless_asked(self):
+        quiet("--data", self.data, "setup", "--admin", "BOSS", "--password", "pass1234")
+        code, said = quiet("--data", self.data, "remove")
+        self.assertEqual(code, 0)
+        self.assertTrue(os.path.isfile(os.path.join(self.data, "openDMT3.sqlite")))
+        # Asked for, with no terminal to ask at and no --yes: nothing goes.
+        with mock.patch("sys.stdin", io.StringIO()):
+            self.assertEqual(quiet("--data", self.data, "remove", "--delete-data")[0], 1)
+        self.assertTrue(os.path.isdir(self.data))
+        code, said = quiet("--data", self.data, "remove", "--delete-data", "--yes")
+        self.assertEqual(code, 0, said)
+        self.assertFalse(os.path.exists(self.data))
+        kept = [n for n in os.listdir(os.path.dirname(self.data)) if n.startswith("opendmt3-backup-")]
+        self.assertTrue(kept)
 
     def test_invite_prints_the_address_and_its_code(self):
         quiet("--data", self.data, "setup", "--address", "192.168.0.5")

@@ -13,6 +13,7 @@ import os
 import shutil
 import signal
 import socket
+import ssl
 import subprocess
 import sys
 import time
@@ -36,6 +37,9 @@ IMAGE_ENV = "OPENDMT3_IMAGE"
 SERVICE = "server"
 # The ports inside the container: the game's, then the site's (opendmt3/server/__main__.py).
 GAME_PORT, WEB_PORT = 4725, 4730
+# Their names in .env, where ./dmt3 ports (and setup --game-port/--web-port) keeps other ones: compose.yaml publishes
+# and the server listens on the same number inside and out, so the site tells launchers the port they reach.
+GAME_PORT_ENV, WEB_PORT_ENV = "GAME_PORT", "WEB_PORT"
 # The server's own command line inside the container, for `exec` (a `run` gets it from the image's entry point).
 SERVER_CLI = ["python", "-m", "opendmt3.server", "--data", "/data"]
 # The setup wizard, beside the Docker files: plain Python too, loaded only when ./dmt3 setup asks nothing.
@@ -62,6 +66,13 @@ NOT_MOUNTED = ("/", "/app", "/bin", "/boot", "/data", "/dev", "/etc", "/home", "
 NOT_UNDER = ("/app/", "/data/", "/dev/", "/proc/", "/sys/")
 # How many entries of a game folder are looked at for links (a whole game folder has a few hundred).
 LINKS_LOOKED_AT = 20000
+# The site over HTTPS at a name (./dmt3 expose): Caddy beside the server, in a second Compose file read after
+# compose.yaml while .env names the site (EDGE_NAME), with its Caddyfile in .edge/ (not kept by git).
+EDGE_FILE = os.path.join(ROOT, "packaging", "docker", "edge.yaml")
+EDGE_DIR = os.path.join(ROOT, ".edge")
+# Caddy's service in that file, and where its own local authority's root certificate is inside it.
+EDGE_SERVICE = "edge"
+EDGE_ROOT_CERT = "/data/caddy/pki/authorities/local/root.crt"
 # An archive's password, passed to the server's container by name only (never on a command line others can read).
 PASSWORD_ENV = "OPENDMT3_ARCHIVE_PASSWORD"
 
@@ -111,9 +122,25 @@ def chosen_image():
     return os.environ.get(IMAGE_ENV) or read_env().get(IMAGE_ENV) or published_image()
 
 
+def game_port():
+    """The game's port: the one .env keeps (./dmt3 ports), else 4725."""
+    return int(read_env().get(GAME_PORT_ENV) or GAME_PORT)
+
+
+def web_port():
+    """The site's port (the site, the admin pages and the API on one): the one .env keeps, else 4730."""
+    return int(read_env().get(WEB_PORT_ENV) or WEB_PORT)
+
+
 def compose(*args):
-    """A docker compose command on this clone's compose.yaml."""
-    return ["docker", "compose", "-f", COMPOSE_FILE] + list(args)
+    """A docker compose command on this clone's compose.yaml, and on edge.yaml after it while the site is exposed."""
+    files = ["-f", COMPOSE_FILE] + (["-f", EDGE_FILE] if exposed() else [])
+    return ["docker", "compose"] + files + list(args)
+
+
+def exposed():
+    """The site's name while it is exposed over HTTPS through Caddy (./dmt3 expose), else None."""
+    return read_env().get("EDGE_NAME") or None
 
 
 def in_server(cli_args, running):
@@ -378,7 +405,8 @@ def read_env():
     """The variables in .env beside compose.yaml, as {name: value} (quotes taken off)."""
     out = {}
     try:
-        with open(ENV_FILE, encoding="utf-8") as f:
+        # utf-8-sig: a file Notepad saved starts with a byte-order mark, which would be part of the first name.
+        with open(ENV_FILE, encoding="utf-8-sig") as f:
             for line in f:
                 name, sep, value = line.strip().partition("=")
                 if sep and not name.startswith("#"):
@@ -390,6 +418,29 @@ def read_env():
     except OSError:
         pass
     return out
+
+
+def tidy_env():
+    """.env as Compose reads it, when an editor saved it otherwise (Notepad: a byte-order mark, a carriage return a
+    line, spaces around the names and values): the same variables written back plain, so Compose and ./dmt3 read one
+    thing. Nothing is written when it is plain already."""
+    try:
+        with open(ENV_FILE, "rb") as f:
+            raw = f.read()
+    except OSError:
+        return
+    lines = raw.decode("utf-8-sig", "replace").splitlines()
+    plain = []
+    for line in lines:
+        name, sep, value = line.strip().partition("=")
+        # A variable's line with the spaces around its name and value taken off; comments and blank lines as they are.
+        plain.append("%s=%s" % (name.strip(), value.strip()) if sep and not name.strip().startswith("#")
+                     else line.strip())
+    text = "\n".join(plain) + "\n"
+    if text.encode("utf-8") != raw:
+        with open(ENV_FILE + ".new", "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        os.replace(ENV_FILE + ".new", ENV_FILE)
 
 
 def env_value(value):
@@ -404,8 +455,9 @@ def write_env(values):
     """Set these variables in .env (others in it stay as they are); a value of None takes the variable out."""
     lines, done = [], set()
     try:
-        with open(ENV_FILE, encoding="utf-8") as f:
-            old = f.read().splitlines()
+        # Read as read_env reads it; written back plain (no mark, a line feed a line), as Compose reads it too.
+        with open(ENV_FILE, encoding="utf-8-sig") as f:
+            old = [line.strip() for line in f.read().splitlines()]
     except OSError:
         old = []
     for line in old:
@@ -430,7 +482,7 @@ def site_address(text):
     text = text.strip()
     if "://" not in text:
         # An address of this PC as the wizard lists them, or a name: the site's own port on it.
-        text = "http://%s:%d" % (text, WEB_PORT)
+        text = "http://%s:%d" % (text, web_port())
     return text if text.endswith("/") else text + "/"
 
 
@@ -444,7 +496,10 @@ def site_lines():
     """Where the running server's site is, as the last line of ./dmt3 status and of a setup: the address kept for the
     players (SITE_ADDRESS, chosen at setup), else this PC's own address on its network, and the one this PC itself
     opens. None while the site's port is not published (the server is down)."""
-    code, out = run(compose("port", SERVICE, str(WEB_PORT)), capture=True)
+    if exposed():
+        # Behind Caddy the site is its name's alone: its own port is not published.
+        return "The site: https://%s/ (through Caddy)." % exposed() if is_running() else None
+    code, out = run(compose("port", SERVICE, str(web_port())), capture=True)
     if code != 0 or not out.strip():
         return None
     port = published(out)[1]
@@ -636,6 +691,9 @@ def cmd_setup(args):
     accounts = int(out.strip().splitlines()[-1]) if out.strip() else 0
     if accounts:
         say("  accounts in the database: %d (no first account is made)" % accounts)
+    if getattr(args, "game_port", None) or getattr(args, "web_port", None):
+        # Before anything starts: every step after this runs on these ports.
+        cmd_ports(argparse.Namespace(game=args.game_port, web=args.web_port, http=None, https=None))
     if args.address:
         # Before the server starts, so it starts knowing the address its players reach it at.
         keep_address(args.address)
@@ -652,7 +710,7 @@ def cmd_setup(args):
             "list).")
     if not args.no_start:
         # The address players reach it at first (the one to open and to send), then this PC's own.
-        say(site_lines() or "The site: http://127.0.0.1:%d/ (this PC only)." % WEB_PORT)
+        say(site_lines() or "The site: http://127.0.0.1:%d/ (this PC only)." % web_port())
     return 0
 
 
@@ -709,6 +767,205 @@ def cmd_image(args):
     return build_image()
 
 
+def edge_module():
+    """This clone's Caddyfile maker (opendmt3/server/edge.py, plain Python), shared with the server's own command line."""
+    library()
+    from opendmt3.server import edge
+    return edge
+
+
+def cmd_expose(args):
+    """./dmt3 expose NAME: the site over HTTPS at NAME, behind Caddy beside the server, its certificate got and renewed
+    by Caddy (Let's Encrypt, its staging authority, another ACME authority, or Caddy's own local one on a closed
+    network). --off goes back to the site on its own port; alone it says how the site is reached now."""
+    if args.root_cert:
+        # Caddy's local authority's root, for the players' PCs to trust once (docs/closed-network.md).
+        code, out = run(compose("exec", "-T", EDGE_SERVICE, "cat", EDGE_ROOT_CERT), capture=True)
+        if code != 0 or "BEGIN CERTIFICATE" not in out:
+            die("Caddy has no local authority yet: ./dmt3 expose NAME --local-ca, then ./dmt3 up")
+        with open(args.root_cert, "w", encoding="ascii") as f:
+            f.write(out[out.index("-----BEGIN"):])
+        say("Caddy's local root certificate: %s" % os.path.abspath(args.root_cert))
+        return 0
+    if args.off:
+        if not exposed():
+            say("The site is not exposed: it is on its own port, %d." % web_port())
+            return 0
+        # .env names no site any more: Compose reads compose.yaml alone, and Caddy, no longer in it, goes.
+        write_env({"EDGE_NAME": None, "SITE_ADDRESS": None})
+        say("The site is on its own port again, %d." % web_port())
+        return run(compose("up", "-d", "--no-build", "--pull", "never", "--remove-orphans"))[0] if is_running() else 0
+    if not args.name:
+        say("The site: https://%s/ through Caddy." % exposed() if exposed() else
+            "The site is on its own port, %d: ./dmt3 expose NAME puts it on HTTPS at NAME." % web_port())
+        return 0
+    edge = edge_module()
+    ca_root = None
+    if args.ca_root:
+        if not args.ca:
+            die("--ca-root goes with --ca URL (the private authority whose root it is)")
+        os.makedirs(EDGE_DIR, exist_ok=True)
+        shutil.copyfile(args.ca_root, os.path.join(EDGE_DIR, "ca-root.pem"))
+        # Where edge.yaml mounts .edge/ inside Caddy's container.
+        ca_root = "/etc/caddy/ca-root.pem"
+    try:
+        name = edge.check_name(args.name, args.local_ca)
+        text = edge.caddyfile(name, "127.0.0.1:%d" % web_port(), email=args.email,
+                              ca="staging" if args.staging else args.ca, ca_root=ca_root, local_ca=args.local_ca)
+    except edge.EdgeError as e:
+        die(str(e))
+    os.makedirs(EDGE_DIR, exist_ok=True)
+    with open(os.path.join(EDGE_DIR, "Caddyfile"), "w", encoding="utf-8") as f:
+        f.write(text)
+    # Kept in .env: from now on every ./dmt3 command reads edge.yaml too, and the server tells players this address.
+    write_env({"EDGE_NAME": name, "SITE_ADDRESS": "https://%s/" % name})
+    say("The players' address: https://%s/" % name)
+    say("Caddy's settings: %s" % os.path.join(EDGE_DIR, "Caddyfile"))
+    if is_running():
+        # The server again with the site on this PC only, and Caddy beside it.
+        code = run(compose("up", "-d", "--no-build", "--pull", "never"))[0]
+        # Caddy reads its Caddyfile when it starts: a running one (another name, another authority) starts again.
+        code = code or run(compose("restart", EDGE_SERVICE))[0]
+        if code:
+            return code
+        say("Caddy gets the certificate now; ./dmt3 check says when the site answers over HTTPS.")
+    else:
+        say("./dmt3 up starts the server with Caddy beside it.")
+    say("On the router: forward TCP 80 and 443 (Caddy) and TCP %d (the game) to this PC%s." % (
+        game_port(), "" if not args.local_ca else "; on a closed network, players' PCs trust Caddy's root certificate "
+                                                "once (./dmt3 expose --root-cert FILE saves it)"))
+    return 0
+
+
+def cmd_ports(args):
+    """./dmt3 ports: the game's port and the site's (and Caddy's, while the site is exposed), kept in .env and used by
+    every command, compose.yaml and the server alike; a running server starts again on the new ones."""
+    wanted = {GAME_PORT_ENV: args.game, WEB_PORT_ENV: args.web, "HTTP_PORT": args.http, "HTTPS_PORT": args.https}
+    for name, value in wanted.items():
+        if value is not None and not 1 <= value <= 65535:
+            die("%d is no TCP port (1 to 65535)" % value)
+    changes = {name: (None if value == default else str(value)) for (name, value), default in
+               zip(wanted.items(), (GAME_PORT, WEB_PORT, 80, 443)) if value is not None}
+    old_web = web_port()
+    if changes:
+        write_env(changes)
+    env = read_env()
+    numbers = [game_port(), web_port()] + ([int(env.get("HTTP_PORT") or 80), int(env.get("HTTPS_PORT") or 443)]
+                                           if exposed() else [])
+    if len(set(numbers)) != len(numbers):
+        # Undone: two parts on one port would leave one of them unreachable.
+        write_env({name: env.get(name) if name not in changes else None for name in changes})
+        die("each part needs a port of its own: %s" % ", ".join(str(n) for n in numbers))
+    if changes and exposed() and web_port() != old_web:
+        # Caddy reaches the site on its port: its Caddyfile follows.
+        path = os.path.join(EDGE_DIR, "Caddyfile")
+        with open(path, encoding="utf-8") as f:
+            text = f.read().replace("reverse_proxy 127.0.0.1:%d" % old_web, "reverse_proxy 127.0.0.1:%d" % web_port())
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+    say("The game's port: %d (TCP). The site's port: %d (the site, the admin pages and the API)." % (
+        game_port(), web_port()))
+    if exposed():
+        say("Caddy: HTTP %s, HTTPS %s." % (env.get("HTTP_PORT") or 80, env.get("HTTPS_PORT") or 443))
+    if changes and is_running():
+        # The server again on the new ports (and Caddy, which reads its Caddyfile when it starts).
+        code = run(compose("up", "-d", "--no-build", "--pull", "never"))[0]
+        if exposed():
+            code = code or run(compose("restart", EDGE_SERVICE))[0]
+        return code
+    return 0
+
+
+def ask(question):
+    """y to go on, at a terminal; anything else, or no terminal, is no."""
+    if not sys.stdin.isatty():
+        return False
+    return input(question + " [y/N] ").strip().lower() in ("y", "yes")
+
+
+def last_backup_out():
+    """A backup made now, read out of the data volume into this clone's folder (opendmt3-backup-<time>.sqlite), before
+    the volume goes; its path, or None when there is no database."""
+    script = ("set -e; [ -f /data/openDMT3.sqlite ] || exit 3; python -m opendmt3.server --data /data --backup >&2; "
+              "cat \"$(ls -t /data/backups/*.sqlite | head -n 1)\"")
+    try:
+        done = subprocess.run(compose("run", "--rm", "-T", "--no-deps", "--entrypoint", "sh", SERVICE, "-c", script),
+                              cwd=ROOT, stdout=subprocess.PIPE)
+    except FileNotFoundError:
+        die("docker is not installed; run ./dmt3 doctor")
+    if done.returncode == 3:
+        return None
+    if done.returncode != 0 or not done.stdout.startswith(b"SQLite format 3"):
+        die("the backup could not be read out of the data folder: nothing was deleted")
+    path = os.path.join(ROOT, "opendmt3-backup-%s.sqlite" % time.strftime("%Y%m%d-%H%M%S"))
+    with open(path, "wb") as f:
+        f.write(done.stdout)
+    return path
+
+
+def cmd_remove(args):
+    """./dmt3 remove: the server's containers, network and images go; with --delete-data its data volume too, after a
+    backup read out into this folder. What is left is this clone's folder, which is deleted like any other."""
+    if args.delete_data and not (args.yes or ask("Delete the server's data (accounts, plays, backups)? A backup is "
+                                                  "kept in this folder first.")):
+        say("Nothing was removed.")
+        return 1
+    kept = last_backup_out() if args.delete_data else None
+    if kept:
+        say("the last backup, kept: %s" % kept)
+    # With edge.yaml while exposed, so Caddy goes too; -v takes the volumes along only when asked.
+    code = run(compose("down", "--remove-orphans", *(["-v"] if args.delete_data else [])))[0]
+    if code:
+        return code
+    for image in {chosen_image(), published_image(), IMAGE}:
+        # Each image of this server that is here; one not here is no error.
+        if has_image(image):
+            run(["docker", "image", "rm", image], capture=True)
+    if args.delete_data:
+        # Nothing of the server is left on Docker; .env and the Caddyfile go with it.
+        for path in (ENV_FILE, os.path.join(EDGE_DIR, "Caddyfile"), os.path.join(EDGE_DIR, "ca-root.pem")):
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(path)
+        say("The server and its data are removed. This folder is all that is left: delete it to finish.")
+    else:
+        say("The server is removed; its data stays in the volume %s_data (./dmt3 setup starts it again on it, "
+            "./dmt3 remove --delete-data deletes it)." % PROJECT)
+    return 0
+
+
+def cmd_repair(args):
+    """./dmt3 repair: the image got again (pulled, or built when this clone's is used), the server's container made
+    afresh on it, then the doctor's checks. The data stays as it is."""
+    if chosen_image() == IMAGE:
+        code = build_image()
+    else:
+        say("pulling the server image %s again" % chosen_image())
+        code = run(["docker", "pull", chosen_image()])[0]
+    if code:
+        return code
+    code = run(compose("up", "-d", "--no-build", "--pull", "never", "--force-recreate"))[0]
+    if code:
+        return code
+    return cmd_doctor(args)
+
+
+def cmd_invite(args):
+    """./dmt3 invite: the address players open, and its QR code to scan from this screen."""
+    library()
+    from opendmt3.server.services import qr
+    env = read_env()
+    address = env.get("SITE_ADDRESS")
+    if not address:
+        # None chosen: this PC's likeliest address on its network, as status shows it.
+        first = lan_addresses()[0][0]
+        address = "http://%s:%d/" % (first, web_port())
+    say("Players open %s" % address)
+    if "//127." in address:
+        say("(that is this PC's own address: ./dmt3 setup --address gives the one other PCs reach)")
+    say(qr.terminal(address))
+    return 0
+
+
 def cmd_up(args):
     """./dmt3 up: the image first (./dmt3 image, unless --no-build), then the server from it."""
     if not args.no_build:
@@ -719,16 +976,25 @@ def cmd_up(args):
 
 
 def cmd_check(args):
-    """The running server answers /health on the site's port, and its game port takes a connection."""
+    """The running server answers /health on the site's port (through Caddy at its name while it is exposed), and its
+    game port takes a connection."""
     failed = 0
-    for port, name in ((WEB_PORT, "the site"), (GAME_PORT, "the game port")):
+    if exposed():
+        code, out = run(compose("port", SERVICE, "443"), capture=True)
+        if code != 0 or not out.strip():
+            problem("Caddy's HTTPS port is not published: the server is not running", "./dmt3 up")
+            failed += 1
+        else:
+            failed += not check_https(published(out)[0], published(out)[1], exposed())
+    for port, name in ((game_port(), "the game port"),) if exposed() else ((web_port(), "the site"),
+                                                                         (game_port(), "the game port")):
         code, out = run(compose("port", SERVICE, str(port)), capture=True)
         if code != 0 or not out.strip():
             problem("%s is not published: the server is not running" % name, "./dmt3 up")
             failed += 1
             continue
         host, port_here = published(out)
-        if port == WEB_PORT:
+        if port == web_port():
             failed += not check_health(host, port_here)
         else:
             failed += not check_connect(host, port_here)
@@ -749,6 +1015,35 @@ def check_health(host, port):
     except OSError as e:
         problem("%s does not answer (%s)" % (url, e), "./dmt3 logs, then ./dmt3 restart")
     return False
+
+
+def check_https(host, port, name):
+    """GET https://NAME/health through Caddy on this PC (host:port, the name sent in the handshake and the Host line);
+    True when the site answers 200. Says who signed the certificate, and whether this PC trusts it (Caddy's local
+    authority and a staging one are trusted only where their root is put)."""
+    trusted = True
+    for context in (ssl.create_default_context(), ssl._create_unverified_context()):
+        try:
+            with socket.create_connection((host, port), timeout=10) as raw:
+                with context.wrap_socket(raw, server_hostname=name) as tls:
+                    issuer = dict(x[0] for x in tls.getpeercert().get("issuer", ())) if trusted else {}
+                    tls.sendall(("GET /health HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n" % name).encode())
+                    first = tls.recv(4096).decode("latin-1").split("\r\n", 1)[0]
+            break
+        except ssl.SSLCertVerificationError:
+            # Not one this PC trusts: asked again without the check, to see whether the site answers at all.
+            trusted = False
+        except OSError as e:
+            problem("https://%s/ does not answer on this PC (%s:%d: %s)" % (name, host, port, e),
+                    "./dmt3 logs (Caddy's lines say what the authority answered)")
+            return False
+    if " 200 " not in first + " ":
+        problem("https://%s/health answered %s" % (name, first), "./dmt3 logs")
+        return False
+    ok("the site answers https://%s/ through Caddy (%s)" % (
+        name, "certificate from %s" % issuer.get("organizationName", issuer.get("commonName", "?")) if trusted
+        else "a certificate this PC does not trust: Caddy's local authority, or a staging one"))
+    return True
 
 
 def check_connect(host, port):
@@ -801,7 +1096,7 @@ def doctor_checks():
         out.append(("image", False, "the server image %s is not here yet" % image,
                     "./dmt3 up (it gets the image first: the published one, or --build builds this clone's)"))
     running = is_running()
-    for port in (GAME_PORT, WEB_PORT):
+    for port in (game_port(), web_port()):
         if running:
             # The ports are the running server's own.
             out.append(("port", True, "port %d is the server's" % port, None))
@@ -1027,7 +1322,7 @@ class FrontDoor:
         each as (ok, text)."""
         until = time.monotonic() + wait
         while time.monotonic() < until:
-            code, out = run(compose("port", SERVICE, str(WEB_PORT)), capture=True)
+            code, out = run(compose("port", SERVICE, str(web_port())), capture=True)
             if code == 0 and out.strip():
                 host, port = published(out)
                 try:
@@ -1100,7 +1395,12 @@ COMMANDS = [
     ("restore", "put the database back to a backup (the current one is backed up first)"),
     ("add-player", "make an account; its password is printed"),
     ("check", "the running server answers /health and its game port takes a connection"),
+    ("invite", "the address players open, with its QR code"),
+    ("ports", "the game's port and the site's (4725 and 4730 unless changed here)"),
+    ("expose", "the site over HTTPS at a name, with Caddy and a certificate it gets by itself; --off undoes it"),
     ("doctor", "what the server needs, with the fix for each problem"),
+    ("repair", "get the image again and make the server's container afresh (the data stays)"),
+    ("remove", "remove the server (its containers and images); --delete-data deletes its data too"),
     ("build", "build the Windows launcher and its installer (packaging/windows/build.sh)"),
     ("test", "the unit tests, the boundary test and pyflakes"),
 ]
@@ -1138,6 +1438,8 @@ def parser():
                             help="keep the client data's folder mounted read-only, so the Song list tab can import "
                                  "it again")
     p["setup"].add_argument("--no-start", action="store_true", help="set up without starting the server")
+    p["setup"].add_argument("--game-port", type=int, metavar="PORT", help="the game's port (4725), as ./dmt3 ports")
+    p["setup"].add_argument("--web-port", type=int, metavar="PORT", help="the site's port (4730), as ./dmt3 ports")
     p["catalog"].add_argument("game", nargs="?", metavar="PATH",
                               help="your client data's folder (or one above it), an archive holding it, or a song "
                                    "list the launcher saved (the folder kept mounted, GAME_DIR in .env, when not "
@@ -1158,6 +1460,26 @@ def parser():
     p["logs"].add_argument("-f", "--follow", action="store_true", help="keep showing new lines")
     p["logs"].add_argument("-n", "--tail", type=int, default=200, help="how many of the last lines (200)")
     p["restore"].add_argument("name", help="a backup's name, as ./dmt3 backups lists it")
+    p["remove"].add_argument("--delete-data", action="store_true",
+                             help="delete the data too (accounts, plays, backups), after a backup kept in this folder")
+    p["remove"].add_argument("--yes", action="store_true", help="do not ask before --delete-data")
+    p["ports"].add_argument("--game", type=int, metavar="PORT", help="the game's port (TCP; 4725 by default)")
+    p["ports"].add_argument("--web", type=int, metavar="PORT",
+                            help="the site's port, for the site, the admin pages and the API (4730 by default)")
+    p["ports"].add_argument("--http", type=int, metavar="PORT", help="Caddy's plain HTTP port while exposed (80)")
+    p["ports"].add_argument("--https", type=int, metavar="PORT", help="Caddy's HTTPS port while exposed (443)")
+    p["expose"].add_argument("name", nargs="?", help="the site's name (dmt3.example.org), which leads to this PC")
+    p["expose"].add_argument("--email", help="the address Let's Encrypt writes to about the certificate")
+    authority = p["expose"].add_mutually_exclusive_group()
+    authority.add_argument("--staging", action="store_true",
+                           help="Let's Encrypt's staging authority: to try the setup (browsers do not trust it)")
+    authority.add_argument("--ca", metavar="URL", help="another ACME authority's directory (a closed network's own)")
+    authority.add_argument("--local-ca", action="store_true",
+                           help="Caddy's own local authority, for a closed network: players' PCs trust its root once")
+    p["expose"].add_argument("--ca-root", metavar="FILE", help="with --ca: that authority's root certificate")
+    p["expose"].add_argument("--off", action="store_true", help="back to the site on its own port")
+    p["expose"].add_argument("--root-cert", metavar="FILE",
+                             help="save Caddy's local authority's root certificate (for --local-ca) into FILE")
     p["add-player"].add_argument("id", help="the account's ID, for the site and the launcher")
     p["add-player"].add_argument("--password", help="its password (made and printed when not given)")
     p["add-player"].add_argument("--dj", metavar="NAME", help="its DJ name (the ID when not given)")
@@ -1187,6 +1509,8 @@ def asked_nothing(argv):
 
 def main(argv=None):
     args = parser().parse_args(argv)
+    # .env as Compose reads it, before anything reads it (a file Notepad saved reads the same to both).
+    tidy_env()
     # Every Compose command runs the chosen image (.env, else the published one of this version): compose.yaml's own
     # default is for docker compose run by hand.
     os.environ.setdefault(IMAGE_ENV, chosen_image())
@@ -1205,7 +1529,8 @@ def main(argv=None):
             "folder holds the server alone." % args.command)
         return 2
     special = {"setup": cmd_setup, "catalog": cmd_catalog, "check": cmd_check, "doctor": cmd_doctor,
-               "test": cmd_test, "image": cmd_image, "up": cmd_up}
+               "test": cmd_test, "image": cmd_image, "up": cmd_up, "expose": cmd_expose, "invite": cmd_invite,
+               "ports": cmd_ports, "remove": cmd_remove, "repair": cmd_repair}
     if args.command in special:
         return special[args.command](args)
     # Only the commands that reach the database need to know whether the container is up.

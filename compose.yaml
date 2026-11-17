@@ -28,12 +28,15 @@ services:
     restart: unless-stopped
     ports:
       # The game's port, for cabinets on other PCs.
-      - "4725:4725"
-      # The site and the launcher's API, for the other PCs too. Behind a reverse proxy on this PC (docs/server.md,
-      # "Over the internet"), publish it on this PC only, "127.0.0.1:4730:4730", and name the proxy as the container
-      # sees it (its network's gateway) with: command: ["--proxy", "GATEWAY"]
-      - "4730:4730"
+      - "${GAME_PORT:-4725}:${GAME_PORT:-4725}"
+      # The site, the admin pages and the launcher's API, on one port, for the other PCs too. Over the internet,
+      # ./dmt3 expose puts Caddy in front of it instead (packaging/docker/edge.yaml, docs/internet.md).
+      - "${WEB_PORT:-4730}:${WEB_PORT:-4730}"
     environment:
+      # The two ports, the same inside and out (./dmt3 ports keeps others in .env as GAME_PORT and WEB_PORT): the server
+      # listens on them, and the site tells launchers the game's port they reach.
+      OPENDMT3_GAME_PORT: ${GAME_PORT:-4725}
+      OPENDMT3_WEB_PORT: ${WEB_PORT:-4730}
       # The game folder mounted below, which the admin's Song list tab imports again (none: not offered).
       OPENDMT3_GAME: ${GAME_DIR:-}
       # The site's address as the players reach it (./dmt3 setup keeps the one chosen there in .env): the message to

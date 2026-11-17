@@ -50,3 +50,15 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "opendmt3.claim" -}}
 {{- .Values.persistence.existingClaim | default (printf "%s-data" (include "opendmt3.fullname" .)) -}}
 {{- end -}}
+
+{{/*
+The game's port as the cabinets reach it, which the server also listens on, so the site tells launchers the right one:
+the node's port with type NodePort when one is named, else the Service's port.
+*/}}
+{{- define "opendmt3.gamePort" -}}
+{{- if and (eq .Values.game.service.type "NodePort") .Values.game.service.nodePort -}}
+{{ .Values.game.service.nodePort }}
+{{- else -}}
+{{ .Values.game.service.port }}
+{{- end -}}
+{{- end }}

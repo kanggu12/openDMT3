@@ -25,7 +25,8 @@ import logging
 import os
 import sys
 
-from opendmt3.server import db
+from opendmt3 import __version__
+from opendmt3.server import banner, db
 from opendmt3.server.server import DEFAULT_PORT, GameServer
 from opendmt3.core import errors
 from opendmt3.server.services import accounts, activity, backups, catalog, notify, records, songlist, sources
@@ -106,11 +107,12 @@ def save_song_list(path, out):
     return 0
 
 
-async def serve(args, data, until=None):
+async def serve(args, data, until=None, notes=()):
     """The game server and the site on args' addresses, until they are cancelled (Ctrl+C), or until `until` (a
     coroutine function, when given) returns: the server's own command line for a PC of its own (standalone.py) stops
     it that way when asked to from another window. Either way the site finishes the requests it has, and the game
-    server and the database are closed."""
+    server and the database are closed. Once the site answers, the banner (banner.py) says where it is, with `notes`
+    under it (the caller's own lines)."""
     # The folder the Download page hands the installer out from, there to put the file in.
     os.makedirs(os.path.join(data, "downloads"), exist_ok=True)
     connection = db.connect(os.path.join(data, "openDMT3.sqlite"))
@@ -121,6 +123,8 @@ async def serve(args, data, until=None):
     # One backup a day, the week's kept (backups.py); checked hourly while the server runs.
     tasks = [asyncio.ensure_future(backups.keep_daily(os.path.join(data, "openDMT3.sqlite"), data))]
     web = None
+    # The banner's task: it ends once it has printed, so it is never one of the tasks whose end ends the server.
+    announcing = None
     if args.web_port:
         # The site needs its own libraries; the game server alone does not.
         import uvicorn
@@ -131,11 +135,26 @@ async def serve(args, data, until=None):
                     address=args.site_address)
         config = web_config(uvicorn, create_app(site), args)
         web = uvicorn.Server(config)
-        tasks.append(asyncio.ensure_future(web.serve()))
+        web_task = asyncio.ensure_future(web.serve())
+        tasks.append(web_task)
         # An address to open on this PC: a server on every address (0.0.0.0, ::) is on the loopback one too,
         # the name the owner's first-run page asks for (web.common._local).
         shown = {"0.0.0.0": "127.0.0.1", "::": "[::1]"}.get(web_host(args), web_host(args))
         logging.getLogger("opendmt3.server").info("site on http://%s:%d/", shown, args.web_port)
+
+        async def announce():
+            # Once uvicorn listens: the addresses then work.
+            while not web.started:
+                await asyncio.sleep(0.05)
+            said = list(notes)
+            first = connection.execute("SELECT COUNT(*) FROM accounts").fetchone()[0] == 0
+            if first and not sources.in_container():
+                # The first-run page answers a visit from this PC itself (in a container no visit is one).
+                said.insert(0, "First start: open http://%s:%d/ on this PC to make the owner's account."
+                            % (shown, args.web_port))
+            banner.show(__version__, banner.rows(args.site_address, "http://%s:%d/" % (shown, args.web_port),
+                                                 game.port), said)
+        announcing = asyncio.ensure_future(announce())
     try:
         if until is None:
             await asyncio.gather(*tasks)
@@ -145,12 +164,15 @@ async def serve(args, data, until=None):
             if web is not None:
                 # The site's own way to stop: it answers what it has started, then its task ends.
                 web.should_exit = True
-                await asyncio.wait([tasks[-1]], timeout=10)
+                await asyncio.wait([web_task], timeout=10)
             for task in tasks + [stopper]:
                 task.cancel()
             # Each cancelled task is let finish its cancellation before the database closes under it.
             await asyncio.gather(*tasks, stopper, return_exceptions=True)
     finally:
+        if announcing is not None and not announcing.done():
+            # Stopped before the site came up: nothing to say.
+            announcing.cancel()
         await game.close()
         connection.close()
 
@@ -160,11 +182,14 @@ def parser():
     p = argparse.ArgumentParser(prog="opendmt3.server", description="The openDMT3 server: game and site.")
     p.add_argument("--data", default=os.environ.get("OPENDMT3_DATA", "data"), help="folder for the database and files")
     p.add_argument("--host", default="127.0.0.1", help="address to listen on (0.0.0.0 for other PCs)")
-    p.add_argument("--port", type=int, default=DEFAULT_PORT, help="the game's port")
+    # Both ports from the environment too (compose.yaml gives them, ./dmt3 ports chose them), else the usual ones.
+    p.add_argument("--port", type=int, default=int(os.environ.get("OPENDMT3_GAME_PORT") or DEFAULT_PORT),
+                   help="the game's port (or OPENDMT3_GAME_PORT)")
     p.add_argument("--web-host", metavar="ADDRESS",
                    help="the site's address to listen on, when not --host's (127.0.0.1 behind a reverse proxy on "
                         "this PC)")
-    p.add_argument("--web-port", type=int, default=WEB_PORT, help="the site's port (0: no site)")
+    p.add_argument("--web-port", type=int, default=int(os.environ.get("OPENDMT3_WEB_PORT") or WEB_PORT),
+                   help="the site's port, for the site, the admin pages and the API (0: no site; or OPENDMT3_WEB_PORT)")
     p.add_argument("--webhook", metavar="URL", default=os.environ.get("OPENDMT3_WEBHOOK"),
                    help="a Discord or Slack webhook told when someone takes a chart's first place from another player "
                         "(or OPENDMT3_WEBHOOK)")
