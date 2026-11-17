@@ -343,7 +343,7 @@ the game is open.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/pieces-dark.svg">
-    <img alt="Your TECHNIKA 3 client data, with a PC client, is only read by the openDMT3 launcher on your Windows PC. The launcher finds it, sets the picture and the sound, puts your card in, and PLAY starts the game from a folder of openDMT3's own. The launcher signs in to a server for your card; the game logs in there by card and sends the stages you clear. The server is the site and its API on port 4730, the game server on port 4725 and one SQLite file of accounts and plays: the one inside the launcher, or one on any PC with Docker or Python" src="images/pieces-light.svg" width="100%">
+    <img alt="Your TECHNIKA 3 client data, with a PC client, is only read by the openDMT3 launcher on your Windows PC. The launcher finds it, sets the picture and the sound, puts your card in, and PLAY starts the game from a folder of openDMT3's own. The launcher signs in to a server for your card; the game logs in there by card and sends the stages you clear. The server is the site and its API on port 4730 (its admin pages a site of their own on port 4731), the game server on port 4725 and one SQLite file of accounts and plays: the one inside the launcher, or one on any PC with Docker or Python" src="images/pieces-light.svg" width="100%">
   </picture>
 </p>
 

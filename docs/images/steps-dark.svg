@@ -4,8 +4,7 @@
 <rect x="-24" y="-24" width="1008" height="296" fill="url(#dots-dark)"/>
 <path d="M0.5,52.5 H267.5 L279.5,64.5 V247.5 H0.5 Z" fill="#1a1f25" stroke="#343c47" stroke-width="1"/>
 <rect x="0" y="52" width="280" height="120" fill="url(#sheen-dark)" clip-path="url(#card1)"/>
-<path d="M1,53.5 H267.5" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1"/>
-<path d="M268,52.5 L279.5,64" stroke="#ffffff" stroke-opacity="0.24" stroke-width="1"/>
+<path d="M1,53.5 H267.086 L278.5,64.9142" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1"/>
 <rect x="0" y="52" width="3" height="196" fill="#5b8cff" clip-path="url(#card1)"/>
 <path d="M16,40 H106.585 L97.9445,64 H16 Z" fill="#0b0e12"/>
 <path d="M16,40.5 H106.585" stroke="#343c47" stroke-width="1"/>
@@ -14,8 +13,7 @@
 <path d="M339,150 L330.0,154.5 L330.0,145.5 Z" fill="#7a8592" data-tip="339,150"/>
 <path d="M340.5,52.5 H607.5 L619.5,64.5 V247.5 H340.5 Z" fill="#1a1f25" stroke="#343c47" stroke-width="1"/>
 <rect x="340" y="52" width="280" height="120" fill="url(#sheen-dark)" clip-path="url(#card2)"/>
-<path d="M341,53.5 H607.5" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1"/>
-<path d="M608,52.5 L619.5,64" stroke="#ffffff" stroke-opacity="0.24" stroke-width="1"/>
+<path d="M341,53.5 H607.086 L618.5,64.9142" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1"/>
 <rect x="340" y="52" width="3" height="196" fill="#b4f02a" clip-path="url(#card2)"/>
 <path d="M356,40 H468.74 L460.1,64 H356 Z" fill="#0b0e12"/>
 <path d="M356,40.5 H468.74" stroke="#343c47" stroke-width="1"/>
@@ -24,8 +22,7 @@
 <path d="M679,150 L670.0,154.5 L670.0,145.5 Z" fill="#7a8592" data-tip="679,150"/>
 <path d="M680.5,52.5 H947.5 L959.5,64.5 V247.5 H680.5 Z" fill="#1a1f25" stroke="#343c47" stroke-width="1"/>
 <rect x="680" y="52" width="280" height="120" fill="url(#sheen-dark)" clip-path="url(#card3)"/>
-<path d="M681,53.5 H947.5" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1"/>
-<path d="M948,52.5 L959.5,64" stroke="#ffffff" stroke-opacity="0.24" stroke-width="1"/>
+<path d="M681,53.5 H947.086 L958.5,64.9142" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1"/>
 <rect x="680" y="52" width="3" height="196" fill="#5b8cff" clip-path="url(#card3)"/>
 <path d="M696,40 H771.17 L762.53,64 H696 Z" fill="#0b0e12"/>
 <path d="M696,40.5 H771.17" stroke="#343c47" stroke-width="1"/>
