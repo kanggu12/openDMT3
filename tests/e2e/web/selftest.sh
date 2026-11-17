@@ -7,8 +7,8 @@
 #   - the stacked rows of a phone's tables lose their cells' labels (a cell with no label);
 #   - a row's actions are all made plain inline blocks again, so the link that looks like a button loses the box that
 #     centres its words (a button's words out of its middle);
-#   - the phone menu's words get their wider padding back, so the five of them fit a 390 px screen and not a 360 px
-#     one (the phone menu cut).
+#   - the phone width no longer moves the menu into MENU's sheet, so its words stay in the bar's one row and run past
+#     the screen (the phone menu cut).
 #
 #   tests/e2e/web/selftest.sh OUT_DIR
 set -u
@@ -22,14 +22,14 @@ CSS="$COPY/opendmt3/server/web/static/site.css"
 # Each rule to break must be there as written: a fault that plants nothing would prove nothing.
 for rule in '  .table .wide-only { display: none; }' '.hero.small { height: auto; min-height: 172px; }' \
     'content: attr(data-label);' '.table .actions > form { display: inline-block; }' \
-    '  .menu a { padding: 8px 4px; font-size: 11px;'; do
+    '  .bar:not(.door-bar) .menu, .bar:not(.door-bar) .tools { display: none; }'; do
   grep -qF "$rule" "$CSS" || { echo "FAIL: the rule to break is not in site.css any more: $rule"; exit 1; }
 done
 sed -i 's/  .table .wide-only { display: none; }//' "$CSS"
 sed -i 's/\.hero\.small { height: auto; min-height: 172px; }/.hero.small { height: 172px; }/' "$CSS"
 sed -i 's/content: attr(data-label);/content: none;/' "$CSS"
 sed -i 's/\.table \.actions > form { display: inline-block; }/.table .actions > * { display: inline-block; }/' "$CSS"
-sed -i 's/  \.menu a { padding: 8px 4px; font-size: 11px;/  .menu a { padding: 8px 9px; font-size: 11px;/' "$CSS"
+sed -i 's/  \.bar:not(\.door-bar) \.menu, \.bar:not(\.door-bar) \.tools { display: none; }/  .bar:not(.door-bar) .tools { display: none; }/' "$CSS"
 OPENDMT3_REPO="$COPY" "$REPO/tests/e2e/web/run.sh" "$OUT/run" > "$OUT/run.txt" 2>&1
 caught=$?
 tail -3 "$OUT/run.txt"

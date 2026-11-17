@@ -13,6 +13,9 @@
 //                 lost the box that centres its words, and they rose to its top edge beside two buttons that kept it);
 //   forms         a field with no label, a slot not of the forms' heights (34, 42, 44, 48), the browser's own list or
 //                 tick, a rule in a bracketed placeholder, a field marked wrong with no words under it (FORMS.md);
+//   wraps         a number or a date that breaks over two lines (2026-11- over 17 09:30): one is read whole, so a run
+//                 of digits and the marks it is written with (- : . , / and the word joiner the dates carry) lies on
+//                 one line;
 //   spacing       boxes (a card, a button, a field, a tag, an alert: anything with a fill, a border or a shadow) that
 //                 touch or overlap a box beside them in the same parent; words nearer a box's edge than its padding;
 //                 a gap between two boxes beside each other that is off the site's scale (whole steps of 2 px up to
@@ -207,9 +210,30 @@ const layout = page => page.evaluate(() => {
     const said = (f.getAttribute('aria-describedby') || '').split(/\s+/).map(id => document.getElementById(id)).filter(Boolean);
     if (!said.some(e => e.matches('.field-error'))) forms.push(name(f) + ' is marked wrong with no words under it');
   }
+  // ---- a number or a date breaking over two lines: each run of digits and its marks, as a range of its text, has its
+  // first and last boxes on one line (a range that wraps gives a box on each line it is on). Only a number or a date
+  // that is a word of its own: digits inside a longer word (a backup's file name, openDMT3-20261117-045835-manual.sqlite)
+  // are that word's, which may break where a long name must.
+  const wraps = [];
+  const texts = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const figure = /(?<![\p{L}\p{N}_.-])\d+(?:[-\u2060:.,/]+\d+)+(?![\p{L}\p{N}_-])/gu;
+  for (let n = texts.nextNode(); n; n = texts.nextNode()) {
+    const host = n.parentElement;
+    // Words a person sees: not a script's, not a field's own (a textarea draws its text inside itself), not hidden.
+    if (!host || host.closest('script, style, textarea, dialog:not([open]), [hidden]') || !shown(host)) continue;
+    for (const m of n.textContent.matchAll(figure)) {
+      const range = document.createRange();
+      range.setStart(n, m.index);
+      range.setEnd(n, m.index + m[0].length);
+      const boxes = [...range.getClientRects()].filter(r => r.width > 0 && r.height > 0);
+      if (boxes.length > 1 && boxes[boxes.length - 1].top - boxes[0].top > boxes[0].height / 2) {
+        wraps.push(name(host) + ' "' + m[0].replace(/\u2060/g, '') + '" breaks over two lines');
+      }
+    }
+  }
   return {page: document.documentElement.scrollWidth - width, els, cut: cut.slice(0, 6),
           unlabelled: unlabelled.slice(0, 6), menu, askew: askew.slice(0, 6), spacing: [...new Set(spacing)].slice(0, 8),
-          forms: forms.slice(0, 6)};
+          forms: forms.slice(0, 6), wraps: wraps.slice(0, 6)};
 });
 
 // The page's floating layers (the charts' and the DJ's weeks' tips), each opened as a person opens it, by pointing at
@@ -256,16 +280,20 @@ const layers = async page => {
 };
 
 // The page's frame on screen, pressed where a person would look for it (elementFromPoint, as a click lands): the bar's
-// mark, the menu item of the page showing (on a phone MENU, the menu being in its sheet), and on the admin pages the
-// admin menu's item showing; at the page's top, and halfway down its scroll (the bar is sticky, and so is the admin menu
-// beside a wide page; on a tablet or a phone the admin menu is a band under the head, so it is looked for at the top
-// only). The door (the sign-in, the first run) has no frame by design. The page is left at its top, at rest, for its
-// picture (a picture taken scrolled drew the sticky bar halfway down the page).
-const frame = async page => {
+// mark, the menu item of the page showing (on a phone MENU, the menu being in its sheet), and on one's account the
+// side menu's item showing; at the page's top, and halfway down its scroll (the bar is sticky; on a tablet or a phone
+// the side menu is a band under the head, so it is looked for at the top only). `kind` says which site's frame the page
+// must have: 'console' (the admin site's: its band, its mark that says ADMIN, its keys, and its rail at the top) or
+// 'players' (the players' bar); a page in the other's frame is a fault. The door (the sign-in, the first run) has no
+// frame by design. The page is left at its top, at rest, for its picture (a picture taken scrolled drew the sticky bar
+// halfway down the page).
+const frame = async (page, kind) => {
   const settle = () => page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
-  const look = where => page.evaluate(where => {
+  const look = where => page.evaluate(([where, kind]) => {
     const bar = document.querySelector('.bar');
     if (!bar) return ['no bar'];
+    const console_ = bar.classList.contains('console');
+    if (kind && console_ !== (kind === 'console')) return [where + ': the ' + (console_ ? "admin site's" : "players'") + ' frame on a page of the ' + (kind === 'console' ? 'admin site' : "players' site")];
     if (bar.classList.contains('door-bar')) return [];
     const at = selector => {
       const e = document.querySelector(selector);
@@ -278,6 +306,12 @@ const frame = async page => {
       return hit && (hit === e || e.contains(hit)) ? null : where + ': ' + selector + ' under ' + (hit ? hit.tagName + '.' + hit.className : 'nothing');
     };
     const faults = [at('.bar .brand')];
+    // The admin site's mark says ADMIN (the family's lockup: its role word), and its rail is under the band at the top
+    // (unless a toast stands over it: a toast's strip lies right under the band, over the page, by design).
+    if (console_ && !/ADMIN/.test((bar.querySelector('.brand .s') || {}).textContent || '')) faults.push(where + ': the mark says no ADMIN');
+    if (console_ && where === 'top' && document.querySelector('.rail') && !document.querySelector('.toast:popover-open')) {
+      faults.push(at('.rail .item'));
+    }
     if (innerWidth <= 760) {
       faults.push(at('.bar .menu-key'));
     } else {
@@ -286,7 +320,7 @@ const frame = async page => {
     }
     if (document.querySelector('.side-nav') && (where === 'top' || innerWidth > 1000)) faults.push(at('.side-nav a.on'));
     return faults.filter(Boolean);
-  }, where);
+  }, [where, kind]);
   await page.evaluate(() => window.scrollTo(0, 0));
   await settle();
   const faults = await look('top');
@@ -315,6 +349,7 @@ const record = (summary, lang, width, path, over) => {
   if (over.layers && over.layers.length > 0) { summary.layer_faults = (summary.layer_faults || 0) + 1; faults.push('LAYER'); }
   if (over.forms && over.forms.length > 0) { summary.form_faults = (summary.form_faults || 0) + 1; faults.push('FORM'); }
   if (over.frame && over.frame.length > 0) { summary.frame_faults = (summary.frame_faults || 0) + 1; faults.push('FRAME'); }
+  if (over.wraps && over.wraps.length > 0) { summary.wrap_faults = (summary.wrap_faults || 0) + 1; faults.push('WRAPS'); }
   console.log(lang, width, path, faults.length ? faults.join(', ') : 'ok', JSON.stringify(over));
 };
 

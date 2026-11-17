@@ -1,10 +1,11 @@
 #!/bin/bash
 # The site's layout check: the server in Docker with made-up data (seed.py), headless Chrome in Docker (shoot.js),
-# both on a network of their own with no way out. Every page in English and Korean at a desktop and a phone width,
-# signed in; it fails when any page sticks out past the right edge, cuts words off inside a box that hides its
-# overflow, shows a cell of a stacked row with no label at the phone width, a word of the phone menu that does not fit
-# or a button whose words are out of its middle (measure.js), when a question asked first does not fit or keep its
-# promise, when the songs filter, the message
+# both on a network of their own with no way out. Every page of the players' site and of the admin site (its own port,
+# published on that network) in English and Korean at a desktop and two phone widths, signed in on each; it fails when
+# any page sticks out past the right edge, cuts words off inside a box that hides its overflow, shows a cell of a
+# stacked row with no label at the phone width, a word of the phone menu that does not fit, a button whose words are
+# out of its middle, a number or a date broken over two lines, or a frame not its site's (measure.js), when a question
+# asked first does not fit or keep its promise, when the songs filter, the message
 # to send, the list to look at, a token shown once, an upload field, the upload or maintenance's card misbehaves, or
 # when fewer pages were looked at than there are.
 # Then a second server with nothing in it, its browser on the server's own network (so the server sees the server PC
@@ -19,22 +20,24 @@
 set -u
 OUT=$(realpath -m "${1:?usage: run.sh OUT_DIR}")
 REPO=${OPENDMT3_REPO:-$(cd "$(dirname "$0")/../../.." && pwd)}
-# 29 pages (the sign-in page, 21 signed in with two players' own pages, the players page with a message to send, the Status page with a line to
-# look at, the songs page filtered, the account page with a token just made, the backups page after an upload, the
-# Song list tab after a song list's upload, the Status page with maintenance off) x 3 widths (1280, 390, 360) x 2
-# languages; eight
+# 32 pages (the players' site: its sign-in page, 10 pages signed in, and the admin pages' old address on its port; the
+# admin site: its sign-in page, 12 pages signed in with two players' own pages and its Licenses page; then the players
+# page with a message to send, the Status page with a line to look at, the songs page filtered, the account page with a
+# token just made, the backups page after an upload, the Song list tab after a song list's upload, the Status page with
+# maintenance off) x 3 widths (1280, 390, 360) x 2 languages; eight
 # questions (a player deleted, a player's plays reset, a new password, every play reset, a backup deleted, a token
 # revoked, a player banned, one's own account deleted), one message, one list to look at, one songs filter, one token, one upload of each kind and one maintenance
 # off and on, and the toast and the phone's menu sheet pressed each round.
-EXPECTED_PAGES=174
+EXPECTED_PAGES=192
 EXPECTED_DIALOGS=48
 EXPECTED_ROUNDS=6
-# The empty server (empty.js): the first-run page in 2 languages x 3 widths and once refused in each language, the
-# sign-in page after the owner was made, a wrong password in each language, 20 pages x 3 widths x 2 languages, the
-# players page with an account made x 3 x 2, and a plain player's 4 pages x 3 x 2; its states that must hold: the
+# The empty server (empty.js): the first-run page (the admin site's) in 2 languages x 3 widths and once refused in each
+# language, the admin site's sign-in page after the owner was made, a wrong password in each language, 21 pages (11 of
+# the players' site, 10 of the admin site) x 3 widths x 2 languages, the players page with an account made x 3 x 2, and
+# a plain player's 4 pages (3, and the admin site's door refusing them) x 3 x 2; its states that must hold: the
 # first run (6) and refused (2), the owner made (1), a wrong password (2), the Download page and the Status page of
 # the empty server (6 each), the message (6), a plain player (6).
-EXPECTED_EMPTY_PAGES=161
+EXPECTED_EMPTY_PAGES=167
 EXPECTED_EMPTY_STATES=35
 # Names of this run's own (odt3-*, with its process number), so two runs at once (the self-test's and another's, or
 # CI's) never stop each other's server or use each other's image; each goes when its run ends.
@@ -61,18 +64,20 @@ cp "$OUT/data/openDMT3-song-list.zip" "$OUT/shots/"
 docker network create --internal "$NET" >/dev/null
 # The server is given the address its players reach it at (as ./dmt3 setup keeps the one chosen): the message to send
 # a player must carry that one, not the address the browser of this run reaches it by (http://site:4730).
+# The admin site listens on the container's every address, so the browser on this run's network reaches it at
+# http://site:4731 (on a PC, ADMIN_BIND keeps the published port to the PC itself).
 docker run -d --name "$SRV" --network "$NET" --network-alias site -e OPENDMT3_SITE_ADDRESS=http://192.168.0.5:4730/ \
-  -v "$OUT/data:/data" "$TAG" >/dev/null
-# Up when its health check answers (from inside: the network has no way to this PC).
+  -e OPENDMT3_ADMIN_HOST=0.0.0.0 -v "$OUT/data:/data" "$TAG" >/dev/null
+# Up when both sites' health checks answer (from inside: the network has no way to this PC).
 for _ in $(seq 60); do
-  docker exec "$SRV" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4730/health', timeout=2)" \
+  docker exec "$SRV" python -c "import urllib.request; [urllib.request.urlopen('http://127.0.0.1:%d/health' % p, timeout=2) for p in (4730, 4731)]" \
     >/dev/null 2>&1 && break
   sleep 0.5
 done
 # The upload field's words in both languages, from the site's own table, for the browser to hold the page to.
 WORDS=$(cd "$REPO" && python3 -I -c 'import json, sys; sys.path.insert(0, "."); from opendmt3.server.web.strings import TEXT
 print(json.dumps({k: TEXT[k] for k in ("upload.none", "upload.choose", "upload.change")}))') || { echo "FAIL: the words"; exit 1; }
-timeout 1500 docker run --rm --name "$NAME-browser-$$" --network "$NET" -e SITE=http://site:4730 -e NODE_PATH=/usr/src/app/node_modules -e WORDS="$WORDS" \
+timeout 1500 docker run --rm --name "$NAME-browser-$$" --network "$NET" -e SITE=http://site:4730 -e ADMIN=http://site:4731 -e NODE_PATH=/usr/src/app/node_modules -e WORDS="$WORDS" \
   -v "$REPO/tests/e2e/web:/w:ro" -v "$OUT/shots:/out" -w /usr/src/app zenika/alpine-chrome:with-puppeteer node /w/shoot.js \
   > "$OUT/shoot.txt" 2>&1
 status=$?
@@ -81,7 +86,7 @@ docker logs "$SRV" > "$OUT/server.log" 2>&1
 # 127.0.0.1, which the first-run page asks for).
 docker run -d --name "$EMPTY" --network none -v "$OUT/empty-data:/data" "$TAG" >/dev/null
 for _ in $(seq 60); do
-  docker exec "$EMPTY" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4730/health', timeout=2)" \
+  docker exec "$EMPTY" python -c "import urllib.request; [urllib.request.urlopen('http://127.0.0.1:%d/health' % p, timeout=2) for p in (4730, 4731)]" \
     >/dev/null 2>&1 && break
   sleep 0.5
 done
@@ -127,10 +132,11 @@ for what, key in (("pages stick out", "sticking"), ("pages cut words off", "cut"
                    "bare page", "spacing"), ("pages have a floating layer off the screen or under something",
                                              "layer_faults"),
                   ("pages have a form part out of its design (FORMS.md)", "form_faults"),
-                  ("pages have their bar, the menu item showing or the admin menu off the screen or under something "
-                   "(at the top or halfway down)", "frame_faults")):
-    if s[key] + e[key]:
-        problems.append("%s: %d" % (what, s[key] + e[key]))
+                  ("pages have their bar, the menu item showing or the side menu off the screen or under something "
+                   "(at the top or halfway down), or the other site's frame", "frame_faults"),
+                  ("pages break a number or a date over two lines", "wrap_faults")):
+    if s.get(key, 0) + e.get(key, 0):
+        problems.append("%s: %d" % (what, s.get(key, 0) + e.get(key, 0)))
 if empty_status:
     problems.append("the empty server's browser exited %d" % empty_status)
 if s["dialog_faults"]:
@@ -158,7 +164,8 @@ if status:
     problems.append("the browser exited %d" % status)
 print("FAIL: " + "; ".join(problems) if problems else "PASS: %d pages and %d of an empty server, nothing sticks out, "
       "no words cut off, no cell without a label, the phone menu whole, every button's words in its middle, boxes "
-      "apart and on the scale, every form in its design, the bar and the admin menu on screen, %d floating layers "
+      "apart and on the scale, every form in its design, every number and date whole, each site's frame on screen, "
+      "%d floating layers "
       "whole and on top; the toast and the "
       "phone's menu sheet pressed; %d "
       "questions fine; %d upload fields fine; the songs filter, the message to send, the list to look at, the token "

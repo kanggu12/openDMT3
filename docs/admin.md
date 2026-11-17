@@ -1,17 +1,47 @@
 # The admin pages
 
-For the server's owner: what each tab of **Admin** on the site does, what it keeps on disk, and its twin in the
+For the server's owner: what each page of the admin site does, what it keeps on disk, and its twin in the
 [API](api.md). How to start a server and make its first account: [server.md](server.md).
 
-The admin pages are part of the site, at `http://<server>:4730/admin/` (the launcher's built-in server: the address
-its window shows). Only an account with admin rights opens them; to anyone else they answer as a page that is not
-there. The first account, made on the server PC's own first-run page or with `--add-player ID --admin`, has them.
+## The admin site
 
-**Admin** opens at **Status**. The pages' menu runs down the left (on a tablet a band under the page's name, on a
-phone a grid of four): Status, Players, Connected (the cabinets and the launchers), Song list, Backups, Logs, Server.
+The admin pages are a site of their own, apart from the players' site: on the server PC at **`http://127.0.0.1:4731/`**
+(the server's start banner names it on its **Admin** line; in Docker, `./dmt3 up` and `./dmt3 status` say it), on a
+port of their own, `--admin-port` (4731). They listen on the server PC alone unless the owner opens them
+(`--admin-host`); where else they can open, on the network, over the internet or in Kubernetes:
+[server.md](server.md). `--admin-port 0` turns them off, and `--admin-on-site-port` serves them on the site's own port
+too, at `/admin/`, for a setup with one port for everything.
 
-Every page is in English or Korean (the KOR / ENG buttons at the top; a cookie keeps the choice; on a phone they are
-in the bar's **MENU**), works with the keyboard alone, and names its charts and their parts for a screen reader. A
+- **Its own sign-in.** The admin site has its own door, with the family's mark (ADMIN beside DMT3, the server's version
+  over it). Only an account with admin rights gets in; the right password of an account without them is told
+  so ("This account has no admin rights."), and a wrong one gets the one sentence every wrong try gets. Signing in on
+  the players' site never opens the admin site, nor the other way round: each keeps its own sign-in (its own cookie).
+  Taking an admin's rights ends their sign-in here at once. Signing out on either site ends the account's sign-ins on
+  both, as it ends them in every browser.
+- **The first run.** On a server with no account yet, the first account (the owner's, with admin rights) is made on the
+  admin site, from the server PC: opening the players' site there leads to it. `--add-player ID --admin` makes one
+  from the command line.
+- **The players' site.** Its menu has no admin pages. For a signed-in admin, its footer has **Admin pages** wherever
+  they are within reach of that browser: on the server PC, or on another PC once the owner opened them to the network.
+  The admin pages' old addresses on the site's port (`http://<server>:4730/admin/...`) go on to the admin site from the
+  server PC, and are a page that is not there anywhere else.
+- **The API** answers on both ports with the same tokens ([api.md](api.md)).
+- **The launcher's built-in server** keeps the admin pages on its site's own port, at `/admin/`, in the same frame.
+
+**The frame.** The admin site is the server's control room: an opaque band with the mark, the pages across it as the
+game's leaning keys (the page showing lit in TECHNIKA 3's blue), the language, who is signed in and **Sign out**; under
+it on every page, the **rail**: the game server's lamp (lit while it is on) with its port, the cabinets connected and the
+launchers heard in the last ten minutes (each leading to **Connected**), maintenance (pink while it is on, leading to
+where it is switched), how long the server has run, and at its right end the players' site's address. Each page has its
+name in chrome, and its cards a tab with their own. The footer leads back to the players' site. On a phone the band
+keeps the mark, where one is and **MENU**, whose sheet holds the pages, the language, the players' site and **Sign
+out**.
+
+The pages: Status (the admin site opens there), Players, Connected (the cabinets and the launchers), Song list,
+Backups, Logs, Server. Its links to a player's DJ page or a song go to the players' site.
+
+Every page is in English or Korean (the KOR / ENG buttons in the band; a cookie keeps the choice, one for both sites; on
+a phone they are in **MENU**), works with the keyboard alone, and names its charts and their parts for a screen reader. A
 question asked before something that cannot be undone (a delete, a reset, a restore, stopping the server) opens in the
 site's own dialog, which starts on Cancel. What a change did, or why it did not, is said in a toast in the bar's place
 (done goes by itself, a refusal stays until closed), and a form sent from low on a page comes back to its own place; a
@@ -45,8 +75,8 @@ API: `GET /api/v1/players` (with `?sort=` and `?order=`, and each player's `days
 
 ## Connected
 
-Who is on the server: at the top the cabinets connected to the game's port now and the launchers heard in the last ten
-minutes, each with its lamp. Then every cabinet seen, by its address or the name given here, and who plays on each now;
+Who is on the server (how many now: the rail). Every cabinet seen, by its address or the name given here, and who plays
+on each now;
 then every launcher that asked the server's API since it started: its player once it signed in (leading to their
 page), its PC's address, its version, and when it was last heard, lit while that was within ten minutes. A launcher
 names itself in each call (`openDMT3-launcher/<version>`); the server keeps what it hears in memory, so a restart
@@ -76,8 +106,9 @@ From the top:
   server's clock, darker with more; a cell's tip gives its count, and **As a table** each day's stages and its busiest
   hour.
 - **The song list**: what it holds and when it was read ([server.md](server.md#the-song-list)).
-- **Notice**: one line of up to 200 characters at the top of every page, set or cleared here.
-- **Maintenance**: while it is on, the game server refuses card logins; cabinets online stay connected.
+- **Notice**: one line of up to 200 characters at the top of every page of the players' site, set or cleared here.
+- **Maintenance**: while it is on, the game server refuses card logins; cabinets online stay connected. Every page of
+  the players' site says so, and the admin site's rail shows it in pink.
 
 API: `GET /api/v1/server` (the numbers, `look`, `song_list`, `hours` and `runner`), `GET /api/v1/status/machine` (the
 machine now, the day's points and the disk's parts), `POST` and `DELETE /api/v1/notice` and `/api/v1/maintenance`.

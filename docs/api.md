@@ -2,7 +2,9 @@
 
 Everything the site shows and does can be read and done through this API too: the launcher uses it to sign players in
 and out, and a program of your own can make accounts, back the database up or post the newest records. It lives on
-the site's port under `/api/v1/`, takes JSON bodies and answers JSON, or a file where a call hands one out.
+the site's port under `/api/v1/`, takes JSON bodies and answers JSON, or a file where a call hands one out. The admin
+site's port (4731, [admin.md](admin.md#the-admin-site)) answers the same calls with the same tokens: a script on the
+server PC may use either; an address the API gives (the invite, the installer's) is the players' site's on both.
 What each admin page shows and does, beside its calls here: [admin.md](admin.md).
 
 ## Signing in and out
@@ -17,7 +19,9 @@ Send the token with every other call as `Authorization: Bearer <token>`. It last
 when the account's password changes or the account is banned (for good: lifting the ban does not bring it back),
 while the account is disabled, or when the token is signed out:
 `DELETE /api/v1/session`, sent with a token, ends that token and no other (the launcher's **Sign out** does so, and a
-launcher signed in on another PC stays signed in). Signing out on the site ends the site's sign-ins, not the tokens.
+launcher signed in on another PC stays signed in). Signing out on the site (the players' or the admin site) ends the
+account's sign-ins on both sites, not the tokens; the tokens are never cookies, so each site's own sign-in has nothing
+to do with them.
 
 Sign-ins answer `429` (`too_many_tries`) for a few minutes after too many wrong passwords: 5 for one ID from one
 address (the addresses of one IPv6 /64 count as one; the address's other IDs go on), 30 from one address for any

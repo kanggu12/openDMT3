@@ -488,10 +488,16 @@ class RealServerTest(unittest.TestCase):
         finally:
             server.terminate()
             out, _ = server.communicate(timeout=30)
-        # The banner named both.
         said = out.decode("utf-8", "replace")
-        self.assertIn("Admin     http://127.0.0.1:%d/" % admin, said)
-        self.assertIn("First start: open http://127.0.0.1:%d/ on this PC" % admin, said)
+        # The banner names the admin site and its first run on a PC of its own; in a container (CI's jobs run in one:
+        # /.dockerenv, which the server reads as the test does) the PC's port is not the server's to know, and no
+        # visit is the server PC's: neither line (sources.in_container, the child's environment without its variable).
+        if os.path.exists("/.dockerenv"):
+            self.assertNotIn("Admin  ", said)
+            self.assertNotIn("First start", said)
+        else:
+            self.assertIn("Admin     http://127.0.0.1:%d/" % admin, said)
+            self.assertIn("First start: open http://127.0.0.1:%d/ on this PC" % admin, said)
 
 
 if __name__ == "__main__":

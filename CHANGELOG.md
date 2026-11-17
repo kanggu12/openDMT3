@@ -8,6 +8,12 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ### Added
 
+- The admin pages are a site of their own, apart from the players' site: on the server PC at
+  `http://127.0.0.1:4731/` (`--admin-port`, `--admin-host`, `--admin-on-site-port`), with their own sign-in for admins
+  only, their own cookies, the first run, and a frame of their own, the server's control room: the family's mark with
+  ADMIN, the pages as the game's leaning keys, and a rail of the server's state on every page. The players' site has
+  no admin menu any more; its footer leads an admin there where the admin pages are within reach, and their old
+  addresses there go on to them from the server PC. The API answers on both ports.
 - **Connected** on the admin pages: the launchers on the server beside its cabinets (whose, from which PC, which
   version, when last heard), and `GET /api/v1/launchers`.
 - The site's forms in one design: labels above their fields, hints and mistakes under them, Show inside a password,
@@ -61,8 +67,11 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ### Changed
 
-- **Admin** opens at **Status**, with the admin pages' menu down the left; the Players list is for looking and every
-  change to a player is on their own page. Pages that work rather than show have a low head; the phone's heroes are low.
+- The admin pages open at **Status**; the Players list is for looking and every change to a player is on their own
+  page. Pages that work rather than show have a low head; the phone's heroes are low.
+- A card's cut corner is one seam drawn by the card's own shape, along the top, down the cut and round the rest, on
+  every part with that corner (cards, the podium's plates, dialogs, a player's picture).
+- A date never breaks inside itself on a page, and a date's figure has a row of its own on a phone.
 - No how-to blocks on the site's pages (the Download page is the key and its facts; the guides keep the steps).
 - The requests log shows 50 requests a page; `GET /api/v1/log/requests` takes `?per=` and `?page=`.
 - Motion clarity is offered from a screen's highest refresh rate at its size: on Windows 11's dynamic refresh rate,

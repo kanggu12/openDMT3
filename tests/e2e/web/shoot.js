@@ -1,5 +1,6 @@
-// The site's layout check, run by tests/e2e/web/run.sh in headless Chrome: every page in English and Korean, at a desktop
-// width and a phone width, signed in as the admin. Per page it prints what the layout's measure finds (measure.js: what
+// The site's layout check, run by tests/e2e/web/run.sh in headless Chrome: every page of the players' site and of the
+// admin site (its own port, its own sign-in) in English and Korean, at a desktop width and two phone widths, signed in
+// as the admin, each page's frame the site's own (measure.js: frame). Per page it prints what the layout's measure finds (measure.js: what
 // sticks out past the right edge, words cut off inside a box that hides its overflow, a cell of a stacked row with no
 // label at the phone width, a word of the phone menu that does not fit, a button's words out of its middle), saves a
 // full-page screenshot, then opens the
@@ -24,26 +25,30 @@ const puppeteer = require('puppeteer');
 const {layout, layers, frame, record: recorded} = require('/w/measure.js');
 
 const base = process.env.SITE || 'http://site:4730';
+// The admin site, a site of its own on its own port (ADMIN-SITE.md), signed in to on its own door.
+const admin = process.env.ADMIN || 'http://site:4731';
 // The upload field's words in both languages, from the site's own table (run.sh reads strings.py): {key: [en, ko]}.
 const words = JSON.parse(process.env.WORDS || '{}');
 const pages = ['/', '/rankings', '/rankings?by=best30', '/rankings?by=month', '/songs', '/songs/4', '/dj/4', '/download',
-               '/account', '/admin/players', '/admin/cabinets', '/admin/status', '/admin/server', '/admin/song_list', '/admin/log',
-               '/admin/log/plays', '/admin/log/requests', '/admin/backups', '/licenses',
-               // The admin's page of a player: one decorated (a picture, MAX points, a level set), one banned.
-               '/admin/players/HANA', '/admin/players/RIO'];
-// The questions asked first: what each is, where, and the button of the form that asks it.
+               '/account', '/licenses'];
+// The admin site's pages, and its Licenses page (the console's frame on a page of no tab).
+const adminPages = ['/admin/players', '/admin/cabinets', '/admin/status', '/admin/server', '/admin/song_list', '/admin/log',
+                    '/admin/log/plays', '/admin/log/requests', '/admin/backups',
+                    // The admin's page of a player: one decorated (a picture, MAX points, a level set), one banned.
+                    '/admin/players/HANA', '/admin/players/RIO', '/licenses'];
+// The questions asked first: what each is, on which site, where, and the button of the form that asks it.
 const asking = action => `form[data-ask]:has(input[name=action][value=${action}]) button.danger`;
 // A player's own changes are on their page (the Players list leads there).
-const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
-                   ['player reset', '/admin/players/NOVA', asking('reset_plays')],
+const questions = [['player delete', admin, '/admin/players/NOVA', asking('delete')],
+                   ['player reset', admin, '/admin/players/NOVA', asking('reset_plays')],
                    // A new password ends the account's sign-ins: asked first too (its button is a plain one).
-                   ['player new password', '/admin/players/NOVA', 'form[data-ask]:has(input[name=action][value=password]) button'],
-                   ['every play reset', '/admin/players', asking('reset_all')],
-                   ['backup delete', '/admin/backups', asking('delete')],
-                   ['token revoke', '/account', asking('token_revoke')],
+                   ['player new password', admin, '/admin/players/NOVA', 'form[data-ask]:has(input[name=action][value=password]) button'],
+                   ['every play reset', admin, '/admin/players', asking('reset_all')],
+                   ['backup delete', admin, '/admin/backups', asking('delete')],
+                   ['token revoke', base, '/account', asking('token_revoke')],
                    // A form whose field is needed asks only once it is filled (the browser's own check comes first).
-                   ['player ban', '/admin/players/HANA', asking('ban'), ['input[name=reason]', 'Made-up reason']],
-                   ['account delete', '/account', asking('delete_me'), ['#delete-current', 'pass1234']]];
+                   ['player ban', admin, '/admin/players/HANA', asking('ban'), ['input[name=reason]', 'Made-up reason']],
+                   ['account delete', base, '/account', asking('delete_me'), ['#delete-current', 'pass1234']]];
 
 (async () => {
   const browser = await puppeteer.launch({args: ['--no-sandbox']});
@@ -53,15 +58,16 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
                    filters: 0, filter_faults: 0, messages: 0,
                    message_faults: 0, looks: 0, look_faults: 0, tokens: 0, token_faults: 0, uploads: 0,
                    upload_faults: 0, song_lists: 0, song_list_faults: 0, drops: 0, drop_faults: 0, maintenances: 0,
-                   maintenance_faults: 0, form_faults: 0, frame_faults: 0, bars: 0, bar_faults: 0};
+                   maintenance_faults: 0, form_faults: 0, frame_faults: 0, wrap_faults: 0, bars: 0, bar_faults: 0};
   // What the layout's measure finds on the page showing (measure.js), and its line and place in the summary.
   // The layout's measure, then the page's floating layers opened one by one (measure.js: layers), together.
-  // Last, the page's frame on screen (measure.js: frame), which leaves the page at its top for its picture.
-  const measure = async () => {
+  // Last, the page's frame on screen (measure.js: frame), which leaves the page at its top for its picture: the frame of
+  // the site the page is on, `kind` ('players', or 'console' for the admin site's).
+  const measure = async (kind = 'players') => {
     const over = await layout(page);
     const opened = await layers(page);
     summary.layers += opened.opened;
-    const framed = await frame(page);
+    const framed = await frame(page, kind);
     return Object.assign(over, {layers: opened.faults, frame: framed});
   };
   // Every whole page's picture is taken at rest at its top (one taken scrolled draws the sticky bar halfway down).
@@ -140,26 +146,40 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
       round += 1;
       await page.setViewport({width, height});
       await page.goto(base + '/lang/' + lang, {waitUntil: 'networkidle0'});
-      // The sign-in page first, then signed in for the rest.
-      await page.goto(base + '/signin', {waitUntil: 'networkidle0'});
-      record(lang, width, '/signin', await measure());
-      await full(`/out/${lang}-signin-${width}.png`);
-      await page.type('input[name=login_id]', 'BOSS');
-      await page.type('input[name=password]', 'pass1234');
-      await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('button.primary')]);
-      for (const path of pages) {
-        await page.goto(base + path, {waitUntil: 'networkidle0'});
-        // Everything folded is opened first (the DJ card's choices, the tables behind charts, the licences), so it
-        // is measured too; the pictures that load when they come into view are loaded before the measure.
+      // Each site's door first, then signed in on it for the rest: the players' site, then the admin site (its own
+      // sign-in: the players' one never opens it).
+      const door = async (site, kind, shot) => {
+        await page.goto(site + '/signin', {waitUntil: 'networkidle0'});
+        record(lang, width, (kind === 'console' ? 'admin ' : '') + '/signin', await measure(kind));
+        await full(`/out/${lang}-${shot}-${width}.png`);
+        await page.type('input[name=login_id]', 'BOSS');
+        await page.type('input[name=password]', 'pass1234');
+        await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('button.primary')]);
+      };
+      // A page looked at: everything folded opened first (the DJ card's choices, the tables behind charts, the
+      // licences), so it is measured too; the pictures that load when they come into view loaded before the measure.
+      const visit = async (site, kind, path, shot) => {
+        await page.goto(site + path, {waitUntil: 'networkidle0'});
         await page.evaluate(() => document.querySelectorAll('details').forEach(d => { d.open = true; }));
         await page.evaluate(() => Promise.all([...document.images].map(i => { i.loading = 'eager';
           return i.complete ? null : new Promise(done => { i.onload = i.onerror = done; }); })));
-        record(lang, width, path, await measure());
-        await full(`/out/${lang}-${path.replace(/[\/?=&]/g, '_') || '_'}-${width}.png`);
+        record(lang, width, (kind === 'console' ? 'admin ' : '') + path, await measure(kind));
+        await full(`/out/${lang}-${shot}-${width}.png`);
+      };
+      await door(base, 'players', 'signin');
+      for (const path of pages) {
+        await visit(base, 'players', path, path.replace(/[\/?=&]/g, '_') || '_');
+      }
+      // The admin pages' old address on the players' port, from this browser (another PC than the server's): the
+      // players' page that is not there.
+      await visit(base, 'players', '/admin/status', 'players-port-admin');
+      await door(admin, 'console', 'admin-signin');
+      for (const path of adminPages) {
+        await visit(admin, 'console', path, path === '/licenses' ? 'admin-licenses' : path.replace(/[\/?=&]/g, '_'));
       }
       // Each question: open, inside the screen, its question filled in; Esc closes it and nothing goes.
-      for (const [what, path, button, fill] of questions) {
-        await page.goto(base + path, {waitUntil: 'networkidle0'});
+      for (const [what, site, path, button, fill] of questions) {
+        await page.goto(site + path, {waitUntil: 'networkidle0'});
         const before = await page.evaluate(() => document.querySelectorAll('form[data-ask]').length);
         if (fill) await page.type(fill[0], fill[1]);
         await page.click(button);
@@ -180,7 +200,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
         console.log(lang, width, what + ' question', fine ? 'ok' : 'FAULT', JSON.stringify({ask, after, before}));
       }
       // The message to send: an account made here (an ID of its own each round), the page measured with the message.
-      await page.goto(base + '/admin/players', {waitUntil: 'networkidle0'});
+      await page.goto(admin + '/admin/players', {waitUntil: 'networkidle0'});
       await page.type('form:has(input[name=action][value=make]) input[name=login_id]', 'MSG' + round);
       await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}),
                          page.click('form:has(input[name=action][value=make]) button.primary')]);
@@ -190,10 +210,10 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
                       // The address the server was given for its players (run.sh), never the one this browser used;
                       // one other PCs reach, so the page has nothing to add about it.
                       chosen: box.value.includes('http://192.168.0.5:4730/\n') && box.value.includes('http://192.168.0.5:4730/download') &&
-                              !box.value.includes('site:4730'),
+                              !box.value.includes('site:4730') && !box.value.includes('4731'),
                       local: !!document.querySelector('.message-local')} : null;
       });
-      record(lang, width, '/admin/players (message)', await measure());
+      record(lang, width, 'admin /admin/players (message)', await measure('console'));
       await full(`/out/${lang}-_admin_players-message-${width}.png`);
       summary.messages += 1;
       const messageFine = message !== null && message.lines === message.rows && !message.scrolls && message.chosen &&
@@ -243,9 +263,9 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
         for (const id of ids) { await fetch('/api/v1/players/' + id + '/disable', {method: 'POST', headers: auth}); }
         return {token, ids};
       });
-      await page.goto(base + '/admin/status', {waitUntil: 'networkidle0'});
+      await page.goto(admin + '/admin/status', {waitUntil: 'networkidle0'});
       const looks = await page.evaluate(() => document.querySelectorAll('p.alert.look').length);
-      record(lang, width, '/admin/status (to look at)', await measure());
+      record(lang, width, 'admin /admin/status (to look at)', await measure('console'));
       await full(`/out/${lang}-_admin_status-look-${width}.png`);
       await page.evaluate(async others => {
         for (const id of others.ids) {
@@ -298,10 +318,10 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
       // The Backups tab's upload: its field as a person meets it, then a file past the page's limit (made small here) is
       // told on the page and never sent; then a real backup (one of the list's, downloaded) is uploaded, checked and
       // listed, the page measured.
-      await page.goto(base + '/admin/backups', {waitUntil: 'networkidle0'});
+      await page.goto(admin + '/admin/backups', {waitUntil: 'networkidle0'});
       fs.writeFileSync('/tmp/notes.txt', 'Not a database, and longer than the limit set here.');
       await drop(lang, width, 'backup', '/tmp/notes.txt', 'notes.txt');
-      await page.goto(base + '/admin/backups', {waitUntil: 'networkidle0'});
+      await page.goto(admin + '/admin/backups', {waitUntil: 'networkidle0'});
       await (await page.$('form.upload input[type=file]')).uploadFile('/tmp/notes.txt');
       await page.evaluate(() => { document.querySelector('form[data-upload-most]').dataset.uploadMost = '4'; });
       let posted = 0;
@@ -324,13 +344,13 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
         return btoa(text);
       }, name);
       fs.writeFileSync('/tmp/backup.sqlite', Buffer.from(bytes, 'base64'));
-      await page.goto(base + '/admin/backups', {waitUntil: 'networkidle0'});
+      await page.goto(admin + '/admin/backups', {waitUntil: 'networkidle0'});
       await (await page.$('form.upload input[type=file]')).uploadFile('/tmp/backup.sqlite');
       await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('form.upload button.send')]);
       // What the upload did is said in the toast in the bar's place.
       const uploaded = await page.evaluate(() => ({ok: (document.querySelector('.toast[data-toast]:not(.bad) .toast-words') || {}).textContent || '',
                                                    rows: document.querySelectorAll('table.table tbody tr').length}));
-      record(lang, width, '/admin/backups (uploaded)', await measure());
+      record(lang, width, 'admin /admin/backups (uploaded)', await measure('console'));
       await full(`/out/${lang}-_admin_backups-uploaded-${width}.png`);
       summary.uploads += 1;
       const uploadFine = posted === 0 && told.shown && told.box && !told.sends && told.where === '/admin/backups' &&
@@ -340,9 +360,9 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
       // The Song list tab's upload, as the Backups tab's: its field, then a file past the page's limit (made small here)
       // is told on the page and never sent; then the song list the seed saved is uploaded, taken in and said, the page
       // measured.
-      await page.goto(base + '/admin/song_list', {waitUntil: 'networkidle0'});
+      await page.goto(admin + '/admin/song_list', {waitUntil: 'networkidle0'});
       await drop(lang, width, 'song-list', '/out/openDMT3-song-list.zip', 'openDMT3-song-list.zip');
-      await page.goto(base + '/admin/song_list', {waitUntil: 'networkidle0'});
+      await page.goto(admin + '/admin/song_list', {waitUntil: 'networkidle0'});
       await (await page.$('form.upload input[type=file]')).uploadFile('/tmp/notes.txt');
       await page.evaluate(() => { document.querySelector('form[data-upload-most]').dataset.uploadMost = '4'; });
       let listPosted = 0;
@@ -358,13 +378,13 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
                 sends: !box.closest('form').querySelector('button.send').disabled};
       });
       await (await page.$('.card:has(form.upload)')).screenshot({path: `/out/${lang}-upload-song-list-too-big-${width}.png`});
-      await page.goto(base + '/admin/song_list', {waitUntil: 'networkidle0'});
+      await page.goto(admin + '/admin/song_list', {waitUntil: 'networkidle0'});
       await (await page.$('form.upload input[type=file]')).uploadFile('/out/openDMT3-song-list.zip');
       await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('form.upload button.send')]);
       // What the import did, or why it did not, is said in the toast in the bar's place.
       const taken = await page.evaluate(() => ({ok: (document.querySelector('.toast[data-toast]:not(.bad) .toast-words') || {}).textContent || '',
                                                  bad: (document.querySelector('.toast.bad[data-toast] .toast-words') || {}).textContent || ''}));
-      record(lang, width, '/admin/song_list (uploaded)', await measure());
+      record(lang, width, 'admin /admin/song_list (uploaded)', await measure('console'));
       await full(`/out/${lang}-_admin_song_list-uploaded-${width}.png`);
       summary.song_lists += 1;
       const songListFine = listPosted === 0 && listTold.shown && listTold.box && !listTold.sends &&
@@ -379,18 +399,21 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
         const off = await fetch('/api/v1/maintenance', {method: 'DELETE', headers: auth}).then(r => r.json());
         return {off: off.on === false};
       }, others.token);
-      await page.goto(base + '/admin/status', {waitUntil: 'networkidle0'});
+      await page.goto(admin + '/admin/status', {waitUntil: 'networkidle0'});
+      // The rail's MAINTENANCE no longer in pink (the admin site has the rail where the players' site has its line).
       const offered = await page.evaluate(() => ({start: !!document.querySelector('input[name=action][value=maintenance_on]'),
-                                                  line: !!document.querySelector('.site-notice.maintenance')}));
-      record(lang, width, '/admin/status (maintenance off)', await measure());
+                                                  line: !!document.querySelector('.site-notice.maintenance'),
+                                                  rail: (document.querySelector('.rail a[href$="#maintenance"]') || {}).className}));
+      record(lang, width, 'admin /admin/status (maintenance off)', await measure('console'));
       await full(`/out/${lang}-_admin_status-maintenance-off-${width}.png`);
       const back = await page.evaluate(async token => (await fetch('/api/v1/maintenance', {method: 'POST',
         headers: {Authorization: 'Bearer ' + token}}).then(r => r.json())).on, others.token);
       summary.maintenances += 1;
-      const maintenanceFine = status.off && offered.start && !offered.line && back === true;
+      const maintenanceFine = status.off && offered.start && !offered.line && offered.rail === 'item' && back === true;
       if (!maintenanceFine) summary.maintenance_faults += 1;
       console.log(lang, width, 'maintenance off and on', maintenanceFine ? 'ok' : 'FAULT', JSON.stringify({status, offered, back}));
-      // Signed out for the next round (its form needs the page's token, so through the page's own button).
+      // Signed out for the next round (its form needs the page's token, so through the page's own button): the account's
+      // round of sign-ins ends, on both sites.
       await page.goto(base + '/', {waitUntil: 'networkidle0'});
       await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}),
                          page.evaluate(() => document.querySelector('form[action="/signout"]').requestSubmit())]);
