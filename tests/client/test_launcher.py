@@ -2024,6 +2024,67 @@ class WindowGuardTest(unittest.TestCase):
                 actions.open_link("http://127.0.0.1:4730/")
 
 
+@unittest.skipUnless(TK, "needs Tk, the launcher's window toolkit")
+class WindowOfItsOwnTest(unittest.TestCase):
+    """A window of its own (dialogs.window_root) without one opened: its close key does what closing the window did,
+    and a frameless window's size is asked again less what Tk still adds for the frame it once drew."""
+
+    class Root:
+        """A stand-in for Tk's root: a WM_DELETE_WINDOW handler or none, and a frame Tk still counts."""
+
+        def __init__(self, handler="", extra=(0, 0), frameless=False):
+            self.handler, self.extra, self.opendmt3_frameless = handler, extra, frameless
+            self.called, self.destroyed, self.asked = [], False, []
+            self.size = (0, 0)
+            self.tk = self
+
+        def protocol(self, name):
+            return self.handler
+
+        def call(self, command):
+            self.called.append(command)
+
+        def destroy(self):
+            self.destroyed = True
+
+        def geometry(self, text):
+            width, height = (int(v) for v in text.split("x"))
+            self.asked.append((width, height))
+            self.size = (width + self.extra[0], height + self.extra[1])
+
+        def update_idletasks(self):
+            pass
+
+        def winfo_width(self):
+            return self.size[0]
+
+        def winfo_height(self):
+            return self.size[1]
+
+    def test_the_close_key_does_what_closing_the_window_did(self):
+        from opendmt3.client import dialogs
+        # The installer's handler (it waits while files are written), PLAY's getting ready (it goes on): theirs runs.
+        root = self.Root(handler="close_window_handler")
+        dialogs.close_window(root)
+        self.assertEqual((root.called, root.destroyed), (["close_window_handler"], False))
+        # No handler: the window goes.
+        root = self.Root()
+        dialogs.close_window(root)
+        self.assertEqual((root.called, root.destroyed), ([], True))
+
+    def test_a_frameless_window_is_the_size_asked(self):
+        from opendmt3.client import dialogs
+        # Tk adds the frame's 6 pixels it still counts (as Wine's Tk did): asked again 6 less, the inside is right.
+        root = self.Root(extra=(6, 0), frameless=True)
+        dialogs.set_size(root, 554, 334)
+        self.assertEqual((root.winfo_width(), root.winfo_height()), (554, 334))
+        self.assertEqual(root.asked, [(554, 334), (548, 334)])
+        # With its frame (not Windows), the size is asked once, as it always was.
+        root = self.Root(frameless=False)
+        dialogs.set_size(root, 554, 334)
+        self.assertEqual(root.asked, [(554, 334)])
+
+
 class StartupAndUpdateTest(unittest.TestCase):
     """A settings file that cannot be read, the installer's order of versions, and an update's outcome."""
 

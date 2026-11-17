@@ -146,11 +146,23 @@ class PictureTest(unittest.TestCase):
             self.assertEqual(usual.tobytes(), whole.crop(whole.getbbox()).tobytes(), scale)
 
     def test_a_cards_corner_is_cut(self):
-        # The page's colour beyond the cut (the top right), the card's inside under it (the bottom left).
-        corner = art.corner(14, theme.PANEL, theme.BG, seam=theme.LINE)
-        self.assertEqual(corner.size, (14, 14))
-        self.assertEqual(corner.getpixel((13, 0)), art._rgb(theme.BG))
-        self.assertEqual(corner.getpixel((0, 13)), art._rgb(theme.PANEL))
+        # The page's colour beyond the cut (the top right), the card's inside under it (the bottom left), and the seam
+        # one outline: it starts where the top edge comes in (the square's top-left pixel), runs down the diagonal and
+        # ends where the right edge goes on (its bottom-right pixel), at 100, 150 and 200 %.
+        def seam_share(pixel):
+            """How much of the seam a pixel on the cut shows over the page (0: the page alone, 1: the seam alone): the
+            cut runs through the diagonal pixels' corners, so half of each lies past it, under the page."""
+            line, page = art._rgb(theme.LINE), art._rgb(theme.BG)
+            return min((p - b) / float(l - b) for p, l, b in zip(pixel, line, page))
+
+        for size in (14, 21, 28):
+            corner = art.corner(size, theme.PANEL, theme.BG, seam=theme.LINE)
+            self.assertEqual(corner.size, (size, size))
+            self.assertEqual(corner.getpixel((size - 1, 0)), art._rgb(theme.BG), size)
+            self.assertEqual(corner.getpixel((0, size - 1)), art._rgb(theme.PANEL), size)
+            # From the top edge's last pixel down the diagonal to the right edge's first: the seam all the way.
+            for i in range(size):
+                self.assertGreaterEqual(seam_share(corner.getpixel((i, i))), 0.5, (size, i, corner.getpixel((i, i))))
 
     def test_the_version_never_changes_the_mark(self):
         # DMT3 and OPEN, the left part of the logo, are the same pixels whatever the version (the room beside
