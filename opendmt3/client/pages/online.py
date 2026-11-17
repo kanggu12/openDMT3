@@ -1,6 +1,7 @@
 """ONLINE: where logins and records are kept (this PC, another server, offline), its players, and this PC's server
 opened to the other PCs on its network, each on a card as OpenDMTQ's ONLINE has its server and its sign-in."""
 
+import logging
 import threading
 import tkinter as tk
 
@@ -9,6 +10,8 @@ from opendmt3.client import actions, dialogs, hosting, theme, widgets
 from opendmt3.server.services import accounts
 
 from opendmt3.client.pages.common import Sections, card, database_trouble, main_button
+
+log = logging.getLogger("opendmt3.launcher")
 
 
 # Which field an error is about, by its words' key: said under that field (said); any other under the whole form.
@@ -125,8 +128,9 @@ def server_panel(app, parent, rerender):
         # Not connected yet: Connect is the card's main action; typing goes to the address, Enter connects.
         main_button(app, row, w("online.connect"), connect).grid(row=1, column=1, sticky="w")
         address.after_idle(address.focus_set)
-        return server
-    sign = card(parent, ui, w("online.signin"), last=True)
+        # The connection test of the address as typed, on its own card under the server's.
+        return test_card(app, parent, address.get)
+    sign = card(parent, ui, w("online.signin"))
     if remote_state.get("card"):
         signed = tk.Frame(sign.body, bg=bg)
         signed.pack(fill="x")
@@ -157,7 +161,7 @@ def server_panel(app, parent, rerender):
 
         leave = widgets.Button(signed, ui, w("online.signout"), sign_out)
         leave.pack(side="right")
-        return sign
+        return test_card(app, parent, address.get)
     form, fields, errors = widgets.form_fields(sign.body, ui, (("online.id", w("online.id"), 14, False),
                                                                ("online.password", w("online.password"), 14, True)), bg)
     form.pack(anchor="w")
@@ -205,7 +209,128 @@ def server_panel(app, parent, rerender):
     # Signing in is the card's main action: lit while PLAY waits, quiet beside a lit PLAY.
     main_button(app, form, w("online.signin"), sign_in).grid(row=1, column=2, sticky="nw")
     message.pack(fill="x", pady=(ui.px(8), 0))
-    return sign
+    return test_card(app, parent, address.get)
+
+
+# A step's lamp by its state: waiting and not run an outline, running an amber outline, passed lime, failed pink.
+TEST_LAMPS = {"waiting": (theme.MUTED, False), "not_run": (theme.FAINT, False), "running": (theme.AMBER, False),
+              "ok": (theme.LIME, True), "failed": (theme.PINK, True)}
+
+
+def test_card(app, parent, typed):
+    """The connection test's card (client/server_test.py), the page's last: its four steps one under another, each
+    with its lamp, its name, what it found and its time, and under a failed one what to do; the outcome under them
+    with Copy the result; Test the connection (Test again) at the card's title. It tests the address as typed
+    (`typed()`) with the sign-in the launcher keeps for this server. The test runs on a thread; each step's outcome
+    comes to the card as it ends, and only the card's own inside is drawn again. Its last result stays with the window
+    (app.server_test) while the page is drawn again or left."""
+    from opendmt3.client import server_test
+    ui, w = app.ui, app.words
+    made = card(parent, ui, w("server_test"), last=True)
+    inside = tk.Frame(made.body, bg=theme.PANEL)
+    inside.pack(fill="x")
+
+    def draw():
+        if not inside.winfo_exists():
+            return
+        for child in inside.winfo_children():
+            child.destroy()
+        kept = getattr(app, "server_test", None)
+        if kept is None:
+            widgets.label(inside, ui, w("server_test.idle"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
+            return
+        steps, running = kept["steps"], kept["running"]
+        for i, step in enumerate(steps):
+            if i:
+                widgets.divider(inside, ui, pady=8)
+            line = tk.Frame(inside, bg=theme.PANEL)
+            line.pack(fill="x")
+            colour, lit = TEST_LAMPS[step.state]
+            lamp = widgets.Lamp(line, ui, colour, lit=lit)
+            lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
+            took = "%d ms" % step.ms if step.ms is not None else ""
+            # The time at the right end, in the hints' grey, as a ready check's value stands.
+            tk.Label(line, text=took, font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(side="right",
+                                                                                              anchor="n")
+            words = tk.Frame(line, bg=theme.PANEL)
+            words.pack(side="left", fill="x", expand=True, padx=(ui.px(8), ui.px(12)))
+            tk.Label(words, text=w("server_test." + step.key), font=ui.fonts.body_bold, fg=theme.TEXT,
+                     bg=theme.PANEL, anchor="w").pack(fill="x")
+            if step.said:
+                widgets.label(words, ui, w(step.said[0], **step.said[1]), font=ui.fonts.small, fg=theme.MUTED,
+                              wrap_margin=0).pack(fill="x")
+            if step.fix:
+                # What to do, in plain words, in the text's own colour: the step's lamp already says it failed.
+                widgets.label(words, ui, w(step.fix[0], **step.fix[1]), font=ui.fonts.small, fg=theme.TEXT,
+                              wrap_margin=0).pack(fill="x", pady=(ui.px(4), 0))
+        widgets.divider(inside, ui, pady=8)
+        foot = tk.Frame(inside, bg=theme.PANEL)
+        foot.pack(fill="x")
+        if running:
+            said, colour = w("server_test.running"), theme.MUTED
+        else:
+            failed = [s for s in steps if s.state == "failed"]
+            said = (w("server_test.failed", step=w("server_test." + failed[0].key)) if failed
+                    else w("server_test.passed"))
+            colour = theme.PINK if failed else theme.LIME
+            # The whole result as text, for a message to the server's owner.
+            widgets.link(foot, ui, w("server_test.copy"), copy, fg=theme.MUTED, chevron=False).pack(side="right")
+        widgets.label(foot, ui, said, fg=colour, wrap_margin=0).pack(side="left", fill="x", expand=True)
+
+    def copy():
+        kept = getattr(app, "server_test", None)
+        if kept is None:
+            return
+        app.root.clipboard_clear()
+        app.root.clipboard_append(server_test.as_text(kept["steps"], w))
+        app.set_status(w("server_test.copied"), "ok")
+
+    def run():
+        kept = getattr(app, "server_test", None)
+        if kept is not None and kept["running"]:
+            return
+        address_typed = typed()
+        token = (app.state.remote or {}).get("token") if address_typed.strip() and app.state.server_url else None
+        app.server_test = {"steps": [server_test.Step(key) for key in server_test.STEPS], "running": True}
+        button.enable(False)
+        draw()
+
+        def report(steps):
+            # A copy of each step as it is now, for the window's thread (the worker goes on changing them).
+            shown = [_copy_step(s) for s in steps]
+            app.post(lambda: shown_now(shown, True))
+
+        def work():
+            try:
+                steps = server_test.run(address_typed, token, report)
+            except Exception:  # noqa: BLE001  (logged; the card says where it stopped)
+                log.exception("the connection test failed")
+                steps = app.server_test["steps"]
+            app.post(lambda: shown_now([_copy_step(s) for s in steps], False))
+
+        threading.Thread(target=work, daemon=True, name="server-test").start()
+
+    def shown_now(steps, running):
+        app.server_test = {"steps": steps, "running": running}
+        if button.winfo_exists():
+            button.enable(not running)
+            button.set_text(w("server_test.again"))
+        draw()
+
+    tested = getattr(app, "server_test", None) is not None
+    button = made.action(w("server_test.again" if tested else "server_test.run"), run)
+    running_now = tested and app.server_test["running"]
+    button.enable(not running_now)
+    draw()
+    return made
+
+
+def _copy_step(step):
+    """A step as it is now (server_test.Step), apart from the one the worker goes on changing."""
+    from opendmt3.client import server_test
+    made = server_test.Step(step.key)
+    made.state, made.ms, made.said, made.fix = step.state, step.ms, step.said, step.fix
+    return made
 
 
 def build_online(app, parent):

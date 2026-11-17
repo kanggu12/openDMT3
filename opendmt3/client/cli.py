@@ -44,6 +44,10 @@
   openDMT3.exe --server URL            connect to another server and play on it from now on
   openDMT3.exe --sign-in ID            sign in to that server (the password from standard input, or asked for)
   openDMT3.exe --sign-out              sign out of that server (it ends the sign-in when it answers)
+  openDMT3.exe --test-server [URL]     test the connection to a server step by step (the address, the site and its
+                                       version, the game's port, the sign-in), as the ONLINE page's Connection test;
+                                       the server in use when no URL is given; exit 0 when every step passed, 2 the
+                                       address, 3 the site, 4 the game's port, 5 the sign-in
   openDMT3.exe --player ID|guest       who plays on this PC (whose card goes in at PLAY)
   openDMT3.exe --add-player ID [--dj NAME]     make a player on this PC (the password as for --sign-in)
   openDMT3.exe --delete-player ID [--yes]      delete a player on this PC, and their cleared stages
@@ -92,6 +96,44 @@ def say(text, error=False):
         # anything still buffered (output sent to a file) would be lost.
         print(text, file=stream, flush=True)
     (log.error if error else log.info)(text)
+
+
+def _test_server(state, url):
+    """--test-server [URL]: the ONLINE page's Connection test in the terminal, a line a step as each ends, then the
+    outcome; the sign-in the launcher keeps is tested when the URL is the server in use (or none is given)."""
+    from opendmt3.client import i18n, remote, server_test
+    w = i18n.Words("en")
+    address = url or state.server_url
+    if not address:
+        say("No server to test: give its address (--test-server URL), or connect to one with --server URL.",
+            error=True)
+        return 2
+    token = None
+    try:
+        same = state.server_url and remote.normalize(address) == remote.normalize(state.server_url)
+    except remote.RemoteError:
+        same = False
+    if same:
+        token = (state.remote or {}).get("token")
+    said = set()
+
+    def report(steps):
+        # Each step's line once, as it ends.
+        for step in steps:
+            if step.state in (server_test.OK, server_test.FAILED) and step.key not in said:
+                said.add(step.key)
+                one = server_test.as_text([step], w).split("\n")
+                for line in one[:-1]:
+                    say(line, error=step.state == server_test.FAILED)
+
+    steps = server_test.run(address, token, report)
+    for step in steps:
+        if step.state == server_test.NOT_RUN and step.said:
+            # A step not run for want of something (no sign-in yet) says so too.
+            say(server_test.as_text([step], w).split("\n")[0])
+    outcome = server_test.as_text(steps, w).split("\n")[-1]
+    say(outcome, error=not server_test.passed(steps))
+    return server_test.exit_code(steps)
 
 
 def _serve(state):
@@ -588,6 +630,9 @@ def parse(argv):
                    help="with --records: print the RECORDS page (numbers, recent plays, best scores) instead")
     p.add_argument("--yes", action="store_true",
                    help="do not ask before --put-back, --unpack, --update, --uninstall or --delete-player")
+    p.add_argument("--test-server", nargs="?", const="", metavar="URL",
+                   help="test the connection to a server step by step (the server in use without URL); exit 0: every "
+                        "step passed, 2 the address, 3 the site, 4 the game's port, 5 the sign-in")
     p.add_argument("--status", action="store_true",
                    help="print the folder, how this PC plays, the language, the sound and the ready check (exit 0: "
                         "PLAY can go)")
@@ -671,6 +716,7 @@ def has_jobs(args):
     return (args.play or args.check or args.restore or args.update or args.repair or args.uninstall or args.records
             or args.serve
             or args.shortcut or args.autostart or args.status or args.find or args.inspect or args.unpack
+            or args.test_server is not None
             or args.sound_devices
             or args.report is not None or args.save_song_list is not None or args.send_song_list
             or args.open_log or writes(args))
@@ -680,6 +726,8 @@ def run_jobs(args, state, play_failed):
     """Do what the command line asks, in the order main.py's description gives; returns the exit code, or None when
     nothing asked for one (then the window opens). play_failed(state, key, blocked=(), error=None) tells a failed
     --play in the launcher's own window when there is no console (main.py)."""
+    if args.test_server is not None:
+        return _test_server(state, args.test_server)
     if args.find:
         # The guide's search (DISC CHECK): every game folder and archive found, each with what its card says.
         from opendmt3.client import find, i18n, intake

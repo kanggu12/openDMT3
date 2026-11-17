@@ -479,6 +479,81 @@ def screen_reader():
     return lambda x, y: picture.getpixel((x, y)) if 0 <= x < picture.width and 0 <= y < picture.height else None
 
 
+def server_test_check(app, out, tag, problems):
+    """ONLINE's Connection test card (client/server_test.py) in each state a player meets, against made-up servers
+    on this machine (tests/client/test_server_test.py's): not run yet, under way, every step passed, nothing
+    answering, another openDMT3 version, the game's port closed, and a sign-in the server no longer takes. Each is
+    shot and measured; the card must show the outcome the steps came to, and Copy the result must copy it."""
+    from opendmt3.client import server_test
+    from tests.client.test_server_test import MadeUpServer, free_port
+    kept = (app.state.mode, app.state.server_url, app.state.remote)
+    cases = (("passed", {}, "good", 0), ("site-none", None, None, 3), ("version", {"version": "9.9.0"}, None, 3),
+             ("game-closed", {"game_open": False}, None, 4), ("signed-out", {}, "old", 5))
+    try:
+        app.state.mode = "server"
+        app.server_test = None
+        for name, made, token, code in cases:
+            server = MadeUpServer(**made) if made is not None else None
+            try:
+                url = server.url if server is not None else "http://127.0.0.1:%d" % free_port()
+                app.state.server_url = url
+                app.state.remote = {"game": "127.0.0.1:%d" % (server.game_port if server else 4725),
+                                    "version": "0.3.1"}
+                if token:
+                    app.state.remote.update(login_id="NOVA", dj_name="DJ NOVA", card="1" * 20, token=token)
+                app.go("online")
+                settle(app)
+                if name == "passed":
+                    # Before a test: the card says what it checks.
+                    shot(app, out, "%s_online-test-idle" % tag)
+                    measure(app, "%s_online-test-idle" % tag, problems)
+                run = [b for b in widgets_of(app.root) if isinstance(b, widgets.Button)
+                       and b.words in (app.words("server_test.run"), app.words("server_test.again"))]
+                if not run:
+                    problems.append("%s: no Test the connection on ONLINE" % tag)
+                    return
+                run[0].press()
+                if name == "passed":
+                    # Under way: the first steps' lamps, the others waiting.
+                    app.root.update()
+                    shot(app, out, "%s_online-test-running" % tag)
+                end = time.time() + 15
+                while time.time() < end and (app.server_test or {}).get("running", True):
+                    app.root.update()
+                    time.sleep(0.05)
+                settle(app)
+                app.body.show(run[0], app.ui.px(16))
+                app.root.update()
+                label = "%s_online-test-%s" % (tag, name)
+                shot(app, out, label)
+                measure(app, label, problems)
+                steps = (app.server_test or {}).get("steps", [])
+                if server_test.exit_code(steps) != code:
+                    problems.append("%s: the connection test came to %s, not exit %d"
+                                    % (label, [s.state for s in steps], code))
+                said = labels(app)
+                outcome = server_test.as_text(steps, app.words).split("\n")[-1]
+                if outcome not in said:
+                    problems.append("%s: the card does not say %r" % (label, outcome))
+                if name == "game-closed":
+                    copy = [x for x in widgets_of(app.root) if x.winfo_class() == "Label"
+                            and x.cget("text") == app.words("server_test.copy")]
+                    if copy:
+                        copy[0].event_generate("<Button-1>")
+                        app.root.update()
+                        if str(server.game_port) not in app.root.clipboard_get():
+                            problems.append("%s: Copy the result did not copy the steps" % label)
+                    else:
+                        problems.append("%s: no Copy the result" % label)
+            finally:
+                if server is not None:
+                    server.close()
+    finally:
+        app.state.mode, app.state.server_url, app.state.remote = kept
+        app.server_test = None
+        app.state.save()
+
+
 def interactions_check(app, out, tag, problems):
     """What the pages do in place, the way a person does it:
 
@@ -758,7 +833,8 @@ WORKERS = {"check": "the ready check", "discs": "the song discs", "find": "the f
            "play": "PLAY getting the folder ready", "plays": "the session's plays",
            "lan": "the server for the other PCs", "records": "the records", "connect": "the other server's answer",
            "sign-in": "the sign-in", "updates": "the look for updates", "update": "the update",
-           "removing": "putting the game back to remove openDMT3", "song-list": "the song list being saved or sent"}
+           "removing": "putting the game back to remove openDMT3", "song-list": "the song list being saved or sent",
+           "server-test": "the connection test"}
 
 
 def working(app):
@@ -2493,6 +2569,8 @@ def main():
             settle(app)
             shot(app, args.out, "%s_%s-%s" % (tag, page, name))
             measure(app, "%s_%s-%s" % (tag, page, name), problems)
+    # ---- the connection test on ONLINE, against made-up servers on this machine: each outcome's card
+    server_test_check(app, args.out, tag, problems)
     # ---- TS-LAUNCHER-21: PLAY on another server that does not answer (no network here) stops, saying why
     app.go("play")
     settle(app)
