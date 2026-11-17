@@ -34,7 +34,7 @@ from opendmt3.server.services import songlist, sources
 from opendmt3.server.services import tokens as tok
 # The worker threads a handler hands its work to, its processor time counted (work.py).
 from opendmt3.server.web.work import long, threaded
-from opendmt3.server.web import calls, control, player_pages, upload
+from opendmt3.server.web import calls, control, launchers, player_pages, upload
 from opendmt3.server.web import session as sess
 from opendmt3.server.web import strings
 # The password check and what the pages show and do too, which the API gives and takes as JSON (common.py).
@@ -47,7 +47,7 @@ from opendmt3.server.web.common import (LICENCE_FACES, _accounts_call, _allowed,
                                  _upload_backup, _song_list_state, _song_list_found,
                                  _upload_song_list, LICENCE_PARTS, _own_licence)
 # The Status page's lines to look at, in the page's words (a line of its own here: the list above is shared work).
-from opendmt3.server.web.common import _invite, _look_text, _import_outcome, _start_import
+from opendmt3.server.web.common import _address, _invite, _look_text, _import_outcome, _start_import
 # The machine, when people play, the requests log, the players' last two weeks, stopping the server and the long jobs,
 # as the admin pages show and do them (insights.py).
 from opendmt3.server.web import insights
@@ -186,6 +186,8 @@ def routes(site):
         if admin and read_only:
             return None, _error(403, "read_only", str(tok.read_only()))
         caller = dict(row)
+        # A launcher's signed call: the Cabinets page shows whose launcher it is.
+        _heard(request, row)
         # The change log's name for the caller: "NOVA", or "NOVA (token nightly backup)".
         caller["who"] = "%s (token %s)" % (row["login_id"], data["name"]) if named else row["login_id"]
         caller["admin"] = bool(row["is_admin"]) and not read_only
@@ -207,9 +209,17 @@ def routes(site):
 
     # ------------------------------------------------------------------ the server, signing in and out
 
+    def _heard(request, row=None):
+        """A launcher's call (its User-Agent says it, client/remote.py) noted for the admin's Cabinets page: its PC's
+        address, its version, and the account when the call is signed (launchers.py). Anything else is not noted."""
+        version = launchers.version_of(request.headers.get("user-agent", ""))
+        if version is not None:
+            site.launchers.heard(_address(request), version, row)
+
     def api_status(request):
         """What a launcher needs before signing in: that this is openDMT3, its version, the game's port, and whether
         it hands out the launcher's updates (/updates/)."""
+        _heard(request)
         return JSONResponse({"server": "openDMT3", "version": __version__, "game_port": site.game_port,
                              "updates": os.path.isfile(os.path.join(site.updates, "releases.win.json"))})
 
@@ -257,6 +267,8 @@ def routes(site):
                 return JSONResponse({"error": {"code": "banned", "message": "this account is banned",
                                                "reason": reason}}, status_code=403)
             return _error(401, "wrong_sign_in", "that ID and password do not match an account")
+        # A launcher signing in: the Cabinets page shows whose it is from now.
+        _heard(request, row)
         # The account's card (a look at its plays) on a worker thread.
         return await threaded(lambda: JSONResponse(dict(_me(row), token=_new_token(row))))
 
@@ -897,6 +909,17 @@ def routes(site):
         # token is read-only.
         return JSONResponse({"cabinets": _cabinets_for(site, dict(row, is_admin=row["admin"]))})
 
+    def api_launchers(request):
+        """The launchers that asked this server's API since it started (launchers.py), the one heard last first: the
+        admin's Cabinets page's twin. An admin's call (a read-only token may make it: it changes nothing)."""
+        row, refused = _caller(request)
+        if refused:
+            return refused
+        if not row["is_admin"]:
+            return _error(403, "admin_only", "an admin account's token is needed")
+        return JSONResponse({"launchers": site.launchers.view(), "since": site.launchers.since,
+                             "now_seconds": launchers.NOW})
+
     async def api_cabinet_name(request):
         """POST {"name": ...}: the name the admin pages show for a cabinet (empty: its address again)."""
         body = await _json_object(request)
@@ -1328,6 +1351,7 @@ def routes(site):
         Route("/api/v1/players.csv", api_players_file),
         Route("/api/v1/cabinets", api_cabinets),
         Route("/api/v1/cabinets/{id:int}/name", api_cabinet_name, methods=["POST"]),
+        Route("/api/v1/launchers", api_launchers),
         Route("/api/v1/server", api_server),
         Route("/api/v1/server/stop", api_stop, methods=["POST"]),
         Route("/api/v1/server/restart", api_restart, methods=["POST"]),

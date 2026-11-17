@@ -56,6 +56,7 @@ from opendmt3.server.services import requestlog
 from opendmt3.server.services import sources
 # The areas: each builds its own routes for a Site, and create_app joins them into one table.
 from opendmt3.server.web import admin, api, pages, player_pages
+from opendmt3.server.web import launchers as launchers_mod
 # The lists made from everyone's plays, kept until the plays change.
 from opendmt3.server.web import cache
 # The admin pages' long jobs, and who started the server (how its Stop asks them).
@@ -164,6 +165,8 @@ class Site:
         self.runner = runner or runner_mod.default(sources.in_container())
         # The admin pages' long jobs (a song list's import, a restore) and how far each has come.
         self.jobs = jobs_mod.Jobs()
+        # The launchers that ask this server's API, as it hears them (launchers.py): the admin's Cabinets page.
+        self.launchers = launchers_mod.Launchers()
         # The site's requests log (services/requestlog.py), shared by every Site of this data folder.
         self.requests = requestlog.for_dir(data_dir)
         # The machine's last day (services/machine.py), its thread started with the first request (Work): a Site made

@@ -304,6 +304,10 @@ CALLS = [
          params=(path("id", "integer", "The cabinet's number, as GET /api/v1/cabinets?all=1 gives it."),
                  body("name", "string", "Its name; empty, its address again.", required=True)),
          answer={"cabinets": "array"}, errors=((400, "bad_request"), (404, "unknown_cabinet"))),
+    Call("GET", "/api/v1/launchers", "admin", ADMIN,
+         "The launchers that asked this server's API since it started, the one heard last first: whose, from which "
+         "PC, which version, when; now while heard within now_seconds.",
+         answer={"launchers": "array", "since": "integer", "now_seconds": "integer"}, errors=((403, "admin_only"),)),
     Call("GET", "/api/v1/server", "admin", ADMIN,
          "The Status page: the version, the numbers, the last backup, maintenance, and what may want a look.",
          params=(LANG,),

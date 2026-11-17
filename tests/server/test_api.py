@@ -342,7 +342,7 @@ class PlayersTwinTest(ApiBase):
         self.assertEqual(made["message"], "Your account on this openDMT3 server.\nAddress: https://dmt.example/\n"
                                           "ID: MINHO\nPassword: %s\n\n1. Open the Download page and sign in with "
                                           "this ID and password: https://dmt.example/download\n2. Download the "
-                                          "launcher there and follow the page's steps." % made["password"])
+                                          "launcher there: it opens on this server." % made["password"])
         # The password in the answer is the one that signs in.
         self.token("MINHO", made["password"])
         # A password sent comes back as sent; the message in Korean with ?lang=ko.
@@ -857,6 +857,7 @@ class RouteDocsTest(ApiBase):
             ("GET", "/api/v1/songs/{number}/jacket.png", "/api/v1/songs/1/jacket.png", {}),
             ("GET", "/api/v1/djs/{player}", "/api/v1/djs/%d" % nova["id"], {}),
             ("GET", "/api/v1/cabinets", "/api/v1/cabinets", {}),
+            ("GET", "/api/v1/launchers", "/api/v1/launchers", {}),
             ("GET", "/api/v1/download", "/api/v1/download", {}),
             ("GET", "/api/v1/download/windows", "/api/v1/download/windows", {}),
             ("GET", "/api/v1/players", "/api/v1/players", {}),
@@ -1007,3 +1008,62 @@ class RouteDocsTest(ApiBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
+class LaunchersTwinTest(ApiBase):
+    """The launchers that ask the server's API, as it hears them (web/launchers.py): the admin's Cabinets page and its
+    twin GET /api/v1/launchers. A launcher names itself in its User-Agent; a signed call says whose it is."""
+
+    AGENT = {"User-Agent": "openDMT3-launcher/0.4.0"}
+
+    def test_a_launcher_is_heard_with_its_version_and_then_its_account(self):
+        self.make("BOSS", admin=True)
+        self.make()
+        admin = self.token("BOSS")
+        # Nothing heard yet: an empty list and when the server began to listen.
+        answer = self.call("GET", "/api/v1/launchers", admin).json()
+        self.assertEqual(answer["launchers"], [])
+        self.assertEqual(answer["now_seconds"], 600)
+        # The launcher's first question, unsigned (the server's status), then its sign-in and a signed call.
+        self.call("GET", "/api/v1/status", headers=self.AGENT)
+        heard = self.call("GET", "/api/v1/launchers", admin).json()["launchers"]
+        self.assertEqual([(h["version"], h["login_id"], h["now"]) for h in heard], [("0.4.0", None, True)])
+        r = self.client.post("/api/v1/session", json={"login_id": "NOVA", "password": "pass1234"}, headers=self.AGENT)
+        self.call("GET", "/api/v1/me", r.json()["token"], headers=self.AGENT)
+        heard = self.call("GET", "/api/v1/launchers", admin).json()["launchers"]
+        # The PC's unsigned line gives way to the signed one: one launcher, NOVA's.
+        self.assertEqual([(h["login_id"], h["dj_name"], h["version"]) for h in heard], [("NOVA", "DJ NOVA", "0.4.0")])
+        self.assertGreaterEqual(heard[0]["calls"], 2)
+        # Another program's calls (no launcher's name) are not launchers.
+        self.call("GET", "/api/v1/me", admin)
+        self.assertEqual(len(self.call("GET", "/api/v1/launchers", admin).json()["launchers"]), 1)
+
+    def test_only_an_admin_sees_them_and_the_page_shows_them(self):
+        self.make("BOSS", admin=True)
+        self.make()
+        self.refused(self.call("GET", "/api/v1/launchers", self.token()), 403, "admin_only")
+        r = self.client.post("/api/v1/session", json={"login_id": "NOVA", "password": "pass1234"}, headers=self.AGENT)
+        self.assertEqual(r.status_code, 200)
+        self.sign_in(self.client, "BOSS")
+        page = self.client.get("/admin/cabinets").text
+        # The page's first card says who is on now; the launchers' card names NOVA's launcher, lit, with its version.
+        self.assertIn("Launchers heard in the last 10 minutes: 1", page)
+        self.assertIn('<a href="/admin/players/NOVA">DJ NOVA</a>', page)
+        self.assertIn("<td data-label=\"Version\">0.4.0</td>", page)
+
+    def test_the_record_keeps_its_bounds(self):
+        from opendmt3.server.web import launchers
+        clock = [1000.0]
+        record = launchers.Launchers(clock=lambda: clock[0])
+        for n in range(launchers.MOST + 10):
+            record.heard("10.0.%d.%d" % (n // 250, n % 250), "0.4.0")
+            clock[0] += 1
+        # At most MOST at once, the oldest heard gone first; one not heard for a day goes too.
+        self.assertEqual(len(record.view()), launchers.MOST)
+        self.assertNotIn("10.0.0.0", [row["address"] for row in record.view()])
+        clock[0] += launchers.KEPT + 5
+        self.assertEqual(record.view(), [])
+        # Only a launcher's own name counts as one.
+        self.assertEqual(launchers.version_of("openDMT3-launcher/0.4.0"), "0.4.0")
+        self.assertIsNone(launchers.version_of("curl/8.0"))

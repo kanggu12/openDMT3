@@ -227,6 +227,13 @@ body.lang-ko .facts dt { font: 600 12px/1.4 var(--text-face); letter-spacing: 0;
 .facts dd { margin: 2px 0 0; font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
 .facts.wide { gap: 14px 40px; }
 
+/* Who is on the server now (the Cabinets page's first card): a line each with a lamp, lit while there is someone. */
+.now-line { display: grid; gap: 6px; }
+.lamp-line { display: flex; align-items: center; gap: 10px; margin: 0; }
+.lamp-line::before { content: ""; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--faint); }
+.lamp-line.on::before { background: var(--lime); box-shadow: 0 0 8px rgba(180, 240, 42, 0.7); }
+/* The launchers' table: a lamp before each, lit while heard lately. */
+.table.launchers .dot { display: inline-block; vertical-align: 1px; margin-right: 6px; }
 /* The home page's one main key, under its hero's words. */
 .hero-key { margin: 16px 0 0; }
 
