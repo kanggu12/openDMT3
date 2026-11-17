@@ -731,6 +731,15 @@ TEXT = {
     "server.kind.launcher": ("Launcher", "런처"),
     "server.kind.docker": ("Docker Compose", "Docker Compose"),
     "server.kind.other": ("Another program", "다른 프로그램"),
+    "server.kind.kubernetes": ("Kubernetes", "쿠버네티스"),
+    "server.kind.container": ("Container", "컨테이너"),
+    "server.runner.kubernetes": ("Runs in Kubernetes, which owns its life: the cluster starts it again whenever it ends. "
+                                 "The cluster's commands below do the rest.",
+                                 "쿠버네티스에서 돌고 있으며, 켜고 끄는 일은 클러스터가 맡습니다(끝나면 클러스터가 다시 켭니다). 나머지는 "
+                                 "아래 클러스터 명령으로 합니다."),
+    "server.runner.container": ("Runs in a container started by hand (docker run): Docker's own commands below do the "
+                                "rest, on the server PC.",
+                                "직접 실행한 컨테이너(docker run)에서 돌고 있습니다. 나머지는 서버 PC에서 아래 Docker 명령으로 합니다."),
     "server.runs": ("Started by", "켠 곳"),
     "server.data": ("Data folder: {folder}", "데이터 폴더: {folder}"),
     "server.restart": ("Restart the server", "서버 다시 켜기"),
@@ -779,6 +788,9 @@ TEXT = {
     "server.going.start.launcher": ("To start it again, use the launcher.", "다시 켜려면 런처를 쓰세요."),
     "server.going.start.docker": ("To start it again, on the server PC: {command}", "다시 켜려면 서버 PC에서: {command}"),
     "server.going.start.other": ("Start it again where it was started.", "켰던 곳에서 다시 켜세요."),
+    "server.going.start.kubernetes": ("To start it again: {command}", "다시 켜려면: {command}"),
+    "server.going.start.container": ("To start it again, on the server PC: {command}",
+                                     "다시 켜려면 서버 PC에서: {command}"),
     "server.stop": ("Stop the server", "서버 끄기"),
     "server.stop.ask": ("Stop the server now?", "지금 서버를 끌까요?"),
     "server.stop.detail": ("The game and the site both stop. Cabinets connected now: {n}. Start it again the way it was "

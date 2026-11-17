@@ -1,25 +1,30 @@
 #!/bin/bash
 # ./dmt3 expose as an owner runs it, on a copy of this tree with ports of its own, under a Compose project of its own
-# (odt3-srv-expose: its containers, network and volumes carry the name), so nothing of a server on this PC is touched:
+# (odt3-srv-expose, or OPENDMT3_E2E_NAME's -expose: its containers, network and volumes carry the name), so nothing of
+# a server on this PC is touched:
 #   1. Caddy's local authority (a closed network): ./dmt3 setup, expose NAME --local-ca, up; ./dmt3 check answers
 #      through Caddy; the root saved with --root-cert verifies the site's certificate; plain HTTP is sent to HTTPS; an
 #      admin signs in through the API over HTTPS; the site's own port is not published.
+#   1b. An address as the site's name: HTTPS answers with no name in the handshake, its certificate the address's.
 #   2. An ACME authority: Pebble (Let's Encrypt's test authority, every challenge taken as passed) on the project's
 #      network, named with --ca and --ca-root; Caddy gets a certificate it signed.
 #   3. expose --off: Caddy goes, the site is on its own port again.
+#   4. remove --delete-data: the last backup its owner's alone, and no volume of the project left.
 # Each step says PASS or FAIL; the exit code is the number that failed. Everything made is removed at the end.
 #
 #   tests/e2e/expose/run.sh OUT_DIR [IMAGE]
 #
-# IMAGE is the server image to run (default: built from this tree as odt3-srv-expose:test). Ports (each checked free
+# IMAGE is the server image to run (default: built from this tree as <name>-expose:test). Ports (each checked free
 # first): EXPOSE_PORTS="GAME SITE HTTP HTTPS", by default 14725 14730 14780 14743.
 set -u
 OUT=$(realpath -m "${1:?usage: tests/e2e/expose/run.sh OUT_DIR [IMAGE]}")
 REPO=$(cd "$(dirname "$0")/../../.." && pwd)
-IMAGE=${2:-odt3-srv-expose:test}
+# The names this run's containers, network, volumes and image take (two runs at once each name their own).
+NAME_PREFIX=${OPENDMT3_E2E_NAME:-odt3-srv}
+IMAGE=${2:-$NAME_PREFIX-expose:test}
 read -r GAME SITE HTTP HTTPS <<< "${EXPOSE_PORTS:-14725 14730 14780 14743}"
-export COMPOSE_PROJECT_NAME=odt3-srv-expose
-PEBBLE=odt3-srv-pebble
+export COMPOSE_PROJECT_NAME=$NAME_PREFIX-expose
+PEBBLE=$NAME_PREFIX-pebble
 NAME=dmt3.test
 failed=0
 step() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1"; failed=$((failed + 1)); fi; }
@@ -45,7 +50,7 @@ cleanup() {
 }
 trap cleanup EXIT
 cleanup
-if [ "$IMAGE" = odt3-srv-expose:test ]; then
+if [ "$IMAGE" = "$NAME_PREFIX-expose:test" ]; then
   docker build -q -f "$REPO/packaging/docker/Dockerfile" -t "$IMAGE" "$REPO" >/dev/null || { echo "FAIL the image"; exit 1; }
 fi
 # The image the copy's ./dmt3 runs: given by name, as an owner's own build is (.env would keep it the same way).
@@ -77,6 +82,21 @@ grep -q "\"address\":\"https://$NAME/\"" "$OUT/invite.json"
 r=$?; step "an admin signs in over HTTPS, and the invite carries https://$NAME/" $r
 ! curl -s --max-time 3 "http://127.0.0.1:$SITE/health" > /dev/null
 r=$?; step "the site's own port is not published while it is exposed" $r
+
+# ---- 1b. An address as the site's name (a closed network with no names): a client sends no name in the handshake
+# for an address, so Caddy must be told which certificate to give then. The address is one no container has, as a
+# LAN's is behind Docker's port publishing; curl connects to this PC's HTTPS port in its place.
+ADDRESS=192.168.0.5
+./dmt3 expose "$ADDRESS" --local-ca > "$OUT/expose-address.txt" 2>&1
+r=$?; step "./dmt3 expose $ADDRESS --local-ca" $r
+for _ in $(seq 60); do ./dmt3 check > "$OUT/check-address.txt" 2>&1 && break; sleep 1; done
+grep -q "through Caddy" "$OUT/check-address.txt"
+r=$?; step "./dmt3 check over HTTPS at an address: $(grep -m1 "https://" "$OUT/check-address.txt" | sed 's/^ *//')" $r
+./dmt3 expose --root-cert "$OUT/local-root.crt" > /dev/null 2>&1
+code=$(curl -s --max-time 10 --cacert "$OUT/local-root.crt" --connect-to "$ADDRESS:443:127.0.0.1:$HTTPS" \
+  -o "$OUT/health-address.json" -w '%{http_code}' "https://$ADDRESS/health")
+[ "$code" = 200 ] && grep -q '"ok":true' "$OUT/health-address.json"
+r=$?; step "https://$ADDRESS/ answers, its certificate the address's, with no name sent (curl --cacert: $code)" $r
 
 # ---- 2. An ACME authority: Pebble on the project's network, every challenge taken as passed
 docker run -d --name "$PEBBLE" --network "${COMPOSE_PROJECT_NAME}_default" --network-alias pebble \
@@ -112,5 +132,13 @@ r=$?; step "the site tells launchers the moved game port ($GAME), which takes a 
 docker compose logs --no-color > "$OUT/compose.log" 2>&1
 grep -q "| Game      TCP $GAME" "$OUT/compose.log" && grep -q "This PC   http://127.0.0.1:$SITE/" "$OUT/compose.log"
 r=$?; step "the server's log starts with its banner, the ports in its box" $r
+# ---- 4. Removed with its data: its last backup its owner's alone, and nothing of the project left on Docker (Caddy's
+# volumes, its certificates and its local authority's key, included, though expose --off came first)
+./dmt3 remove --delete-data --yes > "$OUT/remove.txt" 2>&1
+backup=$(ls opendmt3-backup-*.sqlite 2>/dev/null | head -n 1)
+left=$(docker volume ls -q --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME")
+[ -n "$backup" ] && [ "$(stat -c %a "$backup")" = 600 ] && [ -z "$left" ] \
+  && grep -q "The server and its data are removed" "$OUT/remove.txt"
+r=$?; step "./dmt3 remove --delete-data: backup ${backup:-none} ($( [ -n "$backup" ] && stat -c %a "$backup")), volumes left: ${left:-none}" $r
 echo "failed: $failed"
 exit $failed

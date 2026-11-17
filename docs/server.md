@@ -142,10 +142,14 @@ prompts. With options, or from a script, `setup` asks nothing:
 
 It does these, in order; run again, each one that is done already changes nothing:
 
+- gets the server's image first, before anything runs in a container: the one published for this version
+  (`ghcr.io/kanggu12/opendmt3-server`, for amd64 and arm64), pulled; built from this copy when it cannot be pulled,
+  or with `--build`, always as `opendmt3-server:local` (`packaging/docker/build.yaml`), never under the published
+  name;
 - keeps the site's address as the players reach it (`--address ADDRESS`: this PC's address on the network, a name,
-  or a whole `https://...` address behind a proxy), so the message to send a player carries it;
-- gets the server's image: the one published for this version (`ghcr.io/kanggu12/opendmt3-server`, for amd64 and
-  arm64), pulled; built from this copy when it cannot be pulled, or with `--build`; and makes the data folder;
+  or a whole `https://...` address behind a proxy), so the message to send a player carries it; with `--game-port`
+  and `--web-port`, the ports first ([Ports](#ports));
+- makes the data folder;
 - makes the first (owner's) account `BOSS` with the admin pages and prints its password (`--admin ID` for another
   ID, `--password` to give one; nothing is made when the database has accounts already);
 - imports the song list (`--game PATH`: the client data in a folder or an archive, or a song list the launcher
@@ -155,6 +159,9 @@ It does these, in order; run again, each one that is done already changes nothin
 - starts the server (`--no-start` to leave it stopped).
 
 Run it again with `--game`, `--installer` or `--address` for a new song list, a new installer or another address.
+When a step fails, the setup stops there and says which: Docker not answering (`./dmt3 doctor` names what is
+missing), the image that cannot be pulled or built, or Compose's own words when it cannot read the data volume (a
+broken `.env`, say).
 
 ### The song list
 
@@ -224,7 +231,7 @@ missing and why, and where it came from. The API's twins are `GET` and `POST /ap
 | `./dmt3 ports [--game N] [--web N]` | The two ports ([Ports](#ports)) |
 | `./dmt3 invite` | The address players open, with its QR code |
 | `./dmt3 expose NAME` | The site over HTTPS at NAME, with Caddy ([Playing from outside your home](internet.md)) |
-| `./dmt3 repair`, `./dmt3 remove [--delete-data]` | The image again and the container afresh, then `doctor`; removing the server ([Removing a server](#removing-a-server)) |
+| `./dmt3 repair`, `./dmt3 remove [--delete-data]` | The image again and the container afresh, then `doctor`; removing the server, Caddy's volumes with the data ([Removing a server](#removing-a-server)) |
 | `./dmt3 status` | The container's state, then `check`, then the site's address |
 | `./dmt3 logs [-f] [-n LINES]` | The server's log |
 | `./dmt3 backup`, `./dmt3 backups`, `./dmt3 restore NAME` | The server's `--backup`, `--backups` and `--restore NAME` ([Backups](#backups)) |
@@ -239,7 +246,11 @@ container: in the running one, or in a new one that goes away. The same with Doc
 folder (the package's or the clone's):
 
 ```sh
+# the published image of this version, pulled when it is not here (compose.yaml has no recipe of its own):
 docker compose up -d
+# this copy's own image instead, built as opendmt3-server:local, never under the published name:
+docker compose -f compose.yaml -f packaging/docker/build.yaml build
+OPENDMT3_IMAGE=opendmt3-server:local docker compose up -d
 # the first (owner's) account; its password is printed:
 docker compose run --rm server --add-player BOSS --admin
 # the song list, imported once from your own client data (a folder or an archive) or a song list:
@@ -438,6 +449,11 @@ Other ports are set once, and every part uses them:
   in `.env` as `GAME_PORT` and `WEB_PORT`; `compose.yaml` publishes them and the server listens on the same numbers,
   and a running server starts again on them.
 - **On Windows and with Python**: `opendmt3-server setup --game-port 5725 --web-port 8080`, then a restart.
+
+The players' address moves with the site's port: an address setup kept on the old port (`http://192.168.0.5:4730/`)
+is kept on the new one, so the invite and its QR code, the start banner, `status`, the message to send a player and
+`GET /api/v1/server/invite` all say where the site is now. An address through a proxy (`https://...`) stays as it
+was given.
 - **On Kubernetes**: `game.service.port` (or `game.service.nodePort`), which the server then listens on too.
 - **Python by hand**: `--port` and `--web-port` (or `OPENDMT3_GAME_PORT` and `OPENDMT3_WEB_PORT`).
 
@@ -501,15 +517,20 @@ authority or yours.
 
 ## Removing a server
 
-- **Docker**: `./dmt3 remove` takes the containers (Caddy's too) and the images away and keeps the data volume;
-  `./dmt3 remove --delete-data` deletes the data too, after a backup read out into this folder
-  (`opendmt3-backup-<time>.sqlite`), and asks first (`--yes` does not). The copy of the repository or the package is
-  then deleted like any folder.
-- **On Windows and with Python**: `opendmt3-server remove` stops the server and takes its firewall rules out;
-  `--delete-data` deletes the data folder too, after a backup kept beside it. The Windows package put nothing
-  anywhere but its own folder: deleting that folder removes it. The one-line install's own `--uninstall` removes the
-  program and keeps the data.
-- **On Kubernetes**: `helm uninstall`, then the data volume with `kubectl delete pvc` ([On Kubernetes](kubernetes.md)).
+- **Docker**: `./dmt3 remove` takes the containers (Caddy's too) and the image the server runs away and keeps the
+  data volume; `./dmt3 remove --delete-data` deletes the data too, Caddy's volumes with it (its certificates and its
+  local authority, even after `expose --off`), after a backup read out into this folder
+  (`opendmt3-backup-<time>.sqlite`, readable by its owner alone: it holds the card numbers), and asks first (`--yes`
+  does not). It then looks at what Docker still has of the project, and names any volume left instead of saying all
+  went. The copy of the repository or the package is then deleted like any folder.
+- **On Windows and with Python**: `opendmt3-server remove` stops the server; `--delete-data` deletes the data folder
+  too, after a backup kept beside it (its owner's alone). On Windows it then takes out the firewall rules `firewall`
+  made, asking Windows for an administrator only when such a rule is there; the data never waits on that question,
+  and when it is answered no the rules stay, said as such (`opendmt3-server firewall --remove` takes them out later).
+  The Windows package put nothing anywhere but its own folder: deleting that folder removes it. The one-line
+  install's own `--uninstall` removes the program and keeps the data.
+- **On Kubernetes**: `helm uninstall`, then the data volume with `kubectl delete pvc` ([On Kubernetes](kubernetes.md));
+  the admin's **Server** tab names both with the release's own names.
 - **In the launcher**: the launcher's own removal ([Playing on your PC](install.md)).
 
 `./dmt3 repair` and `opendmt3-server repair` come first when something is broken: the image again and the

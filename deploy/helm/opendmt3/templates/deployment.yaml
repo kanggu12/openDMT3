@@ -119,6 +119,23 @@ spec:
             # launchers that one.
             - name: OPENDMT3_GAME_PORT
               value: {{ include "opendmt3.gamePort" . | quote }}
+            # Who runs the server, for the admin's Server tab (web/runner.py): the cluster, which owns its life, so the
+            # tab asks nothing and names the cluster's commands with these names (never ./dmt3's).
+            - name: OPENDMT3_RUNNER
+              value: "kubernetes"
+            - name: OPENDMT3_KUBE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPENDMT3_KUBE_RELEASE
+              value: {{ .Release.Name | quote }}
+            - name: OPENDMT3_KUBE_DEPLOYMENT
+              value: {{ include "opendmt3.fullname" . | quote }}
+            {{- if .Values.persistence.enabled }}
+            # The data's claim, which an uninstall keeps (resource-policy: keep): the tab's way to delete the data.
+            - name: OPENDMT3_KUBE_CLAIM
+              value: {{ include "opendmt3.claim" . | quote }}
+            {{- end }}
           ports:
             # The game's port, for the cabinets.
             - name: game

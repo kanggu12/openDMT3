@@ -193,6 +193,93 @@ class EdgeTest(unittest.TestCase):
             edge.caddyfile("dmt3.lan", "127.0.0.1:4730", local_ca=True, email="owner@example.org")
 
 
+class OperationsReviewTest(unittest.TestCase):
+    """What the operations review of 0.4.0 found in the server's own command line, each kept from coming back: the
+    players' address on a new port, the last backup's rights, the firewall step that kept the data, and the address
+    after expose --off. A data folder of the test's own; Windows' firewall and its administrator question made up."""
+
+    def setUp(self):
+        # The data folder inside a folder of the test's own: a removal keeps its last backup beside it.
+        self.base = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, self.base)
+        self.data = os.path.join(self.base, "data")
+        os.makedirs(self.data)
+
+    def test_a_new_site_port_moves_the_players_address(self):
+        quiet("--data", self.data, "setup", "--address", "192.168.0.5")
+        self.assertEqual(standalone.settings(self.data)["site_address"], "http://192.168.0.5:4730/")
+        quiet("--data", self.data, "setup", "--web-port", "8080")
+        self.assertEqual(standalone.settings(self.data)["site_address"], "http://192.168.0.5:8080/")
+        # The run, the invite and its QR code all say the new one.
+        argv = standalone.server_args(self.data)
+        self.assertEqual(argv[argv.index("--site-address") + 1], "http://192.168.0.5:8080/")
+        self.assertIn("Players open http://192.168.0.5:8080/", quiet("--data", self.data, "invite")[1])
+
+    def test_the_last_backup_kept_on_removal_is_its_owners_alone(self):
+        quiet("--data", self.data, "setup", "--admin", "BOSS", "--password", "pass1234")
+        with mock.patch.object(standalone, "on_windows", return_value=False):
+            self.assertEqual(quiet("--data", self.data, "remove", "--delete-data", "--yes")[0], 0)
+        kept = [n for n in os.listdir(self.base) if n.startswith("opendmt3-backup-")]
+        self.assertEqual(len(kept), 1)
+        if os.name != "nt":
+            self.assertEqual(os.stat(os.path.join(self.base, kept[0])).st_mode & 0o777, 0o600)
+
+    def test_on_windows_the_data_goes_even_when_the_firewall_question_is_answered_no(self):
+        quiet("--data", self.data, "setup", "--admin", "BOSS", "--password", "pass1234", "--game-port", "5725")
+        asked = []
+        with mock.patch.object(standalone, "on_windows", return_value=True), \
+                mock.patch.object(standalone, "is_admin", return_value=False), \
+                mock.patch.object(standalone, "firewall_rules", return_value=[5725]), \
+                mock.patch.object(standalone, "elevated", side_effect=lambda argv: asked.append(argv)):
+            code, said = quiet("--data", self.data, "remove", "--delete-data", "--yes")
+        # Windows was asked (the rule is there), answered no: the data went all the same, and what stays is said.
+        self.assertEqual(code, 0, said)
+        self.assertEqual(len(asked), 1)
+        # The rules of the ports the data folder kept, named for the program asked as an administrator.
+        self.assertIn("5725", " ".join(asked[0]))
+        self.assertFalse(os.path.exists(self.data))
+        self.assertIn("firewall --remove", said)
+        # No rule there: Windows is not asked at all.
+        os.makedirs(self.data)
+        with mock.patch.object(standalone, "on_windows", return_value=True), \
+                mock.patch.object(standalone, "is_admin", return_value=False), \
+                mock.patch.object(standalone, "firewall_rules", return_value=[]), \
+                mock.patch.object(standalone, "elevated", side_effect=lambda argv: asked.append(argv)):
+            self.assertEqual(quiet("--data", self.data, "remove")[0], 0)
+        self.assertEqual(len(asked), 1)
+
+    def test_expose_off_gives_back_the_address_setup_kept(self):
+        quiet("--data", self.data, "setup", "--address", "192.168.0.5")
+        quiet("--data", self.data, "expose", "dmt3.example.org")
+        self.assertEqual(standalone.settings(self.data)["site_address"], "https://dmt3.example.org/")
+        quiet("--data", self.data, "expose", "--off")
+        self.assertEqual(standalone.settings(self.data)["site_address"], "http://192.168.0.5:4730/")
+
+    def test_an_address_as_the_sites_name_is_its_certificates_too(self):
+        # A client sends no name for an address, so Caddy is told which certificate to give then (default_sni).
+        text = edge.caddyfile("192.168.0.5", "127.0.0.1:4730", local_ca=True)
+        self.assertIn("default_sni 192.168.0.5", text)
+        self.assertIn("192.168.0.5 {", text)
+        self.assertIn("tls internal", text)
+        # A name: the client sends it, and nothing more is needed.
+        self.assertNotIn("default_sni", edge.caddyfile("dmt3.lan", "127.0.0.1:4730", local_ca=True))
+
+    def test_the_banner_names_only_addresses_that_open_where_it_is_read(self):
+        from opendmt3.server import __main__ as server_cli
+        args = server_cli.parser().parse_args(["--host", "0.0.0.0", "--web-host", "127.0.0.1", "--proxy", "127.0.0.1",
+                                               "--site-address", "https://dmt3.example.org/"])
+        # In a container behind Caddy, this PC's 127.0.0.1 is not the container's: no such line, the site's name only.
+        with mock.patch.object(server_cli.sources, "in_container", return_value=True):
+            rows = dict(server_cli.banner_rows(args, 4725))
+        self.assertEqual(rows.get("Players"), "https://dmt3.example.org/")
+        self.assertNotIn("This PC", rows)
+        # On the PC itself (the server's own program behind Caddy there): the site's own port opens on this PC.
+        with mock.patch.object(server_cli.sources, "in_container", return_value=False):
+            rows = dict(server_cli.banner_rows(args, 4725))
+        self.assertEqual(rows["This PC"], "http://127.0.0.1:4730/")
+        self.assertEqual(rows["Game"], "TCP 4725")
+
+
 @unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
 class StartStopTest(unittest.TestCase):
     """A real server in the background on free ports: start, status, a stop request it answers by itself."""

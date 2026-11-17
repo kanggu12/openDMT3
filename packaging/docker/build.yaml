@@ -1,0 +1,13 @@
+# This clone's own server image: the recipe ./dmt3 up --build (./dmt3 image --build) reads after compose.yaml, and
+# only to build. It names what it builds opendmt3-server:local, so a build never carries the published name; compose.yaml
+# itself has no recipe, so a command run while the published image is missing pulls it and never builds it.
+#   docker compose -f compose.yaml -f packaging/docker/build.yaml build
+services:
+  server:
+    # This clone's own name for it, whatever OPENDMT3_IMAGE says (./dmt3 keeps OPENDMT3_IMAGE at this name after it
+    # builds, so the commands after it run what it built).
+    image: opendmt3-server:local
+    build:
+      # The top of the clone (relative paths are read from compose.yaml's folder, the first file named).
+      context: .
+      dockerfile: packaging/docker/Dockerfile

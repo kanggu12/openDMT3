@@ -10,7 +10,12 @@ it. That one hands the Site a Runner when it makes it, with what it can do when 
 - "standalone": the server's command for a PC of its own (opendmt3-server): its own stop, start and remove commands.
 - "launcher": the launcher's built-in server, stopped and removed through the launcher, so its window knows.
 - "docker": Docker Compose runs the container and starts it again whenever its process ends (restart: unless-stopped),
-  so the process cannot stop it for good: the pages name the commands that do, on the server PC.
+  so the process cannot stop it for good: the pages name the commands that do, on the server PC. compose.yaml says so
+  (OPENDMT3_RUNNER=docker).
+- "kubernetes": a cluster runs it (the Helm chart says so, OPENDMT3_RUNNER=kubernetes with the release's names, or the
+  cluster's own KUBERNETES_SERVICE_HOST): the cluster owns its life, so the pages ask nothing and name the helm and
+  kubectl commands that start, stop, restart and remove it.
+- "container": a container started by hand (docker run): Docker's own commands for it, by the container's name.
 - "other": started some other way the server cannot tell (a service manager of the owner's own): the pages say to stop
   it there.
 
@@ -21,7 +26,7 @@ cannot, the tab names the command for (commands), or says where to do it.
 import threading
 
 # The kinds, as the API names them.
-KINDS = ("python", "standalone", "launcher", "docker", "other")
+KINDS = ("python", "standalone", "launcher", "docker", "kubernetes", "container", "other")
 # What can be asked of a runner, as the API names it.
 ACTIONS = ("stop", "restart", "remove")
 # The commands each kind's owner runs on the server PC, for what the pages cannot ask: start, stop, restart, remove
@@ -100,8 +105,48 @@ class Runner:
                 "stopping": self.stopping}
 
 
-def default(in_container):
-    """The runner of a Site made without one: Docker Compose's in a container, else one the server cannot tell."""
-    if in_container:
+def kubernetes_commands(env):
+    """The cluster's commands for the server, with the names the Helm chart gives it (its namespace, release,
+    Deployment and claim), or the names to fill in where it gives none (a cluster without the chart)."""
+    namespace = env.get("OPENDMT3_KUBE_NAMESPACE") or "<namespace>"
+    release = env.get("OPENDMT3_KUBE_RELEASE") or "<release>"
+    deployment = env.get("OPENDMT3_KUBE_DEPLOYMENT") or "<deployment>"
+    # The chart names its claim, or none when it keeps no volume (the data then goes with the pod); without the chart
+    # the owner's claim is a name to fill in.
+    chart = env.get("OPENDMT3_RUNNER") == "kubernetes"
+    claim = env.get("OPENDMT3_KUBE_CLAIM") or (None if chart else "<claim>")
+    kubectl, helm = "kubectl -n %s" % namespace, "helm -n %s" % namespace
+    return {"start": "%s scale deployment/%s --replicas=1" % (kubectl, deployment),
+            "stop": "%s scale deployment/%s --replicas=0" % (kubectl, deployment),
+            # A new pod (the chart's Recreate: the old one goes first, the data volume moves to the new one).
+            "restart": "%s rollout restart deployment/%s" % (kubectl, deployment),
+            "remove": "%s uninstall %s" % (helm, release),
+            # The chart keeps the data's claim when it is uninstalled (resource-policy: keep): deleted by name.
+            "remove_data": ("%s uninstall %s && %s delete pvc %s" % (helm, release, kubectl, claim) if claim else
+                            "%s uninstall %s" % (helm, release))}
+
+
+def container_commands(env):
+    """Docker's own commands for a container started by hand, by its name (its host name is its ID, unless given
+    another one)."""
+    name = env.get("HOSTNAME") or "<container>"
+    return {"start": "docker start %s" % name, "stop": "docker stop %s" % name, "restart": "docker restart %s" % name,
+            "remove": "docker rm -f %s" % name,
+            # -v: the data volume the image declares goes with it (a named volume given by hand: docker volume rm).
+            "remove_data": "docker rm -f -v %s" % name}
+
+
+def default(in_container, env=None):
+    """The runner of a Site made without one. In a container: Docker Compose when compose.yaml says so, a cluster when
+    the Helm chart (or the cluster's own variable) says so, else a container started by hand. Outside one: a way the
+    server cannot tell. env: the environment to read (os.environ when not given)."""
+    import os
+    env = os.environ if env is None else env
+    if not in_container:
+        return Runner("other")
+    said = env.get("OPENDMT3_RUNNER", "")
+    if said == "kubernetes" or (not said and env.get("KUBERNETES_SERVICE_HOST")):
+        return Runner("kubernetes", commands=kubernetes_commands(env))
+    if said == "docker":
         return Runner("docker")
-    return Runner("other")
+    return Runner("container", commands=container_commands(env))

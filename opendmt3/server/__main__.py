@@ -107,6 +107,19 @@ def save_song_list(path, out):
     return 0
 
 
+def banner_rows(args, game_port):
+    """The start banner's addresses: the players' (when the server was given one), this PC's own (the site's port on
+    127.0.0.1, which a server on every address answers too), and the game's port. In a container whose site listens on
+    its own 127.0.0.1 alone (behind Caddy, ./dmt3 expose) no address of the PC reaches it: that line is left out, and
+    the players' address (Caddy's) is the one to open."""
+    shown = {"0.0.0.0": "127.0.0.1", "::": "[::1]"}.get(web_host(args), web_host(args))
+    # The site kept on the loopback address apart from the game's (--web-host 127.0.0.1): behind a proxy beside it.
+    behind = bool(args.web_host) and (shown.startswith("127.") or shown in ("[::1]", "localhost"))
+    # In a container that loopback is the container's own: the PC's 127.0.0.1 does not reach it.
+    here = None if sources.in_container() and behind else "http://%s:%d/" % (shown, args.web_port)
+    return banner.rows(args.site_address, here, game_port)
+
+
 async def serve(args, data, until=None, notes=(), runner=None):
     """The game server and the site on args' addresses, until they are cancelled (Ctrl+C), or until `until` (a
     coroutine function, when given) returns: the server's own command line for a PC of its own (standalone.py) stops
@@ -153,8 +166,7 @@ async def serve(args, data, until=None, notes=(), runner=None):
                 # The first-run page answers a visit from this PC itself (in a container no visit is one).
                 said.insert(0, "First start: open http://%s:%d/ on this PC to make the owner's account."
                             % (shown, args.web_port))
-            banner.show(__version__, banner.rows(args.site_address, "http://%s:%d/" % (shown, args.web_port),
-                                                 game.port), said)
+            banner.show(__version__, banner_rows(args, game.port), said)
         announcing = asyncio.ensure_future(announce())
     try:
         if until is None:

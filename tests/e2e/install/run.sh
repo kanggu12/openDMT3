@@ -3,7 +3,8 @@
 # (odt3-srv-install, python:3.12-slim-bookworm, as a user of its own): the installer from a folder of release files
 # (the server package made here from this tree, as the release makes it, with the checksums), then the command it
 # puts on PATH: setup, start, /health, status, stop; the installer again while the server runs (an update: stopped,
-# put in place, started again, the data kept); --uninstall, the data still there. Each step says PASS or FAIL; the
+# put in place, started again, the data kept); a later release whose libraries cannot be had (refused, the running
+# server left as it was); --uninstall, the data still there. Each step says PASS or FAIL; the
 # exit code is the number that failed. Its network is for pip and 7-Zip's site only.
 #
 #   tests/e2e/install/run.sh OUT_DIR
@@ -25,7 +26,26 @@ with zipfile.ZipFile(sys.argv[1], 'w', zipfile.ZIP_DEFLATED) as z:
         for f in files: z.write(os.path.join(top, f))" "$OUT/files/opendmt3-server-$VERSION.zip" "opendmt3-server-$VERSION")
 (cd "$OUT/files" && sha256sum "opendmt3-server-$VERSION.zip" > "opendmt3-$VERSION-checksums.txt")
 sed "s/@VERSION@/$VERSION/g" "$REPO/packaging/server/install.sh" > "$OUT/files/opendmt3-server-$VERSION-linux-installer.sh"
-docker run --rm --name "$C" -v "$OUT/files:/files:ro" -v "$OUT:/out" -e VERSION="$VERSION" \
+# The official 7-Zip the installer takes for this container (x86-64), beside the release's files, where the installer
+# looks first: fetched once into the working folder's cache and checked against the installer's own hash, so every
+# install and update of the test reads it from there, whatever 7-Zip's site answers that day.
+SEVEN=7z2501-linux-x64.tar.xz
+SEVEN_SHA=$(sed -n "s/.*$SEVEN \([0-9a-f]\{64\}\).*/\1/p" "$REPO/packaging/server/install.sh")
+CACHE=$REPO/_work/cache
+mkdir -p "$CACHE"
+if ! echo "$SEVEN_SHA  $CACHE/$SEVEN" | sha256sum -c --quiet - 2>/dev/null; then
+  curl -fsSL --retry 3 -o "$CACHE/$SEVEN" "https://www.7-zip.org/a/$SEVEN" \
+    && echo "$SEVEN_SHA  $CACHE/$SEVEN" | sha256sum -c --quiet - || { echo "FAIL 7-Zip for the test"; exit 1; }
+fi
+cp "$CACHE/$SEVEN" "$OUT/files/"
+# A later release whose libraries cannot be had (a pin no package index has, and no index to ask): its install fails at
+# pip, and must leave the running server as it was. Its package is this one under the later version's name.
+NEXT=${VERSION}9
+cp "$OUT/files/opendmt3-server-$VERSION.zip" "$OUT/files/opendmt3-server-$NEXT.zip"
+(cd "$OUT/files" && sha256sum "opendmt3-server-$NEXT.zip" > "opendmt3-$NEXT-checksums.txt")
+sed "s/@VERSION@/$NEXT/g; s/pillow==[0-9.]*/pillow==0.0.1/" "$REPO/packaging/server/install.sh" \
+  > "$OUT/files/opendmt3-server-$NEXT-linux-installer.sh"
+docker run --rm --name "$C" -v "$OUT/files:/files:ro" -v "$OUT:/out" -e VERSION="$VERSION" -e NEXT="$NEXT" \
   python:3.12-slim-bookworm bash -c '
   set -u
   failed=0
@@ -48,6 +68,16 @@ docker run --rm --name "$C" -v "$OUT/files:/files:ro" -v "$OUT:/out" -e VERSION=
   as "cat /files/opendmt3-server-$VERSION-linux-installer.sh | sh" > /out/update.txt 2>&1
   as "opendmt3-server status" > /out/status.txt 2>&1
   r=$?; step "the installer again while it runs: stopped, put in place, running again" $r
+  # The later release that cannot get its libraries (no index to ask): it says so and fails, and the running server
+  # stays as it was, never stopped.
+  as "export PIP_INDEX_URL=http://127.0.0.1:9/simple PIP_RETRIES=0 PIP_TIMEOUT=3; cat /files/opendmt3-server-$NEXT-linux-installer.sh | sh" > /out/failed-update.txt 2>&1
+  r1=$?
+  as "opendmt3-server status" > /out/status-after-failure.txt 2>&1
+  r2=$?
+  as "opendmt3-server --version" > /out/version-after-failure.txt 2>&1
+  [ $r1 != 0 ] && [ $r2 = 0 ] && grep -q "openDMT3 server $VERSION" /out/version-after-failure.txt \
+    && grep -q "runs as it was" /out/failed-update.txt
+  r=$?; step "a later release whose libraries cannot be had: refused, the server still running $VERSION ($(tail -n 1 /out/failed-update.txt))" $r
   as "sh /files/opendmt3-server-$VERSION-linux-installer.sh --uninstall" > /out/uninstall.txt 2>&1
   [ ! -e /home/owner/.local/bin/opendmt3-server ] && [ -f /home/owner/.local/share/opendmt3-server/data/openDMT3.sqlite ] \
     && ! python3 -c "import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:4730/health\", timeout=3)" 2>/dev/null

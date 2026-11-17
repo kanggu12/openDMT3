@@ -428,8 +428,8 @@ class AdminPagesTest(ApiBase):
         self.assertNotIn("Stop the server</button>", page)
         for action in ("stop", "restart", "remove"):
             self.refused(self.call("POST", "/api/v1/server/" + action, boss), 409, "not_here")
-        # Docker Compose: the commands, on the server PC, and no button.
-        self.site.runner = runner.default(True)
+        # Docker Compose (compose.yaml says so): the commands, on the server PC, and no button.
+        self.site.runner = runner.default(True, {"OPENDMT3_RUNNER": "docker"})
         page = self.client.get("/admin/server").text
         for command in ("./dmt3 down", "./dmt3 restart", "./dmt3 remove --delete-data"):
             self.assertIn("<code>%s</code>" % command, page)
@@ -472,12 +472,80 @@ class AdminPagesTest(ApiBase):
         self.client.cookies.set("opendmt3_lang", "ko")
         self.assertIn("서버 제거", self.client.get("/admin/server").text)
 
+    def test_on_kubernetes_the_server_tab_names_the_clusters_commands(self):
+        from opendmt3.server.web import runner
+        self.admin()
+        boss = self.token("BOSS")
+        # As the Helm chart runs it: the cluster's commands with the release's names, and no button (the cluster
+        # starts and stops the server).
+        self.site.runner = runner.default(True, {"KUBERNETES_SERVICE_HOST": "10.96.0.1", "OPENDMT3_RUNNER": "kubernetes",
+                                                 "OPENDMT3_KUBE_NAMESPACE": "games", "OPENDMT3_KUBE_RELEASE": "dmt3",
+                                                 "OPENDMT3_KUBE_DEPLOYMENT": "dmt3-opendmt3",
+                                                 "OPENDMT3_KUBE_CLAIM": "dmt3-data"})
+        page = self.client.get("/admin/server").text
+        self.assertIn("Kubernetes", page)
+        for command in ("kubectl -n games rollout restart deployment/dmt3-opendmt3",
+                        "kubectl -n games scale deployment/dmt3-opendmt3 --replicas=0",
+                        "helm -n games uninstall dmt3 &amp;&amp; kubectl -n games delete pvc dmt3-data"):
+            self.assertIn("<code>%s</code>" % command, page)
+        for button in ("Restart the server</button>", "Stop the server</button>",
+                       "Delete the server&#39;s data</button>"):
+            self.assertNotIn(button, page)
+        self.assertNotIn("./dmt3", page)
+        r = self.call("POST", "/api/v1/server/stop", boss)
+        self.refused(r, 409, "not_here")
+        self.assertIn("kubectl -n games scale deployment/dmt3-opendmt3 --replicas=0", r.json()["error"]["message"])
+        self.assertEqual(self.call("GET", "/api/v1/server", boss).json()["runner"]["kind"], "kubernetes")
+        # A container started by hand: Docker's own commands for it, never ./dmt3's.
+        self.site.runner = runner.default(True, {"HOSTNAME": "3f2a9c1b7d4e"})
+        page = self.client.get("/admin/server").text
+        self.assertIn("<code>docker restart 3f2a9c1b7d4e</code>", page)
+        self.assertNotIn("./dmt3", page)
+        # Korean too.
+        self.client.cookies.set("opendmt3_lang", "ko")
+        self.site.runner = runner.default(True, {"KUBERNETES_SERVICE_HOST": "10.96.0.1"})
+        self.assertIn("쿠버네티스", self.client.get("/admin/server").text)
+
 
 def free_port():
     """A port nothing listens on now."""
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
+
+
+class RunnerKindsTest(unittest.TestCase):
+    """Who started a server run in a container, as the Server tab tells it: Docker Compose (compose.yaml says so),
+    Kubernetes (the Helm chart says so, or the cluster's own variable), or a container started by hand. The one that
+    started it stops it: neither the cluster nor a plain container is asked from the tab, and each is named by its own
+    commands, never by ./dmt3's."""
+
+    def test_compose_kubernetes_and_a_plain_container_are_told_apart(self):
+        from opendmt3.server.web import runner
+        # compose.yaml's variable: Docker Compose, as before.
+        compose = runner.default(True, {"OPENDMT3_RUNNER": "docker"})
+        self.assertEqual((compose.kind, compose.view()["can"]), ("docker", []))
+        self.assertEqual(compose.commands["remove_data"], "./dmt3 remove --delete-data")
+        # The chart's variables: the cluster, with the release's names in its commands; no button.
+        kube = runner.default(True, {"OPENDMT3_RUNNER": "kubernetes", "KUBERNETES_SERVICE_HOST": "10.96.0.1",
+                                     "OPENDMT3_KUBE_NAMESPACE": "games", "OPENDMT3_KUBE_RELEASE": "dmt3",
+                                     "OPENDMT3_KUBE_DEPLOYMENT": "dmt3-opendmt3", "OPENDMT3_KUBE_CLAIM": "dmt3-data"})
+        self.assertEqual((kube.kind, kube.view()["can"]), ("kubernetes", []))
+        self.assertEqual(kube.commands["restart"], "kubectl -n games rollout restart deployment/dmt3-opendmt3")
+        self.assertEqual(kube.commands["stop"], "kubectl -n games scale deployment/dmt3-opendmt3 --replicas=0")
+        self.assertEqual(kube.commands["start"], "kubectl -n games scale deployment/dmt3-opendmt3 --replicas=1")
+        self.assertEqual(kube.commands["remove"], "helm -n games uninstall dmt3")
+        self.assertEqual(kube.commands["remove_data"],
+                         "helm -n games uninstall dmt3 && kubectl -n games delete pvc dmt3-data")
+        # A cluster without the chart (its own variable only): the cluster's kind, its commands with names to fill.
+        bare = runner.default(True, {"KUBERNETES_SERVICE_HOST": "10.96.0.1"})
+        self.assertEqual(bare.kind, "kubernetes")
+        self.assertNotIn("./dmt3", " ".join(v for v in bare.commands.values() if v))
+        # A container started by hand (docker run): Docker's own commands for it, by its name, never ./dmt3.
+        plain = runner.default(True, {"HOSTNAME": "3f2a9c1b7d4e"})
+        self.assertEqual((plain.kind, plain.view()["can"]), ("container", []))
+        self.assertEqual(plain.commands["restart"], "docker restart 3f2a9c1b7d4e")
+        self.assertNotIn("./dmt3", " ".join(v for v in plain.commands.values() if v))
 
 
 @unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")

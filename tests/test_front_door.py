@@ -196,12 +196,13 @@ class ImageTest(unittest.TestCase):
     def test_no_published_image_builds_this_clone_and_keeps_it(self):
         self.pull_works = False
         self.assertEqual(dmt3.cmd_image(args_of("image")), 0)
-        self.assertEqual(self.ran[-1], COMPOSE + ["build", "server"])
+        # With the recipe, which names the build this clone's own.
+        self.assertEqual(self.ran[-1], COMPOSE + ["-f", dmt3.BUILD_FILE, "build", "server"])
         self.assertEqual(self.env[dmt3.IMAGE_ENV], dmt3.IMAGE)
 
     def test_build_builds_and_published_goes_back(self):
         dmt3.cmd_image(args_of("image", "--build"))
-        self.assertEqual(self.ran, [COMPOSE + ["build", "server"]])
+        self.assertEqual(self.ran, [COMPOSE + ["-f", dmt3.BUILD_FILE, "build", "server"]])
         self.assertEqual(dmt3.chosen_image(), dmt3.IMAGE)
         self.ran.clear()
         dmt3.cmd_image(args_of("image", "--published"))
@@ -211,7 +212,7 @@ class ImageTest(unittest.TestCase):
     def test_published_asked_for_by_name_is_never_built_instead(self):
         self.pull_works = False
         self.assertEqual(dmt3.cmd_image(args_of("image", "--published")), 1)
-        self.assertNotIn(COMPOSE + ["build", "server"], self.ran)
+        self.assertNotIn(COMPOSE + ["-f", dmt3.BUILD_FILE, "build", "server"], self.ran)
 
     def test_the_setup_gets_the_image_with_this_same_file(self):
         step = dmt3.setup_plan(args_of("setup", "--build"), accounts=1)[0]
@@ -347,7 +348,9 @@ class PortsTest(unittest.TestCase):
         self.addCleanup(__import__("shutil").rmtree, folder)
         with mock.patch.object(dmt3, "has_image", return_value=False), \
                 mock.patch.object(dmt3, "ENV_FILE", os.path.join(folder, ".env")), \
-                mock.patch.object(dmt3, "EDGE_DIR", folder):
+                mock.patch.object(dmt3, "EDGE_DIR", folder), mock.patch.dict(os.environ, {}, clear=False):
+            # The project as compose.yaml names it, whatever the environment running the tests says.
+            os.environ.pop("COMPOSE_PROJECT_NAME", None)
             self.assertEqual(dmt3.cmd_remove(args_of("remove")), 0)
             self.assertEqual(self.ran, [COMPOSE + ["down", "--remove-orphans"]])
             self.ran.clear()
@@ -359,7 +362,11 @@ class PortsTest(unittest.TestCase):
             with mock.patch.object(dmt3, "last_backup_out", return_value="/clone/opendmt3-backup.sqlite") as backup:
                 self.assertEqual(dmt3.cmd_remove(args_of("remove", "--delete-data", "--yes")), 0)
             backup.assert_called_once()
-            self.assertEqual(self.ran, [COMPOSE + ["down", "--remove-orphans", "-v"]])
+            # edge.yaml too, so Caddy's volumes go with the data; then what Docker still has of the project is looked
+            # at.
+            self.assertEqual(self.ran, [COMPOSE + ["-f", dmt3.EDGE_FILE, "down", "--remove-orphans", "-v"],
+                                        ["docker", "volume", "ls", "-q", "--filter",
+                                         "label=com.docker.compose.project=opendmt3"]])
 
 
 class SetupTest(unittest.TestCase):
@@ -732,6 +739,171 @@ class PiecesTest(unittest.TestCase):
         for name in ("GAME_DIR", "GAME_LINKS"):
             self.assertRegex(text, r"source: \$\{%s:-[^}]+\}\n\s+target: \$\{%s:-[^}]+\}\n\s+read_only: true"
                              % (name, name))
+
+
+class OperationsReviewTest(unittest.TestCase):
+    """What the operations review of 0.4.0 found in ./dmt3, each kept from coming back: the setup's image, the players'
+    address on a new port, the last backup's rights, Caddy's volumes on removal, the address after expose --off, the
+    router's ports, and the setup's own failures. .env, the Caddyfile's folder and the clone's folder are the test's
+    own; nothing runs Docker: every command is recorded, and Docker's answers are made up."""
+
+    def setUp(self):
+        self.folder = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, self.folder)
+        # Commands run, in order; the images Docker has; what each command answers (by its first words).
+        self.ran, self.images, self.answers = [], set(), {}
+        patches = [mock.patch.object(dmt3, "ENV_FILE", os.path.join(self.folder, ".env")),
+                   mock.patch.object(dmt3, "EDGE_DIR", os.path.join(self.folder, ".edge")),
+                   mock.patch.object(dmt3, "run", side_effect=self.fake_run),
+                   mock.patch.object(dmt3, "has_image", side_effect=lambda name: name in self.images),
+                   mock.patch.object(dmt3, "docker_ready", return_value=True),
+                   mock.patch.object(dmt3, "default_installer", return_value=None),
+                   mock.patch.object(dmt3, "is_running", return_value=False),
+                   mock.patch.dict(os.environ, {}, clear=False)]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        # The test's own environment must not choose the image.
+        os.environ.pop(dmt3.IMAGE_ENV, None)
+        self.said = []
+        patcher = mock.patch.object(dmt3, "say", side_effect=self.said.append)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def fake_run(self, cmd, capture=False):
+        self.ran.append(cmd)
+        if cmd[:2] == ["docker", "pull"]:
+            # A pull brings the image.
+            self.images.add(cmd[2])
+        for start, answer in self.answers.items():
+            if " ".join(cmd).startswith(start) or start in " ".join(cmd):
+                return answer
+        # The accounts' count, run inside the server's container (count_accounts), prints how many there are; any
+        # other command prints nothing.
+        return 0, "0\n" if capture and "--entrypoint" in cmd and "python" in cmd else ""
+
+    def env(self):
+        """.env as written now."""
+        return dmt3.read_env()
+
+    def test_setup_gets_the_published_image_before_anything_runs_in_it(self):
+        # Before: the accounts were counted in a container first, and Compose built this clone under the published
+        # name to run it; the image step then found that tag and never pulled.
+        dmt3.cmd_setup(args_of("setup", "--admin", "BOSS", "--password", "pass1234", "--no-start"))
+        pull = self.ran.index(["docker", "pull", dmt3.published_image()])
+        runs = [i for i, cmd in enumerate(self.ran) if cmd[:2] == ["docker", "compose"] and "run" in cmd]
+        self.assertTrue(runs and min(runs) > pull, self.ran)
+        # The image step is not run a second time as a command of its own.
+        self.assertFalse([cmd for cmd in self.ran if cmd[1:3] == [os.path.join(ROOT, "dmt3"), "image"]])
+
+    def test_a_local_build_never_carries_the_published_name(self):
+        # compose.yaml has no recipe: a Compose command with the image missing pulls it, and never builds it under the
+        # published name.
+        with open(dmt3.COMPOSE_FILE, encoding="utf-8") as f:
+            self.assertNotRegex(f.read(), r"(?m)^\s+build:")
+        # The recipe is in a file of its own, which names what it builds as this clone's own.
+        with open(dmt3.BUILD_FILE, encoding="utf-8") as f:
+            recipe = f.read()
+        self.assertIn("image: %s" % dmt3.IMAGE, recipe)
+        self.assertIn("dockerfile: packaging/docker/Dockerfile", recipe)
+        dmt3.cmd_image(args_of("image", "--build"))
+        self.assertEqual(self.ran[-1], ["docker", "compose", "-f", dmt3.COMPOSE_FILE, "-f", dmt3.BUILD_FILE,
+                                        "build", "server"])
+        self.assertEqual(self.env()[dmt3.IMAGE_ENV], dmt3.IMAGE)
+
+    def test_setup_says_which_step_failed(self):
+        # Docker not answering: said so.
+        with mock.patch.object(dmt3, "docker_ready", return_value=False), \
+                self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()) as err:
+            dmt3.cmd_setup(args_of("setup", "--no-start"))
+        self.assertIn("Docker is not ready", err.getvalue())
+        # The image cannot be had (no network, no build): said so, with no word of Docker not being ready.
+        self.answers = {"docker pull": (1, ""), "docker compose -f %s -f %s build" % (dmt3.COMPOSE_FILE,
+                                                                                     dmt3.BUILD_FILE): (1, "")}
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()) as err:
+            dmt3.cmd_setup(args_of("setup", "--no-start"))
+        self.assertIn("the server image", err.getvalue())
+        self.assertNotIn("Docker is not ready", err.getvalue())
+        # The accounts cannot be counted (a broken .env, say): Compose's own words, not Docker's readiness.
+        self.images.add(dmt3.published_image())
+        self.answers = {"--entrypoint python": (1, "yaml: line 3: could not find expected ':'\n")}
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()) as err:
+            dmt3.cmd_setup(args_of("setup", "--no-start"))
+        self.assertIn("could not find expected", err.getvalue())
+        self.assertNotIn("Docker is not ready", err.getvalue())
+
+    def test_a_new_site_port_moves_the_players_address(self):
+        dmt3.write_env({"SITE_ADDRESS": "http://192.168.0.5:4730/"})
+        dmt3.cmd_ports(args_of("ports", "--web", "8080"))
+        self.assertEqual(self.env()["SITE_ADDRESS"], "http://192.168.0.5:8080/")
+        # Back to the usual port: the address follows again.
+        dmt3.cmd_ports(args_of("ports", "--web", "4730"))
+        self.assertEqual(self.env()["SITE_ADDRESS"], "http://192.168.0.5:4730/")
+        # An address of its own, through a proxy (https, no port of the site's): it stays as it was given.
+        dmt3.write_env({"SITE_ADDRESS": "https://dmt3.example.org/"})
+        dmt3.cmd_ports(args_of("ports", "--web", "8080"))
+        self.assertEqual(self.env()["SITE_ADDRESS"], "https://dmt3.example.org/")
+        # setup --address with --web-port: the address on the new port.
+        dmt3.cmd_ports(args_of("ports", "--web", "4730"))
+        self.images.add(dmt3.published_image())
+        dmt3.cmd_setup(args_of("setup", "--address", "192.168.0.9", "--web-port", "8090", "--no-start"))
+        self.assertEqual(self.env()["SITE_ADDRESS"], "http://192.168.0.9:8090/")
+
+    def test_the_last_backup_kept_on_removal_is_its_owners_alone(self):
+        # The backup comes out of the volume as the container prints it.
+        done = mock.Mock(returncode=0, stdout=b"SQLite format 3\x00 made-up")
+        # Kept in the clone's folder: here the test's own.
+        with mock.patch.object(dmt3.subprocess, "run", return_value=done), mock.patch.object(dmt3, "ROOT", self.folder):
+            path = dmt3.last_backup_out()
+        self.assertEqual(os.path.dirname(path), self.folder)
+        if os.name != "nt":
+            # Card numbers and password hashes are in it: read and written by its owner alone, as the database is.
+            self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+
+    def test_removal_with_the_data_takes_caddys_volumes_after_expose_off(self):
+        # Exposed once, then --off: edge.yaml is no longer read, but Caddy's volumes (its certificates and its local
+        # authority's key) are still there to go with the data.
+        dmt3.write_env({"SITE_ADDRESS": "http://192.168.0.5:4730/"})
+        with mock.patch.object(dmt3, "last_backup_out", return_value=None):
+            self.assertEqual(dmt3.cmd_remove(args_of("remove", "--delete-data", "--yes")), 0)
+        down = [cmd for cmd in self.ran if "down" in cmd][0]
+        self.assertEqual(down, ["docker", "compose", "-f", dmt3.COMPOSE_FILE, "-f", dmt3.EDGE_FILE, "down",
+                                "--remove-orphans", "-v"])
+        # It looks for what is left of the project before it says everything went.
+        self.assertTrue([cmd for cmd in self.ran if cmd[:3] == ["docker", "volume", "ls"]], self.ran)
+        self.assertIn("The server and its data are removed", " ".join(self.said))
+        # A volume left behind is named, not said gone.
+        self.ran.clear()
+        self.said.clear()
+        self.answers = {"docker volume ls": (0, "opendmt3_edge-data\n")}
+        with mock.patch.object(dmt3, "last_backup_out", return_value=None):
+            dmt3.cmd_remove(args_of("remove", "--delete-data", "--yes"))
+        self.assertIn("opendmt3_edge-data", " ".join(self.said))
+        self.assertNotIn("The server and its data are removed", " ".join(self.said))
+
+    def test_expose_off_gives_back_the_address_setup_kept(self):
+        dmt3.write_env({"SITE_ADDRESS": "http://192.168.0.5:4730/"})
+        dmt3.cmd_expose(args_of("expose", "dmt3.example.org"))
+        self.assertEqual(self.env()["SITE_ADDRESS"], "https://dmt3.example.org/")
+        dmt3.cmd_expose(args_of("expose", "--off"))
+        self.assertEqual(self.env().get("SITE_ADDRESS"), "http://192.168.0.5:4730/")
+        # None kept before: none after.
+        dmt3.write_env({"SITE_ADDRESS": None})
+        dmt3.cmd_expose(args_of("expose", "dmt3.example.org"))
+        dmt3.cmd_expose(args_of("expose", "--off"))
+        self.assertIsNone(self.env().get("SITE_ADDRESS"))
+
+    def test_the_router_line_names_caddys_own_ports(self):
+        dmt3.write_env({"HTTP_PORT": "8081", "HTTPS_PORT": "8443"})
+        dmt3.cmd_expose(args_of("expose", "dmt3.example.org"))
+        line = [s for s in self.said if s.startswith("On the router")][0]
+        self.assertIn("80 to this PC's 8081", line)
+        self.assertIn("443 to its 8443", line)
+        # The usual ports: the usual line.
+        dmt3.write_env({"HTTP_PORT": None, "HTTPS_PORT": None})
+        self.said.clear()
+        dmt3.cmd_expose(args_of("expose", "dmt3.example.org"))
+        self.assertIn("forward TCP 80 and 443 (Caddy)", [s for s in self.said if s.startswith("On the router")][0])
 
 
 if __name__ == "__main__":

@@ -42,9 +42,10 @@ Let's Encrypt cannot reach a closed network, so its certificates are out. Two wa
 
 - **Caddy's own authority.** `./dmt3 expose dmt3.lan --local-ca` (a name your network's DNS gives the server PC, or
   its address: `./dmt3 expose 192.168.0.5 --local-ca`). Caddy signs the site's certificate with an authority of its
-  own. Each player's PC trusts that authority's root once: `./dmt3 expose --root-cert dmt3-root.crt` saves it; on
-  Windows, open the file, **Install Certificate**, **Local Machine**, and put it in **Trusted Root Certification
-  Authorities**.
+  own. With an address, the certificate is the address's, and Caddy gives it to every visitor that names no site in
+  its handshake (a browser opening `https://192.168.0.5/` names none). Each player's PC trusts that authority's root
+  once: `./dmt3 expose --root-cert dmt3-root.crt` saves it; on Windows, open the file, **Install Certificate**,
+  **Local Machine**, and put it in **Trusted Root Certification Authorities**.
 - **Your network's own ACME authority** (step-ca, for example): `./dmt3 expose dmt3.lan --ca
   https://ca.lan/acme/acme/directory --ca-root ca-root.crt`. Caddy then gets and renews the certificate from it as
   from Let's Encrypt, and players' PCs that trust your authority trust the site.

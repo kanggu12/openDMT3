@@ -36,10 +36,11 @@ This writes Caddy's settings (`.edge/Caddyfile`), keeps the name in `.env`, and 
 the server's own network. From then on:
 
 - the site answers at `https://dmt3.example.org/`, and the message to send a player and the invite carry that
-  address;
+  address (the one `setup --address` kept is set aside, and `expose --off` gives it back);
 - the site's own port 4730 is no longer published: the site listens on the container's `127.0.0.1`, where Caddy
   reaches it, and believes the forwarded headers from that address alone (`--proxy 127.0.0.1`), so the server tells
-  visitors apart and HTTPS sign-ins get secure cookies;
+  visitors apart and HTTPS sign-ins get secure cookies; the start banner in `./dmt3 logs` then names the site's
+  name alone, as no address of this PC reaches the site's own port;
 - every `./dmt3` command reads `packaging/docker/edge.yaml` after `compose.yaml`.
 
 `./dmt3 check` says when the site answers over HTTPS, and who signed its certificate. Caddy's lines in `./dmt3 logs`
@@ -49,9 +50,10 @@ none again.
 - `--staging`: Let's Encrypt's staging authority, to try the setup first. Browsers do not trust its certificates;
   run `expose` again without it once the site answers.
 - `./dmt3 expose` alone says how the site is reached now; `./dmt3 expose --off` goes back to the site on its own
-  port, and Caddy goes.
+  port, Caddy goes, and the players' address is the one setup kept before (none if it kept none).
 - When 80 or 443 is another program's, `./dmt3 ports --http 8080 --https 8443` publishes Caddy on others (the
-  certificate then needs the router to forward 80 and 443 from outside to these).
+  certificate then needs the router to forward 80 and 443 from outside to these); `expose` then names them in its
+  line for the router ("forward TCP 80 to this PC's 8080 and TCP 443 to its 8443").
 
 ## On Windows or with Python
 
@@ -64,7 +66,8 @@ opendmt3-server expose dmt3.example.org --email you@example.org
 It keeps the name, sets the server to listen for the site on this PC only behind the proxy, and writes `Caddyfile`
 into the data folder. Restart the server (`opendmt3-server restart`), then run
 [Caddy](https://caddyserver.com/download) with it: `caddy run --config "<data folder>\Caddyfile"`.
-`opendmt3-server firewall` opens 80, 443 and the game's port on this PC; `expose --off` undoes it.
+`opendmt3-server firewall` opens 80, 443 and the game's port on this PC; `expose --off` undoes it and gives back the
+players' address setup kept.
 
 ## Checking from outside
 

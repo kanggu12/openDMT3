@@ -126,5 +126,22 @@ class ChartTest(unittest.TestCase):
         self.assertIn("claimName: my-data", text)
 
 
+    def test_the_server_knows_the_cluster_runs_it_and_its_names(self):
+        # The admin's Server tab names the cluster's commands, with the release's, the Deployment's and the claim's
+        # names, never ./dmt3 (web/runner.py reads these).
+        server = render().split("kind: Deployment", 1)[1].split("containers:", 1)[1]
+        for name, value in (("OPENDMT3_RUNNER", '"kubernetes"'), ("OPENDMT3_KUBE_RELEASE", '"dmt3"'),
+                            ("OPENDMT3_KUBE_DEPLOYMENT", '"dmt3-opendmt3"'),
+                            ("OPENDMT3_KUBE_CLAIM", '"dmt3-opendmt3-data"')):
+            self.assertRegex(server, r"- name: %s\n\s+value: %s" % (name, re.escape(value)))
+        # The namespace as the cluster gives it.
+        self.assertRegex(server, r"- name: OPENDMT3_KUBE_NAMESPACE\n\s+valueFrom:\n\s+fieldRef:\n\s+fieldPath: "
+                                 r"metadata.namespace")
+        # The owner's claim, when one is brought; none without a volume (the data goes with the pod).
+        server = render("persistence.existingClaim=my-data").split("containers:", 1)[1]
+        self.assertRegex(server, r"- name: OPENDMT3_KUBE_CLAIM\n\s+value: \"my-data\"")
+        self.assertNotIn("OPENDMT3_KUBE_CLAIM", render("persistence.enabled=false"))
+
+
 if __name__ == "__main__":
     unittest.main()

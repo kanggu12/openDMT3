@@ -24,7 +24,8 @@ game's port, so players type only the site's address.
 
 Yes, set once and used everywhere: `./dmt3 ports --game 5725 --web 8080` with Docker,
 `opendmt3-server setup --game-port 5725 --web-port 8080` on Windows or with Python, `game.service.port` with the Helm
-chart. The server listens on the same numbers it publishes, so the site tells launchers the game's port they reach.
+chart. The server listens on the same numbers it publishes, so the site tells launchers the game's port they reach,
+and the players' address setup kept moves to the new site port with it (an `https://` address through a proxy stays).
 
 ## How do players find my server?
 
@@ -58,7 +59,9 @@ forward.
 ## How do I remove the server?
 
 [Removing a server](server.md#removing-a-server): `./dmt3 remove` or `opendmt3-server remove`, with
-`--delete-data` to delete the data too, after a last backup kept beside it.
+`--delete-data` to delete the data too (with Docker, Caddy's certificates too), after a last backup kept beside it,
+readable by its owner alone. On a cluster, the admin's **Server** tab names the helm and kubectl commands
+([On Kubernetes](kubernetes.md#the-admins-server-tab)).
 
 ## Something is broken. What do I run first?
 

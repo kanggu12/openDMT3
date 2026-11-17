@@ -82,6 +82,28 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 - `.env` saved by Notepad (with a byte-order mark, CRLF or spaces around `=`) reads the same as any other.
 - The launcher connects to an `https://` address without a port on 443, as a browser does.
+- `./dmt3 expose <address> --local-ca` (an IP address as the site's name, on a closed network) answers over HTTPS:
+  Caddy gives the address's certificate to visitors that name no site in their handshake, as browsers opening an
+  address do.
+- `./dmt3 setup` gets the server's image before anything runs in a container: the published one is pulled, and a
+  build of this copy is always `opendmt3-server:local` (`compose.yaml` has no recipe of its own; the recipe is
+  `packaging/docker/build.yaml`). A failed step says which: Docker, the image, or Compose's own words.
+- A new site port (`./dmt3 ports --web`, `setup --web-port`) moves the players' address with it: the invite and its
+  QR code, the start banner, `status`, `GET /api/v1/server/invite` and the message to send a player.
+- The last backup that `remove --delete-data` keeps (Docker and the server's own program) is readable by its owner
+  alone, as the database is.
+- `./dmt3 remove --delete-data` takes Caddy's volumes (its certificates and local authority) after `expose --off`
+  too, and names any volume Docker still has instead of saying everything went; `./dmt3 remove` takes only the image
+  this server runs.
+- The admin's **Server** tab on Kubernetes names the cluster's helm and kubectl commands with the release's names,
+  and has no buttons there (the cluster runs the server); a container started by hand gets Docker's own commands.
+- On Windows `opendmt3-server remove --delete-data` deletes the data before it takes the firewall rules out, asks
+  Windows for an administrator only when a rule is there, and says which rules stay when the answer is no.
+- `expose --off` gives back the players' address `setup --address` kept; `expose` names Caddy's own ports in its line
+  for the router when `./dmt3 ports --http/--https` moved them; while exposed, the start banner names no address of
+  this PC that does not reach the site.
+- The one-line install's update makes the new version's Python environment before it stops the running server: when
+  its libraries cannot be had, it says so and the server runs as it was.
 
 ## [0.3.1] - 2026-11-17
 

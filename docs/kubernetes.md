@@ -172,6 +172,20 @@ start (a copy of it is kept first). Then copy the new launcher's installer into 
 `helm uninstall dmt3 -n opendmt3` removes the server and keeps the volume. `kubectl -n opendmt3 delete pvc
 dmt3-opendmt3-data` removes the data too.
 
+## The admin's Server tab
+
+The cluster starts the server and keeps it running, so the tab asks it nothing: it has no Restart, Stop or Remove
+buttons here, and names the cluster's commands instead, with this release's names (the chart tells the server its
+namespace, release, Deployment and claim):
+
+- start and stop: `kubectl -n opendmt3 scale deployment/dmt3-opendmt3 --replicas=1` (and `--replicas=0`);
+- restart: `kubectl -n opendmt3 rollout restart deployment/dmt3-opendmt3`, a new pod on the same volume;
+- remove: `helm -n opendmt3 uninstall dmt3`, and with the data
+  `helm -n opendmt3 uninstall dmt3 && kubectl -n opendmt3 delete pvc dmt3-opendmt3-data`.
+
+`GET /api/v1/server` gives the same as `runner` (`kind` `kubernetes`), and `POST /api/v1/server/stop`, `restart` and
+`remove` answer `409 not_here` with the command.
+
 ## Trying it on kind
 
 `deploy/kind/up.sh` runs the chart on a local [kind](https://kind.sigs.k8s.io) cluster named `odt3-srv-kind`, with

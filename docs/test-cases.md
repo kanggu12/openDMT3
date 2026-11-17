@@ -15,6 +15,8 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
   visitors on the site and a greedy program, `python tests/e2e/load/cabinets.py` (30 minutes)
 - `native`: the in-game layer's own tests, `native/cardreader/test.sh` (MinGW, then Wine, in containers)
 - `ci`: only in [CI](testing.md#ci)'s jobs, the server's image and the launcher built on Windows
+- `docker`: the server's distribution in containers of their own: `./dmt3 expose` on a copy of the tree
+  (`tests/e2e/expose/run.sh`, also in CI's server job), the one-line install (`tests/e2e/install/run.sh`)
 - `hand`: by a person, on a Windows PC
 
 ## TS-SETUP: the client data, read only
@@ -577,6 +579,9 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 | SITE-155 | The account area | Three sections (profile, account, security) and the DJ card's preview | `tests/server/test_players.py#test_the_page_has_three_sections_and_the_card_preview` | unit |
 | SITE-156 | A picture uploaded, then something that is no picture | Saved and served as a PNG, on the DJ page and by the API too; the other refused and said on the page | `tests/server/test_players.py#test_a_picture_is_uploaded_served_and_removed` | unit |
 | SITE-157 | Deleting one's own account with a wrong password, then the right one | The mistake under its field and the account kept; then gone, and the sign-in page says so | `tests/server/test_players.py#test_deleting_ones_own_account_asks_for_its_password` | unit |
+| SITE-158 | The Server tab of a server Kubernetes runs (the Helm chart's names) and of a container started by hand | The cluster's helm and kubectl commands with the release's names, or Docker's own with the container's; no button, no `./dmt3`; the API's stop 409 with the command; Korean too | `tests/server/test_observability.py#test_on_kubernetes_the_server_tab_names_the_clusters_commands` | unit |
+| SITE-159 | Who started a server in a container: compose.yaml's variable, the Helm chart's, the cluster's alone, none | Docker Compose with `./dmt3`'s commands; Kubernetes with the release's names, or names to fill in; a container started by hand with Docker's commands; none can be asked from the tab | `tests/server/test_observability.py#test_compose_kubernetes_and_a_plain_container_are_told_apart` | unit |
+| SITE-160 | The Helm chart's server | Told that the cluster runs it, with the namespace, release, Deployment and claim (none without a volume) | `tests/server/test_helm.py#test_the_server_knows_the_cluster_runs_it_and_its_names` | unit |
 
 ## TS-TEXT: the words
 
@@ -618,6 +623,19 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 | REPO-22 | The workflows' actions from elsewhere | Each pinned by its commit, its release in a comment | `tests/test_release_notes.py#test_every_action_from_elsewhere_is_pinned_by_its_commit` | unit |
 | REPO-23 | Work on a few threads, for reading the game's files (`opendmt3/core/parallel.py`) | The results in the items' order; no pool for one thread or one item; an error at its item's place, the rest dropped; leaving early waits for the pieces running | `tests/core/test_parallel.py#test_results_come_in_the_items_order_from_several_threads`, `tests/core/test_parallel.py#test_an_error_comes_at_its_items_place_and_the_rest_is_dropped` | unit |
 | REPO-24 | The unit tests' runner (`tests/parallel.py`) | Whole classes handed out, a long one in pieces in order, the longest first; with no times the most tests first, a seed giving one order; a damaged file of times hands out every test once; what `ALONE` names taken out of its class; a module that does not import run to say why; a process that ends, or sends back something else, an error of its piece while the rest still runs | `tests/test_parallel_runner.py#test_a_long_class_is_cut_into_pieces_in_order_and_the_longest_go_first`, `tests/test_parallel_runner.py#test_a_process_that_ends_is_an_error_of_its_piece_and_the_rest_still_runs` | unit |
+| REPO-25 | `./dmt3 setup` on a PC without the image | The published image pulled before any container runs; the image step not run a second time | `tests/test_front_door.py#test_setup_gets_the_published_image_before_anything_runs_in_it` | unit |
+| REPO-26 | `compose.yaml` and `./dmt3 image --build` | No recipe in compose.yaml; the build reads `packaging/docker/build.yaml`, named `opendmt3-server:local`, never the published name | `tests/test_front_door.py#test_a_local_build_never_carries_the_published_name` | unit |
+| REPO-27 | `./dmt3 setup` with Docker not answering, an image that cannot be had, a data volume Compose cannot read | Each said as such, Compose's own words for the last; never "Docker is not ready" but for the first | `tests/test_front_door.py#test_setup_says_which_step_failed` | unit |
+| REPO-28 | `./dmt3 ports --web` and `setup --web-port` with an address kept, on Docker and with the server's own program | The players' address on the new port (an https one stays); the run, the invite and its QR code say it | `tests/test_front_door.py#test_a_new_site_port_moves_the_players_address` | unit |
+| REPO-29 | `remove --delete-data` on Docker and with the server's own program | The last backup kept readable by its owner alone | `tests/server/test_standalone.py#test_the_last_backup_kept_on_removal_is_its_owners_alone` | unit |
+| REPO-30 | `./dmt3 remove --delete-data` after `expose --off`, and with a volume Docker keeps | edge.yaml read for the removal, so Caddy's volumes go; a volume left named, never "removed" | `tests/test_front_door.py#test_removal_with_the_data_takes_caddys_volumes_after_expose_off` | unit |
+| REPO-31 | `expose`, then `expose --off`, on Docker and with the server's own program | The address setup kept given back; none when there was none | `tests/server/test_standalone.py#test_expose_off_gives_back_the_address_setup_kept` | unit |
+| REPO-32 | `./dmt3 expose` with Caddy on other ports (`ports --http --https`) | The router's line names them | `tests/test_front_door.py#test_the_router_line_names_caddys_own_ports` | unit |
+| REPO-33 | `opendmt3-server remove --delete-data` on Windows with a firewall rule, Windows' question answered no; and with no rule | The data deleted all the same, the rules that stay said; with no rule no question | `tests/server/test_standalone.py#test_on_windows_the_data_goes_even_when_the_firewall_question_is_answered_no` | unit |
+| REPO-34 | The Caddyfile for an IP address as the site's name | `default_sni` the address, so a visitor naming no site gets its certificate; a name needs none | `tests/server/test_standalone.py#test_an_address_as_the_sites_name_is_its_certificates_too` | unit |
+| REPO-35 | The start banner in a container behind Caddy, and on the PC itself | No "This PC" line where 127.0.0.1 does not reach the site; the players' and the game's lines | `tests/server/test_standalone.py#test_the_banner_names_only_addresses_that_open_where_it_is_read` | unit |
+| REPO-36 | `./dmt3 expose 192.168.0.5 --local-ca` on a copy of the tree, with curl naming no site | `./dmt3 check` and curl over HTTPS answered with the address's certificate | `tests/e2e/expose/run.sh#https://$ADDRESS/ answers` | docker |
+| REPO-37 | The one-line install of a later release whose libraries cannot be had, while the server runs | Refused, said; the server still running the version it ran | `tests/e2e/install/run.sh#a later release whose libraries cannot be had` | docker |
 
 ## By hand
 

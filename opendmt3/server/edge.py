@@ -8,6 +8,7 @@ The game's port is not behind it: the game speaks its own protocol on TCP 4725, 
 
 import ipaddress
 import re
+import urllib.parse
 
 # Let's Encrypt's staging authority: real ACME, certificates no browser trusts, limits high enough to try a setup.
 STAGING = "https://acme-staging-v02.api.letsencrypt.org/directory"
@@ -38,6 +39,29 @@ def check_name(name, local_ca=False):
     return name
 
 
+def moved_address(address, old_port, new_port):
+    """The players' address after the site's port moved: an http address on the old port, on the new one; any other
+    (an https address through a proxy, an address with no port of the site's) as it was given. Used by ./dmt3 ports
+    and by the server's own setup --web-port, so the invite, the banner and the message to send a player follow."""
+    if not address:
+        return address
+    parts = urllib.parse.urlsplit(address)
+    if parts.scheme != "http" or parts.port != old_port:
+        return address
+    # An IPv6 address keeps its brackets in an address.
+    host = parts.hostname if ":" not in (parts.hostname or "") else "[%s]" % parts.hostname
+    return urllib.parse.urlunsplit((parts.scheme, "%s:%d" % (host, new_port), parts.path, parts.query, parts.fragment))
+
+
+def is_address(name):
+    """True when the site's name is an IP address (a closed network with no names), not a host name."""
+    try:
+        ipaddress.ip_address(name)
+    except ValueError:
+        return False
+    return True
+
+
 def caddyfile(name, upstream, email=None, ca=None, ca_root=None, local_ca=False):
     """The Caddyfile for the site at https://NAME/ in front of `upstream` (host:port of the site): its certificate
     from Let's Encrypt (email: the address it writes to about the certificate), from another ACME authority `ca`
@@ -57,6 +81,11 @@ def caddyfile(name, upstream, email=None, ca=None, ca_root=None, local_ca=False)
     if ca_root:
         # A private authority's root (a test's): Caddy trusts it to reach the authority.
         options.append("    acme_ca_root %s" % ca_root)
+    if is_address(name):
+        # A client names no site in its handshake when it connects to an address (no SNI), and Caddy would then pick
+        # a certificate by the address the connection came in on: behind Docker's port publishing that is the
+        # container's own, never the one players use, and every handshake would fail. This one is the site's.
+        options.append("    default_sni %s" % name)
     if options:
         lines += ["{"] + options + ["}", ""]
     lines += ["%s {" % name]

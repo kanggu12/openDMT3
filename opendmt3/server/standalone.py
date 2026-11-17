@@ -46,6 +46,8 @@ GAME_PORT, WEB_PORT = 4725, 4730
 RUNNING, STOP, SETTINGS, LOGS = "server-running.json", "server-stop.request", "settings.json", "logs"
 # The request to restart it: the running server ends and runs again in its own process.
 RESTART = "server-restart.request"
+# The players' address setup kept, while expose has the site at https://NAME/: expose --off gives it back.
+BEFORE_EXPOSE = "site_address_before_expose"
 # The log a run writes: this size, then it starts a new file, keeping this many old ones (8 MB in all at most).
 LOG_BYTES, LOG_KEPT = 2 * 1024 * 1024, 3
 # The installer the site's Download page hands out from the downloads folder, under the name dmt3 copies it as too.
@@ -569,8 +571,17 @@ def cmd_setup(args):
     data = os.path.abspath(args.data)
     os.makedirs(os.path.join(data, "downloads"), exist_ok=True)
     if args.game_port or args.web_port:
+        old_web = settings(data)["web_port"]
         keep(data, game_port=args.game_port or None, web_port=args.web_port or None)
-        say("ports: the game %d, the site %d" % (settings(data)["game_port"], settings(data)["web_port"]))
+        new_web = settings(data)["web_port"]
+        if new_web != old_web:
+            # The players' address follows the site to its new port (an http address on the old one; one through a
+            # proxy stays), and so does the one kept from before expose, for expose --off to give back.
+            kept = read_json(os.path.join(data, SETTINGS), {})
+            keep(data, **{name: edge.moved_address(kept[name], old_web, new_web) for name in ("site_address",
+                                                                                        BEFORE_EXPOSE)
+                          if kept.get(name)})
+        say("ports: the game %d, the site %d" % (settings(data)["game_port"], new_web))
     if args.address:
         address = site_address(args.address, settings(data)["web_port"])
         keep(data, site_address=address)
@@ -662,6 +673,30 @@ def firewall_commands(ports, remove=False, public=False):
     return commands
 
 
+def on_windows():
+    """True on Windows, where the firewall's rules are this program's to make and take out (netsh)."""
+    return os.name == "nt"
+
+
+def firewall_ports(data):
+    """The ports the firewall opens for this data folder's server: the game's, and the site's, or Caddy's 80 and 443
+    while the site is behind it (expose)."""
+    kept = settings(data)
+    return [kept["game_port"]] + ([80, 443] if kept["proxy"] else [kept["web_port"]])
+
+
+def firewall_rules(ports):
+    """Of these ports, those whose rule (RULE) Windows' firewall has: netsh lists a rule by its name without an
+    administrator, and answers 1 when no rule has it."""
+    found = []
+    for port in ports:
+        done = subprocess.run(["netsh", "advfirewall", "firewall", "show", "rule", "name=" + RULE % port],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if done.returncode == 0:
+            found.append(port)
+    return found
+
+
 def is_admin():
     """True when this Windows process may change the firewall (it runs as an administrator)."""
     import ctypes
@@ -701,13 +736,10 @@ def cmd_firewall(args):
     """Windows: open the server's two ports in Windows' firewall (Windows asks for an administrator's yes). Elsewhere:
     the commands for the usual firewalls, to run with sudo."""
     data = os.path.abspath(args.data)
-    kept = settings(data)
-    ports = [kept["game_port"]] + ([] if kept["proxy"] else [kept["web_port"]])
-    if kept["proxy"]:
-        # Behind the proxy the site is reached on 80 and 443 (Caddy's), not on its own port.
-        ports += [80, 443]
-    if os.name != "nt" or args.print:
-        if os.name == "nt":
+    # The ports given (remove passes the ones its data folder kept, before the folder goes), else this data folder's.
+    ports = [int(p) for p in args.ports.split(",")] if getattr(args, "ports", None) else firewall_ports(data)
+    if not on_windows() or args.print:
+        if on_windows():
             for command in firewall_commands(ports, args.remove, args.public):
                 say(subprocess.list2cmdline(command))
             return 0
@@ -721,9 +753,9 @@ def cmd_firewall(args):
         say("macOS asks by itself the first time the server listens: choose Allow.")
         return 0
     if not is_admin():
-        # Once more as an administrator, which Windows asks the person at this PC for.
-        code = elevated(["--data", data, "firewall"] + (["--remove"] if args.remove else []) + (
-            ["--public"] if args.public else []))
+        # Once more as an administrator, which Windows asks the person at this PC for, on these same ports.
+        code = elevated(["--data", data, "firewall", "--ports", ",".join(str(p) for p in ports)] + (
+            ["--remove"] if args.remove else []) + (["--public"] if args.public else []))
         if code is None:
             raise Refused("the firewall was not changed: Windows' question was answered no")
         return code
@@ -748,9 +780,12 @@ def cmd_expose(args):
     https://NAME/, and the site on this PC only with the proxy's headers believed. --off undoes it."""
     data = os.path.abspath(args.data)
     if args.off:
-        keep(data, proxy=None, site_address=None)
-        say("The site is on its own port again for other PCs (restart the server: %s stop, then %s start)."
-            % (PROG, PROG))
+        # The players' address is the one setup kept before expose (none when there was none).
+        before = read_json(os.path.join(data, SETTINGS), {}).get(BEFORE_EXPOSE)
+        keep(data, proxy=None, site_address=before, **{BEFORE_EXPOSE: None})
+        if before:
+            say("The players' address is %s again." % before)
+        say("The site is on its own port again for other PCs (restart the server: %s restart)." % PROG)
         return 0
     if not args.name:
         raise Refused("expose needs the site's name: %s expose dmt3.example.org" % PROG)
@@ -764,7 +799,10 @@ def cmd_expose(args):
     path = os.path.join(data, "Caddyfile")
     with open(path, "w", encoding="utf-8") as f:
         f.write(text)
-    keep(data, proxy="127.0.0.1", site_address="https://%s/" % name)
+    kept = settings(data)
+    # The address setup kept is kept aside, once (a second expose keeps the first one's), for expose --off.
+    aside = {BEFORE_EXPOSE: kept["site_address"]} if not kept["proxy"] and kept["site_address"] else {}
+    keep(data, proxy="127.0.0.1", site_address="https://%s/" % name, **aside)
     say("The players' address: https://%s/" % name)
     say("Caddy's settings: %s" % path)
     say("Next:")
@@ -852,8 +890,10 @@ def cmd_repair(args):
 
 
 def cmd_remove(args):
-    """Stop the server and take its firewall rules out; with --delete-data delete its data folder too, after a backup
-    kept beside it. The package itself is a folder: deleting it removes the rest (nothing else was put on this PC)."""
+    """Stop the server; with --delete-data delete its data folder too, after a backup kept beside it (its owner's
+    alone); then, on Windows, take out the firewall rules there are (Windows asks for an administrator only when one
+    is there, and a no leaves them, said as such: the data never waits on that question). The package itself is a
+    folder: deleting it removes the rest (nothing else was put on this PC)."""
     data = os.path.abspath(args.data)
     if args.delete_data and not args.yes:
         if not sys.stdin.isatty() or input("Delete the server's data in %s (accounts, plays, backups)? A backup is "
@@ -861,9 +901,10 @@ def cmd_remove(args):
             say("Nothing was removed.")
             return 1
     cmd_stop(args)
-    if os.name == "nt":
-        # The rules firewall made, by their names (Windows asks for an administrator's yes).
-        cmd_firewall(argparse.Namespace(data=data, remove=True, public=False, print=False))
+    # The ports the firewall's rules may be for, read while the data folder (its settings) is still there: the game's,
+    # the site's, and Caddy's 80 and 443 (an expose before, or now). Only the rules there are are taken out.
+    kept = settings(data)
+    ports = sorted({kept["game_port"], kept["web_port"], 80, 443})
     if args.delete_data and os.path.isdir(data):
         kept = None
         database = os.path.join(data, "openDMT3.sqlite")
@@ -874,10 +915,25 @@ def cmd_remove(args):
             name = backups.make(database, data, "manual")
             kept = os.path.join(os.path.dirname(data), "opendmt3-backup-%s.sqlite" % time.strftime("%Y%m%d-%H%M%S"))
             shutil.copyfile(os.path.join(data, "backups", name), kept)
+            # Card numbers and password hashes are in it: its owner's alone, as the database is.
+            os.chmod(kept, 0o600)
         shutil.rmtree(data)
         if kept:
             say("the last backup, kept: %s" % kept)
         say("The server's data is deleted.")
+    if on_windows():
+        # The firewall's rules last, and only those there are (Windows asks for an administrator only then): the data
+        # never waits on the question, and a no leaves the rules, said as such.
+        there = firewall_rules(ports)
+        if there:
+            try:
+                left = cmd_firewall(argparse.Namespace(data=data, remove=True, public=False, print=False,
+                                                       ports=",".join(str(p) for p in there)))
+            except Refused:
+                left = 1
+            if left:
+                say("Its firewall rules stay (TCP %s): %s firewall --remove takes them out."
+                    % (", ".join(str(p) for p in there), PROG))
     where = package_folder() if frozen() else "this copy"
     say("The server is stopped%s. To remove it, delete %s." % ("" if args.delete_data else " and its data kept in %s"
                                                                % data, where))
@@ -934,6 +990,8 @@ def parser():
     c["firewall"].add_argument("--remove", action="store_true", help="take the rules out again")
     c["firewall"].add_argument("--public", action="store_true", help="on public networks too (Windows)")
     c["firewall"].add_argument("--print", action="store_true", help="print the commands instead of running them")
+    # The ports, as remove passes them to the program asked as an administrator (its data folder may be gone then).
+    c["firewall"].add_argument("--ports", help=argparse.SUPPRESS)
     c["expose"].add_argument("name", nargs="?", help="the site's name (dmt3.example.org): it must lead to this PC")
     c["expose"].add_argument("--email", help="the address Let's Encrypt writes to about the certificate")
     choice = c["expose"].add_mutually_exclusive_group()

@@ -7,8 +7,10 @@
 # It takes this release's server package (opendmt3-server-@VERSION@.zip), checked against the release's checksums, into
 # ~/.local/share/opendmt3-server (OPENDMT3_SERVER_DIR says where), with a Python environment of its own holding the
 # site's libraries at the versions the server's image pins, and the official 7-Zip for the client data's archives;
-# then the command opendmt3-server in ~/.local/bin. Run again, or a newer release's, it stops the server it finds
-# running, puts the new code in place and starts it again: the data stays (accounts, plays, backups, settings).
+# then the command opendmt3-server in ~/.local/bin. Run again, or a newer release's, it makes this version's Python
+# environment first, beside the running server's; only then it stops the server it finds running, puts the new code in
+# place and starts it again: the data stays (accounts, plays, backups, settings). A step that fails before the stop
+# (a download, the libraries) leaves the running server as it was, and says so.
 #
 #   sh -s -- --uninstall      (after the pipe's sh: the server stopped, the program removed, the data kept)
 #
@@ -55,12 +57,26 @@ python_found() {
   python3 -c 'import sys, venv, ensurepip; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null
 }
 
+# The command, opendmt3-server, for the environment $1: this install's Python, its code, its 7-Zip and its data folder
+# (OPENDMT3_DATA still wins).
+write_command() {
+  cat > "$BIN/opendmt3-server" <<EOF
+#!/bin/sh
+# The openDMT3 server $VERSION, installed by opendmt3-server-$VERSION-installer.sh into $DIR.
+export PYTHONPATH="$DIR/code"
+export OPENDMT3_DATA="\${OPENDMT3_DATA:-$DIR/data}"
+[ -x "$DIR/bin/7zz" ] && export OPENDMT3_7ZIP="$DIR/bin/7zz"
+exec "$1/bin/python" -m opendmt3.server.standalone "\$@"
+EOF
+  chmod 0755 "$BIN/opendmt3-server"
+}
+
 uninstall() {
   if [ -x "$BIN/opendmt3-server" ]; then
     # The server stops by its own command, which started it.
     "$BIN/opendmt3-server" stop || true
   fi
-  rm -rf "$DIR/code" "$DIR/venv" "$DIR/bin"
+  rm -rf "$DIR/code" "$DIR/venv" "$DIR"/venv-* "$DIR/bin"
   rm -f "$BIN/opendmt3-server"
   say "The openDMT3 server is removed. Its data stays in $DIR/data (delete that folder to remove it too)."
 }
@@ -96,32 +112,51 @@ install() {
   else
     say "no 7-Zip of this project's for $(uname -s) $(uname -m): archives are read with a 7z on PATH, if there is one"
   fi
-  # A running server stops first, by its own command; it starts again at the end.
+  mkdir -p "$DIR" "$BIN"
+  # Whether a server runs now: it is stopped only once everything this version needs is ready, so a failure before
+  # that leaves it running as it was.
   was_running=
   if [ -x "$BIN/opendmt3-server" ] && "$BIN/opendmt3-server" status >/dev/null 2>&1; then
     was_running=yes
+  fi
+  unchanged="nothing was changed"
+  [ -z "$was_running" ] || unchanged="nothing was changed: the server runs as it was"
+  # This version's own Python environment, made beside the one the running server uses (a release's libraries are
+  # pinned with it): made and filled first, while that server still runs.
+  venv="$DIR/venv-$VERSION"
+  made_venv=
+  if [ ! -x "$venv/bin/python" ]; then
+    python3 -m venv "$venv" || { rm -rf "$venv"; die "the Python environment could not be made (python3 -m venv); $unchanged"; }
+    made_venv=yes
+  fi
+  if ! "$venv/bin/python" -m pip install --quiet --disable-pip-version-check $LIBRARIES; then
+    # An environment made for this version alone goes again; one the running server uses (this same version) stays.
+    [ -z "$made_venv" ] || rm -rf "$venv"
+    die "the site's libraries could not be installed (pip); $unchanged"
+  fi
+  # Now the running server stops, by its own command, and starts again at the end on the new version.
+  if [ -n "$was_running" ]; then
     "$BIN/opendmt3-server" stop
   fi
-  mkdir -p "$DIR" "$BIN"
-  # The environment made once for this Python, its libraries put at the pinned versions every time.
-  if [ ! -x "$DIR/venv/bin/python" ]; then
-    python3 -m venv "$DIR/venv" || die "the Python environment could not be made (python3 -m venv)"
+  # The old code, 7-Zip and command kept aside until the new ones are in place: put back if that fails, and the old
+  # server started again.
+  rm -rf "$DIR/code.old" "$DIR/bin.old" "$BIN/opendmt3-server.old"
+  [ ! -d "$DIR/code" ] || mv "$DIR/code" "$DIR/code.old"
+  [ ! -d "$DIR/bin" ] || mv "$DIR/bin" "$DIR/bin.old"
+  [ ! -f "$BIN/opendmt3-server" ] || cp "$BIN/opendmt3-server" "$BIN/opendmt3-server.old"
+  if ! { mv "$top" "$DIR/code" && { [ ! -d "$work/bin" ] || mv "$work/bin" "$DIR/bin"; } && write_command "$venv"; }; then
+    rm -rf "$DIR/code" "$DIR/bin"
+    [ ! -d "$DIR/code.old" ] || mv "$DIR/code.old" "$DIR/code"
+    [ ! -d "$DIR/bin.old" ] || mv "$DIR/bin.old" "$DIR/bin"
+    [ ! -f "$BIN/opendmt3-server.old" ] || mv "$BIN/opendmt3-server.old" "$BIN/opendmt3-server"
+    [ -z "$was_running" ] || "$BIN/opendmt3-server" start
+    die "the new version could not be put in place in $DIR; the old one is back${was_running:+ and runs again}"
   fi
-  "$DIR/venv/bin/python" -m pip install --quiet --disable-pip-version-check $LIBRARIES \
-    || die "the site's libraries could not be installed (pip)"
-  rm -rf "$DIR/code" "$DIR/bin"
-  mv "$top" "$DIR/code"
-  [ -d "$work/bin" ] && mv "$work/bin" "$DIR/bin"
-  # The command: this install's Python, its code, its 7-Zip and its data folder (OPENDMT3_DATA still wins).
-  cat > "$BIN/opendmt3-server" <<EOF
-#!/bin/sh
-# The openDMT3 server $VERSION, installed by opendmt3-server-$VERSION-installer.sh into $DIR.
-export PYTHONPATH="$DIR/code"
-export OPENDMT3_DATA="\${OPENDMT3_DATA:-$DIR/data}"
-[ -x "$DIR/bin/7zz" ] && export OPENDMT3_7ZIP="$DIR/bin/7zz"
-exec "$DIR/venv/bin/python" -m opendmt3.server.standalone "\$@"
-EOF
-  chmod 0755 "$BIN/opendmt3-server"
+  rm -rf "$DIR/code.old" "$DIR/bin.old" "$BIN/opendmt3-server.old"
+  # The environments of other versions (and the one before environments carried a version) are no one's now.
+  for old in "$DIR/venv" "$DIR"/venv-*; do
+    [ "$old" = "$venv" ] || [ ! -d "$old" ] || rm -rf "$old"
+  done
   "$BIN/opendmt3-server" --version
   if [ -n "$was_running" ]; then
     "$BIN/opendmt3-server" start

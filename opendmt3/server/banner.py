@@ -82,5 +82,7 @@ def show(version, rows, notes=(), stream=None):
 
 
 def rows(players, here, game_port):
-    """The box's rows: the players' address (when one is known), this PC's, and the game's port."""
-    return ([("Players", players)] if players else []) + [("This PC", here), ("Game", "TCP %d" % game_port)]
+    """The box's rows: the players' address (when one is known), this PC's (when it opens there: None when it does
+    not), and the game's port."""
+    return ([("Players", players)] if players else []) + ([("This PC", here)] if here else []) + [
+        ("Game", "TCP %d" % game_port)]

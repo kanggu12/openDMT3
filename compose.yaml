@@ -1,7 +1,10 @@
 # The openDMT3 server (game and site) with Docker Compose. ./dmt3 runs these for you (./dmt3 setup, up, down, ...);
-# the plain commands, from the top of the clone (the published image of this version; this clone's own instead with
-# OPENDMT3_IMAGE=opendmt3-server:local docker compose up -d --build):
+# the plain commands, from the top of the clone (the published image of this version, pulled when it is not here):
 #   docker compose up -d
+# This clone's own image instead (packaging/docker/build.yaml builds it as opendmt3-server:local, never under the
+# published name):
+#   docker compose -f compose.yaml -f packaging/docker/build.yaml build
+#   OPENDMT3_IMAGE=opendmt3-server:local docker compose up -d
 # The first (owner's) account: in Docker the site sees visits from the container network, not from this PC, so the
 # first-run page is never shown; make it here (the password is printed):
 #   docker compose run --rm server --add-player BOSS --admin
@@ -20,11 +23,9 @@ services:
     # The image: the published one of this version (amd64 and arm64), or this clone's own after ./dmt3 up --build,
     # which builds it as opendmt3-server:local and keeps OPENDMT3_IMAGE in .env. ./dmt3 always names it; the default
     # here is for docker compose run by hand, and moves with each release (tests/test_front_door.py checks it).
+    # No recipe here: with the image missing, every command pulls it, and none builds this clone under the published
+    # name (packaging/docker/build.yaml is the recipe, read only to build).
     image: ${OPENDMT3_IMAGE:-ghcr.io/kanggu12/opendmt3-server:0.3.1}
-    # How ./dmt3 up --build (docker compose build) makes this clone's own.
-    build:
-      context: .
-      dockerfile: packaging/docker/Dockerfile
     restart: unless-stopped
     ports:
       # The game's port, for cabinets on other PCs.
@@ -33,6 +34,9 @@ services:
       # ./dmt3 expose puts Caddy in front of it instead (packaging/docker/edge.yaml, docs/internet.md).
       - "${WEB_PORT:-4730}:${WEB_PORT:-4730}"
     environment:
+      # Who runs the server, for the admin's Server tab (web/runner.py): Docker Compose, whose commands (./dmt3 down,
+      # restart, remove) it names, since Compose starts the server again whenever its process ends.
+      OPENDMT3_RUNNER: docker
       # The two ports, the same inside and out (./dmt3 ports keeps others in .env as GAME_PORT and WEB_PORT): the server
       # listens on them, and the site tells launchers the game's port they reach.
       OPENDMT3_GAME_PORT: ${GAME_PORT:-4725}

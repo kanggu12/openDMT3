@@ -28,6 +28,9 @@ COMPOSE_FILE = os.path.join(ROOT, "compose.yaml")
 PROJECT = "opendmt3"
 # The server image ./dmt3 up --build makes from this clone (OPENDMT3_IMAGE in .env then names it).
 IMAGE = "opendmt3-server:local"
+# The recipe of that image, read after compose.yaml only to build it: compose.yaml has none, so no command run while
+# the published image is missing builds this clone under the published name (it pulls the image instead).
+BUILD_FILE = os.path.join(ROOT, "packaging", "docker", "build.yaml")
 # Where each release's server image is published (for amd64 and arm64, by .github/workflows/release.yml): the one a
 # clone uses unless --build is asked for, at the version the clone carries.
 REGISTRY_IMAGE = "ghcr.io/kanggu12/opendmt3-server"
@@ -73,6 +76,9 @@ EDGE_DIR = os.path.join(ROOT, ".edge")
 # Caddy's service in that file, and where its own local authority's root certificate is inside it.
 EDGE_SERVICE = "edge"
 EDGE_ROOT_CERT = "/data/caddy/pki/authorities/local/root.crt"
+# The players' address setup kept, while the site is exposed (its address is then https://NAME/): expose --off gives
+# it back.
+BEFORE_EXPOSE = "SITE_ADDRESS_BEFORE_EXPOSE"
 # An archive's password, passed to the server's container by name only (never on a command line others can read).
 PASSWORD_ENV = "OPENDMT3_ARCHIVE_PASSWORD"
 
@@ -132,10 +138,11 @@ def web_port():
     return int(read_env().get(WEB_PORT_ENV) or WEB_PORT)
 
 
-def compose(*args):
-    """A docker compose command on this clone's compose.yaml, and on edge.yaml after it while the site is exposed."""
-    files = ["-f", COMPOSE_FILE] + (["-f", EDGE_FILE] if exposed() else [])
-    return ["docker", "compose"] + files + list(args)
+def compose(*args, files=()):
+    """A docker compose command on this clone's compose.yaml, and on edge.yaml after it while the site is exposed (or
+    when named in files, as a removal names it to take Caddy's volumes), then the other files named."""
+    named = [COMPOSE_FILE] + ([EDGE_FILE] if exposed() and EDGE_FILE not in files else []) + list(files)
+    return ["docker", "compose"] + [part for name in named for part in ("-f", name)] + list(args)
 
 
 def exposed():
@@ -684,10 +691,19 @@ def cmd_catalog(args):
 
 def cmd_setup(args):
     say("openDMT3 server setup")
-    code, out = run(count_accounts(), capture=True) if docker_ready() else (1, "")
-    if code != 0:
+    if not docker_ready():
         # Without a working Docker nothing below can run; doctor names what is missing.
         die("Docker is not ready; run ./dmt3 doctor")
+    # The image before anything runs in a container: the published one pulled (built only when it cannot be had, or
+    # with --build). Counting the accounts first ran a container while the image was missing, and Compose built this
+    # clone for it under the published name.
+    say("== the server image")
+    if cmd_image(argparse.Namespace(build=getattr(args, "build", False), published=False)):
+        die("could not get the server image (see above): ./dmt3 image says why again, ./dmt3 doctor checks Docker")
+    code, out = run(count_accounts(), capture=True)
+    if code != 0:
+        # Compose's own words (a broken .env, a volume it cannot open), not a guess at Docker's readiness.
+        die("could not read the data volume's accounts: %s" % (out.strip() or "docker compose run failed"))
     accounts = int(out.strip().splitlines()[-1]) if out.strip() else 0
     if accounts:
         say("  accounts in the database: %d (no first account is made)" % accounts)
@@ -699,6 +715,9 @@ def cmd_setup(args):
         keep_address(args.address)
         say("  the site's address for players: %s" % site_address(args.address))
     for key, what, cmd in setup_plan(args, accounts):
+        if key == "image":
+            # Got first, above.
+            continue
         if key == "server" and args.game and args.keep_game and os.path.isdir(args.game):
             # Before the server starts, so it starts with the game folder mounted (Admin, Song list, Import).
             keep_game(args.game)
@@ -736,7 +755,8 @@ def build_image():
     write_env({IMAGE_ENV: IMAGE})
     os.environ[IMAGE_ENV] = IMAGE
     say("building the server image %s from this clone" % IMAGE)
-    return run(compose("build", SERVICE))[0]
+    # compose.yaml, then the recipe, which names the build this clone's own (build.yaml's image).
+    return run(compose("build", SERVICE, files=[BUILD_FILE]))[0]
 
 
 def cmd_image(args):
@@ -791,8 +811,12 @@ def cmd_expose(args):
         if not exposed():
             say("The site is not exposed: it is on its own port, %d." % web_port())
             return 0
-        # .env names no site any more: Compose reads compose.yaml alone, and Caddy, no longer in it, goes.
-        write_env({"EDGE_NAME": None, "SITE_ADDRESS": None})
+        # .env names no site any more: Compose reads compose.yaml alone, and Caddy, no longer in it, goes. The players'
+        # address is the one setup kept before expose (none when there was none).
+        before = read_env().get(BEFORE_EXPOSE)
+        write_env({"EDGE_NAME": None, "SITE_ADDRESS": before or None, BEFORE_EXPOSE: None})
+        if before:
+            say("The players' address is %s again." % before)
         say("The site is on its own port again, %d." % web_port())
         return run(compose("up", "-d", "--no-build", "--pull", "never", "--remove-orphans"))[0] if is_running() else 0
     if not args.name:
@@ -818,7 +842,10 @@ def cmd_expose(args):
     with open(os.path.join(EDGE_DIR, "Caddyfile"), "w", encoding="utf-8") as f:
         f.write(text)
     # Kept in .env: from now on every ./dmt3 command reads edge.yaml too, and the server tells players this address.
-    write_env({"EDGE_NAME": name, "SITE_ADDRESS": "https://%s/" % name})
+    # The address setup kept is kept aside, once (a second expose keeps the first one's), for expose --off.
+    env = read_env()
+    aside = {BEFORE_EXPOSE: env["SITE_ADDRESS"]} if not exposed() and env.get("SITE_ADDRESS") else {}
+    write_env(dict({"EDGE_NAME": name, "SITE_ADDRESS": "https://%s/" % name}, **aside))
     say("The players' address: https://%s/" % name)
     say("Caddy's settings: %s" % os.path.join(EDGE_DIR, "Caddyfile"))
     if is_running():
@@ -831,9 +858,14 @@ def cmd_expose(args):
         say("Caddy gets the certificate now; ./dmt3 check says when the site answers over HTTPS.")
     else:
         say("./dmt3 up starts the server with Caddy beside it.")
-    say("On the router: forward TCP 80 and 443 (Caddy) and TCP %d (the game) to this PC%s." % (
-        game_port(), "" if not args.local_ca else "; on a closed network, players' PCs trust Caddy's root certificate "
-                                                "once (./dmt3 expose --root-cert FILE saves it)"))
+    env = read_env()
+    http, https = int(env.get("HTTP_PORT") or 80), int(env.get("HTTPS_PORT") or 443)
+    # Players reach Caddy on 80 and 443 from outside; when ./dmt3 ports put it on others here, the router maps them.
+    caddy = ("forward TCP 80 and 443 (Caddy)" if (http, https) == (80, 443) else
+             "forward TCP 80 to this PC's %d and TCP 443 to its %d (Caddy)" % (http, https))
+    say("On the router: %s and TCP %d (the game) to this PC%s." % (
+        caddy, game_port(), "" if not args.local_ca else "; on a closed network, players' PCs trust Caddy's root "
+                                                       "certificate once (./dmt3 expose --root-cert FILE saves it)"))
     return 0
 
 
@@ -856,6 +888,14 @@ def cmd_ports(args):
         # Undone: two parts on one port would leave one of them unreachable.
         write_env({name: env.get(name) if name not in changes else None for name in changes})
         die("each part needs a port of its own: %s" % ", ".join(str(n) for n in numbers))
+    if web_port() != old_web:
+        # The players' address follows the site to its new port (an http address on the old one; one through a proxy
+        # stays): the invite, the banner, status and the message to send a player say it. The address kept from
+        # before expose follows too, for expose --off to give back.
+        env = read_env()
+        moved = edge_module().moved_address
+        write_env({name: moved(env[name], old_web, web_port()) for name in ("SITE_ADDRESS", BEFORE_EXPOSE)
+                   if env.get(name)})
     if changes and exposed() and web_port() != old_web:
         # Caddy reaches the site on its port: its Caddyfile follows.
         path = os.path.join(EDGE_DIR, "Caddyfile")
@@ -898,8 +938,11 @@ def last_backup_out():
     if done.returncode != 0 or not done.stdout.startswith(b"SQLite format 3"):
         die("the backup could not be read out of the data folder: nothing was deleted")
     path = os.path.join(ROOT, "opendmt3-backup-%s.sqlite" % time.strftime("%Y%m%d-%H%M%S"))
-    with open(path, "wb") as f:
+    # Its owner's alone from the start (card numbers and password hashes are in it), as the database is.
+    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") as f:
         f.write(done.stdout)
+    # A file there before keeps its old rights through O_CREAT: set again.
+    os.chmod(path, 0o600)
     return path
 
 
@@ -913,19 +956,28 @@ def cmd_remove(args):
     kept = last_backup_out() if args.delete_data else None
     if kept:
         say("the last backup, kept: %s" % kept)
-    # With edge.yaml while exposed, so Caddy goes too; -v takes the volumes along only when asked.
-    code = run(compose("down", "--remove-orphans", *(["-v"] if args.delete_data else [])))[0]
+    # With edge.yaml while exposed, so Caddy goes too; with the data, edge.yaml in any case, so Caddy's volumes (its
+    # certificates, its local authority's key) go even after expose --off. -v takes the volumes only when asked.
+    code = run(compose("down", "--remove-orphans", *(["-v"] if args.delete_data else []),
+                       files=[EDGE_FILE] if args.delete_data else []))[0]
     if code:
         return code
-    for image in {chosen_image(), published_image(), IMAGE}:
-        # Each image of this server that is here; one not here is no error.
-        if has_image(image):
-            run(["docker", "image", "rm", image], capture=True)
+    # The image this server runs (another clone's or another version's is not this one's to take).
+    if has_image(chosen_image()):
+        run(["docker", "image", "rm", chosen_image()], capture=True)
     if args.delete_data:
-        # Nothing of the server is left on Docker; .env and the Caddyfile go with it.
+        # .env and the Caddyfile go with it.
         for path in (ENV_FILE, os.path.join(EDGE_DIR, "Caddyfile"), os.path.join(EDGE_DIR, "ca-root.pem")):
             with contextlib.suppress(FileNotFoundError):
                 os.remove(path)
+        # Whatever of the project Docker still has is named, not said gone.
+        project = os.environ.get("COMPOSE_PROJECT_NAME") or PROJECT
+        code, out = run(["docker", "volume", "ls", "-q", "--filter", "label=com.docker.compose.project=%s" % project],
+                        capture=True)
+        left = out.split() if code == 0 else []
+        if left:
+            say("Still on Docker: %s (docker volume rm %s takes it)." % (", ".join(left), " ".join(left)))
+            return 1
         say("The server and its data are removed. This folder is all that is left: delete it to finish.")
     else:
         say("The server is removed; its data stays in the volume %s_data (./dmt3 setup starts it again on it, "
