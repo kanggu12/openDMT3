@@ -5,7 +5,7 @@
 {% block head %}<link rel="stylesheet" href="/static/players.css?v={{ version }}">{% endblock %}
 {% block main %}
 {# A page that works rather than shows: the low head (the page's name, no sentence under it). #}
-<section class="page-head"><div class="page-head-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("me.title") }}</h1></div></section>
+<section class="page-head"><div class="page-head-text"><h1 class="word">{{ w("me.title") }}</h1></div></section>
 {# One account area in three sections: the profile and its decoration, the account, its security. The rail beside them
    (above them on a phone) leads to each; the page opens at the section of what was just done (static/profile.js). #}
 <div class="account-area side-area" data-open="{{ opened }}">

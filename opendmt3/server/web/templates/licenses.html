@@ -5,8 +5,8 @@
 {% if console %}
 <section class="console-head"><h1 class="word">{{ w("licenses.title") }}</h1></section>
 {% else %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("licenses.title") }}</h1><p class="sub">{{ w("licenses.sub") }}</p></div>
+<section class="hero small"><div class="shards" aria-hidden="true">{{ stage() }}</div>
+  <div class="hero-text"><h1 class="word">{{ w("licenses.title") }}</h1></div>
 </section>
 {% endif %}
 <section class="narrow wide-ish">

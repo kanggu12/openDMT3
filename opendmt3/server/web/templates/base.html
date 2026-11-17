@@ -92,9 +92,13 @@
 </div>
 {# Maintenance (Admin, Status): the cabinets cannot log in while it is on; said on every page of the players' site, beside
    the notice (the admin site's rail says maintenance, and its Status page holds the notice). #}
-{% if site_maintenance and not console %}<div class="site-notice maintenance" role="status"><span class="label">{{ w("maintenance.bar") }}</span><span class="text">{{ w("maintenance.bar.text") }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
+{# Maintenance and the admin's notice on one frosted sheet under the bar, inside the page's column (the Platinum Crew
+   site's one glass panel). #}
+{% if (site_maintenance or site_notice) and not console %}<div class="notices"><div class="notices-sheet">
+{% if site_maintenance %}<div class="site-notice maintenance" role="status"><span class="label">{{ w("maintenance.bar") }}</span><span class="text">{{ w("maintenance.bar.text") }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
 {# The admin's notice (Admin, Status), one line on every page of the players' site. #}
-{% if site_notice and not console %}<div class="site-notice" role="status"><span class="label">{{ w("notice.bar") }}</span><span class="text">{{ site_notice }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
+{% if site_notice %}<div class="site-notice" role="status"><span class="label">{{ w("notice.bar") }}</span><span class="text">{{ site_notice }}</span><span class="more" aria-hidden="true">{{ w("notice.more") }}</span></div>{% endif %}
+</div></div>{% endif %}
 <main id="main" tabindex="-1">
 {% block main %}{% endblock %}
 </main>

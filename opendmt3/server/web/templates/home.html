@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ w("title.home") }} · {% endblock %}
 {% block main %}
-<section class="hero"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+<section class="hero"><div class="shards" aria-hidden="true">{{ stage() }}</div>
   {# The page's one main key: the way to the launcher (the Download page holds the file and its facts). #}
-  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1>TECHNIKA <b>3</b></h1><p class="sub">{{ w("site.tagline") }}</p>
+  <div class="hero-text"><h1>TECHNIKA <b>3</b></h1><p class="sub">{{ w("site.tagline") }}</p>
     <p class="hero-key"><a class="btn primary" href="/download">{{ w("download.heading") }}</a></p></div>
 </section>
 <section class="grid">
@@ -12,7 +12,6 @@
     <h3>{{ w("home.dj") }}</h3>
     {% set name = user.dj_name %}{% include "_djcard.html" %}
     <dl class="facts">
-      <div><dt>{{ w("profile.level") }}</dt><dd>{{ "Lv %d" % card.level if card.level else "-" }}</dd></div>
       <div><dt>{{ w("profile.points") }}</dt><dd>{{ "{:,}".format(card.max_points) }}</dd></div>
       <div><dt>{{ w("dj.plays") }}</dt><dd>{{ "{:,}".format(mine_total) }}</dd></div>
     </dl>

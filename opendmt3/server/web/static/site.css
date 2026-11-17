@@ -90,9 +90,11 @@ body {
   min-height: 100vh; display: flex; flex-direction: column;
   color: var(--chalk); font: 15px/1.6 var(--text-face); letter-spacing: -0.006em;
   background-color: var(--field);
-  /* The game's perforated metal, faint, all over; it stays while the page scrolls. */
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.045) 1px, transparent 1.3px);
-  background-size: 6px 6px; background-attachment: fixed;
+  /* The game's perforated metal (its panels' 2 px holes on an 8 px half-drop lattice), faint, all over; it stays while
+     the page scrolls. */
+  background-image: radial-gradient(circle at 2px 2px, rgba(255, 255, 255, 0.05) 0.85px, transparent 1.25px),
+                    radial-gradient(circle at 6px 6px, rgba(255, 255, 255, 0.05) 0.85px, transparent 1.25px);
+  background-size: 8px 8px; background-attachment: fixed;
 }
 /* Skip to the page: the keyboard's first stop, out of sight until it has the focus, then over the bar's mark. */
 .skip { position: absolute; left: 16px; top: -64px; z-index: 30; padding: 10px 16px; color: var(--chalk); background: var(--deck-top);
@@ -112,21 +114,22 @@ code { font-family: ui-monospace, Consolas, monospace; font-size: 0.9em; backgro
 .small { font-size: 13px; }
 h1, h2, h3 { margin: 0 0 10px; font-weight: 700; }
 h2 { font-size: 20px; }
-/* Card headings: small wide capitals with a seam to the right edge, like the launcher's sections. */
+/* Card headings: small wide capitals standing alone, like the launcher's card tabs. */
 h3 { display: flex; align-items: center; gap: 12px; font: 400 11px/1.4 var(--wide); letter-spacing: 0.08em;
      text-transform: uppercase; color: var(--ash); margin-bottom: 14px; }
-h3::after { content: ""; flex: 1; height: 1px; background: var(--seam); }
 body.lang-ko h3 { font: 600 14px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
 /* ------------------------------------------------------------------------------------------------ bar */
 .bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 26px; flex-wrap: wrap;
-       padding: 12px 32px; background: var(--bar); border-bottom: 1px solid var(--seam);
-       -webkit-backdrop-filter: blur(12px) saturate(1.3); backdrop-filter: blur(12px) saturate(1.3); }
+       padding: 12px 32px; background: rgba(12, 14, 17, 0.8); border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+       -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
 .brand { color: var(--chalk); display: inline-flex; }
 .brand:hover { text-decoration: none; }
 /* The name as a mark: OPEN spaced out beside a splinter, DMT3 in chrome with the TECHNIKA 3 logo's blue 3. */
-.logo { display: grid; grid-template-columns: auto auto; align-items: end; column-gap: 6px; line-height: 1; }
+/* The role word (and the version over it) 4 px after the 3's last pixel, as the launcher's lockup (art.logo): DMT3 Wide's 3
+   keeps 1 px of its own room at its right, so the gap is 3 px (it measured 7 px of room at 6). */
+.logo { display: grid; grid-template-columns: auto auto; align-items: end; column-gap: 3px; line-height: 1; }
 .logo .o { grid-column: 1 / -1; display: flex; align-items: center; gap: 7px; font: 400 9px/1 var(--wide);
            letter-spacing: 0.32em; color: var(--chalk); margin-bottom: 3px; }
 .logo .o::after { content: ""; flex: 1; min-width: 34px; height: 5px; background: linear-gradient(90deg, #8f99a4, var(--blue-hi));
@@ -170,10 +173,18 @@ a.who:hover .who-name, a.who.on .who-name { color: var(--accent); }
                border-bottom: 1px solid var(--seam); }
 .site-notice .label { flex: none; display: inline-flex; align-items: center; gap: 8px; font: 400 10px/1.4 var(--wide);
                       letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber); }
-.site-notice .label::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor;
-                              box-shadow: 0 0 7px currentColor; }
+.site-notice .label::before { content: ""; width: 11px; height: 7px; border-radius: 1px; transform: translateY(-1px) skewX(-24deg); box-shadow: var(--lamp-light); background: var(--lamp-amber); }
+.site-notice.maintenance .label::before { background: var(--lamp-pink); }
 body.lang-ko .site-notice .label { font: 600 13px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
 .site-notice .text { min-width: 0; overflow-wrap: anywhere; }
+.notices { position: relative; box-sizing: border-box; width: 100%; max-width: 1180px; margin: 12px auto; padding: 0 32px; }
+.notices-sheet { position: relative; background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0, transparent 38%),
+                                                 rgba(20, 24, 30, 0.74);
+                 -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost);
+                 box-shadow: var(--float-rim), inset 0 0 0 1px rgba(255, 255, 255, 0.08), var(--relief);
+                 clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
+.notices .site-notice { background: transparent; border-bottom: 1px solid rgba(255, 255, 255, 0.07); padding: 11px 18px; }
+.notices .site-notice:last-child { border-bottom: 0; }
 /* On a phone a long notice keeps to two lines until it is opened (site.js: the strip itself is the key). */
 .site-notice .more { display: none; }
 
@@ -194,7 +205,8 @@ body.lang-ko .menu-key { font: 600 14px/1 var(--text-face); letter-spacing: 0; }
    sections as large rows, then one's own account, the language and Sign out. */
 .menu-sheet { position: fixed; inset: var(--bar-h, 57px) 0 0 0; width: auto; height: auto; max-width: none; max-height: none;
               margin: 0; padding: 8px 16px 24px; overflow-y: auto; border: 0; border-top: 1px solid var(--seam);
-              color: var(--chalk); background: var(--field); }
+              color: var(--chalk); background: rgba(14, 17, 21, 0.94); box-shadow: var(--float-rim);
+              -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
 .menu-sheet::backdrop { background: transparent; }
 .sheet-sections { display: grid; margin-bottom: 18px; }
 .sheet-sections a { display: flex; align-items: center; min-height: 52px; padding: 0 4px; border-bottom: 1px solid var(--seam);
@@ -217,13 +229,12 @@ body.lang-ko .menu-key { font: 600 14px/1 var(--text-face); letter-spacing: 0; }
    bar's own glass. It stands inside the bar where its words fit (site.js measures), else on a strip of the bar's glass
    right under the bar across the window. A popover: drawn over a dialog too. */
 .toast { position: fixed; inset: auto; margin: 0; padding: 0 8px 0 18px; border: 0; display: none; align-items: center; gap: 12px;
-         color: var(--chalk); background: rgba(16, 19, 23, 0.94); box-shadow: var(--glass-rim);
-         -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); overflow: visible; }
+         color: var(--chalk); background: rgba(16, 19, 23, 0.86); box-shadow: var(--float-rim), var(--relief);
+         -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); overflow: visible; }
 .toast:popover-open { display: flex; }
 .toast.under { border-bottom: 1px solid var(--seam); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45); padding: 10px 8px 10px 16px; }
-.toast::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--lime);
-                 box-shadow: 0 0 8px rgba(180, 240, 42, 0.75); }
-.toast.bad::before { background: var(--pink); box-shadow: 0 0 8px rgba(255, 79, 160, 0.75); }
+.toast::before { content: ""; flex: none; width: 11px; height: 7px; border-radius: 1px; transform: translateY(-1px) skewX(-24deg); box-shadow: var(--lamp-light); background: var(--lamp-net); }
+.toast.bad::before { background: var(--lamp-pink); }
 .toast-words { flex: 1; min-width: 0; margin: 0; font: 500 14px/1.4 var(--text-face); overflow-wrap: anywhere; }
 .toast-go { flex: none; font-weight: 600; }
 .toast-go:empty { display: none; }
@@ -238,8 +249,13 @@ body.lang-ko .menu-key { font: 600 14px/1 var(--text-face); letter-spacing: 0; }
 
 /* ----------------------------------------------------------------------------------------------- hero */
 /* The head of a page: shards in the section's colour cutting in from the right, the title in chrome. */
-.hero { position: relative; overflow: hidden; height: 220px; border-bottom: 1px solid var(--seam);
+.hero { position: relative; overflow: hidden; height: 220px;
         background: linear-gradient(90deg, var(--field) 38%, transparent 70%); }
+/* The section's colour as a thin tube along a head's foot (the Platinum Crew site's line over its pages): light, full,
+   light, and a shade under it; the page itself is never tinted. */
+.hero::after, .page-head::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 2;
+  background: linear-gradient(180deg, var(--accent-light) 0 1px, var(--accent) 1px 2px, var(--accent-light) 2px 3px,
+                              rgba(0, 0, 0, 0.55) 3px 4px); }
 /* A page's own hero is as tall as its words need, never less than the others': a long song title on two or three lines
    keeps its genre and composer under it (a fixed height cut them off). */
 .hero.small { height: auto; min-height: 172px; }
@@ -255,12 +271,7 @@ body.lang-ko .hero h1.word { font: 700 38px/1.15 var(--text-face); letter-spacin
              -webkit-background-clip: text; background-clip: text; color: transparent; }
 .hero .sub { color: var(--ash); margin: 0; }
 .shards { position: absolute; inset: 0; z-index: 0; }
-.shards i { position: absolute; display: block; }
-.shards i:nth-child(1) { right: 6%; top: -40%; width: 260px; height: 180%; clip-path: polygon(70% 0, 100% 8%, 10% 100%); background: var(--accent-light); opacity: 0.6; }
-.shards i:nth-child(2) { right: 22%; top: -20%; width: 200px; height: 160%; clip-path: polygon(60% 0, 85% 10%, 0 100%); background: var(--accent-deep); opacity: 0.9; }
-.shards i:nth-child(3) { right: -4%; top: 10%; width: 300px; height: 120%; clip-path: polygon(100% 0, 80% 100%, 0 70%); background: var(--accent-light); opacity: 0.5; }
-.shards i:nth-child(4) { right: 34%; top: 30%; width: 160px; height: 110%; clip-path: polygon(80% 0, 100% 5%, 20% 100%); background: var(--accent-deep); opacity: 0.8; }
-.shards i:nth-child(5) { right: 14%; top: 55%; width: 340px; height: 60%; clip-path: polygon(100% 0, 95% 30%, 0 100%); background: var(--accent); opacity: 0.35; }
+.shards .stage { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 
 /* A page that is not there: its code big in the wide chrome, on the page's own metal above the card. */
 .lost-code { margin: 0 0 8px; padding-top: 12px; text-align: center; font: 400 clamp(72px, 16vw, 132px)/1 var(--wide);
@@ -283,7 +294,7 @@ body.lang-ko .facts dt { font: 600 12px/1.4 var(--text-face); letter-spacing: 0;
 /* A page that works rather than shows (one's own account, the download): a low head, the kicker and the page's name in
    chrome, no sentence under it, the section's colour only in the kicker and a faint wash at the end. (The admin site's
    pages have the console's title row: .console-head.) */
-.page-head { border-bottom: 1px solid var(--seam);
+.page-head { position: relative;
              background: linear-gradient(90deg, var(--field) 45%, color-mix(in srgb, var(--accent-deep) 40%, var(--field)) 100%); }
 .page-head-text { max-width: 1180px; margin: 0 auto; padding: 24px 32px 20px; }
 .page-head .kicker { margin-bottom: 6px; }
@@ -301,7 +312,7 @@ body.lang-ko .page-head h1 { font: 700 28px/1.2 var(--text-face); letter-spacing
              padding: 24px 32px 40px; }
 /* The column on a glass plate of its own, as the launcher's darker column is (its names never sit on the bare page). */
 .side-nav { position: sticky; top: calc(var(--bar-h, 62px) + 16px); align-self: start; display: grid; gap: 2px; padding: 6px;
-            background: var(--glass); box-shadow: var(--glass-rim); }
+            background: var(--plate); box-shadow: var(--raise); }
 .side-nav a { position: relative; display: flex; align-items: center; min-height: 40px; padding: 0 14px 0 18px; color: var(--ash);
               font: 400 11px/1.2 var(--wide); letter-spacing: 0.08em; text-transform: uppercase; }
 body.lang-ko .side-nav a { font: 600 14px/1.2 var(--text-face); letter-spacing: 0; text-transform: none; }
@@ -343,8 +354,7 @@ main { flex: 1; }
 .narrow.wide-ish { max-width: 760px; }
 .page { padding: 24px 32px 40px; max-width: 1180px; margin: 0 auto; }
 /* A panel: gunmetal glass, a shade lighter at its head, the top-right corner cut like the game's plates. */
-.card { position: relative; margin-bottom: 18px; padding: 22px 24px; background: var(--glass-sheen), var(--glass);
-        -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); }
+.card { position: relative; margin-bottom: 18px; padding: 22px 24px; background: var(--plate-sheen), var(--plate); }
 /* The game's cut corner, one shape for every part that has it (a card, the podium's plates, a dialog's panel, a
    player's picture: players.css): the part is clipped to it (--cut, the corner's size), and its seam is a ring of
    1 px drawn by the same shape over the part (::after: the shape less the one 1 px inside it, even-odd). So one line
@@ -364,8 +374,8 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 .cabinets { list-style: none; margin: 0; padding: 0; }
 .cabinets li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--seam); }
 .cabinets li:last-child { border-bottom: 0; }
-.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex: none; }
-.dot.on { background: var(--lime); box-shadow: 0 0 8px rgba(180, 240, 42, 0.7); }
+.dot { flex: none; width: 11px; height: 7px; border-radius: 1px; transform: translateY(-1px) skewX(-24deg); box-shadow: var(--lamp-light); background: var(--lamp-quiet); box-shadow: none; }
+.dot.on { background: var(--lamp-net); box-shadow: var(--lamp-light); }
 .addr { font-family: ui-monospace, Consolas, monospace; font-size: 13px; color: var(--ash); }
 .state { margin-left: auto; }
 .plays { list-style: none; margin: 0; padding: 0; }
@@ -373,9 +383,11 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 .plays li:last-child { border-bottom: 0; }
 .plays .song { font-weight: 600; overflow-wrap: anywhere; }
 .plays .muted { grid-column: 1; font-size: 13px; }
-.plays .score { grid-column: 2; grid-row: 1 / span 2; align-self: center; font: 400 15px/1 var(--wide); color: var(--lime); }
+.plays .score { grid-column: 2; grid-row: 1 / span 2; align-self: center; font: 800 16px/1 var(--text-face);
+                font-variant-numeric: tabular-nums; color: var(--score); }
 /* A new record's gain over the best it beat, small under its score. */
-.plays .gain { display: block; margin-top: 5px; text-align: right; font: 400 11px/1 var(--wide); color: var(--ash); }
+.plays .gain { display: block; margin-top: 5px; text-align: right; font: 600 12px/1 var(--text-face);
+               font-variant-numeric: tabular-nums; color: var(--ash); }
 /* NEW before a play's chart, the tag's own colours on the muted line. */
 .plays .muted .tag { vertical-align: 1px; }
 /* Under a list cut at its limit: how many it shows of how many. */
@@ -432,8 +444,7 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
    then the words; gone once the field changes (site.js). */
 .field-error, .form-error { display: flex; align-items: baseline; gap: 8px; margin: 0; font: 500 13px/1.45 var(--text-face);
                             color: var(--bad-ink); overflow-wrap: anywhere; }
-.field-error::before, .form-error::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--pink);
-                                            box-shadow: 0 0 6px rgba(255, 79, 160, 0.7); transform: translateY(-1px); }
+.field-error::before, .form-error::before { content: ""; flex: none; width: 11px; height: 7px; border-radius: 1px; transform: translateY(-1px) skewX(-24deg); box-shadow: var(--lamp-light); background: var(--lamp-pink); }
 /* Fields side by side: each field a column (label, slot, words under it), top-aligned so a long error under one never
    moves its neighbours; a tick's column and the form's key stand in the fields' row (24 px of room above them, a label's
    height and its gap). A row that runs out of room wraps; on a phone it stacks. */
@@ -545,8 +556,9 @@ select { padding-right: 38px; cursor: pointer; text-overflow: ellipsis;
   select::picker-icon { content: ""; flex: none; width: 12px; height: 8px; margin-left: 10px; transition: rotate var(--quick);
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23aab4bf' stroke-width='1.8'/%3E%3C/svg%3E") no-repeat center / 12px 8px; }
   select:open::picker-icon { rotate: 180deg; }
-  select::picker(select) { margin-top: 4px; padding: 4px 0; color: var(--chalk); background: var(--deck); border: 1px solid var(--slot-edge);
-    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.6); }
+  select::picker(select) { margin-top: 4px; padding: 4px 0; color: var(--chalk); background: rgba(26, 31, 37, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: var(--float-rim), var(--relief);
+    -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
   select option { display: flex; align-items: center; min-height: 38px; padding: 0 14px; color: var(--ash); background: transparent;
     font: 400 15px/1.3 var(--text-face); }
   select option:hover, select option:focus-visible { color: var(--chalk); background: var(--deck-top); outline: none; }
@@ -621,12 +633,11 @@ details > summary:focus-visible { outline: 2px solid var(--cyan); outline-offset
 .pages { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
 /* A line that says something about the page (what may want a look, a page's own state): on a glass strip, a lit lamp
    in the colour it means before its words (amber: look; lime: done; pink: refused), never a stripe down its side. */
-.alert { display: flex; align-items: baseline; gap: 10px; background: var(--glass); box-shadow: var(--glass-rim); padding: 11px 14px;
+.alert { display: flex; align-items: baseline; gap: 10px; background: var(--plate); box-shadow: var(--raise); padding: 11px 14px;
          margin: 0 0 16px; }
-.alert::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--amber);
-                 box-shadow: 0 0 7px rgba(255, 179, 61, 0.65); transform: translateY(-1px); }
-.alert.ok::before { background: var(--lime); box-shadow: 0 0 7px rgba(180, 240, 42, 0.7); }
-.alert.bad::before { background: var(--pink); box-shadow: 0 0 7px rgba(255, 79, 160, 0.7); }
+.alert::before { content: ""; flex: none; width: 11px; height: 7px; border-radius: 1px; transform: translateY(-1px) skewX(-24deg); box-shadow: var(--lamp-light); background: var(--lamp-amber); }
+.alert.ok::before { background: var(--lamp-net); }
+.alert.bad::before { background: var(--lamp-pink); }
 /* Tabs lean like the mode bar on the game's mode select. */
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
 .tabs a { padding: 9px 22px; font: 400 11px/1 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash);
@@ -657,10 +668,13 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 /* Places and scores line up as columns of digits. */
 .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .table th.num { text-align: right; }
-.board .place { width: 44px; font: 400 14px/1 var(--wide); color: var(--ash); }
-.board .score, .songs .score { font: 400 14px/1 var(--wide); color: var(--chalk); }
-.table tr.me td { background: rgba(255, 255, 255, 0.04); }
-.table tr.me td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.board .place { width: 44px; font: 800 15px/1 var(--text-face); font-variant-numeric: tabular-nums; color: var(--ash); }
+.board .score, .songs .score { font: 800 15px/1 var(--text-face); font-variant-numeric: tabular-nums; color: var(--chalk); }
+.board tr.p1 .place { color: var(--gold); }
+.board tr:is(.p2, .p3) .place { color: var(--silver); }
+/* My row: the section's colour as a faint wash and on my place (no bar down its side: the "You" tag says it). */
+.table tr.me td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.table tr.me .place { color: var(--accent); }
 .table tr.quiet td { color: var(--faint); }
 .table tr.quiet a { color: var(--ash); }
 .table a { color: var(--chalk); font-weight: 600; }
@@ -668,16 +682,16 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 /* The first three on metal plates; the place in the game's big chrome digits, the first one lit. */
 .podium { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 14px; margin-bottom: 18px; }
 .plate { position: relative; display: flex; align-items: center; gap: 16px; padding: 18px 20px; color: var(--chalk);
-         background: var(--glass-sheen), var(--glass); }
-.plate:hover { text-decoration: none; background: var(--glass-sheen), rgba(35, 41, 49, 0.9); }
-.plate.place-1 { box-shadow: inset 0 -2px 0 var(--accent); }
-.plate .numeral { font: 400 54px/1 var(--wide); background: var(--chrome); -webkit-background-clip: text; background-clip: text;
-                  color: transparent; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6)); }
-.plate.place-1 .numeral { font-size: 64px; background: linear-gradient(180deg, #fff 0%, #ffe3f0 38%, var(--accent) 60%, var(--accent) 100%);
-                          -webkit-background-clip: text; background-clip: text; }
+         background: var(--plate-sheen), var(--plate); }
+.plate:hover { text-decoration: none; background: var(--plate-sheen), #1e232a; }
+.plate.place-1::after { background: linear-gradient(180deg, #ffe9a6 0, var(--gold-rim) var(--cut), var(--gold-rim) calc(100% - 1px), #6e5310 calc(100% - 1px)); }
+.plate:is(.place-2, .place-3)::after { background: linear-gradient(180deg, #e9eef2 0, var(--silver-rim) var(--cut), var(--silver-rim) calc(100% - 1px), #4c545d calc(100% - 1px)); }
+.plate .numeral { font: 800 56px/1 var(--text-face); background: var(--chrome-soft); -webkit-background-clip: text; background-clip: text;
+                  color: transparent; filter: drop-shadow(0 0 1px rgba(20, 24, 29, 0.95)) drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6)); }
+.plate.place-1 .numeral { font-size: 64px; background: var(--gold-face); -webkit-background-clip: text; background-clip: text; }
 .plate .who { display: grid; min-width: 0; }
 .plate .name { font: 700 17px/1.3 var(--text-face); overflow-wrap: anywhere; }
-.plate .total { font: 400 22px/1.2 var(--wide); color: var(--accent); }
+.plate .total { font: 800 24px/1.2 var(--text-face); font-variant-numeric: tabular-nums; color: var(--score); }
 .plate .label { color: var(--ash); font-size: 12px; }
 /* The reader's own plate says so in words (the table's "You" tag), beside the name. */
 .plate .name .tag { vertical-align: 3px; margin: 0 0 0 6px; }
@@ -697,18 +711,71 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 .hero h1.title { font: 700 34px/1.2 var(--text-face); letter-spacing: -0.02em; background: none; color: var(--chalk);
                  filter: none; overflow-wrap: anywhere; }
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-/* The DJ card as the game draws it: the icon, then the plate with its pattern and the comment over it. */
-.djcard { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
+/* The DJ card as the member's card it was on the Platinum Crew service: one platinum card in a card's proportions
+   (1.59:1), rounded as one piece, a thin metal rim and the light along its top, the game's perforation faintly in it;
+   inside, the icon's window and the title's band as the game draws them, the number of one's own card in five groups of
+   four (all but its end hidden), then the DJ's name and level at its foot. No crest and no logo. */
+.djcard { position: relative; box-sizing: border-box; display: grid; grid-template-rows: auto 1fr auto; row-gap: 8px;
+          width: 360px; max-width: 100%; aspect-ratio: 1.59; padding: 16px 18px; margin-bottom: 16px; border-radius: 12px;
+          overflow: hidden; color: var(--platinum-ink);
+          background: radial-gradient(circle at 2px 2px, rgba(20, 28, 36, 0.07) 0.85px, transparent 1.25px) 0 0 / 8px 8px,
+                      radial-gradient(circle at 6px 6px, rgba(20, 28, 36, 0.07) 0.85px, transparent 1.25px) 0 0 / 8px 8px,
+                      var(--platinum);
+          box-shadow: inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(60, 70, 80, 0.35), 0 0 0 1px var(--platinum-rim),
+                      0 12px 26px -12px rgba(0, 0, 0, 0.75); }
+/* Without the game's pictures (a server not given them): the comment alone on the card, its words in the card's ink. */
+.djcard .mc-face { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.dj-frame, .dj-plate { position: relative; display: block; flex: none; border-radius: 4px; overflow: hidden;
+                       box-shadow: 0 0 0 1px rgba(18, 22, 27, 0.9), 0 1px 0 1px rgba(255, 255, 255, 0.8); }
+.dj-frame::after, .dj-plate::after { content: ""; position: absolute; inset: 0; border-radius: 4px; pointer-events: none;
+                                     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 1px 2px rgba(0, 0, 0, 0.45); }
 .dj-icon { display: block; width: 104px; height: 64px; }
-.dj-plate { position: relative; display: block; width: 204px; height: 64px; max-width: 100%; }
+.dj-plate { width: 204px; height: 64px; max-width: 100%; }
 .dj-plate img { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* On a phone the card is narrower than its face: the card is a container of its own width and the face is drawn
+   smaller with it (the icon's window, the title's band and the comment on it in the game's proportions, as a card's
+   picture is), never past the card's edge and never larger than the game's size. The 12 px between them stays, so the
+   gap keeps to the site's scale: the two take what is left in the ratio of their widths (104 and 204). */
+.djcard { container-type: inline-size; }
+.djcard .dj-icon { width: min(104px, (100cqw - 12px) * 104 / 308); height: auto; }
+.djcard .dj-plate { width: min(204px, (100cqw - 12px) * 204 / 308); height: auto; aspect-ratio: 204 / 64; }
+.djcard .dj-plate .dj-comment { font-size: min(15px, (100cqw - 12px) * 15 / 308);
+                                padding: 0 min(10px, (100cqw - 12px) * 10 / 308); }
+/* One's own card's number: five groups of four in figures of one width, thin dashes between, only its end shown. */
+.djcard .mc-number { align-self: center; font: 600 14px/1 var(--text-face); font-variant-numeric: tabular-nums;
+                     letter-spacing: 0.16em; color: var(--platinum-ink-2); }
+/* The dash between two groups as far from each (the group's last letter keeps its spacing after it). */
+.djcard .mc-number i { font-style: normal; color: #9aa3ac; margin: 0 0.25em 0 0.09em; letter-spacing: 0; }
+/* One silver shine crosses the card once, after a sign-in or a saved card (site.js): never looping, none with less
+   motion asked for. */
+.djcard::before, .card-preview::before { content: ""; position: absolute; inset: -20% -60%; pointer-events: none; opacity: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.85) 50%, transparent 60%); transform: translateX(-60%); }
+.djcard.shine::before, .card-preview.shine::before { animation: member-shine 0.6s ease-out 1; }
+@keyframes member-shine { from { opacity: 1; transform: translateX(-60%); } to { opacity: 1; transform: translateX(60%); } }
+@media (prefers-reduced-motion: reduce) { .djcard.shine::before, .card-preview.shine::before { animation: none; } }
 /* The comment in white with a dark outline, centred on the plate, as the game sets it. */
 .dj-comment { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
               padding: 0 10px; font: 700 15px/1.1 var(--text-face); color: #fff; text-align: center;
               text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 3px #000; overflow: hidden; }
-.dj-comment.plain { position: static; padding: 0; font-size: 14px; }
-.dj-who { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.dj-level { font: 400 13px/1 var(--wide); color: var(--amber); letter-spacing: 0.04em; }
+.dj-comment.plain { position: static; padding: 0; font-size: 14px; color: var(--platinum-ink); text-shadow: none; }
+.dj-who { align-self: end; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; min-width: 0; }
+.djcard .dj-name, body.lang-en .djcard .dj-name { font: 800 23px/1.1 var(--text-face); letter-spacing: -0.01em;
+                                                   color: var(--platinum-ink); overflow-wrap: anywhere; }
+/* The level as the game's level badge: its tier's gem (a tier every ten levels, the master's at 99), then "Lv n". */
+.dj-level { display: inline-flex; align-items: center; gap: 6px; font: 800 13px/1 var(--text-face); letter-spacing: 0.02em;
+            color: #2c333b; --gem: #85929d; --gem-hi: #c9d0d6; --gem-lo: #4a525b; }
+.dj-level::before { content: ""; flex: none; width: 12px; height: 12px; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  background: conic-gradient(from 0deg, var(--gem) 0 90deg, var(--gem-lo) 90deg 180deg, var(--gem) 180deg 270deg, var(--gem-hi) 270deg 360deg); }
+.dj-level[data-tier="1"] { --gem: #c67c2f; --gem-hi: #f0b57a; --gem-lo: #6d4318; }
+.dj-level[data-tier="2"] { --gem: #d6c50c; --gem-hi: #f5ea7a; --gem-lo: #766c06; }
+.dj-level[data-tier="3"] { --gem: #b1c80b; --gem-hi: #e2f27a; --gem-lo: #616e06; }
+.dj-level[data-tier="4"] { --gem: #2ddc3c; --gem-hi: #9cf2a3; --gem-lo: #187a21; }
+.dj-level[data-tier="5"] { --gem: #0ac1b1; --gem-hi: #7fe9df; --gem-lo: #056a61; }
+.dj-level[data-tier="6"] { --gem: #0995df; --gem-hi: #7fcaf3; --gem-lo: #05527a; }
+.dj-level[data-tier="7"] { --gem: #2370f4; --gem-hi: #93b8fa; --gem-lo: #133d86; }
+.dj-level[data-tier="8"] { --gem: #dc23ad; --gem-hi: #f08fd6; --gem-lo: #79135f; }
+.dj-level[data-tier="9"] { --gem: #ed1134; --gem-hi: #f78a9b; --gem-lo: #82091c; }
+.dj-level[data-tier="master"] { --gem: #dd8630; --gem-hi: #ffe08a; --gem-lo: #9a0567; }
 .dj-name { font-weight: 700; overflow-wrap: anywhere; }
 /* The choices: pictures in a grid that scrolls in its own box, the chosen one ringed. */
 .picker summary { cursor: pointer; padding: 6px 0; }
@@ -726,7 +793,7 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 .choice input:checked + img { outline-color: var(--accent); }
 .choice input:focus-visible + img { outline-color: var(--cyan); }
 .stat { display: grid; gap: 4px; }
-.stat .value { font: 400 26px/1.1 var(--wide); color: var(--chalk); }
+.stat .value { font: 800 28px/1.1 var(--text-face); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; color: var(--chalk); }
 .stat .value.small-value { font: 600 16px/1.6 var(--text-face); }
 .stat .label { color: var(--ash); font-size: 13px; }
 /* A DJ's weeks: one thin bar per week, this week last, grown from one hairline; the numbers live in each bar's tip
@@ -764,13 +831,18 @@ a.stat:hover .value { color: var(--accent); }
    missing menu), and its small mark steps aside for the big one. */
 .bar.door-bar { background: transparent; border-bottom-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .bar.door-bar .brand { visibility: hidden; }
-.door { display: grid; justify-items: center; padding: clamp(20px, 6vh, 64px) 16px 0; text-align: center; }
+.door { display: grid; justify-items: center; padding: clamp(20px, 6vh, 64px) 16px 0; text-align: center;
+        background: radial-gradient(ellipse 360px 150px at 50% calc(clamp(20px, 6vh, 64px) + 64px), color-mix(in srgb, var(--accent) 16%, transparent), transparent 72%); }
 /* The mark drawn as the bar's, scaled from its foot so it keeps its own proportions. */
 .door-mark { transform: scale(2); transform-origin: 50% 100%; margin-top: 46px; }
 .door-line { margin: 18px 0 0; color: var(--ash); font: 400 15px/1.5 var(--text-face); }
-.signin { width: min(100% - 32px, 420px); margin: 22px auto 56px; padding: 26px 28px 24px; }
-.signin h2 { margin: 0; font: 700 22px/1.3 var(--text-face); }
-body.lang-en .signin h2 { font: 400 20px/1.3 var(--wide); letter-spacing: 0.01em; }
+.signin { width: min(100% - 32px, 420px); margin: 22px auto 56px; padding: 58px 28px 24px; }
+/* The card's name hangs from its top edge on a platinum tab with 45 degree sides (the Platinum Crew login page's). */
+.signin h2, body.lang-en .signin h2 { position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 1; margin: 0;
+  height: 30px; padding: 0 46px; display: grid; place-items: center; white-space: nowrap;
+  font: 400 11px/1 var(--wide); letter-spacing: 0.12em; text-transform: uppercase; color: #12171c;
+  background: linear-gradient(180deg, #d3dde0 0, #b6c5c9 100%); clip-path: polygon(0 0, 100% 0, calc(100% - 30px) 100%, 30px 100%); }
+body.lang-ko .signin h2 { font: 700 13px/1 var(--text-face); letter-spacing: 0; text-transform: none; }
 .signin .form { margin-top: 18px; }
 /* The first run's one line under its heading. */
 .door-lead { margin: 6px 0 0; color: var(--hint); font-size: 13px; line-height: 1.5; }
@@ -781,13 +853,12 @@ body.lang-en .signin h2 { font: 400 20px/1.3 var(--wide); letter-spacing: 0.01em
 .signin .lost { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--seam); color: var(--hint); font-size: 13px; line-height: 1.5; }
 /* What just happened (the owner's account made, an account deleted): a lime lamp and the words. */
 .done-line { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 0; color: var(--chalk); font-size: 14px; }
-.done-line::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--lime);
-                     box-shadow: 0 0 6px rgba(180, 240, 42, 0.7); transform: translateY(-1px); }
+.done-line::before { content: ""; flex: none; width: 11px; height: 7px; border-radius: 1px; transform: translateY(-1px) skewX(-24deg); box-shadow: var(--lamp-light); background: var(--lamp-net); }
 /* A banned account: what the server's owner wrote, on a plate of its own in the card, in place of the form. */
 .held { display: grid; gap: 6px; margin-top: 16px; padding: 14px 16px; background: var(--slot); border: 1px solid rgba(255, 79, 160, 0.55); }
 .held p { margin: 0; }
 .held-head { display: flex; align-items: center; gap: 10px; font: 600 15px/1.4 var(--text-face); color: var(--chalk); }
-.held-head::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--pink); box-shadow: 0 0 8px rgba(255, 79, 160, 0.75); }
+.held-head::before { content: ""; flex: none; width: 11px; height: 7px; border-radius: 1px; transform: translateY(-1px) skewX(-24deg); box-shadow: var(--lamp-light); background: var(--lamp-pink); }
 .held-why { color: var(--chalk); font-size: 14px; overflow-wrap: anywhere; }
 .held-why b { color: var(--ash); font-weight: 600; margin-right: 8px; }
 .held-lift { color: var(--hint); font-size: 13px; }
@@ -886,12 +957,13 @@ body.console .foot { background: #0a0c0f; }
        /* The panel is clipped to its cut corner, so its shadow and glow come from a filter on what is left. */
        filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 30px color-mix(in srgb, var(--tone) 22%, transparent)); }
 .ask.warn { --tone: var(--amber); --tone-top: #ffcd70; --tone-bottom: #f5a52a; }
-.ask::backdrop { background: rgba(16, 19, 23, 0.58); -webkit-backdrop-filter: blur(9px); backdrop-filter: blur(9px); }
+.ask::backdrop { background: rgba(9, 11, 14, 0.55); -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); }
 .ask[open] { animation: ask-rise 0.16s cubic-bezier(0.2, 0.7, 0.3, 1); }
 @keyframes ask-rise { from { transform: translateY(14px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ask[open] { animation: none; } }
 .ask .panel { --cut: 16px; position: relative; padding: 60px 38px 28px; text-align: center;
-              background: var(--glass-sheen), rgba(26, 31, 37, 0.94); }
+              background: linear-gradient(135deg, color-mix(in srgb, var(--tone) 18%, transparent) 0, transparent 38%),
+                          var(--glass-sheen), rgba(26, 31, 37, 0.94); }
 .ask .tab { position: absolute; top: 0; left: 50%; transform: translateX(-50%); padding: 0 40px; height: 30px; display: grid;
             place-items: center; white-space: nowrap; font: 400 10px/1 var(--wide); letter-spacing: 0.08em; text-transform: uppercase;
             color: var(--ink); background: linear-gradient(180deg, var(--tone-top), var(--tone-bottom));
@@ -929,6 +1001,7 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
   .where { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: clip; }
   .menu-key { display: inline-flex; flex: none; }
   .site-notice { padding: 10px 16px; }
+  .notices { padding: 0 16px; }
   /* A long notice: two lines, the rest when the strip is pressed (site.js). */
   .site-notice.long .text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .site-notice.long.open .text { display: block; }
@@ -1015,9 +1088,10 @@ textarea.message { font-size: 14px; }
 .past-top a { color: var(--chalk); font-weight: 600; overflow-wrap: anywhere; }
 .past-top a:hover { color: var(--accent); }
 .past-top li.me a { color: var(--accent); }
-.past-top .score { font: 400 13px/1 var(--wide); color: var(--ash); }
-.past-place { font: 400 15px/1 var(--wide); color: var(--ash); }
-.past-place.place-1 { color: var(--accent); }
+.past-top .score { font: 800 14px/1 var(--text-face); font-variant-numeric: tabular-nums; color: var(--ash); }
+.past-place { font: 800 15px/1 var(--text-face); font-variant-numeric: tabular-nums; color: var(--ash); }
+.past-place.place-1 { color: var(--gold); }
+.past-place:is(.place-2, .place-3) { color: var(--silver); }
 
 /* The ranking's second strip (total or best 30): lighter than the mode tabs above it. */
 .tabs.quiet { margin-top: -8px; }
@@ -1078,8 +1152,8 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 .state-item .label { font-size: 12px; color: var(--ash); }
 .state-item .state { display: inline-flex; align-items: center; gap: 7px; margin: 0; font-weight: 600; }
 .state-item .state.wait { color: var(--amber); }
-.state-item .state .dot { background: var(--amber); box-shadow: 0 0 8px rgba(255, 179, 61, 0.55); }
-.state-item .state .dot.on { background: var(--lime); box-shadow: 0 0 8px rgba(180, 240, 42, 0.7); }
+.state-item .state .dot { background: var(--lamp-amber); }
+.state-item .state .dot.on { background: var(--lamp-net); }
 /* Found on the server PC: each path in the well's mono letters, its one line under it (lime with a check when it is
    ready, pink with a cross when it does not work here), Import beside the ones that are ready. */
 .found { display: grid; gap: 0; background: var(--well); border: 1px solid var(--seam); margin-bottom: 10px; }
@@ -1123,7 +1197,7 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
        white-space: nowrap; padding: 4px 8px; background: var(--deck-top); box-shadow: var(--glass-rim);
        color: var(--chalk); font: 400 12px/1.4 var(--text-face); z-index: 3; pointer-events: none; }
 /* The machine's figures: each with a thin meter of how full, the section's colour on the rail. */
-.meter { display: block; height: 4px; margin-top: 2px; background: var(--rail); border-radius: 2px; overflow: hidden; }
+.meter { display: block; height: 4px; margin-top: 2px; background: var(--well); box-shadow: var(--sink); border-radius: 2px; overflow: hidden; }
 .meter i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
 .machine .stats { margin-bottom: 18px; }
 .trend-head { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 0 4px; font-size: 13px;

@@ -4,6 +4,8 @@ from the page's own CSS custom properties (--accent, --accent-light, --accent-de
 its own. Made once; every page puts the same markup in its head.
 """
 
+from markupsafe import Markup
+
 from opendmt3.core import stage as composition
 
 # The drawing's box: the desktop head's proportions (1280 x 220), stretched to whatever the head is (as the launcher
@@ -19,7 +21,7 @@ def _points(points):
 
 def svg():
     """The stage's SVG markup (made once): the pieces back to front under a fade from the left, the spotlight over
-    them. Decorative: hidden from screen readers by its parent."""
+    them. Decorative: hidden from screen readers by its parent. Markup, so the templates put it in as it is."""
     global _SVG
     if _SVG is not None:
         return _SVG
@@ -34,7 +36,7 @@ def svg():
     rx, ry = spot["rx"] * WIDTH, spot["ry"] * WIDTH
     tint = int(round(spot["tint"] * 100))
     # The fade's stops: nothing of the stage before FADE_FROM of the width, all of it from FADE_TO on.
-    _SVG = (
+    _SVG = Markup(
         '<svg class="stage" viewBox="0 0 %d %d" preserveAspectRatio="none" focusable="false">' % (WIDTH, HEIGHT)
         + '<defs><linearGradient id="stage-fade" x1="0" x2="1" y1="0" y2="0">'
         + '<stop offset="%.3f" stop-color="#fff" stop-opacity="0"/>' % composition.FADE_FROM

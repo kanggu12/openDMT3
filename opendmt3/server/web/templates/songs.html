@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ w("title.songs") }} · {% endblock %}
 {% block main %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · {{ w("nav.songs") }}</p><h1 class="word">{{ w("nav.songs") }}</h1><p class="sub">{{ w("songs.sub") }}</p></div>
+<section class="hero small"><div class="shards" aria-hidden="true">{{ stage() }}</div>
+  <div class="hero-text"><h1 class="word">{{ w("nav.songs") }}</h1></div>
 </section>
 <section class="page">
   {# Typing hides the rows that do not match at once (site.js, no request); Find asks the server, without script too. #}

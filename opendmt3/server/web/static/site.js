@@ -561,3 +561,26 @@
     window.addEventListener("resize", fit);
   });
 }());
+
+// The member's card shines once: a sign-in, or a card saved on one's account page, leaves a flag in this tab's storage,
+// and the next page that shows the card (the home page's, the account's preview) runs one silver shine across it, then
+// forgets the flag. The style draws nothing for it when less motion is asked for; a browser without storage shows none.
+(function () {
+  "use strict";
+  var KEY = "opendmt3.shine";
+  document.addEventListener("submit", function (event) {
+    var form = event.target;
+    if (!(form instanceof HTMLFormElement) || event.defaultPrevented) { return; }
+    if (form.matches("[data-remember]") || form.querySelector(".card-preview")) {
+      try { window.sessionStorage.setItem(KEY, "1"); } catch (e) { /* no storage: no shine */ }
+    }
+  });
+  var waiting = false;
+  try { waiting = window.sessionStorage.getItem(KEY) === "1"; } catch (e) { waiting = false; }
+  if (!waiting) { return; }
+  var card = document.querySelector(".djcard, .card-preview");
+  if (!card) { return; }
+  try { window.sessionStorage.removeItem(KEY); } catch (e) { /* nothing kept */ }
+  card.classList.add("shine");
+  card.addEventListener("animationend", function () { card.classList.remove("shine"); }, { once: true });
+}());

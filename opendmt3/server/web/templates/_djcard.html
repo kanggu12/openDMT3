@@ -1,13 +1,18 @@
-{# The DJ card as the game draws it beside the name: the icon, the plate with its plate pattern over it and the comment
-   over both, then the level and the name. Pictures only when the server read them from its owner's game files.
-   Needs: card (cards.view), name. #}
+{# The DJ card as the member's card (the Platinum Crew service's): the icon and the plate as the game draws them (its
+   pattern over the plate, the comment over both), the number's end on one's own card, then the name and the level's
+   gem. Pictures only when the server read them from its owner's game files.
+   Needs: card (cards.view), name; card_end on one's own card. #}
 <div class="djcard">
+  <span class="mc-face">
   {% if card.pictures %}
-  <img class="dj-icon" src="/cards/icon/{{ card.icon }}.png" alt="" width="104" height="64">
+  <span class="dj-frame"><img class="dj-icon" src="/cards/icon/{{ card.icon }}.png" alt="" width="104" height="64"></span>
   <span class="dj-plate"><img src="/cards/plate/{{ card.plate }}.png" alt="" width="204" height="64">
     {%- if card.pattern %}<img class="over" src="/cards/pattern/{{ card.pattern }}.png" alt="" width="204" height="64">{% endif -%}
     {%- if card.comment %}<span class="dj-comment">{{ card.comment }}</span>{% endif -%}
   </span>
   {% elif card.comment %}<span class="dj-comment plain">{{ card.comment }}</span>{% endif %}
-  <span class="dj-who">{% if card.level %}<span class="dj-level">Lv {{ card.level }}</span>{% endif %}<span class="dj-name">{{ name }}</span></span>
+  </span>
+  {# One's own card (the home page's): its number's end, the rest hidden, in the five groups of four a card is read in. #}
+  {% if card_end %}<span class="mc-number" aria-label="{{ w('card.ending', end=card_end) }}">••••<i>–</i>••••<i>–</i>••••<i>–</i>••••<i>–</i>{{ card_end }}</span>{% endif %}
+  <span class="dj-who"><span class="dj-name">{{ name }}</span>{% if card.level %}<span class="dj-level" data-tier="{{ 'master' if card.level >= 99 else card.level // 10 }}">Lv {{ card.level }}</span>{% endif %}</span>
 </div>

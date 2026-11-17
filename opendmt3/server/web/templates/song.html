@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ song.title }} · {% endblock %}
 {% block main %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text{{ ' with-disc' if song.jacket }}">{% if song.jacket %}<img class="disc" src="/jackets/{{ song.number }}.png" alt="" width="112" height="112">{% endif %}<div><p class="kicker">openDMT3 · {{ w("song.kicker", n=song.number) }}</p><h1 class="title">{{ song.title }}</h1><p class="sub">{{ [song.genre, song.composer] | select | join(" · ") }}</p></div></div>
+<section class="hero small"><div class="shards" aria-hidden="true">{{ stage() }}</div>
+  <div class="hero-text{{ ' with-disc' if song.jacket }}">{% if song.jacket %}<img class="disc" src="/jackets/{{ song.number }}.png" alt="" width="112" height="112">{% endif %}<div><p class="kicker">{{ w("song.kicker", n=song.number) }}</p><h1 class="title">{{ song.title }}</h1><p class="sub">{{ [song.genre, song.composer] | select | join(" · ") }}</p></div></div>
 </section>
 <section class="page">
   {% if not song.charts %}

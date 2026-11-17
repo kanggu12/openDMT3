@@ -2,7 +2,7 @@
 {% block title %}{{ dj.dj_name }} · {% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/players.css?v={{ version }}">{% endblock %}
 {% block main %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+<section class="hero small"><div class="shards" aria-hidden="true">{{ stage() }}</div>
   <div class="hero-text"><p class="kicker">{{ w("dj.kicker") }}</p><h1 class="word">{{ dj.dj_name }}</h1></div>
 </section>
 <section class="grid">

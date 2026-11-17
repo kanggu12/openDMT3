@@ -811,7 +811,8 @@ class RankingsTest(WebBase):
         self.assertNotIn("login_id", rows["rows"][0])
         page = self.client.get("/rankings").text
         self.assertIn("1,400", page)
-        self.assertIn('<tr class="me">', page)
+        # My row, marked as mine (and, first here, as the first place: its gold).
+        self.assertIn('<tr class="me p1">', page)
         self.assertNotIn("GHOST", page)
         self.assertNotIn("MODE 5", page)
         self.assertNotIn("RIO</a>" + "RIO", page)

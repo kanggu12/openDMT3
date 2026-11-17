@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ w("title.rankings") }} · {% endblock %}
 {% block main %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · {{ w("nav.rankings") }}</p><h1 class="word">{{ w("nav.rankings") }}</h1></div>
+<section class="hero small"><div class="shards" aria-hidden="true">{{ stage() }}</div>
+  <div class="hero-text"><h1 class="word">{{ w("nav.rankings") }}</h1></div>
 </section>
 <section class="page">
   {% if modes %}<nav class="tabs">{% for m, name in modes %}<a href="/rankings?mode={{ m }}&amp;by={{ by }}" class="{{ 'on' if m == mode }}">{{ name }}</a>{% endfor %}</nav>
@@ -28,7 +28,7 @@
       <thead><tr><th class="num">#</th><th>{{ w("rankings.dj") }}</th><th class="num wide-only">{{ w("rankings.charts") }}</th><th class="num">{{ value_label }}</th></tr></thead>
       <tbody>
       {% for r in rows[:shown] %}
-        <tr class="{{ 'me' if r.player == user.id }}"><td class="num place">{{ r.place }}</td><td><a href="/dj/{{ r.player }}">{{ r.dj_name }}</a>{% if r.player == user.id %} <span class="tag">{{ w("rankings.you") }}</span>{% endif %}</td><td class="num wide-only">{{ r.charts }}</td><td class="num score">{{ "{:,}".format(r.total) }}</td></tr>
+        <tr class="{{ ['me' if r.player == user.id else '', 'p%d' % r.place if r.place <= 3 else '']|select|join(' ') }}"><td class="num place">{{ r.place }}</td><td><a href="/dj/{{ r.player }}">{{ r.dj_name }}</a>{% if r.player == user.id %} <span class="tag">{{ w("rankings.you") }}</span>{% endif %}</td><td class="num wide-only">{{ r.charts }}</td><td class="num score">{{ "{:,}".format(r.total) }}</td></tr>
       {% endfor %}
       </tbody>
     </table>

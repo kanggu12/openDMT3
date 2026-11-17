@@ -150,7 +150,9 @@ TEXT = {
     "song.chart.level": ("{mode} · Pattern {n} · Lv {level}", "{mode} · 패턴 {n} · Lv {level}"),
     "song.score": ("Score", "점수"),
     "song.when": ("Set", "기록한 때"),
-    "dj.kicker": ("openDMT3 · DJ", "openDMT3 · DJ"),
+    "dj.kicker": ("DJ", "DJ"),
+    # One's own card's number, its end alone (for screen readers: the card shows it in five groups of four).
+    "card.ending": ("Card ending {end}", "끝자리 {end}인 카드"),
     "dj.plays": ("Cleared stages", "클리어한 스테이지"),
     "dj.songs": ("Songs", "곡"),
     "dj.charts": ("Charts", "차트"),

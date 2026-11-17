@@ -9,7 +9,7 @@
 .area-section { scroll-margin-top: 84px; margin-bottom: 30px; }
 /* Each section's name on a glass strip of its own, as every word of a page sits on something (the layout check's rule). */
 .area-section > h2 { font: 400 18px/1.2 var(--wide); letter-spacing: 0.02em; margin: 0 0 14px; color: var(--chalk);
-                     background: var(--glass); box-shadow: var(--glass-rim); padding: 10px 14px; }
+                     background: var(--plate); box-shadow: var(--raise); padding: 10px 14px; }
 body.lang-ko .area-section > h2 { font: 700 20px/1.3 var(--text-face); letter-spacing: 0; }
 
 /* The profile's head: the picture, the name and what the game shows of the level and the points, the picture's forms. */
@@ -38,8 +38,13 @@ body.lang-ko .area-section > h2 { font: 700 20px/1.3 var(--text-face); letter-sp
 
 /* The DJ card as the game draws it, large: the icon, the plate with the pattern and the comment over it, then the
    level, the name and the MAX points; it follows each choice as it is made (profile.js). */
-.card-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 16px; margin-bottom: 16px;
-                background: var(--well); border: 1px solid var(--seam); }
+/* Drawn on the member's platinum card (site.css's .djcard), larger: the light along its top, a thin metal rim. */
+/* The icon and the plate stand on their row's top (a plate wrapped under the icon is the row gap from it, on the
+   site's scale, however tall the words beside it), the words beside them centred on the row. */
+.card-preview { position: relative; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 16px; padding: 18px;
+                margin-bottom: 16px; border-radius: 12px; overflow: hidden; color: var(--platinum-ink); background: var(--platinum);
+                box-shadow: inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(60, 70, 80, 0.35), 0 0 0 1px var(--platinum-rim); }
+.cp-icon, .cp-plate { border-radius: 4px; box-shadow: 0 0 0 1px rgba(18, 22, 27, 0.9), 0 1px 0 1px rgba(255, 255, 255, 0.8); }
 .cp-icon { display: block; width: 156px; height: 96px; }
 .cp-plate { position: relative; display: block; width: 306px; height: 96px; max-width: 100%; }
 .cp-plate img { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -49,17 +54,18 @@ body.lang-ko .area-section > h2 { font: 700 20px/1.3 var(--text-face); letter-sp
               color: #fff; font-weight: 700; font-size: 20px; text-shadow: 0 0 2px #333, 0 0 2px #333, 0 1px 3px #000;
               white-space: nowrap; overflow: hidden; }
 .cp-plate.plain .cp-comment { position: static; padding: 0; }
-.cp-who { display: grid; gap: 2px; min-width: 0; }
-.cp-level { font: 400 15px/1 var(--wide); color: var(--amber); letter-spacing: 0.04em; }
-.cp-name { font-weight: 700; font-size: 20px; overflow-wrap: anywhere; }
-.cp-points { font: 400 12px/1.2 var(--wide); color: var(--ash); letter-spacing: 0.04em; }
+.cp-who { display: grid; gap: 2px; min-width: 0; align-self: center; }
+.cp-level { font: 800 15px/1 var(--text-face); color: #2c333b; letter-spacing: 0.02em; }
+.cp-name { font-weight: 800; font-size: 22px; overflow-wrap: anywhere; color: var(--platinum-ink); }
+.cp-points { font: 600 13px/1.2 var(--text-face); font-variant-numeric: tabular-nums; color: var(--platinum-ink-2); }
 .comment-field { max-width: 420px; }
 .comment-field [data-count] { justify-self: end; }
 
 /* The password form at a readable width (its fields and their Show are the site's own: site.css, forms). */
 .password-form { max-width: 440px; }
 /* The DJ page's head: the picture, the DJ card, and on one's own page the way to decorate it. */
-.dj-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 16px; }
+/* The DJ's picture, their member's card and Edit my profile along the card's top (the card is taller than a key). */
+.dj-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 16px; margin-bottom: 16px; }
 .dj-head .djcard { margin-bottom: 0; }
 .dj-head .dj-edit { margin-left: auto; }
 
