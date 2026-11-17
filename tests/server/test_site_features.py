@@ -144,8 +144,8 @@ class MessageTest(SiteBase):
         rows, text = self.message(page)
         self.assertEqual(text, "Your account on this openDMT3 server.\nAddress: https://dmt.example/\nID: MINHO\n"
                                "Password: secret12\n\n1. Open the Download page and sign in with this ID and "
-                               "password: https://dmt.example/download\n2. Download the launcher there and follow "
-                               "the page's steps.")
+                               "password: https://dmt.example/download\n2. Download the launcher there: it opens on "
+                               "this server.")
         # Every line shows without scrolling.
         self.assertEqual(rows, text.count("\n") + 1)
         # A new password: the same message with it, in the admin's language.
@@ -157,7 +157,7 @@ class MessageTest(SiteBase):
         # The page that asks for the sign-in first is the first step, named by its address (a messenger has no
         # "this site").
         self.assertIn("1. 다운로드 페이지를 열고 이 ID와 비밀번호로 로그인하세요: https://dmt.example/download\n"
-                      "2. 그 페이지에서 런처를 다운로드하고 안내를 따르세요.", text)
+                      "2. 그 페이지에서 런처를 다운로드하세요. 런처는 이 서버로 열립니다.", text)
         # An address other PCs reach: the page has nothing to add about it.
         self.assertNotIn("message-local", page)
         # The password in the message is the one that signs in.
@@ -1047,7 +1047,8 @@ class HomeSongsDownloadTest(SiteBase):
         self.assertIn("3.0 MB, put on this server 2026-11-02 09:30", page)
         self.assertNotIn("Version", page.split('class="muted small file-facts"', 1)[1].split("</p>", 1)[0])
         # Step 1 names the file as it comes, with this server's address in it.
-        self.assertIn("Run opendmt3-launcher-windows-x64-setup-dmt.example-443.exe.", page)
+        # The key and its facts only: what to do after the download is the guides' (no steps, no Windows tip).
+        self.assertNotIn("Run anyway", page)
         got = browser.get("/download/windows")
         self.assertEqual(got.headers["content-disposition"],
                          'attachment; filename="opendmt3-launcher-windows-x64-setup-dmt.example-443.exe"')
@@ -1059,7 +1060,9 @@ class HomeSongsDownloadTest(SiteBase):
         browser.cookies.set("opendmt3_lang", "ko")
         page = browser.get("/download").text
         self.assertIn("버전 1.2.3", page)
-        self.assertIn("opendmt3-launcher-1.2.3-windows-x64-setup-dmt.example-443.exe를 실행하세요.", page)
+        # The facts in Korean too, and no step to follow.
+        self.assertIn("버전 1.2.3", page)
+        self.assertNotIn("실행하세요", page)
 
     def test_the_installers_name_keeps_letters_digits_dots_and_dashes_only(self):
         from opendmt3.server.services import downloads
@@ -1598,18 +1601,16 @@ class StatesTest(SiteBase):
         self.sign_in(browser)
         page = browser.get("/download").text
         self.assertIn("This server has no installer to hand out.", page)
-        # No file of this server's to run, and no launcher that knows this server: the release's file, and the
-        # address typed by hand.
-        self.assertIn("Get the launcher&#39;s installer (opendmt3-launcher-&lt;version&gt;-windows-x64-setup.exe) from "
-                      "the project&#39;s releases and run it.", page)
-        self.assertIn("choose Another server, type the address (192.168.0.5:4730) and press Connect.", page)
+        # No file of this server's to run, and no launcher that knows this server: where the launcher comes from, and
+        # this server's address to type into it.
+        self.assertIn("The launcher comes from the project&#39;s releases on GitHub", page)
+        self.assertIn("This server&#39;s address: <code>192.168.0.5:4730</code>", page)
         self.assertNotIn("-192.168.0.5-4730.exe", page)
         self.assertNotIn("opens on this server", page)
         browser.cookies.set("opendmt3_lang", "ko")
         page = browser.get("/download").text
-        self.assertIn("프로젝트 릴리스에서 런처 설치 파일(opendmt3-launcher-&lt;버전&gt;-windows-x64-setup.exe)을 받아 실행하세요.",
-                      page)
-        self.assertIn("&#39;다른 서버&#39;를 고르고 주소(192.168.0.5:4730)를 입력한 뒤 &#39;연결&#39;을 누르세요.", page)
+        self.assertIn("런처는 GitHub의 프로젝트 릴리스(openDMT3, Releases)에서 받습니다.", page)
+        self.assertIn("이 서버 주소: <code>192.168.0.5:4730</code>", page)
 
     def test_the_first_run_page_names_the_rules_and_the_sign_in_page_says_the_account_was_made(self):
         page = self.local.get("/owner").text
@@ -1742,11 +1743,14 @@ class StatesTest(SiteBase):
         self.make()
         self.sign_in(self.client)
         page = self.client.get("/").text
-        # Your DJ, then Play on your PC (with the page's own words on its button), before the lists.
-        order = [page.index(words) for words in ("<h3>Your DJ</h3>", "<h3>Play on your PC</h3>",
+        # The way to the launcher is the page's one main key, in its head; then Your DJ before the lists. No card says
+        # how to play (the guides do).
+        order = [page.index(words) for words in ('<p class="hero-key">', "<h3>Your DJ</h3>",
                                                  "<h3>Connected cabinets</h3>", "<h3>New records</h3>")]
         self.assertEqual(order, sorted(order))
         self.assertIn('<a class="btn primary" href="/download">Get the launcher</a>', page)
+        self.assertEqual(page.count('class="btn primary"'), 1)
+        self.assertNotIn("Play on your PC", page)
 
     def test_a_caller_past_their_share_is_told_when_to_try_again_and_nothing_else(self):
         from opendmt3.server.web import strings

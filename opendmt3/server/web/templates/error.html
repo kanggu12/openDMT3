@@ -3,12 +3,15 @@
    of the server's work (429: busy, the seconds to wait). #}
 {% block title %}{{ w("error.busy.title") if busy else w("error.unavailable.title") if unavailable else w("error.title") }} · {% endblock %}
 {% block main %}
+{# The code big in the game's wide chrome over the card (404, 503, 429), as the sister's site says a page is not there;
+   the card says it in words and has the one way on. #}
 <section class="narrow">
+  <p class="lost-code" aria-hidden="true">{{ 429 if busy else 503 if unavailable else 404 }}</p>
   <div class="card">
     <h2>{{ w("error.busy.title") if busy else w("error.unavailable.title") if unavailable else w("error.title") }}</h2>
     {# One second has words of its own ("1 second"). #}
     <p class="muted">{{ (w("error.busy.text.one") if busy == 1 else w("error.busy.text", seconds=busy)) if busy else w("error.unavailable.text") if unavailable else w("error.text") }}</p>
-    <a class="btn" href="/">{{ w("error.home") }}</a>
+    <div class="form-actions"><a class="btn primary" href="/">{{ w("error.home") }}</a></div>
   </div>
 </section>
 {% endblock %}

@@ -123,7 +123,7 @@ const layout = page => page.evaluate(() => {
   // words stand on its gradient: the door frames them.
   const frames = e => {
     const s = getComputedStyle(e);
-    return ['auto', 'scroll'].includes(s.overflowX) || e.matches('.door');
+    return ['auto', 'scroll'].includes(s.overflowX) || e.matches('.door, .lost-code');
   };
   const outside = 'dialog, dialog *, .shards, .shards *, .tip, svg, svg *, script, style, option, .visually-hidden';
   const boxes = [...document.querySelectorAll('body *')].filter(e => !e.matches(outside) && shown(e) && isBox(e) &&

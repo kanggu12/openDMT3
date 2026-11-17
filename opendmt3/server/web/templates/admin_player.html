@@ -41,7 +41,6 @@
     <div id="points" class="card">
       <h3>{{ w("profile.points") }}</h3>
       <p class="big-value{{ ' unlimited' if p.unlimited_points }}">{{ w("player.points.unlimited") if p.unlimited_points else "{:,}".format(p.max_points) }}</p>
-      <p class="muted small">{{ w("player.points.hint", most="{:,}".format(points_most)) }}</p>
       <div class="controls">
         {# The switch posts at once: a button that says it is one, and whether it is on. #}
         <form method="post">
@@ -113,12 +112,12 @@
         <button class="btn">{{ w("admin.enable") }}</button>
       </form>
       {% else %}
-      <p class="muted small" id="ban-rules">{{ w("player.ban.hint", max=reason_max) }}</p>
       <form method="post" action="#ban" class="form" novalidate data-ask="{{ w('player.ban.ask', login_id=p.login_id) }}" data-ask-title="{{ w('player.ban') }}" data-ask-detail="{{ w('player.ban.detail') }}" data-ask-yes="{{ w('player.ban.yes') }}">
         <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="ban">
         <div class="field">
           <label class="label" for="ban-reason">{{ w("player.ban.reason") }}<span class="count" data-count-for="ban-reason">0 / {{ reason_max }}</span></label>
-          <input id="ban-reason" name="reason" maxlength="{{ reason_max }}" required data-missing="{{ w('player.ban.missing') }}" aria-describedby="ban-rules">
+          <input id="ban-reason" name="reason" maxlength="{{ reason_max }}" required data-missing="{{ w('player.ban.missing') }}">
+          <p class="field-hint">{{ w("player.ban.told") }}</p>
         </div>
         <div class="form-actions"><button class="btn danger">{{ w("player.ban.yes") }}</button></div>
       </form>
@@ -187,7 +186,6 @@
       <h3>{{ w("admin.delete.title") }}</h3>
       <form method="post" class="form row" data-ask="{{ w('admin.delete.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.delete.title') }}" data-ask-detail="{{ w('admin.delete.detail') }}" data-ask-yes="{{ w('admin.delete') }}">
         <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="delete">
-        <p class="muted small grow">{{ w("admin.delete.detail") }}</p>
         <button class="btn danger">{{ w("admin.delete") }}</button>
       </form>
     </div>

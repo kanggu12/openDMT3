@@ -2,31 +2,21 @@
 {% block title %}{{ w("title.home") }} · {% endblock %}
 {% block main %}
 <section class="hero"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1>TECHNIKA <b>3</b></h1><p class="sub">{{ w("site.tagline") }}</p></div>
+  {# The page's one main key: the way to the launcher (the Download page holds the file and its facts). #}
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1>TECHNIKA <b>3</b></h1><p class="sub">{{ w("site.tagline") }}</p>
+    <p class="hero-key"><a class="btn primary" href="/download">{{ w("download.heading") }}</a></p></div>
 </section>
 <section class="grid">
+  {# One's own DJ as the game shows the card, with what the game keeps of them, and the way to change it. #}
   <div class="card dj">
     <h3>{{ w("home.dj") }}</h3>
-    <p class="dj-name">{{ user.dj_name }}</p>
-    <p class="muted">ID {{ user.login_id }}</p>
-    <div class="cardline"><span class="label">{{ w("home.card") }}</span><code>···· {{ user.card[-4:] }}</code></div>
-    <p class="muted small">{{ w("home.card.text") }}</p>
-  </div>
-  {# The way to play, beside who plays: the first thing a new player needs, before the lists. #}
-  <div class="card">
-    <h3>{{ w("home.get") }}</h3>
-    <p>{{ w("home.get.text") }}</p>
-    <a class="btn primary" href="/download">{{ w("download.heading") }}</a>
-  </div>
-  <div class="card">
-    <h3>{{ w("home.cabinets") }}</h3>
-    {% if not cabinets %}<p class="muted">{{ w("home.cabinets.none") }}</p>{% endif %}
-    <ul class="cabinets">
-    {% for c in cabinets %}
-      <li><span class="dot {{ 'on' if c.player else '' }}"></span>{% if c.address %}<span class="addr">{{ c.address }}</span>{% endif %}
-        <span class="state">{% if c.player %}{{ w("home.cabinet.playing", dj=c.player) }}{% else %}{{ w("home.cabinet.free") }}{% endif %}</span></li>
-    {% endfor %}
-    </ul>
+    {% set name = user.dj_name %}{% include "_djcard.html" %}
+    <dl class="facts">
+      <div><dt>{{ w("profile.level") }}</dt><dd>{{ "Lv %d" % card.level if card.level else "-" }}</dd></div>
+      <div><dt>{{ w("profile.points") }}</dt><dd>{{ "{:,}".format(card.max_points) }}</dd></div>
+      <div><dt>{{ w("dj.plays") }}</dt><dd>{{ "{:,}".format(mine_total) }}</dd></div>
+    </dl>
+    <p class="cut"><a href="/account">{{ w("me.title") }}</a> · <a href="/dj/{{ user.id }}">{{ w("me.profile.public") }}</a></p>
   </div>
   {# The first DJs of the mode the Rankings page opens on, and the way to the whole ranking. #}
   <div class="card">
@@ -39,6 +29,17 @@
     </ol>
     <p class="cut"><a href="/rankings?mode={{ top.mode }}">{{ w("home.top.all") }}</a></p>
     {% endif %}
+  </div>
+  {# Who is at a cabinet now: across the page, a short list (or one line when none is). #}
+  <div class="card wide">
+    <h3>{{ w("home.cabinets") }}</h3>
+    {% if not cabinets %}<p class="muted">{{ w("home.cabinets.none") }}</p>{% endif %}
+    <ul class="cabinets">
+    {% for c in cabinets %}
+      <li><span class="dot {{ 'on' if c.player else '' }}"></span>{% if c.address %}<span class="addr">{{ c.address }}</span>{% endif %}
+        <span class="state">{% if c.player %}{{ w("home.cabinet.playing", dj=c.player) }}{% else %}{{ w("home.cabinet.free") }}{% endif %}</span></li>
+    {% endfor %}
+    </ul>
   </div>
   {# The newest plays that beat their player's best on the chart before them, each with by how much: the widest
      rows of the page, across both columns. #}

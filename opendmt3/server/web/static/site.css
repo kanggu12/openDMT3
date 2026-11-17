@@ -215,6 +215,21 @@ body.lang-ko .hero h1.word { font: 700 38px/1.15 var(--text-face); letter-spacin
 .shards i:nth-child(4) { right: 34%; top: 30%; width: 160px; height: 110%; clip-path: polygon(80% 0, 100% 5%, 20% 100%); background: var(--accent-deep); opacity: 0.8; }
 .shards i:nth-child(5) { right: 14%; top: 55%; width: 340px; height: 60%; clip-path: polygon(100% 0, 95% 30%, 0 100%); background: var(--accent); opacity: 0.35; }
 
+/* A page that is not there: its code big in the wide chrome, on the page's own metal above the card. */
+.lost-code { margin: 0 0 8px; padding-top: 12px; text-align: center; font: 400 clamp(72px, 16vw, 132px)/1 var(--wide);
+             letter-spacing: -0.02em; background: linear-gradient(180deg, var(--rail-up), var(--field) 92%);
+             -webkit-background-clip: text; background-clip: text; color: transparent; user-select: none; }
+/* Facts as label over value, in a row that wraps (the home page's DJ, the account area, a player's page). */
+.facts { display: flex; flex-wrap: wrap; gap: 10px 26px; margin: 0 0 8px; }
+.facts div { min-width: 0; }
+.facts dt { font: 400 10px/1.4 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash); }
+body.lang-ko .facts dt { font: 600 12px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
+.facts dd { margin: 2px 0 0; font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
+.facts.wide { gap: 14px 40px; }
+
+/* The home page's one main key, under its hero's words. */
+.hero-key { margin: 16px 0 0; }
+
 /* ------------------------------------------------------------------------------------------ page head */
 /* A page that works rather than shows (the admin pages, one's own account, the download): a low head, the kicker and
    the page's name in chrome, no sentence under it, the section's colour only in the kicker and a faint wash at the end. */

@@ -342,7 +342,7 @@ class AdminPlayerPageTest(ApiBase):
         self.assertEqual(self.site.accounts().by_login("NOVA")["disabled"], 0)
         # A new password, shown once with the message to send.
         page = self.post("/admin/players/NOVA", action="password").text
-        self.assertIn("New password for NOVA, shown this once", page)
+        self.assertIn("A new password for NOVA is in the message below, shown this once", page)
         self.assertIn('id="message"', page)
 
     def test_a_player_page_is_for_admins_and_existing_players_only(self):

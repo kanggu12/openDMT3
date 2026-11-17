@@ -69,7 +69,6 @@
   <div class="card">
     <h3>{{ w("songlist.other") }}</h3>
     {% if browsing %}
-    <p class="muted">{{ w("songlist.other.lead") }}</p>
     <form method="get" action="/admin/song_list" class="form path-row">
       <label class="grow">{{ w("songlist.other.path") }}<input name="browse" value="{{ browsing.path }}" spellcheck="false" autocomplete="off"></label>
       <button class="btn">{{ w("songlist.other.open") }}</button>

@@ -328,8 +328,9 @@ def routes(site):
         modes = _modes(site)
         top = {"mode": modes[0], "name": _mode_name(modes[0]),
                "rows": _rankings(site, modes[0])[:TOP_SHOWN]} if modes else None
-        return site.render(request, "home.html", user=user, cabinets=_cabinets_for(site, user), mine=mine,
-                           mine_total=mine_total, everyone=everyone, everyone_total=everyone_total,
+        # One's own DJ card as the game draws it (Your DJ), and what the game keeps of them.
+        return site.render(request, "home.html", user=user, card=_card(site, user), cabinets=_cabinets_for(site, user),
+                           mine=mine, mine_total=mine_total, everyone=everyone, everyone_total=everyone_total,
                            records=_new_records(site, RECORDS_SHOWN), shown=RECENT_SHOWN, top=top)
 
     def download(request):

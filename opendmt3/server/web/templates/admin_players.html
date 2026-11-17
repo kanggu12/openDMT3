@@ -42,7 +42,6 @@
     <div class="invite-row">
       <div class="invite-code">{{ invite.svg|safe }}</div>
       <div>
-        <p>{{ w("admin.invite.text") }}</p>
         <p><a href="{{ invite.address }}"><code>{{ invite.address }}</code></a></p>
         {% if not invite.reached %}<p class="alert look">{{ w("admin.invite.local") }}</p>{% endif %}
       </div>
@@ -78,7 +77,6 @@
     <h3>{{ w("admin.reset.all") }}</h3>
     <form method="post" class="form row" data-ask="{{ w('admin.reset.all.ask') }}" data-ask-title="{{ w('admin.reset.all') }}" data-ask-detail="{{ w('admin.reset.all.detail') }}" data-ask-yes="{{ w('admin.reset') }}">
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="reset_all">
-      <p class="muted small grow">{{ w("admin.reset.all.hint") }}</p>
       <button class="btn danger">{{ w("admin.reset.all") }}</button>
     </form>
   </div>

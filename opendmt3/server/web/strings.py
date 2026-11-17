@@ -46,9 +46,6 @@ TEXT = {
     "owner.text": ("This server has no account yet. The first one is the owner's, with the admin pages. Only this PC "
                    "sees this page.",
                    "이 서버에는 아직 계정이 없습니다. 처음 만드는 계정이 운영자 계정이며 관리 페이지를 쓸 수 있습니다. 이 페이지는 서버 PC에서만 보입니다."),
-    "owner.hint": ("ID: up to 8 letters and digits. DJ name: up to 8 characters, shown in the game. Password: {min} "
-                   "to {max} letters and digits.",
-                   "ID는 영문·숫자 8자까지, DJ 이름은 8자까지이고 게임에 보입니다. 비밀번호는 영문·숫자 {min}~{max}자입니다."),
     "owner.button": ("Make the account", "계정 만들기"),
     "owner.missing.id": ("Type an ID.", "ID를 입력하세요."),
     "owner.missing.password": ("Type a password.", "비밀번호를 입력하세요."),
@@ -73,11 +70,7 @@ TEXT = {
     "account.password": ("Password", "비밀번호"),
     "account.dj": ("DJ name", "DJ 이름"),
     "account.admin": ("Admin rights", "관리자 권한"),
-    "account.password.auto": ("(auto)", "(자동)"),
     "home.dj": ("Your DJ", "내 DJ"),
-    "home.card": ("Card", "카드"),
-    "home.card.text": ("The launcher puts this card in when you play, so the game logs you in.",
-                       "플레이할 때 런처가 이 카드를 꽂아 주어 게임에 바로 로그인됩니다."),
     "home.cabinets": ("Connected cabinets", "접속 중인 기체"),
     "home.cabinets.none": ("No cabinet is connected.", "접속 중인 기체가 없습니다."),
     "home.cabinet.free": ("Free", "비어 있음"),
@@ -96,38 +89,17 @@ TEXT = {
     "home.plays.none": ("No play yet. Cleared stages show here after a session.", "아직 플레이 기록이 없습니다. 게임을 마치면 클리어한 스테이지가 여기에 나옵니다."),
     "home.score": ("Score", "점수"),
     "home.pattern": ("Pattern {n}", "패턴 {n}"),
-    "home.get": ("Play on your PC", "내 PC에서 플레이"),
-    "home.get.text": ("Download the launcher here: it opens on this server, and you sign in with your ID.",
-                      "이 사이트에서 받은 런처에는 이 서버 주소가 들어 있습니다. 내 ID로 로그인하세요."),
     "download.title": ("Download", "다운로드"),
-    "download.sub": ("The openDMT3 launcher for Windows. It gets your game ready, logs you in to this server and "
-                     "starts the game.",
-                     "Windows용 openDMT3 런처입니다. 게임을 준비하고 이 서버에 로그인해 게임을 시작합니다."),
     "download.button": ("Download openDMT3 for Windows", "Windows용 openDMT3 다운로드"),
     "download.none": ("This server has no installer to hand out.", "이 서버에는 나눠 줄 설치 파일이 없습니다."),
-    "download.steps": ("Then", "그다음"),
-    "download.step1": ("Run {file}. If Windows says it protected your PC: More info, then Run anyway.",
-                       "{file}를 실행하세요. Windows가 PC를 보호했다고 하면 '추가 정보', '실행'을 누르세요."),
-    "download.step1.none": ("Get the launcher's installer (opendmt3-launcher-<version>-windows-x64-setup.exe) from the "
-                            "project's releases and run it. If Windows says it protected your PC: More info, then Run "
-                            "anyway.",
-                            "프로젝트 릴리스에서 런처 설치 파일(opendmt3-launcher-<버전>-windows-x64-setup.exe)을 받아 "
-                            "실행하세요. Windows가 PC를 보호했다고 하면 '추가 정보', '실행'을 누르세요."),
     "download.facts": ("{size} MB, put on this server {when}", "{size} MB, {when}에 이 서버에 올렸습니다."),
     "download.facts.version": ("Version {version}, {size} MB, put on this server {when}",
                                "버전 {version}, {size} MB, {when}에 이 서버에 올렸습니다."),
-    "download.step2": ("The launcher it installs opens on this server ({address}): on LOG IN (or Online), press "
-                       "Connect.",
-                       "설치된 런처에는 이 서버 주소({address})가 들어 있습니다. LOG IN(또는 온라인)에서 '연결'을 누르세요."),
-    "download.step2.none": ("On LOG IN (or Online), choose Another server, type the address ({address}) and press "
-                            "Connect.",
-                            "LOG IN(또는 온라인)에서 '다른 서버'를 고르고 주소({address})를 입력한 뒤 '연결'을 누르세요."),
-    "download.step3": ("Sign in with your ID ({login_id}) and press PLAY.", "내 ID({login_id})로 로그인하고 PLAY를 누르세요."),
+    "download.releases": ("The launcher comes from the project's releases on GitHub (openDMT3, Releases).",
+                          "런처는 GitHub의 프로젝트 릴리스(openDMT3, Releases)에서 받습니다."),
+    "download.address": ("This server's address:", "이 서버 주소:"),
     "download.need": ("You need your own TECHNIKA 3 client data; openDMT3 has no game files.",
                       "TECHNIKA 3 클라이언트 데이터를 직접 가지고 있어야 합니다. openDMT3에는 게임 파일이 없습니다."),
-    "rankings.sub": ("Each mode's DJs, by the total of their best scores, by the average of their best 30, or by "
-                     "this month's total.",
-                     "모드별 DJ 랭킹입니다. 최고 점수의 총점, 최고 30차트 평균, 이번 달 총점으로 봅니다."),
     "rankings.none": ("No cleared stage yet.", "아직 클리어한 스테이지가 없습니다."),
     "rankings.total": ("Total score", "총점"),
     "rankings.charts": ("Charts", "차트"),
@@ -239,7 +211,6 @@ TEXT = {
     "notice.save": ("Show the notice", "공지 올리기"),
     "notice.clear": ("Clear the notice", "공지 내리기"),
     "notice.since": ("Shown since {when}, by {who}", "{when}부터 · {who}"),
-    "notice.hint": ("Up to {max} characters.", "{max}자까지 씁니다."),
     "notice.saved": ("The notice is on every page now.", "공지를 모든 페이지에 올렸습니다."),
     "notice.cleared": ("The notice is cleared.", "공지를 내렸습니다."),
     "maintenance.bar": ("Maintenance", "점검"),
@@ -298,15 +269,11 @@ TEXT = {
     # The Song list tab, in the shape of OpenDMTQ's setup page: the thing the server takes, found on the server PC,
     # another folder of it, an upload.
     "songlist.title": ("The song list", "곡 목록"),
-    "songlist.lead": ("The song list holds the jackets and the DJ cards too. Please use only files you have the "
-                      "right to use.",
-                      "곡 목록에는 자켓과 DJ 카드도 들어 있습니다. 쓸 권리가 있는 파일만 써 주세요."),
-    "songlist.take.text": ("From the client data on the server PC, in a folder or in an archive (.zip, .7z, .rar; "
-                           "split, with every part in one folder), or from a song list the launcher saved. No charts, "
-                           "music or videos are read.",
-                           "서버 PC에 있는 클라이언트 데이터나 런처가 저장한 곡 목록에서 가져옵니다. 클라이언트 데이터는 폴더도 되고 "
-                           "압축 파일(.zip, .7z, .rar, 분할 압축은 모든 조각을 한 폴더에)도 됩니다. 차트, 음악, 영상은 읽지 "
-                           "않습니다."),
+    "songlist.lead": ("The song list holds the jackets and the DJ cards too.", "곡 목록에는 자켓과 DJ 카드도 들어 있습니다."),
+    "songlist.take.text": ("From client data on the server PC, in a folder or an archive (.zip, .7z, .rar), or from a song "
+                           "list the launcher saved. No charts, music or videos are read.",
+                           "서버 PC의 클라이언트 데이터(폴더나 .zip, .7z, .rar 압축 파일) 또는 런처가 저장한 곡 목록에서 가져옵니다. "
+                           "차트, 음악, 영상은 읽지 않습니다."),
     "songlist.take.need": ("Without it songs show as numbers and every DJ card keeps the basic icon and plate.",
                            "없으면 곡이 번호로 나오고 모든 DJ 카드가 기본 아이콘과 플레이트로 나옵니다."),
     "songlist.state.ready": ("ready", "쓸 수 있음"),
@@ -323,9 +290,6 @@ TEXT = {
     "songlist.import.detail": ("It replaces the song list, the jackets and the DJ cards this server has.",
                                "이 서버의 곡 목록, 자켓, DJ 카드를 바꿉니다."),
     "songlist.other": ("Another folder on the server PC", "서버 PC의 다른 폴더"),
-    "songlist.other.lead": ("Type or paste the path of the folder or file, or click your way to it below, then "
-                            "import it.",
-                            "폴더나 파일의 경로를 입력하거나 붙여 넣으세요. 아래에서 폴더를 눌러 찾아가도 됩니다."),
     "songlist.other.path": ("Folder or file path", "폴더나 파일 경로"),
     "songlist.other.open": ("Open", "열기"),
     "songlist.other.up": ("Up one folder", "한 단계 위로"),
@@ -345,11 +309,9 @@ TEXT = {
     "songlist.upload": ("Upload a song list", "곡 목록 올리기"),
     "songlist.upload.file": ("Song list (openDMT3-song-list.zip)", "곡 목록(openDMT3-song-list.zip)"),
     "songlist.upload.button": ("Upload", "올리기"),
-    "songlist.upload.hint": ("A song list the launcher saved (Game page, Save the song list...) or ./dmt3 catalog "
-                             "--save made, up to {mb} MB. It replaces the song list, the jackets and the DJ cards "
-                             "this server has.",
-                             "런처가 저장한 곡 목록(게임 페이지의 '곡 목록 저장...')이나 ./dmt3 catalog --save로 만든 곡 목록을 {mb} MB까지 올립니다. "
-                             "이 서버의 곡 목록, 자켓, DJ 카드를 바꿉니다."),
+    "songlist.upload.hint": ("openDMT3-song-list.zip, up to {mb} MB. It replaces this server's song list, jackets and DJ "
+                             "cards.",
+                             "openDMT3-song-list.zip, {mb} MB까지. 이 서버의 곡 목록, 자켓, DJ 카드를 바꿉니다."),
     "songlist.done": ("Imported the song list: {songs} songs.", "곡 목록을 가져왔습니다. 곡 {songs}개입니다."),
     "songlist.busy": ("A song list is being imported already.", "이미 곡 목록을 가져오는 중입니다."),
     "songlist.not_read": ("The song list could not be read. {why}", "곡 목록을 읽지 못했습니다. {why}"),
@@ -435,9 +397,7 @@ TEXT = {
     "backups.upload": ("Upload a backup", "백업 올리기"),
     "backups.upload.file": ("Database file", "데이터베이스 파일"),
     "backups.upload.button": ("Upload", "올리기"),
-    "backups.upload.hint": ("An openDMT3 database file of up to {mb} MB: a backup downloaded here or from another "
-                            "server, or the openDMT3.sqlite of a stopped server.",
-                            "openDMT3 데이터베이스 파일을 {mb} MB까지 올립니다. 여기나 다른 서버에서 받은 백업, 멈춘 서버의 openDMT3.sqlite입니다."),
+    "backups.upload.hint": ("An openDMT3 database file, up to {mb} MB.", "openDMT3 데이터베이스 파일, {mb} MB까지."),
     "backups.uploaded": ("Uploaded and checked: {name}", "올리고 검사했습니다: {name}"),
     "backups.restore": ("Restore", "복원"),
     "backups.restore.ask": ("Put the database back to {when}?", "{when} 시점으로 복원할까요?"),
@@ -453,23 +413,20 @@ TEXT = {
     "backups.restored": ("Restored {name}. The database as it was is backed up as {safety}.",
                          "{name} 시점으로 복원했습니다. 복원 전 상태는 백업해 두었습니다: {safety}"),
     "admin.make": ("Make an account", "계정 만들기"),
-    "admin.made": ("Made {login_id}. Its password is shown this once: {password}",
-                   "{login_id} 계정을 만들었습니다. 비밀번호는 지금 한 번만 보입니다: {password}"),
+    "admin.made": ("Made {login_id}. Its password is in the message below, shown this once.",
+                   "{login_id} 계정을 만들었습니다. 비밀번호는 아래 메시지에 있으며 지금 한 번만 보입니다."),
     "admin.message": ("Message to send", "보낼 메시지"),
     "admin.message.text": ("Your account on this openDMT3 server.\nAddress: {address}\nID: {login_id}\nPassword: "
                            "{password}\n\n1. Open the Download page and sign in with this ID and password: "
-                           "{download}\n2. Download the launcher there and follow the page's steps.",
+                           "{download}\n2. Download the launcher there: it opens on this server.",
                            "openDMT3 서버 계정입니다.\n주소: {address}\nID: {login_id}\n비밀번호: {password}\n\n1. 다운로드 페이지를 열고 "
-                           "이 ID와 비밀번호로 로그인하세요: {download}\n2. 그 페이지에서 런처를 다운로드하고 안내를 따르세요."),
+                           "이 ID와 비밀번호로 로그인하세요: {download}\n2. 그 페이지에서 런처를 다운로드하세요. 런처는 이 서버로 열립니다."),
     "admin.message.local": ("This message carries an address only this PC reaches ({address}). Before sending, put "
                             "this PC's address on the network in its place; ./dmt3 setup --address keeps it for the "
                             "next messages.",
                             "이 메시지에는 이 PC에서만 열리는 주소({address})가 들어 있습니다. 보내기 전에 이 PC의 네트워크 주소로 바꾸세요. ./dmt3 setup "
                             "--address로 정해 두면 다음 메시지부터 그 주소가 들어갑니다."),
     "admin.invite": ("Invite players", "플레이어 초대"),
-    "admin.invite.text": ("Players open this address, or scan the code with a phone, to sign in and download the "
-                          "launcher.",
-                          "플레이어는 이 주소를 열거나 휴대폰으로 코드를 찍어 로그인하고 런처를 받습니다."),
     "admin.invite.local": ("This address is this PC's own: other PCs do not reach it. The server's setup --address "
                            "keeps the one they do.",
                            "이 주소는 이 PC 자신의 주소라서 다른 PC에서는 열리지 않습니다. 서버의 setup --address로 다른 PC가 여는 주소를 "
@@ -484,8 +441,8 @@ TEXT = {
     "admin.rights.taken": ("{login_id} has no admin rights now.", "{login_id}의 관리자 권한을 뺐습니다."),
     "admin.rename": ("Rename", "이름 바꾸기"),
     "admin.renamed": ("{login_id}'s DJ name is now {dj}.", "{login_id}의 DJ 이름을 바꿨습니다: {dj}"),
-    "admin.newpass.done": ("New password for {login_id}, shown this once: {password}",
-                           "{login_id}의 새 비밀번호입니다. 지금 한 번만 보입니다: {password}"),
+    "admin.newpass.done": ("A new password for {login_id} is in the message below, shown this once.",
+                           "{login_id}의 새 비밀번호는 아래 메시지에 있으며 지금 한 번만 보입니다."),
     "admin.disable": ("Disable", "비활성화"),
     "admin.enable": ("Enable", "활성화"),
     "admin.reset": ("Reset plays", "기록 초기화"),
@@ -500,10 +457,6 @@ TEXT = {
                          "up as {backup}.",
                          "{login_id}의 플레이 기록을 초기화했습니다. 클리어한 스테이지 {n}개를 지웠습니다. 초기화 전 상태는 백업해 두었습니다: {backup}"),
     "admin.reset.all": ("Reset every play", "모든 플레이 기록 초기화"),
-    "admin.reset.all.hint": ("Every player's cleared stages go, and the rankings, the songs' boards and the DJ pages "
-                             "start again. Accounts, DJ cards and settings stay; the database is backed up first.",
-                             "모든 플레이어의 클리어한 스테이지를 지우고 랭킹, 곡 페이지, DJ 페이지를 처음부터 다시 시작합니다. 계정과 DJ 카드, 설정은 그대로 남습니다. 먼저 "
-                             "데이터베이스를 백업합니다."),
     "admin.reset.all.ask": ("Reset every player's plays?", "모든 플레이어의 플레이 기록을 초기화할까요?"),
     "admin.reset.all.detail": ("Every cleared stage leaves the rankings, the songs' boards and the DJ pages; accounts, "
                                "DJ cards and settings stay. The database is backed up first, so a restore brings "
@@ -518,8 +471,6 @@ TEXT = {
     "admin.delete.title": ("Delete player", "플레이어 삭제"),
     "admin.delete.detail": ("Their cleared stages go with them, and this cannot be undone.",
                             "클리어한 스테이지 기록도 함께 지워지며 되돌릴 수 없습니다."),
-    "admin.sub": ("This server's players, cabinets, status, the server itself, song list, logs and backups.",
-                  "이 서버의 플레이어, 기체, 상태, 서버, 곡 목록, 로그, 백업입니다."),
     "common.cancel": ("Cancel", "취소"),
     "download.heading": ("Get the launcher", "런처 다운로드"),
     "admin.last": ("Last login", "마지막 로그인"),
@@ -620,8 +571,6 @@ TEXT = {
                       "openDMT3에는 게임 데이터가 포함되어 있지 않습니다. 저작권자의 요청이 있는 경우 본 프로젝트는 "
                       "비공개되거나 폐쇄될 수 있습니다."),
     "me.title": ("My account", "내 계정"),
-    "me.sub": ("Your DJ card, your DJ name, your password and your API tokens.",
-               "DJ 카드, DJ 이름, 비밀번호를 바꾸고 API 토큰을 만듭니다."),
     "me.card": ("DJ card", "DJ 카드"),
     "me.card.comment": ("Comment", "코멘트"),
     "me.card.icon": ("Icon", "아이콘"),
@@ -670,11 +619,6 @@ TEXT = {
     "me.tokens.revoke.detail": ("A program that uses it can no longer use the API with it, and this cannot be undone.",
                                 "이 토큰을 쓰는 프로그램은 더는 이 토큰으로 API를 쓸 수 없으며 되돌릴 수 없습니다."),
     "me.tokens.revoked": ("The token {name} is revoked.", "{name} 토큰을 폐기했습니다."),
-    "me.tokens.hint": ("A program of yours uses the API with a token (Authorization: Bearer and the token). A "
-                       "read-only token makes GET calls, none of an admin's. A new password revokes every token; an "
-                       "account holds {most} at most.",
-                       "내 프로그램이 토큰으로 API를 씁니다(Authorization: Bearer와 토큰). 읽기만 하는 토큰은 관리자의 호출을 뺀 GET 호출만 합니다. 비밀번호를 "
-                       "바꾸면 모든 토큰이 폐기됩니다. 계정마다 {most}개까지 둘 수 있습니다."),
     "error.title": ("Page not found", "페이지를 찾을 수 없습니다"),
     "error.text": ("There is nothing at this address.", "이 주소에는 아무것도 없습니다."),
     "error.home": ("Home", "홈으로"),

@@ -30,14 +30,6 @@ body.lang-ko .area-section > h2 { font: 700 20px/1.3 var(--text-face); letter-sp
 .avatar.big span { font-size: 48px; }
 .badge img { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 
-/* Facts as label over value, in a row that wraps. */
-.facts { display: flex; flex-wrap: wrap; gap: 10px 26px; margin: 0 0 8px; }
-.facts div { min-width: 0; }
-.facts dt { font: 400 10px/1.4 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash); }
-body.lang-ko .facts dt { font: 600 12px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
-.facts dd { margin: 2px 0 0; font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
-.facts.wide { gap: 14px 40px; }
-
 /* The DJ card as the game draws it, large: the icon, the plate with the pattern and the comment over it, then the
    level, the name and the MAX points; it follows each choice as it is made (profile.js). */
 .card-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 16px; margin-bottom: 16px;

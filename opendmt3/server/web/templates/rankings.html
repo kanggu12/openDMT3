@@ -2,7 +2,7 @@
 {% block title %}{{ w("title.rankings") }} · {% endblock %}
 {% block main %}
 <section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · {{ w("nav.rankings") }}</p><h1 class="word">{{ w("nav.rankings") }}</h1><p class="sub">{{ w("rankings.sub") }}</p></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · {{ w("nav.rankings") }}</p><h1 class="word">{{ w("nav.rankings") }}</h1></div>
 </section>
 <section class="page">
   {% if modes %}<nav class="tabs">{% for m, name in modes %}<a href="/rankings?mode={{ m }}&amp;by={{ by }}" class="{{ 'on' if m == mode }}">{{ name }}</a>{% endfor %}</nav>

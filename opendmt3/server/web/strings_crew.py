@@ -7,8 +7,6 @@ TEXT = {
     "signin.banned": ("This account is banned: {reason}", "이용이 정지된 계정입니다. 사유: {reason}"),
     "signin.gone": ("Your account is deleted.", "계정을 삭제했습니다."),
     # The account area: three sections.
-    "me.sub": ("Your profile and DJ card, your account, and how you sign in.",
-               "프로필과 DJ 카드, 계정 정보, 로그인과 보안을 관리합니다."),
     "me.sections": ("Sections of your account", "내 계정의 구역"),
     "me.section.profile": ("Profile", "프로필"),
     "me.section.account": ("Account", "계정"),
@@ -23,10 +21,9 @@ TEXT = {
     # The picture: the site's own.
     "me.picture": ("Picture", "프로필 사진"),
     "me.picture.file": ("A picture", "사진 파일"),
-    "me.picture.rules": ("PNG, JPEG, WebP or GIF, up to {mb} MB. It is cut to a square of {size} pixels from its "
-                         "middle. Shown on this site; the game shows your DJ icon.",
-                         "PNG, JPEG, WebP, GIF 파일을 {mb}MB까지 올릴 수 있습니다. 가운데를 {size}픽셀 정사각형으로 "
-                         "잘라 씁니다. 이 사이트에 보이고, 게임에는 DJ 아이콘이 보입니다."),
+    "me.picture.rules": ("PNG, JPEG, WebP or GIF, up to {mb} MB, made a square of {size} pixels. The game shows your DJ "
+                         "icon.",
+                         "PNG, JPEG, WebP, GIF, {mb}MB까지. {size}픽셀 정사각형으로 맞춥니다. 게임에는 DJ 아이콘이 보입니다."),
     "me.picture.upload": ("Upload", "올리기"),
     "me.picture.clear": ("Remove the picture", "사진 지우기"),
     "me.picture.clear.ask": ("Remove your picture?", "프로필 사진을 지울까요?"),
@@ -49,27 +46,18 @@ TEXT = {
     "me.password.show": ("Show", "보기"),
     "me.password.hide": ("Hide", "숨기기"),
     "me.signins": ("Sign-ins", "로그인"),
-    "me.signins.hint": ("Signs out every other browser signed in to this account. This one stays signed in, and so "
-                        "does the launcher (a new password signs it out).",
-                        "이 계정으로 로그인한 다른 브라우저를 모두 로그아웃합니다. 지금 브라우저와 런처는 그대로입니다"
-                        "(런처는 비밀번호를 바꾸면 로그아웃됩니다)."),
+    "me.signins.hint": ("This browser and the launcher stay signed in.", "지금 브라우저와 런처는 로그인된 채로 남습니다."),
     "me.signins.out": ("Sign out everywhere else", "다른 곳 모두 로그아웃"),
     "me.signins.ask": ("Sign out every other browser?", "다른 브라우저를 모두 로그아웃할까요?"),
     "me.signins.detail": ("They need the password to sign in again.", "다시 로그인하려면 비밀번호가 필요합니다."),
     "me.signout_others.done": ("Every other browser is signed out.", "다른 브라우저를 모두 로그아웃했습니다."),
     "me.delete": ("Delete the account", "계정 삭제"),
-    "me.delete.hint": ("Your plays, DJ card and picture go with it, and the card stops logging in. Type your password "
-                       "to delete it.",
-                       "플레이 기록, DJ 카드, 프로필 사진이 함께 지워지고 카드로 로그인할 수 없게 됩니다. 지우려면 "
-                       "비밀번호를 입력하세요."),
     "me.delete.ask": ("Delete your account?", "계정을 삭제할까요?"),
     "me.delete.detail": ("This cannot be undone.", "되돌릴 수 없습니다."),
     "me.delete.yes": ("Delete my account", "내 계정 삭제"),
     "me.delete.last_admin": ("You are the server's only admin: give another account admin rights first.",
                              "이 서버의 유일한 관리자입니다. 다른 계정에 관리자 권한을 먼저 주세요."),
     # The admin's page of one player.
-    "player.sub": ("Their state in the game and on this site, and every change to it.",
-                   "게임과 사이트에서의 상태와 그 변경을 한 곳에서 관리합니다."),
     "player.back": ("← Every player", "← 플레이어 목록"),
     "player.banned": ("Banned", "이용 정지"),
     "player.card": ("Card", "카드"),
@@ -78,10 +66,6 @@ TEXT = {
     "player.dj_page": ("DJ page", "DJ 페이지"),
     "player.plays_log": ("Their plays", "플레이 기록"),
     "player.points.unlimited": ("Unlimited", "무제한"),
-    "player.points.hint": ("The game's currency, earned by playing and shown beside the DJ name on the song select. "
-                           "A balance is 0 to {most}.",
-                           "게임의 재화입니다. 플레이로 쌓이고 곡 선택 화면의 DJ 이름 옆에 보입니다. 0~{most}까지 "
-                           "가질 수 있습니다."),
     "player.points.unlimited.switch": ("Unlimited MAX points", "MAX 포인트 무제한"),
     "player.points.add": ("Add or take (below 0)", "더하기 또는 빼기(음수)"),
     "player.points.add.button": ("Add", "더하기"),
@@ -96,11 +80,8 @@ TEXT = {
     "player.level.no_table": ("The levels show once the server's owner imports the song list.",
                               "서버 운영자가 곡 목록을 가져오면 레벨을 정할 수 있습니다."),
     "player.ban": ("Ban", "이용 정지"),
-    "player.ban.hint": ("A banned player cannot log in at the cabinet, on this site or in the launcher, and is told the "
-                        "reason when they sign in. Up to {max} characters.",
-                        "정지된 플레이어는 게임, 이 사이트, 런처에 로그인할 수 없고, 로그인할 때 사유를 봅니다. "
-                        "사유는 {max}자까지입니다."),
     "player.ban.reason": ("Reason", "사유"),
+    "player.ban.told": ("The player is told it when they sign in.", "플레이어가 로그인할 때 이 사유를 봅니다."),
     "player.ban.missing": ("Write the reason: the player is told it.", "사유를 입력하세요. 플레이어에게 보입니다."),
     "player.points.missing": ("Type a number.", "숫자를 입력하세요."),
     "player.points.add.hint": ("-{most} to {most}; below 0 takes away.", "-{most}~{most}, 0보다 작으면 뺍니다."),
