@@ -92,10 +92,11 @@ static Watched g_w[WATCHED];
 /* Each buffer's slot by its address (logic.c's slot index): a DirectSound call finds its buffer in a step or two, where
  * a walk over the 4096 slots took up to 4096 (the game calls Play and Unlock for each key sound it plays). */
 static SlotIndex g_index;
-/* The music's and the key sounds' volumes (percent): what setting.ini gave the game at its start (OPENDMT3_MUSIC_VOLUME,
- * OPENDMT3_KEY_VOLUME), from which the game sets its buffers' volumes itself, and what the player has set since (the
- * in-game sound panel, or the launcher's Sound page while the game runs): the buffers move by the difference
- * (logic.c volume_moved). [0] the music, [1] the key sounds. */
+/* The music's and the key sounds' volumes (percent): what setting.ini gave the game at its start (the sound values the
+ * launcher started it with), from which the game sets a song's music itself, and what the player has set since (the
+ * in-game sound panel, or the launcher's Sound page while the game runs): a song's music moves by the game's own curve
+ * between the two, the key sounds take openDMT3's own volume, the menus' loops neither (logic.c volume_for_kind).
+ * [0] the song's music (VOLUME_SONG), [1] the key sounds (VOLUME_KEYS). */
 static int g_volume_start[2] = {100, 100}, g_volume_now[2] = {100, 100};
 /* The free slots, a stack (filled on the first buffer: slot 0 on top). */
 static int g_free[WATCHED], g_nfree = -1;
@@ -116,33 +117,38 @@ static Watched *find(IDirectSoundBuffer *b)
     return slot >= 0 ? &g_w[slot] : NULL;
 }
 
-/* Which of the two volumes a buffer follows now (logic.c volume_kind: 0 the music's, a loop or 10 s and more; 1 the
- * key sounds'): the game sets them from setting.ini's bgm_volume and sfx_volume. A loop is known only at its play. */
+/* Which volume a buffer follows now (logic.c volume_kind: the song's music, the key sounds', or the menus' loops, which
+ * none moves). A loop is known only at its play. */
 static int kind_of_buffer(const Watched *w)
 {
     return volume_kind(w->looping, w->size, w->bytes_a_second);
 }
 
-/* The volume a buffer plays at for the game's own `v`: moved by its kind's change since the game's start; the kind it
- * was set for and the volume kept with it (its play sets it again when the kind turned out another: a loop). */
+/* The volume a buffer plays at for the game's own `v` (logic.c volume_for_kind); the kind it was set for and the volume
+ * kept with it (its play sets it again when the kind turned out another: a loop). */
 static LONG moved_for(Watched *w, LONG v)
 {
     int k = kind_of_buffer(w);
+    int i = k == VOLUME_KEYS ? 1 : 0;
     w->applied = k + 1;
-    w->ours_v = (LONG)volume_moved(v, g_volume_start[k], g_volume_now[k]);
+    w->ours_v = (LONG)volume_for_kind(v, k, g_volume_start[i], g_volume_now[i]);
     return w->ours_v;
 }
 
-/* Whether a kind's volume is moved from the game's start (a buffer's own volume then needs ours at its play). */
+/* Whether a buffer's own volume needs ours at its play: the song's music moved from the game's start, the key sounds
+ * at anything but 100 % (their volume is openDMT3's alone); a menu's loop never. */
 static int volume_is_moved(const Watched *w)
 {
     int k = kind_of_buffer(w);
-    return g_volume_now[k] != g_volume_start[k];
+    if (k == VOLUME_SONG)
+        return g_volume_now[0] != g_volume_start[0];
+    if (k == VOLUME_KEYS)
+        return g_volume_now[1] != 100;
+    return 0;
 }
 
-/* The loudest volume the game has given a sound of each kind as it plays (the measure of its own volume curve against
- * setting.ini's bgm_volume and sfx_volume: ingame.sh compares two games started at two volumes); below -10000 until a
- * first one plays. */
+/* The loudest volume the game has given a song's music and a key sound as it plays (said in the log as it rises, with
+ * setting.ini's values); below -10000 until a first one plays. */
 static LONG g_game_top[2] = {-10001, -10001};
 
 /* A slot in the list of the music playing, or out of it, as its entry says now (called wherever its buffer, its playing
@@ -246,22 +252,23 @@ static HRESULT STDMETHODCALLTYPE our_play(IDirectSoundBuffer *b, DWORD r, DWORD 
         w->playing = 1;
         /* Music that plays: in the frame's list. */
         music_list(w);
-        /* The player's volume for its kind, moved since the game's start: on it before it sounds (the game set its
-         * own, or none, before the play); and on it again when the game set its volume before its first play while it
-         * was taken for a key sound (a loop is known only now): a menu's music never follows the key sounds' volume. */
+        /* The player's volume for its kind (logic.c volume_for_kind): on it before it sounds (the game set its own, or
+         * none, before the play); and on it again when the game set its volume before its first play while it was
+         * taken for another kind (a loop is known only now): a menu's music never follows the key sounds' volume. */
         int kind = kind_of_buffer(w);
         if (volume_reapply(w->applied, kind, volume_is_moved(w)) && real_set_volume)
             real_set_volume(b, moved_for(w, w->game_v));
-        /* The game's own loudest volume for its kind, said when it rises (its curve against setting.ini's values). */
-        if (w->game_v > g_game_top[kind]) {
+        /* The game's own loudest volume for its kind, said when it rises (its curve against setting.ini's values; the
+         * menus' loops follow neither value). */
+        if (kind != VOLUME_MENU && w->game_v > g_game_top[kind]) {
             g_game_top[kind] = w->game_v;
             int percent = g_volume_start[kind];
             ingame_log("sound: the game plays its %s as loud as %ld (setting.ini's %s %d, from %d %%)",
                        kind ? "key sounds" : "music", (long)w->game_v, kind ? "sfx_volume" : "bgm_volume",
                        percent < 1 ? 1 : (int)lround(percent * 127.0 / 100.0), percent);
         }
-        /* A loop's first play, at the volume it plays at against the game's own (a menu's music follows the music's
-         * volume: ingame.sh checks the two agree while only the key sounds' moved). */
+        /* A loop's first play, at the volume it plays at against the game's own (a menu's music follows neither the
+         * music's nor the key sounds' volume, as the game's own settings leave it: ingame.sh checks the two agree). */
         if (w->looping && !w->said_loop) {
             w->said_loop = 1;
             ingame_log("sound: a loop plays at volume %ld, the game's %ld (the music at %d %%, the game started it at %d "
@@ -830,17 +837,20 @@ void sound_summary(void)
 {
     if (!g_watch)
         return;
-    /* Every stream playing now: how far it is (in ms) and against which frame it started. */
+    /* Every stream playing now: how far it is (in ms) and against which frame it started, and its volume: the game's
+     * own (how it applies setting.ini's bgm_volume to a song's music: the review's L7) and the one it plays at. */
     int streams = 0;
     for (int k = 0; k < g_nmusic; k++) {
         Watched *w = &g_w[g_music[k]];
         if (!w->buf || !w->playing || !w->music)
             continue;
         streams++;
-        ingame_log("sound: stream %p at frame %ld: %.1f ms played since frame %ld; %ld blocks read before playing, %ld changed since their last lap, %ld stale",
+        ingame_log("sound: stream %p at frame %ld: %.1f ms played since frame %ld; %ld blocks read before playing, %ld "
+                   "changed since their last lap, %ld stale; the game's volume %ld, playing at %ld",
                    (void *)w->buf, (long)ingame_frame(),
                    w->bytes_a_second ? (double)w->played * 1000.0 / w->bytes_a_second : 0.0, (long)w->started_frame,
-                   (long)w->blocks_read, (long)w->blocks_changed, (long)w->blocks_stale);
+                   (long)w->blocks_read, (long)w->blocks_changed, (long)w->blocks_stale, (long)w->game_v,
+                   (long)(w->applied ? w->ours_v : w->game_v));
     }
     ingame_log("sound: %ld buffers made (%ld of them copies, %ld not followed), %ld plays, %d streams playing, underruns "
                "%ld (%ld writes, %ld on known buffers; %ld plays of other buffers)", (long)g_buffers, (long)g_copies,

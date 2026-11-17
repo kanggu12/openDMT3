@@ -695,16 +695,31 @@ unsigned sound_values_parse(const char *text, SoundValues *s, int *refused, cons
  * needed is at most strlen(old) + SOUND_VALUES * 24 + 1. */
 int sound_values_merge(const char *old, const SoundValues *s, unsigned changed, char *out, int size);
 
-/* A DirectSound volume (hundredths of a dB, 0 the loudest) for a buffer the game set to `game_v`, with the music's or
- * the key sounds' percent moved from `launch` (what setting.ini gave the game at its start, which made `game_v`) to
- * `now`: the game's own loudness at the start, the change on top of it (no louder than DirectSound's 0), silent at 0 %. */
+/* The game's own volume curve, measured at the last stage (the review's L7: the tutorial's music at
+ * setting.ini's bgm_volume 96, 64 and 32 came out 4.88, 11.96 and 24.04 dB under 127, within 0.1 dB of this): the
+ * value setting.ini gets for a percent (the launcher's values.to_game_volume: never 0), and its gain in dB,
+ * 40 log10(value / 127), twice an amplitude's. The game applies bgm_volume to a song's music only (its menus' loops and
+ * its short sounds are the same at any value), and never applies sfx_volume (its key sounds' own volumes, what it
+ * writes into their buffers and the mix were the same at 127 and at 32). */
+int game_volume_value(int percent);
+double game_curve_db(int value);
+/* A DirectSound volume (hundredths of a dB, 0 the loudest) for the song's music, which the game set to `game_v` from
+ * setting.ini's value of the percent `launch`, with the percent moved to `now`: the game's own curve between the two
+ * values (as the game started at `now` would play it), no louder than DirectSound's 0, silent at 0 %. */
 long volume_moved(long game_v, int launch, int now);
-/* Which volume a buffer of the game's follows: the music's (0) for a loop (the menus') or a buffer of 10 s or more (a
- * song's music), the key sounds' (1) for the rest. A loop is known as one only at its play. */
+/* Which volume a buffer of the game's follows: the song's music (a buffer of 10 s or more played once), the menus' (a
+ * loop: no volume of the player's but the master's moves it, as the game's own bgm_volume leaves it), or the key
+ * sounds' (the rest). A loop is known as one only at its play. */
+enum { VOLUME_SONG = 0, VOLUME_KEYS = 1, VOLUME_MENU = 2 };
 int volume_kind(int looping, unsigned long size, unsigned long bytes_a_second);
-/* Whether a buffer's volume must be set again at its play: its kind's volume moved since the game's start, or the kind
- * its volume was last set for (`applied`: kind + 1, 0 none yet) is not the one it has now (a loop whose volume the game
- * set before its first play was taken for a key sound then). */
+/* The volume a buffer of a kind plays at for the game's own `game_v`, its kind's percent at the game's start (`launch`,
+ * what setting.ini had) and now: the song's music by volume_moved; the key sounds by the same curve from 100 %
+ * whatever the game started at (the game never applies its own setting to them: their volume is openDMT3's alone);
+ * the menus' loops as the game set them. */
+long volume_for_kind(long game_v, int kind, int launch, int now);
+/* Whether a buffer's volume must be set again at its play: its kind's volume moved (volume_for_kind's), or the kind its
+ * volume was last set for (`applied`: kind + 1, 0 none yet) is not the one it has now (a loop whose volume the game set
+ * before its first play was taken for a key sound or a song's music then). */
 int volume_reapply(int applied, int kind_now, int moved_now);
 
 /* The last stage of the game's sound, on its way to Windows (the mix's buffers, mix.c): the master volume and the

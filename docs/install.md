@@ -245,14 +245,18 @@ is read as late as the frame's own work allows.
 
 - **Master**, **Music**, **Keysounds** (**Sound**, 100 % by default) and the **Equalizer**'s bands (60 Hz, 250 Hz, 1
   kHz, 4 kHz and 12 kHz, each -12 to 12 dB, flat by default): the in-game sound panel has the same and keeps them with
-  the page. The music and the key sounds start where the game's own setting puts them and move while it runs; the master
-  and the equalizer act on the whole mix as it goes to Windows, with every **Mixer**, and add no delay: at 100 % and
-  flat nothing is touched. A band raised stands over the others: the equalizer takes its curve's highest point off the
-  whole mix, so it never plays louder than without it. At 22,050 Hz or less the 12 kHz band has no room and is left off.
-  Both keep the values in `sound.ini` beside `launcher.json`: a line is a value's name, `=` and a whole number
-  (`master_volume=80`, `eq_1k=-3`); any other line is left as it is, and one naming a value with anything else is left
-  out (said in the logs). A change that cannot be written there for a moment (the file read-only, or held open by
-  another program) is kept and written at the next chance.
+  the page. The music is the game's own volume for a song's music (`setting.ini`'s, which the game turns into its own
+  curve, its gain falling as the square of the value: half the value is 12 dB down): moved in the game it follows that
+  curve, so a value set in the panel sounds as the same value set before PLAY; the menus' music is not the game's music
+  volume and follows only the master. The game never applied its key sounds' setting: the **Keysounds** volume is
+  openDMT3's own, by the same curve, and a launcher before 0.4.0, whose value had no effect, starts it at 100 %, as loud
+  as before. The master and the equalizer act on the whole mix as it goes to Windows, with every **Mixer**, and add no
+  delay: at 100 % and flat nothing is touched. A band raised stands over the others: the equalizer takes its curve's
+  highest point off the whole mix, so it never plays louder than without it. At 22,050 Hz or less the 12 kHz band has no
+  room and is left off. Both keep the values in `sound.ini` beside `launcher.json`: a line is a value's name, `=` and a
+  whole number (`master_volume=80`, `eq_1k=-3`); any other line is left as it is, and one naming a value with anything
+  else is left out (said in the logs). A change that cannot be written there for a moment (the file read-only, or held
+  open by another program) is kept and written at the next chance.
 - **Device** (**Sound**): **Windows' default output** (the default), or one of Windows' output devices by name. When
   the chosen device is not connected, the game plays on Windows' default output, and the page says so.
 - **Mixer** (**Sound**): who mixes the game's sounds. **DirectSound** (the default) is Windows' own, as the game was

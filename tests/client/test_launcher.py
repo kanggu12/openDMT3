@@ -1844,20 +1844,36 @@ class LauncherTest(FolderCase):
         self.assertEqual(sound_file.merge("# x\nmaster_volume=55\nkey_volume=90\nkey_volume=91\n",
                                           {"key_volume": 40, "eq_12k": 0}),
                          "# x\nmaster_volume=55\nkey_volume=40\neq_12k=0\n")
-        # An upgrade: the volumes a player had in launcher.json come into the new file unchanged, so the game plays as
-        # loud as before (setting.ini from the same values).
+        # An upgrade, as measured (the review's L7): the game applies setting.ini's bgm_volume to a song's music, so the
+        # music a player had in launcher.json comes into the new file unchanged and the game plays it as loud as before
+        # (setting.ini from the same value); it never applied sfx_volume, so the key sounds a player had set were always
+        # at full: they start at 100 %, as loud as before, said in the log.
         settings = os.path.join(self.config, "launcher.json")
         with open(settings, "w", encoding="utf-8") as f:
             json.dump({"version": 1, "values": {"music_volume": 40, "key_volume": 65}}, f)
-        state = st.LauncherState.load()
-        # Loading only reads (a command that only reads leaves no file); the window's first sync (its Sound page,
-        # PLAY) makes the file.
+        with self.assertLogs("opendmt3.launcher", "INFO") as said:
+            state = st.LauncherState.load()
+        self.assertIn("as loud as before", "\n".join(said.output))
+        # Loading only reads (a command that only reads leaves no file) and has the key sounds at 100 % already; the
+        # window's first sync (its Sound page, PLAY) makes the file.
         self.assertFalse(os.path.exists(sound_file.path_beside(settings)))
+        self.assertEqual((state.values["music_volume"], state.values["key_volume"]), (40, 100))
         state.sync_sound()
         found = sound_file.read(sound_file.path_beside(settings))
         self.assertEqual((found["music_volume"], found["key_volume"], found["master_volume"], found["eq_60"]),
-                         (40, 65, 100, 0))
+                         (40, 100, 100, 0))
+        self.assertEqual((state.values["music_volume"], state.values["key_volume"]), (40, 100))
         self.assertEqual(values.ini_changes(state.values)["bgm_volume"], str(values.to_game_volume(40)))
+        # A later launcher's settings (they have the sound changes waiting, none or some) keep the player's own key
+        # sounds' volume, the sound file gone or not.
+        state.set_value("key_volume", 70)
+        state.save()
+        os.remove(sound_file.path_beside(settings))
+        again = st.LauncherState.load()
+        self.assertEqual(again.values["key_volume"], 70)
+        again.sync_sound()
+        self.assertEqual(sound_file.read(sound_file.path_beside(settings))["key_volume"], 70)
+        state = again
         # The game's panel writes its lines (as soundset.c does): the launcher takes them at its next read, and a value
         # the launcher sets meanwhile changes only its own line.
         path = sound_file.path_beside(settings)

@@ -123,8 +123,10 @@ DEFAULTS = {
     "preload": False,               # setting.ini resource_preload=false and PreLoadMovie=false
     "cursor": True,                 # setting.ini show_cursor: shown for a mouse, hidden for a touch screen
     "master_volume": 100,           # percent of the whole mix (the layer's last stage: not a setting.ini line)
-    "music_volume": 100,            # percent of bgm_volume 127 (the layer moves the game's music from it while it runs)
-    "key_volume": 100,              # percent of sfx_volume 127 (notes and key sounds; the same)
+    "music_volume": 100,            # percent of bgm_volume 127, which the game applies to a song's music by its own curve
+                                    # (measured: 40 log10(value / 127) dB); the layer moves it by that curve while it runs
+    "key_volume": 100,              # the key sounds' volume, the layer's own (measured: the game never applies its
+                                    # sfx_volume, still written from it); an older launcher's value starts at 100
     "eq_60": 0, "eq_250": 0, "eq_1k": 0, "eq_4k": 0, "eq_12k": 0,  # the equaliser's bands, flat (the layer's)
     "frame_pacing": "music",        # 60.0 a second by openDMT3's clock, led by a song's music (measured: the notes
                                     # stay within a frame of the music over a song; the client's own steps fall behind
@@ -275,9 +277,10 @@ def normalize(values):
 
 
 def to_game_volume(percent):
-    """Percent (0 to 100) on the game's 0 to 127 scale, rounded to the nearest step; never 0: the game sets its buffers'
-    volumes from it, and the in-game layer moves them from there when the player changes the volume while the game runs
-    (a game started at 0 would have nothing to move), so 0 % is the layer's own silence (logic.c volume_moved)."""
+    """Percent (0 to 100) on the game's 0 to 127 scale, rounded to the nearest step; never 0: the game sets a song's
+    music from bgm_volume by its own curve (measured: 40 log10(value / 127) dB; it never applies sfx_volume), and the
+    in-game layer moves it from there by that curve when the player changes the volume while the game runs (a game
+    started at 0 would have nothing to move), so 0 % is the layer's own silence (logic.c volume_moved)."""
     return max(1, int(round(percent * VOLUME_MAX / 100.0)))
 
 

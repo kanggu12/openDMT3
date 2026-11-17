@@ -22,6 +22,7 @@
 #include <mmsystem.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -64,6 +65,9 @@ typedef struct {
     char writer[48];       /* the module that wrote its first mix (dsound.dll, the OpenAL library) */
     int said;              /* its first pass said in the log */
     unsigned said_dropped; /* the bands said in the log as left off at its rate */
+    double level_sum;      /* measuring (OPENDMT3_SOUND_LEVELS): the squares of its samples as they came, before the */
+    double level_peak;     /* stage, their largest, and how many, since the game's thread last read them */
+    LONGLONG level_samples;
 } Stream;
 /* Room for every stream a game opens and opens again (a device change, an OpenAL Soft reopen); a stream torn down
  * leaves it, and a full table hands the longest unused place to a new stream (said in the log). */
@@ -82,6 +86,10 @@ static int g_have_values;
 static volatile LONG g_shaped, g_passed;
 static volatile LONGLONG g_ticks, g_longest, g_frames;
 static LARGE_INTEGER g_frequency;
+/* Measuring only (OPENDMT3_SOUND_LEVELS, never set by the launcher): the mix's level as it reaches the stage, said every
+ * second (the game's own loudness, before the master and the equaliser), for ingame.sh's measure of the game's volume
+ * curve. */
+static int g_levels = -1;
 
 /* ------------------------------------------------------------------------------------------------ the streams */
 
@@ -269,6 +277,20 @@ static HRESULT STDMETHODCALLTYPE our_release_buffer(IAudioRenderClient *r, UINT3
                 memset(&s->state, 0, sizeof s->state);
             s->version = version;
         }
+        /* Measuring: the mix's level as it came, before the stage (a float or 16-bit stream). */
+        if (g_levels > 0 && (s->kind == KIND_FLOAT || s->kind == KIND_S16)) {
+            UINT32 n = frames * (UINT32)s->channels;
+            double sum = 0, peak = s->level_peak;
+            for (UINT32 i = 0; i < n; i++) {
+                double v = s->kind == KIND_FLOAT ? ((float *)s->data)[i] : ((int16_t *)s->data)[i] / 32768.0;
+                sum += v * v;
+                if (fabs(v) > peak)
+                    peak = fabs(v);
+            }
+            s->level_sum += sum;
+            s->level_peak = peak;
+            s->level_samples += n;
+        }
         if (s->kind != KIND_NONE && s->shape.on) {
             LARGE_INTEGER t0, t1;
             QueryPerformanceCounter(&t0);
@@ -448,6 +470,47 @@ void mix_frame(void)
         }
     }
     ReleaseSRWLockShared(&g_lock);
+    /* Measuring: each stream's level over the last second, said and started again. */
+    if (g_levels < 0) {
+        char v[8];
+        g_levels = GetEnvironmentVariableA("OPENDMT3_SOUND_LEVELS", v, sizeof v) > 0;
+    }
+    static double next_level;
+    if (g_levels > 0 && now >= next_level) {
+        next_level = now + 1000.0;
+        /* Where the song's music is (the same content in two games is the same place in the song, whatever holds came
+         * between): its position as the sound follows it, or none. */
+        double song_ms = -1;
+        long song_frame = 0;
+        if (!sound_music_position(&song_ms, &song_frame))
+            song_ms = -1;
+        /* Each stream's sums taken and started again under the lock, said after it (the log's write never holds up a
+         * mixer's thread waiting on the lock). */
+        struct { char writer[48]; double sum, peak; LONGLONG samples; } got[STREAMS];
+        int n = 0;
+        AcquireSRWLockExclusive(&g_lock);
+        for (int i = 0; i < STREAMS; i++) {
+            Stream *s = &g_streams[i];
+            if (!s->used || !s->level_samples)
+                continue;
+            memcpy(got[n].writer, s->writer[0] ? s->writer : "?", sizeof got[n].writer);
+            got[n].writer[sizeof got[n].writer - 1] = 0;
+            got[n].sum = s->level_sum;
+            got[n].peak = s->level_peak;
+            got[n].samples = s->level_samples;
+            n++;
+            s->level_sum = 0;
+            s->level_peak = 0;
+            s->level_samples = 0;
+        }
+        ReleaseSRWLockExclusive(&g_lock);
+        for (int i = 0; i < n; i++) {
+            double rms = sqrt(got[i].sum / (double)got[i].samples);
+            ingame_log("mix: level of the stream written by %s over the last second: rms %.6f (%.2f dBFS), peak %.6f, "
+                       "%lld samples, the song at %.0f ms", got[i].writer, rms, rms > 0 ? 20.0 * log10(rms) : -200.0,
+                       got[i].peak, (long long)got[i].samples, song_ms);
+        }
+    }
     LONG recycled = InterlockedExchange(&g_recycled, 0);
     if (recycled)
         ingame_log("mix: the table of streams was full: %ld new stream%s took the longest unused place", (long)recycled,

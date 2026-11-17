@@ -61,7 +61,11 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   the values in `sound.ini` beside the launcher's settings, each writing only what it changed, so a change made in the
   game is on the page afterwards and one made on the page while the game runs is heard at once. The master and the
   equalizer act on the whole mix with every **Mixer**, add no delay, and take the curve's highest point off so a raised
-  band never makes the game louder than it was. The music's and the key sounds' volumes a player had set stay as loud.
+  band never makes the game louder than it was. The music volume is the game's own (setting.ini's), which the game
+  applies to a song's music, with its own curve: moved in the game it follows that curve, so a value set in the panel
+  sounds as the same value set before PLAY, and the menus' music follows the master. The game never applied its key
+  sounds' setting, so the **Keysounds** volume is openDMT3's own now; a launcher's earlier value had no effect, and it
+  starts at 100 %, as loud as before.
 - A tap on the overlay's handle at the game's top centre, or a press held on it half a second, brings the overlay bar,
   as a finger drawn down from the top edge does; while a song plays the press stays the game's.
 

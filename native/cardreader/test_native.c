@@ -1005,14 +1005,34 @@ static void test_sound_values(void)
     check(sound_values_merge(NULL, &s, 1u << SOUND_MUSIC, out, sizeof out) > 0 && !strcmp(out, "music_volume=100\n"),
           "sound: the first write makes the file");
     check(sound_values_merge("master_volume=55\n", &s, 1u << SOUND_MUSIC, out, 10) == -1, "sound: no room, no file");
-    /* The volumes' move: none at the launch percent, half the amplitude 6 dB down, no louder than 0, 0 % silent. */
-    check(volume_moved(-1500, 60, 60) == -1500 && volume_moved(-1500, 60, 30) == -1500 - 602 &&
-          volume_moved(-300, 50, 100) == 0 && volume_moved(-300, 50, 0) == -10000 &&
-          volume_moved(-4000, 0, 1) == -4000, "sound: a volume moved from where the game started it");
+    /* The game's own volume curve, as measured at the last stage (the review's L7: the tutorial's music at setting.ini's
+     * bgm_volume 96, 64 and 32 came out 4.88, 11.96 and 24.04 dB under 127, within 0.1 dB of 40 log10(value / 127),
+     * twice an amplitude's): the percent's value in setting.ini, and its gain. */
+    check(game_volume_value(100) == 127 && game_volume_value(50) == 64 && game_volume_value(75) == 95 &&
+              game_volume_value(0) == 1 && game_volume_value(1) == 1,
+          "sound: a percent as setting.ini's value (never 0)");
+    check(fabs(game_curve_db(127)) < 0.001 && fabs(game_curve_db(64) + 11.91) < 0.01 && fabs(game_curve_db(32) + 23.95) < 0.01,
+          "sound: the game's curve, 40 log10(value / 127)");
+    /* The song's music moved by the game's curve, from the value it started at: 50 % to 100 % takes the game's -11.91 dB
+     * off (it was 6.02 by an amplitude's), 100 % to 50 % puts it on, the same value no move, 0 % silent, never louder
+     * than DirectSound's 0. */
+    check(labs(volume_moved(-1191, 50, 100)) <= 1 && labs(volume_moved(0, 100, 50) + 1191) <= 1 &&
+              volume_moved(-1500, 60, 60) == -1500 && volume_moved(-300, 50, 0) == -10000 &&
+              volume_moved(-300, 25, 100) == 0,
+          "sound: the song's music moved by the game's own curve");
+    /* The key sounds: the game never applies setting.ini's sfx_volume (its key sounds' own volumes, its writes and the
+     * mix were the same at 127 and 32), so their volume is openDMT3's alone, by the same curve from 100 % whatever the
+     * game started at; the menus' loops follow neither (the game's bgm_volume leaves them as they are). */
+    check(labs(volume_for_kind(-401, VOLUME_KEYS, 50, 50) - (-401 - 1191)) <= 1 &&
+              volume_for_kind(-401, VOLUME_KEYS, 100, 100) == -401 && volume_for_kind(-401, VOLUME_KEYS, 30, 0) == -10000,
+          "sound: the key sounds' volume is openDMT3's own, from 100 %");
+    check(volume_for_kind(0, VOLUME_MENU, 100, 25) == 0 && labs(volume_for_kind(-1191, VOLUME_SONG, 50, 100)) <= 1,
+          "sound: the menus' loops never moved, the song's music by its value");
     /* Which volume a buffer follows, and when its volume is set again at its play: a loop whose volume the game set
-     * before its first play (then taken for a key sound) is set again for the music's, even with the music unmoved. */
-    check(volume_kind(1, 100, 176400) == 0 && volume_kind(0, 1764000, 176400) == 0 && volume_kind(0, 100, 176400) == 1,
-          "sound: a loop or 10 s and more is the music's, the rest the key sounds'");
+     * before its first play (then taken for a key sound) is set again as a loop's, even with nothing moved. */
+    check(volume_kind(1, 100, 176400) == VOLUME_MENU && volume_kind(0, 1764000, 176400) == VOLUME_SONG &&
+              volume_kind(0, 100, 176400) == VOLUME_KEYS,
+          "sound: a loop is the menus', a buffer of 10 s and more the song's music, the rest the key sounds'");
     check(volume_reapply(2, 0, 0) && !volume_reapply(1, 0, 0) && volume_reapply(1, 0, 1) && !volume_reapply(0, 1, 0),
           "sound: a loop set as a key sound before its play is set again at it");
     /* The mix: off at 100 % and flat (nothing touched); the master as an amplitude. */

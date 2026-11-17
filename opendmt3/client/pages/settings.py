@@ -202,8 +202,9 @@ def build_sound(app, parent):
                                          ("key_volume", "sound.keys"))):
             _row(made, ui, w(key),
                  lambda p, n=name: widgets.Slider(p, ui, v[n], lambda val, n=n: app.changed(n, val)),
-                 # The master volume's hint says what it leaves alone; the others' only said what the row is.
-                 w(key + ".hint") if key == "sound.master" else None, first=i == 0)
+                 # Each says what the name does not: what the master covers, what the music leaves to it (the menus'
+                 # loops), and that the key sounds' volume is openDMT3's own.
+                 w(key + ".hint"), first=i == 0)
 
     def equalizer(holder):
         # The equalizer's five bands, flat at 0, each -12 to 12 dB (the in-game layer's last stage, on the whole mix).

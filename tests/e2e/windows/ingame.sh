@@ -134,6 +134,14 @@ wait_log() {
 # How many lines of the layer's log match (a regex); and a wait until more than a count do (the log already holds
 # such lines from earlier steps, so a step is judged by the new one it adds).
 seen() { grep -cE "$1" "$OUT/ingame.log" 2>/dev/null; }
+# Where the song's music is (ms), as the layer's last level line says it (OPENDMT3_SOUND_LEVELS: a line a second; -1
+# with no song playing), and a wait until it is past a place, up to some seconds.
+song_at() { grep -oE "the song at -?[0-9]+ ms" "$OUT/ingame.log" 2>/dev/null | tail -1 | grep -oE -- "-?[0-9]+"; }
+wait_song() {
+  local end=$((SECONDS + $2))
+  until [ "$(song_at)" -ge "$1" ] 2>/dev/null || [ $SECONDS -gt $end ]; do wait_s 0.5; done
+  [ "$(song_at)" -ge "$1" ] 2>/dev/null
+}
 # The game's frames of over 100 ms between two moments on the log's clock (ms), their lengths summed in seconds, from
 # the counter's lines whose 2 s overlap them (each says its longest frame). The layer looks at its clock once a frame
 # and its motion moves at most 100 ms in one (a load moves nothing at once), so on a busy machine such a frame makes a
@@ -519,7 +527,7 @@ textures "the game the launcher started"
 rm -f "$OUT/ingame.log"
 # The sound watched (OPENDMT3_SOUND_WATCH, the tests only): its log says when the tutorial's song starts.
 docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' \
-  -e OPENDMT3_SOUND_WATCH=1 "$C" sh -c \
+  -e OPENDMT3_SOUND_WATCH=1 -e OPENDMT3_SOUND_LEVELS=1 "$C" sh -c \
   "wine '$APP' --mode offline --set vsync=off --set frame_pacing=music --set show_fps=on --set 'sound_device=$GUID' --set upscale=fsr1 --set sharpness=50 --set antialiasing=off --set master_volume=80 --set eq_60=4 --set eq_1k=3 --play > /out/play-offline.txt 2>&1; echo \"exit \$?\" >> /out/play-offline.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline"
@@ -678,7 +686,8 @@ echo "== a song held still under the question: the picture and the sound stop, a
 # The tutorial's song: the first play of the long one-shot music buffer (its music in one buffer, played once).
 end=$((SECONDS + 180)); until grep -q "(41943040 bytes, [0-9]* a second, once) plays" "$OUT/ingame.log" || [ $SECONDS -gt $end ]; do wait_s 1; done
 grep -q "(41943040 bytes, [0-9]* a second, once) plays" "$OUT/ingame.log" || fail "the tutorial's song did not start"
-wait_s 6
+# The song's first 20 s left to play untouched: the third game measures its music's volume against them (below).
+wait_song 20000 40 || fail "the tutorial's song did not reach 20 s ($(song_at) ms)"
 focus
 # The bar from the top edge (nothing pressed since TOUCH to START: the game is quiet), its X: the question with its
 # line, the song held still.
@@ -811,24 +820,25 @@ PY
 under=$(grep -c "sound: underrun on stream" "$OUT/ingame.log")
 echo "  the game's streams' underruns with the last stage on: $under"
 [ "$under" = 0 ] || fail "the game's sound ran dry $under times with the last stage on"
-# A menu's music follows the music's volume, never the key sounds' (the review's M3: a loop whose volume the game sets
-# before its first play was taken for a key sound): after the launcher moved only the key sounds' volume (to 50 %, the
-# music left at 100 %), every loop the game started plays at the game's own volume. Judged on the loops started after
-# the move (the screens between the title and the tutorial start theirs); none started is no proof, and fails.
-python3 - "$OUT/ingame.log" <<'PY' || fail "a menu's music followed the key sounds' volume, or no loop started after the move to judge"
+# A menu's music plays at the game's own volume, never the key sounds' (the review's M3: a loop whose volume the game
+# sets before its first play was taken for a key sound) nor the music's (the game's own bgm_volume leaves the menus'
+# loops as they are: measured, the review's L7): after the launcher moved the key sounds' volume (to 50 %), every loop
+# the game started plays at the game's own volume. Judged on the loops started after the move (the screens between the
+# title and the tutorial start theirs); none started is no proof, and fails.
+python3 - "$OUT/ingame.log" <<'PY' || fail "a menu's music did not play at the game's own volume, or no loop started after the move to judge"
 import re, sys
 lines = open(sys.argv[1], errors="replace").read().split("\n")
 moved = next((i for i, l in enumerate(lines) if "sound: the music at 100 %, the key sounds at 50 %" in l), None)
 assert moved is not None, "the key sounds' move is not in the log"
 loops = [re.search(r"a loop plays at volume (-?\d+), the game's (-?\d+) \(the music at 100 %", l) for l in lines[moved:]]
 loops = [m for m in loops if m]
-print("  loops started after only the key sounds' volume moved: %d, at the game's own volume: %d"
+print("  loops started after the key sounds' volume moved: %d, at the game's own volume: %d"
       % (len(loops), sum(1 for m in loops if m.group(1) == m.group(2))))
 sys.exit(0 if loops and all(m.group(1) == m.group(2) for m in loops) else 1)
 PY
-# The game's own volume curve (the review's L7): the loudest volume it gives its key sounds and its music as they play,
-# kept from this game (setting.ini's sfx_volume and bgm_volume at 127) for the next one (both at 64).
-grep "sound: the game plays its" "$OUT/ingame.log" > "$OUT/volumes-127.txt"
+# The mix's level through the tutorial's first 20 s, at the music's 100 % (setting.ini's bgm_volume 127), untouched:
+# kept for the third game's measure of the game's own volume curve and of the music's move (OPENDMT3_SOUND_LEVELS).
+cp "$OUT/ingame.log" "$OUT/ingame-1.log"
 # The launcher took the panel's master back when the game ended (its log of the values PLAY started with next).
 docker exec "$C" sh -c "grep -c '^master_volume=85$' /w/drive_c/users/root/AppData/Roaming/openDMT3/sound.ini" >/dev/null \
   || fail "the sound file lost the panel's master after the game ended"
@@ -922,29 +932,6 @@ end=$((SECONDS + 40)); until grep -q "^exit " "$OUT/play-picture.txt" 2>/dev/nul
 cat "$OUT/play-picture.txt"
 grep -q "^exit 0" "$OUT/play-picture.txt" || fail "openDMT3-cmd --play did not return after the second game ended"
 game_alive && fail "the game is still running after the second offline play"
-# The game's own volume curve: its loudest key sound and music at setting.ini's 127 (the first game) and at 64 (this
-# one, both volumes at 50 %). The volumes the panel and the Sound page move are ratios of amplitude (logic.c
-# volume_moved), and the move of a launcher.json's volumes to sound.ini keeps setting.ini as it was: both are right
-# when the game's own curve is too (64 against 127 is -5.95 dB as an amplitude). Said with the numbers, and a curve
-# more than 1.5 dB from it fails (the move's rule is then to be made the game's).
-grep "sound: the game plays its" "$OUT/ingame.log" > "$OUT/volumes-64.txt"
-python3 - "$OUT/volumes-127.txt" "$OUT/volumes-64.txt" <<'PY' || fail "the game's own volume curve is not the amplitude the volumes' move assumes"
-import math, re, sys
-def top(path, kind):
-    found = [int(m.group(1)) for m in (re.search(r"plays its %s as loud as (-?\d+)" % kind, l) for l in open(path)) if m]
-    return max(found) if found else None
-model = round(2000 * math.log10(64 / 127.0))
-ok = True
-for kind in ("key sounds", "music"):
-    at127, at64 = top(sys.argv[1], kind), top(sys.argv[2], kind)
-    if at127 is None or at64 is None:
-        print("  the game's %s: not heard in both games (%s, %s)" % (kind, at127, at64))
-        ok = False
-        continue
-    print("  the game's %s: %d at 127, %d at 64: %+.2f dB (an amplitude's %+.2f dB)" % (kind, at127, at64, (at64 - at127) / 100.0, model / 100.0))
-    ok &= abs((at64 - at127) - model) <= 150
-sys.exit(0 if ok else 1)
-PY
 # Who mixed the run, in the launcher's log once the game closed; the game's own end was its normal one (its exit code
 # 0: OpenAL Soft's libraries end with it quietly).
 docker exec "$C" sh -c "grep -E \"the game's sound was mixed|was chosen and did not open|the game closed after\" $LOG | tail -2" \
@@ -964,7 +951,7 @@ echo "== offline with NVIDIA NIS and SMAA Ultra on the GPU: the heaviest choice 
 textures "the game with sharpness 80 and SMAA High"
 rm -f "$OUT/ingame.log"
 docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' \
-  -e OPENDMT3_SAFETY=on "$C" sh -c \
+  -e OPENDMT3_SAFETY=on -e OPENDMT3_SOUND_WATCH=1 -e OPENDMT3_SOUND_LEVELS=1 "$C" sh -c \
   "wine '$APP' --mode offline --set upscale=nis --set sharpness=50 --set antialiasing=smaa-ultra --play > /out/play-heavy.txt 2>&1; echo \"exit \$?\" >> /out/play-heavy.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline the third time"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline the third time"
@@ -994,7 +981,7 @@ textures "the game with sharpness 80 and SMAA High"
 rm -f "$OUT/ingame.log"
 # The net on for this play (the container has it off for the others).
 docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' \
-  -e OPENDMT3_SAFETY=on "$C" sh -c \
+  -e OPENDMT3_SAFETY=on -e OPENDMT3_SOUND_WATCH=1 -e OPENDMT3_SOUND_LEVELS=1 "$C" sh -c \
   "wine '$APP' --mode offline --set upscale=nis --set sharpness=50 --set antialiasing=smaa-ultra --play > /out/play-heavy.txt 2>&1; echo \"exit \$?\" >> /out/play-heavy.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline the third time"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline the third time"
@@ -1022,6 +1009,27 @@ print("  %d of %d counts at 60 a second with a spread under 1 ms" % (len(even), 
 sys.exit(0 if len(lines) >= 5 and len(even) >= 4 else 1)
 EOF
 fi
+echo "== the game's own music volume curve and the music's move, measured at the last stage of the sound"
+# The review's L7, measured: the tutorial's song in this game, started with the music at 50 % (setting.ini's
+# bgm_volume 64, from the sound file the second game left), against the same seconds of the first game's (100 %,
+# untouched for 20 s): its 1.5 to 5.5 s must be the game's own curve down, 40 log10(64 / 127) = -11.90 dB, within 1 dB.
+# Then the launcher sets the music to 100 % while the song plays, and the 4 s from 1.5 s after the move was heard must
+# come out as loud as the first game's same seconds, within 1 dB: the move is the game's curve, so the same value
+# sounds the same set before PLAY or while the game runs. The same content is the same place in the song (the level
+# lines say it); the level is the mix's as it reaches the last stage, before the master and the equaliser
+# (ingame/levels.py).
+x "xdotool mousemove 960 830 mousedown 1 sleep 0.15 mouseup 1"
+end=$((SECONDS + 180)); until grep -q "(41943040 bytes, [0-9]* a second, once) plays" "$OUT/ingame.log" || [ $SECONDS -gt $end ]; do wait_s 1; done
+grep -q "(41943040 bytes, [0-9]* a second, once) plays" "$OUT/ingame.log" || fail "the tutorial's song did not start the third time"
+wait_song 6500 30 || fail "the third game's song did not reach 6.5 s ($(song_at) ms)"
+docker exec -e WINEPREFIX=/w -e WINEDEBUG=-all "$C" sh -c "wine '$APP' --set music_volume=100" >/dev/null 2>&1
+wait_log "sound: the music at 100 %, the key sounds at 50 % \\(the game started them at 50 %" 10 \
+  || fail "the launcher's music volume did not reach the third game ($(grep 'sound: the sound' "$OUT/ingame.log" | tail -2))"
+# The 4 s measured after the move, and a second more for the last level line.
+moved_at=$(song_at)
+wait_song $((${moved_at:-0} + 7000)) 30 || fail "the third game's song did not go on after the move ($(song_at) ms)"
+python3 "$HERE/ingame/levels.py" "$OUT/ingame-1.log" "$OUT/ingame.log" \
+  || fail "the game's own volume curve, or the music's move by it, is not within 1 dB at the last stage"
 quit_by_x
 wait_log "layer: question opened" 5 || fail "the X did not ask the third time"
 end=$((SECONDS + 40)); until grep -q "^exit " "$OUT/play-heavy.txt" 2>/dev/null || [ $SECONDS -gt $end ]; do wait_s 1; done
@@ -1035,5 +1043,5 @@ dumps=$(x "find /root/Desktop /w/drive_c/users/root/AppData/Roaming/openDMT3 -na
 textures "the game with NVIDIA NIS and SMAA Ultra"
 # Every other step held; the pacing not judged in its time is a failure all the same.
 [ -n "$unjudged" ] && fail "$unjudged"
-echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click, from a click and a press held on the handle; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only, dragged larger and smaller with the picture following, and back to full screen; minimise and back; offline the chip in the corner beside FREE PLAY, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top or on the handle; minimised in a song held and going on; the picture options run by the chain and shown, $added, $stepped"
+echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click, from a click and a press held on the handle; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only, dragged larger and smaller with the picture following, and back to full screen; minimise and back; offline the chip in the corner beside FREE PLAY, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top or on the handle; minimised in a song held and going on; the picture options run by the chain and shown, $added, $stepped; the game's own music curve and the music's move by it, measured at the last stage of the sound within 1 dB"
 docker rm -f "$C" >/dev/null

@@ -161,6 +161,15 @@ class LauncherState:
         except (TypeError, AttributeError, ValueError) as e:
             # A field of the wrong kind (a hand-edited file): the same as a file that cannot be read.
             raise StateError("cannot read %s: %s" % (path, e), path) from None
+        # A launcher before the sound file (0.3: its settings have no sound changes waiting) set a key sounds' volume
+        # the game never applied (measured: its key sounds, what it writes into them and the mix the same at
+        # setting.ini's sfx_volume 127 and 32), so they were always at full: openDMT3's own volume for them starts at
+        # 100 %, as loud as before. A sound file there already has its own (read below); a later launcher's settings
+        # keep the player's value even with the file gone.
+        if "sound_waiting" not in data and not os.path.exists(state.sound_path) and state.values["key_volume"] != 100:
+            log.info("the key sounds' volume starts at 100 %% (an earlier launcher's %d %%, which the game never "
+                     "applied: as loud as before)", state.values["key_volume"])
+            state.values = choices.normalize(dict(state.values, key_volume=100))
         # The sound values as the sound file has them (the in-game panel may have changed them since), read only.
         state.sync_sound(write_file=False)
         return state

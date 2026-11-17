@@ -1763,16 +1763,48 @@ int sound_values_merge(const char *old, const SoundValues *s, unsigned changed, 
     return at;
 }
 
+int game_volume_value(int percent)
+{
+    /* The percent on the game's 0 to 127, rounded to the nearest step, never 0 (values.to_game_volume). */
+    int v = (int)lround(percent * 127.0 / 100.0);
+    return v < 1 ? 1 : v > 127 ? 127 : v;
+}
+
+double game_curve_db(int value)
+{
+    /* Twice an amplitude's: the game's gain falls as the square of the value. */
+    return 40.0 * log10((value < 1 ? 1 : value) / 127.0);
+}
+
+/* A DirectSound volume held to its range. */
+static long within_volume(long v)
+{
+    return v > 0 ? 0 : v < -10000 ? -10000 : v;
+}
+
 long volume_moved(long game_v, int launch, int now)
 {
     /* 0 %: silent, whatever the game set. */
     if (now <= 0)
         return -10000;
-    /* The game made its volume from the launch percent (at least 1 %: setting.ini never gets 0); the move from it is a
-     * ratio of amplitudes, in hundredths of a dB. */
-    double from = launch < 1 ? 1 : launch;
-    long v = game_v + (long)lround(2000.0 * log10((double)now / from));
-    return v > 0 ? 0 : v < -10000 ? -10000 : v;
+    /* The game made its volume from setting.ini's value of the launch percent: the move is its own curve's step from
+     * that value to the one of the percent now, in hundredths of a dB. */
+    double step = game_curve_db(game_volume_value(now)) - game_curve_db(game_volume_value(launch));
+    return within_volume(game_v + lround(100.0 * step));
+}
+
+long volume_for_kind(long game_v, int kind, int launch, int now)
+{
+    if (kind == VOLUME_SONG)
+        return volume_moved(game_v, launch, now);
+    if (kind == VOLUME_KEYS) {
+        /* openDMT3's own volume, by the game's curve from 100 %: the game's own setting never moved them. */
+        if (now <= 0)
+            return -10000;
+        return within_volume(game_v + lround(100.0 * game_curve_db(game_volume_value(now))));
+    }
+    /* The menus' loops: as the game set them (the master moves them at the last stage). */
+    return game_v;
 }
 
 /* RBJ's cookbook: a peak (shelf 0), a low shelf (1) or a high shelf (2) of `db` at `hz`, normalised (a0 = 1). */
@@ -1806,8 +1838,10 @@ static Biquad biquad(int shelf, double hz, double db, double rate)
 
 int volume_kind(int looping, unsigned long size, unsigned long bytes_a_second)
 {
-    /* A loop (the menus' music) or a buffer of 10 s or more (a song's music): the music's; the rest the key sounds'. */
-    return looping || (bytes_a_second && size >= 10 * bytes_a_second) ? 0 : 1;
+    /* A loop: the menus'; a buffer of 10 s or more played once: a song's music; the rest the key sounds'. */
+    if (looping)
+        return VOLUME_MENU;
+    return bytes_a_second && size >= 10 * bytes_a_second ? VOLUME_SONG : VOLUME_KEYS;
 }
 
 int volume_reapply(int applied, int kind_now, int moved_now)
