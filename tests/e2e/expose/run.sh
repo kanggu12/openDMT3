@@ -28,8 +28,13 @@ for port in $GAME $SITE $HTTP $HTTPS; do
   if ss -ltnH "sport = :$port" | grep -q .; then echo "port $port is in use: EXPOSE_PORTS names others"; exit 1; fi
 done
 rm -rf "$OUT" && mkdir -p "$OUT/tree"
-# The tree as git has it (and new files not ignored), without the working folder.
-(cd "$REPO" && git ls-files -z --cached --others --exclude-standard | tar --null -T - -cf -) | tar -xf - -C "$OUT/tree"
+# The tree as git has it (and new files not ignored), without the working folder; a tree that is no git checkout of its
+# own (an export of a commit, perhaps inside another repository's folder) as it is, but its working folder.
+if [ "$(git -C "$REPO" rev-parse --show-toplevel 2>/dev/null)" = "$REPO" ]; then
+  (cd "$REPO" && git ls-files -z --cached --others --exclude-standard | tar --null -T - -cf -) | tar -xf - -C "$OUT/tree"
+else
+  (cd "$REPO" && tar --exclude=./_work -cf - .) | tar -xf - -C "$OUT/tree"
+fi
 cd "$OUT/tree"
 # The copy's own ports, kept in its .env by its own ./dmt3 ports, as an owner whose 80 and 443 are taken does it.
 ./dmt3 ports --game "$GAME" --web "$SITE" --http "$HTTP" --https "$HTTPS" > "$OUT/ports.txt" 2>&1 \
