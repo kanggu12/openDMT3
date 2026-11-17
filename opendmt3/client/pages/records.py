@@ -25,6 +25,10 @@ def build_records(app, parent):
         try:
             found = actions.records(state, host)
         except Exception as e:  # noqa: BLE001  (shown in the page, never a silent stop)
+            if getattr(e, "code", None) == "sign_in":
+                # The server no longer takes the sign-in: forgotten, as everywhere a call is refused so; the card
+                # under says so with the way to ONLINE's sign-in.
+                app.post(app.token_refused)
             app.post(lambda e=e: box.winfo_exists() and _records_failed(app, box, e))
             return
         app.post(lambda: box.winfo_exists() and _records_drawn(app, box, found))
@@ -39,7 +43,7 @@ def _records_failed(app, box, error):
         child.destroy()
     why = card(box, ui, last=True)
     widgets.label(why.body, ui, w.error(error), fg=theme.AMBER, wrap_margin=0).pack(fill="x")
-    if getattr(error, "key", None) in ("error.records.signin", "error.records.offline"):
+    if getattr(error, "key", None) in ("error.records.signin", "error.records.offline", "error.api.sign_in"):
         # The page that fixes it, by the menu's own name, as HELP's lines name theirs.
         widgets.link(why.body, ui, TITLES["online"], lambda: app.go("online")).pack(anchor="w", pady=(ui.px(10), 0))
     elif getattr(error, "key", None) == "error.records.guest":

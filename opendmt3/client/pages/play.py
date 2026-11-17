@@ -1,11 +1,11 @@
-"""PLAY: who plays, the ready check, how to play and the last game, each on its card as OpenDMTQ's PLAY has them."""
+"""PLAY: who plays, the ready check and the last game, each on its card as OpenDMTQ's PLAY has them."""
 
 import tkinter as tk
 from urllib.parse import urlsplit
 
 from opendmt3.client import actions, hosting, theme, widgets
 
-from opendmt3.client.pages.common import CARD_GAP, database_trouble
+from opendmt3.client.pages.common import CARD_GAP, TITLES, Sections, database_trouble, main_button
 
 
 def where_play_plays(app):
@@ -21,9 +21,11 @@ def where_play_plays(app):
     return w("play.on.offline")
 
 
-def _who_plays(app, parent):
-    """The card that goes in at PLAY: a player on this PC, or a guest; offline says how to go online. Returns the
-    card, whose body takes the player's records under the choice."""
+def _who_plays(app, parent, changed):
+    """Who plays, across the page's top as OpenDMTQ's PLAY has its server card: on this PC the player whose card goes
+    in (or a guest) and their records on this PC's site at the line's right end; on another server the player signed
+    in, or Sign in, which leads to ONLINE; offline, that everyone plays as a guest. `changed()` makes the card again
+    after a choice (the records' button and the line under the choice follow it). Returns the card."""
     ui, w = app.ui, app.words
     card = widgets.Card(parent, ui, title=w("play.who"))
     card.pack(fill="x", pady=(0, ui.px(CARD_GAP)))
@@ -32,12 +34,21 @@ def _who_plays(app, parent):
     if app.state.mode == "server":
         # Another server: the signed-in player is the one; changing player means signing in again (ONLINE).
         remote_state = app.state.remote or {}
-        text = (w("online.signed", dj=remote_state.get("dj_name", ""), login_id=remote_state.get("login_id", ""))
-                if remote_state.get("card") else w("play.who.signin"))
-        widgets.label(line, ui, text, fg=theme.TEXT if remote_state.get("card") else theme.AMBER,
-                      wrap_margin=0).pack(side="left", fill="x", expand=True)
+        if remote_state.get("card"):
+            lamp = widgets.Lamp(line, ui, theme.LIME)
+            lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
+            widgets.label(line, ui, w("online.signed", dj=remote_state.get("dj_name", ""),
+                                      login_id=remote_state.get("login_id", "")), wrap_margin=0).pack(
+                side="left", fill="x", expand=True, padx=(ui.px(8), 0))
+            return card
+        # Not signed in: the page's main action is to sign in, on ONLINE (lit while PLAY waits for it).
+        main_button(app, line, w("online.signin"), lambda: app.go("online")).pack(side="right", anchor="n")
+        widgets.label(line, ui, w("play.who.signin"), fg=theme.AMBER, wrap_margin=0).pack(side="left", fill="x",
+                                                                                           expand=True)
         return card
     if app.state.mode != "this_pc":
+        # Offline: everyone is a guest; ONLINE, one press away at the line's end, changes it.
+        widgets.link(line, ui, TITLES["online"], lambda: app.go("online")).pack(side="right", anchor="n")
         widgets.label(line, ui, w("play.offline"), fg=theme.MUTED, wrap_margin=0).pack(side="left", fill="x",
                                                                                      expand=True)
         return card
@@ -55,8 +66,13 @@ def _who_plays(app, parent):
         app.state.player = login_id
         app.state.save()
         app.set_status(w("status.saved"), "normal")
+        # The records' button and the line under the choice follow it: this card again, and no other.
+        changed()
 
     widgets.Select(line, ui, options, app.state.player, chosen, width=26).pack(side="left")
+    if app.state.player:
+        # This PC's site: rankings, songs and the player's page, opened signed in (actions.records_link).
+        widgets.Button(line, ui, w("play.records"), app.open_records).pack(side="right")
     # A guest has no card: the line under the choice says what a guest's play is, a player's that their card goes in.
     hint = "play.who.hint" if any(app.state.player == login_id for login_id, _ in rows) else "play.who.hint.guest"
     widgets.label(card.body, ui, w(hint), font=ui.fonts.small, fg=theme.MUTED, wrap_margin=0).pack(
@@ -64,59 +80,28 @@ def _who_plays(app, parent):
     return card
 
 
-def card_goes_in(app):
-    """True when PLAY puts a card in: a player chosen on this PC, or a sign-in on another server."""
-    if app.state.mode == "this_pc":
-        return bool(app.state.player)
-    return app.state.mode == "server" and bool((app.state.remote or {}).get("card"))
-
-
-def how_to_play(app):
-    """The How to play lines, in order: the third by who plays (a card logs in by itself; a guest presses NO ID
-    CARD), the last how to leave the game (no key does: the overlay bar at the top edge has the X)."""
-    return ("play.how.1", "play.how.2", "play.how.3.card" if card_goes_in(app) else "play.how.3", "play.how.4")
-
-
 def build_play(app, parent):
-    """Two columns, so the page shows whole in the window the launcher opens at, after a session of three cleared
-    stages too: on the left who plays (with their records) over the ready check, on the right how to play over the
-    last game, as OpenDMTQ's PLAY sets its ready check beside how to play and the last game. With who plays across the
-    whole width over them (OpenDMTQ's server card), the page after such a session ran 147 to 276 px under the bottom
-    bar there with Windows' fonts (100 to 200 %), and 152 to 170 on Linux."""
+    """Who plays across the top, then the ready check beside the last game, the two as tall as each other, as
+    OpenDMTQ's PLAY sets its server card over its columns. No card of instructions: how the game plays is the game's
+    and the guides' (docs)."""
     ui, w = app.ui, app.words
+    # Who plays on a card made again on its own when the player changes (Sections).
+    sections = Sections(app, parent)
+    sections.add("who", lambda holder: _who_plays(app, holder, lambda: sections.redo("who")))
     row = tk.Frame(parent, bg=theme.BG)
     row.pack(fill="x")
     row.columnconfigure(0, weight=3, uniform="cards")
     row.columnconfigure(1, weight=2, uniform="cards")
-    # The left column: as tall as the column beside it, its last card stretched to the same foot.
-    left = tk.Frame(row, bg=theme.BG)
-    left.grid(row=0, column=0, sticky="nsew", padx=(0, ui.px(CARD_GAP)))
-    who = _who_plays(app, left)
-    if app.state.mode == "this_pc" and app.state.player:
-        # This PC's site: rankings, songs and the player's page, opened signed in (actions.records_link): the chosen
-        # player's records, under the choice.
-        widgets.Button(who.body, ui, w("play.records"), app.open_records).pack(anchor="w", pady=(ui.px(12), 0))
-        widgets.label(who.body, ui, w("play.records.hint"), font=ui.fonts.small, fg=theme.MUTED,
-                      wrap_margin=0).pack(fill="x", pady=(ui.px(6), 0))
-    # Under it, the ready check, filled in when the worker thread finishes it; Check again at its title's right end,
-    # as OpenDMTQ's has it (the check is made again, the server asked again).
-    ready = widgets.Card(left, ui, title=w("play.ready"))
-    ready.pack(fill="both", expand=True)
+    # The ready check, filled in when the worker thread finishes it; Check again at its title's right end, as
+    # OpenDMTQ's has it (the check is made again, the server asked again).
+    ready = widgets.Card(row, ui, title=w("play.ready"))
+    ready.grid(row=0, column=0, sticky="nsew", padx=(0, ui.px(CARD_GAP)))
     ready.action(w("help.recheck"), app.refresh_checks)
     app.check_box = tk.Frame(ready.body, bg=theme.PANEL)
     app.check_box.pack(fill="x")
-    # The right column: how to play, and the last game under it to the column's foot.
-    right = tk.Frame(row, bg=theme.BG)
-    right.grid(row=0, column=1, sticky="nsew")
-    how = widgets.Card(right, ui, title=w("play.how"))
-    how.pack(fill="x", pady=(0, ui.px(CARD_GAP)))
-    for i, key in enumerate(how_to_play(app)):
-        if i:
-            # One line each, parted by the card's faint lines.
-            widgets.divider(how.body, ui, pady=8)
-        widgets.label(how.body, ui, w(key), wrap_margin=0).pack(fill="x")
-    last = widgets.Card(right, ui, title=w("play.last"))
-    last.pack(fill="both", expand=True)
+    # Beside it, how the last game went, to the same foot.
+    last = widgets.Card(row, ui, title=w("play.last"))
+    last.grid(row=0, column=1, sticky="nsew")
     widgets.label(last.body, ui, _last_session(app), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
     for play in (app.state.last_session or {}).get("plays", []):
         # Per cleared stage: the song on its own line (titles run long), then its pattern and the score in lime.
@@ -143,8 +128,8 @@ def _last_session(app):
 
 
 def refresh_checks(app):
-    """Fill the ready check (PLAY page, the guide's last step) or the checks (HELP page) from app.checks: a line for each
-    check, parted by the card's faint lines as OpenDMTQ's are."""
+    """Fill the ready check (PLAY page, the guide's last step) or the checks (HELP page) from app.checks: a line for
+    each check, parted by the card's faint lines as OpenDMTQ's are."""
     box = getattr(app, "check_box", None)
     if box is None or not box.winfo_exists():
         return

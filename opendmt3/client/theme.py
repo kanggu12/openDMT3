@@ -26,12 +26,25 @@ PANEL_HI = "#232931"    # a hovered or chosen row, the top of a card
 RAIL = "#2b323b"        # quiet metal: buttons and tracks
 RAIL_UP = "#3a434e"     # the same under the pointer
 LINE = "#343c47"        # 1-pixel seams and rules
-FIELD = "#0d1014"       # inside inputs and lists
+FIELD = "#0d1014"       # inside inputs and lists: a form's slot (FORMS.md)
+# A form's slot (FORMS.md, the site's --slot-*): its edge at rest and under the pointer, the shade along its top inside,
+# and the slot that cannot be used now (between the well and the plate, its edge quieter than the plate's seam).
+SLOT_EDGE = "#3a434e"
+SLOT_EDGE_HOVER = "#56616e"
+SLOT_SHADE = "#07090b"
+SLOT_OFF = "#14181d"
+SLOT_OFF_EDGE = "#2b323b"
+# A tick box's and a switch's edge under the pointer (a step past the slot's).
+TICK_EDGE_HOVER = "#8a95a1"
+# A banned account's plate: its edge, the problem's pink at 55 % over the slot (FORMS.md).
+BAN_EDGE = "#923361"
 DIVIDER = "#2b3035"     # the faint line between two rows of a card (white at 7.5 % on the card, as OpenDMTQ's)
 
 # Text.
 TEXT = "#eef2f6"        # body text
-MUTED = "#aab4bf"       # hints under a setting
+MUTED = "#aab4bf"       # hints under a setting, a field's name (FORMS.md's ash)
+HINT = "#939eaa"        # what a field takes, under it: dimmer than its name (FORMS.md: 6:1 on a card)
+BAD_INK = "#ff9cc8"     # what is wrong with a field, under it: a pink light enough to read (FORMS.md: 8:1)
 FAINT = "#7a8592"       # disabled text and small labels (4.5:1 on the page)
 STEP_TO_COME = "#6b7581"  # the guide's big numbers of the steps to come: dimmer than their names, so that only the blue
 #                           ones read as taken or on show (3:1 and more on the page, as large text)
@@ -114,6 +127,13 @@ class Fonts:
         self.body = tkfont.Font(root, family=TEXT_FONT, size=10)                     # text
         self.body_bold = tkfont.Font(root, family=TEXT_BOLD, size=10)                # labels and buttons
         self.small = tkfont.Font(root, family=TEXT_FONT, size=9)                     # hints
+        # A form's words (FORMS.md's launcher mapping): a field's name small and semibold, what is typed in the
+        # sign-in's large fields a step larger than the page's text, a key inside a field (Show) small and semibold,
+        # the sign-in's large key a step larger than a page's.
+        self.label = tkfont.Font(root, family=TEXT_BOLD, size=9)                     # a field's name over it
+        self.field = tkfont.Font(root, family=TEXT_FONT, size=11)                    # typed in a large field
+        self.key = tkfont.Font(root, family=TEXT_BOLD, size=9)                       # a key inside a field
+        self.button_lg = tkfont.Font(root, family=TEXT_BOLD, size=11)                # the sign-in's key
         tab = (TEXT_BOLD, 10) if korean else (DISPLAY, 8)
         self.dialog_tab = tkfont.Font(root, family=tab[0], size=tab[1])              # a dialog's title tab
         self.dialog_title = tkfont.Font(root, family=TEXT_BOLD, size=13)             # a dialog's question

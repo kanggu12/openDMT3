@@ -14,95 +14,121 @@ from opendmt3.client.pages.common import Sections, card, database_trouble, main_
 log = logging.getLogger("opendmt3.launcher")
 
 
-# Which field an error is about, by its words' key: said under that field (said); any other under the whole form.
+# Which field an error is about, by its words' key: said under that field; any other in the form's own line. The
+# server answers one code for a wrong ID and a wrong password alike (so that nobody learns which IDs it has): said
+# under the password, with both fields' edges in the error's colour.
 ACCOUNT_FIELDS = {"error.account.id": "online.id", "error.account.taken": "online.id",
                   "error.account.password": "online.password", "error.account.dj": "online.dj"}
-SIGN_IN_FIELDS = {"error.api.wrong_sign_in": "online.password", "error.api.unknown_player": "online.id"}
+SIGN_IN_FIELDS = {"error.api.wrong_sign_in": "online.password", "error.account.id": "online.id",
+                  "error.account.password": "online.password"}
+# How many characters a form's fields are wide (FORMS.md: as wide as the longest real value plus room): an ID and a
+# DJ name 12, a password 16 (and Show), an address 32; and the sign-in's width (logical pixels: the site's door holds
+# its fields 364 px wide in a 420 px card; at the launcher's scale, 340).
+ID_CHARS, PASSWORD_CHARS, ADDRESS_CHARS, SIGN_IN_WIDTH = 12, 16, 32, 340
 
 
-def said(errors, message, error, w, fields):
-    """`error` in words under the field it is about (`fields`: its key to the field's), or in the form's own line
-    under it all when it is about no one field (a server that does not answer, a database that cannot be read)."""
+def _main(app):
+    """A form's key as a page's main action (pages.main_button: lit while PLAY waits, quiet beside a lit PLAY)."""
+    return lambda parent, words, command, size, fill: main_button(app, parent, words, command, size, fill)
+
+
+def _plain(app):
+    """A form's key in the quiet metal: what the form does is no longer the next thing to do."""
+    return lambda parent, words, command, size, fill: widgets.Button(parent, app.ui, words, command, size=size,
+                                                                     fill=fill)
+
+
+def said(form, error, w, fields, action=None):
+    """`error` in words under the field it is about (`fields`: its words' key to the field's key), or in the form's
+    own line under it all when it is about no one field (a server that does not answer, a database that cannot be
+    read), with `action` (words, command) as the way on."""
     key = fields.get(getattr(error, "key", None))
-    if key in errors:
-        errors[key].say(w.error(error))
+    if key in form.fields:
+        form.say(key, w.error(error))
     else:
-        message.configure(text=w.error(error), fg=theme.PINK)
+        form.tell(w.error(error), "bad", action)
 
 
 def player_form(app, parent, on_added, bg=None):
-    """ID, password, DJ name and an Add button; on_added(login_id) after the account is made. On its parent's colour
-    unless told (the card it is on)."""
+    """A player made on this PC (FORMS.md's side-by-side form): the ID, the password with Show and the DJ name in one
+    row, each named over its field with what it takes under it (the accounts' own limits: services/accounts.py), and
+    Add a player in the fields' row; on_added(login_id) after the account is made. Typing goes ID, Tab, the password,
+    Tab (its Show), Tab, the DJ name; Enter in any field adds the player. What is wrong is said under the field it is
+    about, in place of what it takes."""
     ui, w = app.ui, app.words
-    bg = bg or parent.cget("bg")
-    # Each field's name above it and what is wrong with it under it (widgets.form_fields); the password's Show.
-    form, fields, errors = widgets.form_fields(parent, ui, (("online.id", w("online.id"), 10, False),
-                                                            ("online.password", w("online.password"), 12, True),
-                                                            ("online.dj", w("online.dj"), 10, False)), bg)
-    hint = w("online.add.hint", min=accounts.PASSWORD_MIN, max=accounts.PASSWORD_MAX)
-    message = widgets.label(parent, ui, hint, font=ui.fonts.small, fg=theme.MUTED, bg=bg, wrap_margin=0)
+    form = widgets.Form(parent, ui, bg=bg)
+    form.pack(fill="x")
+    form.field("online.id", w("online.id"), width=ID_CHARS, row=0, column=0, placeholder=w("online.id.example"),
+               hint=w("online.id.hint", max=accounts.ID_MAX))
+    form.field("online.password", w("online.password"), width=PASSWORD_CHARS, secret=True, row=0, column=1,
+               hint=w("online.password.hint", min=accounts.PASSWORD_MIN, max=accounts.PASSWORD_MAX))
+    form.field("online.dj", w("online.dj"), width=ID_CHARS, row=0, column=2, placeholder=w("online.dj.example"),
+               hint=w("online.dj.hint", max=accounts.DJ_NAME_MAX))
 
     def add():
         from opendmt3.server.services import accounts as acc
-        login_id = fields["online.id"].get().strip()
-        password = fields["online.password"].get()
-        dj_name = fields["online.dj"].get().strip() or login_id
-        # What the last try said goes: the hint again, no field marked.
-        for error in errors.values():
-            error.clear()
-        message.configure(text=hint, fg=theme.MUTED)
+        login_id = form.fields["online.id"].get().strip()
+        password = form.fields["online.password"].get()
+        dj_name = form.fields["online.dj"].get().strip() or login_id
+        # What the last try said goes: every field's hint again, no line over the key.
+        form.clear()
+        form.tell(None)
         try:
             store = app.players()
         except hosting.HostingError as e:
             # The database cannot be opened: no one field's fault, said in the form's own line.
-            message.configure(text=w.error(e), fg=theme.PINK)
+            form.tell(w.error(e), "bad")
             return
         try:
             store.create(login_id.upper(), password, dj_name, who="launcher")
         except acc.AccountError as e:
             # Under the field it is about (an ID taken or not allowed, a password too short, a DJ name too long).
-            said(errors, message, e, w, ACCOUNT_FIELDS)
+            said(form, e, w, ACCOUNT_FIELDS)
             return
         finally:
             store.db.close()
         app.set_status(w("online.added", name=dj_name), "ok")
         on_added(login_id.upper())
 
-    # Adding a player is the card's main action: lit while PLAY waits, quiet beside a lit PLAY.
-    main_button(app, form, w("online.add"), add).grid(row=1, column=3, sticky="nw")
-    # Typing goes ID, Tab, password, Tab, DJ name, Enter: no reaching for the mouse between fields.
-    for field in fields.values():
-        field.bind("<Return>", lambda e: add())
-    fields["online.id"].after_idle(fields["online.id"].focus_set)
-    form.pack(anchor="w")
-    message.pack(fill="x", pady=(ui.px(8), 0))
+    # Adding a player is the card's main action: lit while PLAY waits, quiet beside a lit PLAY; in the fields' row.
+    form.button(w("online.add"), add, row=0, column=3, beside=True, main=_main(app))
+    form.fields["online.id"].after_idle(form.fields["online.id"].focus_set)
     return form
 
 
 def server_panel(app, parent, rerender):
-    """Another server, on two cards as OpenDMTQ's ONLINE has them: the server (its site's address and Connect, and the
-    line under them), then the sign-in that brings back the player's card (who is signed in and Sign out, or the ID and
-    password and Sign in). Returns the last card made (the guide puts its line under it)."""
-    from opendmt3.client import remote
+    """Another server, on its cards as OpenDMTQ's ONLINE has them: the server (its site's address and Connect, and how
+    it stands under them), the sign-in (the server it signs in to, the ID and the password, Sign in; or who is signed
+    in, where, and Sign out), and the connection test. Returns the last card made (the guide puts its line in it)."""
     ui, w = app.ui, app.words
     server = card(parent, ui, w("online.server"))
-    bg = theme.PANEL
-    row = tk.Frame(server.body, bg=bg)
-    row.pack(fill="x")
-    tk.Label(row, text=w("online.address"), font=ui.fonts.small, fg=theme.MUTED, bg=bg).grid(row=0, column=0, sticky="w")
-    address = widgets.entry(row, ui, width=30)
-    address.grid(row=1, column=0, sticky="w", padx=(0, ui.px(12)), ipady=ui.px(4))
-    address.insert(0, app.state.server_url or "")
-    answer = widgets.label(server.body, ui, "", font=ui.fonts.small, fg=theme.MUTED, wrap_margin=0)
-    answer.pack(fill="x", pady=(ui.px(8), 0))
     remote_state = app.state.remote or {}
     connected = bool(app.state.server_url and remote_state.get("game"))
+    # The address, named over its field with an example of one in it, Connect on the field's line.
+    place = widgets.Form(server.body, ui)
+    place.pack(fill="x")
+    address = place.field("address", w("online.address"), width=ADDRESS_CHARS,
+                          placeholder=w("online.address.example"), row=0, column=0)
+    address.refresh()
+    address.insert(0, app.state.server_url or "")
+    # The connection test's card, made last: a failure's line leads to it (filled in once it is made).
+    tester = {}
+
+    def test_link():
+        """The way from a failure to the connection test: its card in view, the test run."""
+        made = tester.get("card")
+        if made is not None and made.winfo_exists():
+            app.body.show(made, ui.px(16))
+            made.run()
+
     if connected:
-        answer.configure(text=w("online.connected", base=app.state.server_url, version=remote_state.get("version", "?"),
-                                game=remote_state["game"]), fg=theme.LIME)
+        place.tell(w("online.connected", base=app.state.server_url, version=remote_state.get("version", "?"),
+                     game=remote_state["game"]), "ok")
 
     def connect():
-        answer.configure(text=w("online.connecting"), fg=theme.MUTED)
+        place.tell(w("online.connecting"))
+        address.set_error(False)
+        place.busy(True)
         typed = address.get()
 
         def work():
@@ -110,9 +136,19 @@ def server_panel(app, parent, rerender):
                 base, found = actions.server_status(typed)
                 app.post(lambda: connected_to(base, found))
             except Exception as e:  # noqa: BLE001  (RemoteError, or anything else: shown, never a silent stop)
-                app.post(lambda text=w.error(e): answer.winfo_exists() and answer.configure(text=text, fg=theme.PINK))
+                app.post(lambda e=e: refused(e))
 
         threading.Thread(target=work, daemon=True, name="connect").start()
+
+    def refused(error):
+        if not address.winfo_exists():
+            # The page went while the server was asked.
+            return
+        place.busy(False)
+        # The address is what the server's answer is about: its edge says so, the line under it why, and the way to
+        # the test that finds the step that fails.
+        address.set_error(True)
+        place.tell(w.error(error), "bad", (w("server_test.run"), test_link))
 
     def connected_to(base, found):
         actions.use_server(app.state, base, found)
@@ -120,96 +156,269 @@ def server_panel(app, parent, rerender):
         app.refresh_checks()
         rerender()
 
-    address.bind("<Return>", lambda e: connect())
+    # Not connected yet, Connect is the card's main action (typing goes to the address, Enter connects); connected,
+    # connecting again is no longer the next thing to do, so it is a quiet one.
     if connected:
-        # Connected: connecting again is no longer the next thing to do, so the button is a quiet one.
-        widgets.Button(row, ui, w("online.connect"), connect).grid(row=1, column=1, sticky="w")
+        place.button(w("online.connect"), connect, row=0, column=1, beside=True, main=_plain(app))
     else:
-        # Not connected yet: Connect is the card's main action; typing goes to the address, Enter connects.
-        main_button(app, row, w("online.connect"), connect).grid(row=1, column=1, sticky="w")
+        place.button(w("online.connect"), connect, row=0, column=1, beside=True, main=_main(app))
         address.after_idle(address.focus_set)
-        # The connection test of the address as typed, on its own card under the server's.
-        return test_card(app, parent, address.get)
-    sign = card(parent, ui, w("online.signin"))
+        return _test_card_for(app, parent, address.get, tester)
     if remote_state.get("card"):
-        signed = tk.Frame(sign.body, bg=bg)
-        signed.pack(fill="x")
-        lamp = widgets.Lamp(signed, ui, theme.LIME)
-        lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
-        widgets.label(signed, ui, w("online.signed", dj=remote_state.get("dj_name", ""),
-                                    login_id=remote_state.get("login_id", "")), wrap_margin=160).pack(
-            side="left", padx=(ui.px(8), 0))
+        _signed_card(app, parent, remote_state, rerender)
+    else:
+        _sign_in_card(app, parent, remote_state, rerender, test_link)
+    return _test_card_for(app, parent, address.get, tester, rerender)
 
-        def sign_out():
-            # actions.sign_out's two steps, split across threads: the server ends the token first, off the window's
-            # thread (one that does not answer takes a few seconds to give up), with the button greyed meanwhile;
-            # then the sign-in is forgotten here, on the window's thread, whatever the server said.
-            leave.enable(False)
-            base, token = app.state.server_url, (app.state.remote or {}).get("token")
 
-            def work():
-                actions.end_token(base, token)
-                app.post(forget)
+def _test_card_for(app, parent, typed, tester, rerender=None):
+    """The connection test's card, kept in `tester` for the lines that lead to it; `rerender` draws the server's cards
+    again when the test finds the server no longer takes the sign-in (it is forgotten then: app.token_refused)."""
+    made = test_card(app, parent, typed, rerender)
+    tester["card"] = made
+    return made
 
-            threading.Thread(target=work, daemon=True, name="sign-out").start()
 
-        def forget():
-            actions.signed_out(app.state)
-            app.state.save()
-            app.refresh_checks()
-            rerender()
+def _sign_in_card(app, parent, remote_state, rerender, test_link):
+    """The sign-in, as the site's door (FORMS.md): the server it signs in to, the ID with the person's mark and the
+    password with the lock's and Show inside, each named over its field, Remember my ID on this PC, and Sign in across
+    the form; under a seam, what to do when the password is gone. The ID kept by Remember my ID is there already and
+    the password takes the keyboard. Enter in either field signs in; while the server is asked the fields wait and the
+    key shows the game's moving stripes. What is wrong is said where it is: an empty field under it, a wrong ID or
+    password under the password in one sentence (the server tells the two apart to nobody: IDs are private), too many
+    tries and a server that does not answer right above the key (the latter with the way to the connection test), a
+    banned account on a plate in place of the form, with the owner's reason and Sign in with another ID."""
+    ui, w = app.ui, app.words
+    sign = card(parent, ui, w("online.signin"))
+    holder = tk.Frame(sign.body, bg=theme.PANEL)
+    holder.pack(fill="x")
+    # The ID kept by Remember my ID; or, after the server stopped taking a sign-in (app.token_refused), the ID signed
+    # in with, so that only the password is to type again.
+    remembered = remote_state.get("remember_id") or (remote_state.get("login_id") if remote_state.get("game") else "")
+    remembered = remembered or ""
 
-        leave = widgets.Button(signed, ui, w("online.signout"), sign_out)
-        leave.pack(side="right")
-        return test_card(app, parent, address.get)
-    form, fields, errors = widgets.form_fields(sign.body, ui, (("online.id", w("online.id"), 14, False),
-                                                               ("online.password", w("online.password"), 14, True)), bg)
+    def form_again(keep_id=True):
+        for child in holder.winfo_children():
+            child.destroy()
+        _sign_in_form(app, holder, remembered if keep_id else "", rerender, test_link, banned)
+
+    def banned(reason, login_id):
+        """The account is banned: a plate in place of the form, and the way to sign in with another ID."""
+        for child in holder.winfo_children():
+            child.destroy()
+        _banned_plate(app, holder, reason, lambda: form_again(keep_id=False))
+
+    form_again()
+    return sign
+
+
+def _server_line(app, parent):
+    """The server a sign-in goes to: "Signing in to" in the hint's ink over the address in the names' face, its
+    openDMT3 version after it."""
+    ui, w = app.ui, app.words
+    remote_state = app.state.remote or {}
+    to = tk.Frame(parent, bg=theme.PANEL)
+    to.pack(fill="x", pady=(0, ui.px(16)))
+    tk.Label(to, text=w("online.signin.to"), font=ui.fonts.label, fg=theme.MUTED, bg=theme.PANEL, padx=0,
+             pady=0).pack(anchor="w")
+    where = tk.Frame(to, bg=theme.PANEL)
+    where.pack(anchor="w", pady=(ui.px(4), 0))
+    tk.Label(where, text=app.state.server_url, font=ui.fonts.body_bold, fg=theme.TEXT, bg=theme.PANEL, padx=0,
+             pady=0).pack(side="left")
+    if remote_state.get("version"):
+        tk.Label(where, text="openDMT3 %s" % remote_state["version"], font=ui.fonts.small, fg=theme.HINT,
+                 bg=theme.PANEL, padx=0, pady=0).pack(side="left", padx=(ui.px(8), 0))
+
+
+def _sign_in_form(app, parent, remembered, rerender, test_link, banned):
+    """The sign-in's form, in `parent` (see _sign_in_card); banned(reason, login_id) when the server says the account
+    is banned."""
+    from opendmt3.client import remote
+    from opendmt3.server.services import accounts as acc
+    ui, w = app.ui, app.words
+    _server_line(app, parent)
+    # A stacked form at a readable width, its fields the sign-in's large ones, each with its mark.
+    form = widgets.Form(parent, ui, width=SIGN_IN_WIDTH)
     form.pack(anchor="w")
-    # The last ID signed in with on this server, kept after signing out and across restarts (never its password).
-    last_id = remote_state.get("login_id") or ""
-    fields["online.id"].insert(0, last_id)
-    message = widgets.label(sign.body, ui, w("online.signin.hint"), font=ui.fonts.small, fg=theme.MUTED,
-                            wrap_margin=0)
+    form.field("online.id", w("online.id"), width=ID_CHARS, size="lg", mark="person")
+    form.field("online.password", w("online.password"), width=PASSWORD_CHARS, secret=True, size="lg", mark="lock")
+    form.fields["online.id"].insert(0, remembered)
+    # Remember my ID: unticked at first; ticked, the ID stays for the next sign-in on this PC (never the password).
+    remember = widgets.Tick(form, ui, w("online.remember"), value=bool(remembered))
+    remember.pack(anchor="w", pady=(ui.px(12), 0))
+    # One sign-in at a time: Enter pressed twice sends one request (the server counts every try).
+    asking = {"now": False}
 
     def sign_in():
-        for error in errors.values():
-            error.clear()
-        message.configure(text=w("online.connecting"), fg=theme.MUTED)
-        login_id, password = fields["online.id"].get().strip(), fields["online.password"].get()
+        if asking["now"]:
+            return
+        login_id, password = form.fields["online.id"].get().strip(), form.fields["online.password"].get()
+        form.clear()
+        form.tell(None)
+        # What can be said here without asking: an empty field, or an ID no account can have.
+        if not login_id:
+            form.say("online.id", w("error.signin.no_id"))
+        else:
+            try:
+                acc.check_id(login_id.upper())
+            except acc.AccountError as e:
+                # The accounts' own words for what an ID is; no server asked.
+                form.say("online.id", w.error(e))
+        if not password:
+            form.say("online.password", w("error.signin.no_password"))
+        wrong = [key for key in ("online.id", "online.password") if form.fields[key].error]
+        if wrong:
+            # The first wrong field takes the keyboard.
+            form.fields[wrong[0]].focus_set()
+            return
+        asking["now"] = True
+        form.busy(True)
+        remember.enable(False)
 
         def work():
             try:
                 me = remote.sign_in(app.state.server_url, login_id, password)
-                app.post(lambda: signed_in(me))
+                app.post(lambda: signed_in(me, login_id))
             except Exception as e:  # noqa: BLE001
-                app.post(lambda e=e: refused(e))
+                # The server's own words go to the log (never the password); the form says it plainly.
+                log.info("could not sign in to %s as %s: %s", app.state.server_url, login_id, e)
+                app.post(lambda e=e: refused(e, login_id))
 
         threading.Thread(target=work, daemon=True, name="sign-in").start()
 
-    def refused(error):
-        if not message.winfo_exists():
+    def refused(error, login_id):
+        asking["now"] = False
+        if not form.winfo_exists():
             # The page went while the server was asked.
             return
-        # The hint back in the form's line, then the error under the field it is about (a wrong password under the
-        # password), or in that line when it is about neither field (a server that does not answer).
-        message.configure(text=w("online.signin.hint"), fg=theme.MUTED)
-        said(errors, message, error, w, SIGN_IN_FIELDS)
+        form.busy(False)
+        remember.enable(True)
+        key, code = getattr(error, "key", None), getattr(error, "code", None)
+        password = form.fields["online.password"]
+        if code == "banned":
+            # The right password of a banned account: the plate with the owner's reason, in place of the form.
+            banned(getattr(error, "params", {}).get("reason") or "-", login_id)
+            return
+        if code == "wrong_sign_in":
+            # One sentence for a wrong ID and a wrong password alike, under the password: the ID kept, the password
+            # emptied and ready to type again.
+            form.say("online.password", w("online.signin.wrong"))
+            password.delete(0, "end")
+            password.focus_set()
+            return
+        if key in ("error.remote.unreachable", "error.remote.not_an_answer", "error.remote.answered",
+                   "error.remote.unknown_host", "error.remote.not_opendmt3"):
+            # The server, not the account: right above the key, with the way to the test that finds the step that
+            # fails.
+            form.tell(w.error(error), "bad", (w("server_test.run"), test_link))
+        else:
+            # Too many tries (wait), anything else: right above the key.
+            form.tell(w.error(error), "bad")
+        password.focus_set()
+        password.select_range(0, "end")
 
-    def signed_in(me):
+    def signed_in(me, login_id):
+        asking["now"] = False
         actions.signed_in(app.state, me)
+        # Remember my ID: kept for the next sign-in on this PC, or forgotten.
+        app.state.remote = dict(app.state.remote or {})
+        if remember.value:
+            app.state.remote["remember_id"] = login_id.upper()
+        else:
+            app.state.remote.pop("remember_id", None)
         app.state.save()
         app.refresh_checks()
         rerender()
 
-    for field in fields.values():
-        field.bind("<Return>", lambda e: sign_in())
-    # Connected: typing goes to the ID (to the password when the ID is remembered); Tab to the next; Enter signs in.
-    first = fields["online.password" if last_id else "online.id"]
+    # Signing in is the card's main action: lit while PLAY waits, quiet beside a lit PLAY; across the form.
+    form.button(w("online.signin"), sign_in, main=_main(app), size="lg", fill=True)
+    if form.keys is not None:
+        form.keys.configure(width=ui.px(SIGN_IN_WIDTH))
+    # Under a seam, the way back when the password is gone: one quiet line.
+    seam = tk.Frame(parent, bg=theme.PANEL, width=ui.px(SIGN_IN_WIDTH))
+    seam.pack(anchor="w", pady=(ui.px(16), 0))
+    tk.Frame(seam, bg=theme.DIVIDER, height=1, width=ui.px(SIGN_IN_WIDTH)).pack(anchor="w")
+    widgets.label(seam, ui, w("online.forgot"), font=ui.fonts.small, fg=theme.HINT, wraplength=ui.px(SIGN_IN_WIDTH),
+                  ).pack(anchor="w", pady=(ui.px(12), 0))
+    # Typing goes to the ID (to the password when the ID is remembered); Tab to the next; Enter signs in.
+    first = form.fields["online.password" if remembered else "online.id"]
     first.after_idle(first.focus_set)
-    # Signing in is the card's main action: lit while PLAY waits, quiet beside a lit PLAY.
-    main_button(app, form, w("online.signin"), sign_in).grid(row=1, column=2, sticky="nw")
-    message.pack(fill="x", pady=(ui.px(8), 0))
-    return test_card(app, parent, address.get)
+
+
+def _banned_plate(app, parent, reason, again):
+    """A banned account (FORMS.md): a plate on the slot's dark with a pink edge, the problem's lamp and "This account is
+    banned", the owner's reason after "Reason", that the owner can lift the ban, and one quiet key, Sign in with
+    another ID, which brings the form back with the ID empty."""
+    ui, w = app.ui, app.words
+    _server_line(app, parent)
+    edge = tk.Frame(parent, bg=theme.BAN_EDGE, padx=1, pady=1, width=ui.px(SIGN_IN_WIDTH))
+    edge.pack(anchor="w", fill="x")
+    plate = tk.Frame(edge, bg=theme.FIELD, padx=ui.px(16), pady=ui.px(14))
+    plate.pack(fill="both", expand=True)
+    head = tk.Frame(plate, bg=theme.FIELD)
+    head.pack(fill="x")
+    lamp = widgets.Lamp(head, ui, theme.PINK, bg=theme.FIELD)
+    lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
+    tk.Label(head, text=w("online.banned"), font=ui.fonts.body_bold, fg=theme.TEXT, bg=theme.FIELD, padx=0,
+             pady=0).pack(side="left", padx=(ui.px(8), 0))
+    why = tk.Frame(plate, bg=theme.FIELD)
+    why.pack(fill="x", pady=(ui.px(8), 0))
+    tk.Label(why, text=w("online.banned.reason"), font=ui.fonts.label, fg=theme.MUTED, bg=theme.FIELD, padx=0,
+             pady=0).pack(side="left", anchor="n")
+    widgets.label(why, ui, reason, bg=theme.FIELD, wrap_margin=0).pack(side="left", fill="x", expand=True,
+                                                                        padx=(ui.px(8), 0))
+    widgets.label(plate, ui, w("online.banned.lift"), font=ui.fonts.small, fg=theme.HINT, bg=theme.FIELD,
+                  wrap_margin=0).pack(fill="x", pady=(ui.px(6), 0))
+    keys = tk.Frame(parent, bg=theme.PANEL)
+    keys.pack(anchor="w", fill="x", pady=(ui.px(16), 0))
+    other = widgets.Button(keys, ui, w("online.banned.other"), again, size="lg", fill=True)
+    other.pack(fill="x")
+    other.after_idle(other.focus_set)
+
+
+def _signed_card(app, parent, remote_state, rerender):
+    """Signed in: who (the DJ name, the ID under it), on which server, that the game logs in with this card, and Sign
+    out at the right end."""
+    ui, w = app.ui, app.words
+    sign = card(parent, ui, w("online.signed.title"))
+    line = tk.Frame(sign.body, bg=theme.PANEL)
+    line.pack(fill="x")
+
+    def sign_out():
+        # actions.sign_out's two steps, split across threads: the server ends the token first, off the window's
+        # thread (one that does not answer takes a few seconds to give up), with the button saying so meanwhile;
+        # then the sign-in is forgotten here, on the window's thread, whatever the server said.
+        leave.enable(False)
+        leave.set_text(w("online.signing_out"))
+        base, token = app.state.server_url, (app.state.remote or {}).get("token")
+
+        def work():
+            actions.end_token(base, token)
+            app.post(forget)
+
+        threading.Thread(target=work, daemon=True, name="sign-out").start()
+
+    def forget():
+        actions.signed_out(app.state)
+        app.state.save()
+        app.refresh_checks()
+        rerender()
+
+    leave = widgets.Button(line, ui, w("online.signout"), sign_out)
+    leave.pack(side="right", anchor="n")
+    lamp = widgets.Lamp(line, ui, theme.LIME)
+    lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
+    who = tk.Frame(line, bg=theme.PANEL)
+    who.pack(side="left", fill="x", expand=True, padx=(ui.px(8), ui.px(16)))
+    name = tk.Frame(who, bg=theme.PANEL)
+    name.pack(anchor="w")
+    tk.Label(name, text=remote_state.get("dj_name", ""), font=ui.fonts.body_bold, fg=theme.TEXT, bg=theme.PANEL,
+             padx=0, pady=0).pack(side="left")
+    tk.Label(name, text=remote_state.get("login_id", ""), font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL,
+             padx=0, pady=0).pack(side="left", padx=(ui.px(8), 0))
+    widgets.label(who, ui, w("online.signed.on", base=app.state.server_url), font=ui.fonts.small, fg=theme.MUTED,
+                  wrap_margin=0).pack(fill="x", pady=(ui.px(2), 0))
+    return sign
 
 
 # A step's lamp by its state: waiting and not run an outline, running an amber outline, passed lime, failed pink.
@@ -217,7 +426,7 @@ TEST_LAMPS = {"waiting": (theme.MUTED, False), "not_run": (theme.FAINT, False), 
               "ok": (theme.LIME, True), "failed": (theme.PINK, True)}
 
 
-def test_card(app, parent, typed):
+def test_card(app, parent, typed, rerender=None):
     """The connection test's card (client/server_test.py), the page's last: its four steps one under another, each
     with its lamp, its name, what it found and its time, and under a failed one what to do; the outcome under them
     with Copy the result; Test the connection (Test again) at the card's title. It tests the address as typed
@@ -315,9 +524,17 @@ def test_card(app, parent, typed):
             button.enable(not running)
             button.set_text(w("server_test.again"))
         draw()
+        gone = [s for s in steps if s.key == "sign_in" and s.state == "failed" and s.said
+                and s.said[0] == "server_test.sign_in.gone"]
+        if not running and gone and app.token_refused() and rerender is not None:
+            # The server no longer takes the sign-in: forgotten (app.token_refused), and the sign-in card gives way to
+            # its form, the ID kept; the test's card shows its result again under it.
+            rerender()
 
     tested = getattr(app, "server_test", None) is not None
     button = made.action(w("server_test.again" if tested else "server_test.run"), run)
+    # The way a failure's line elsewhere runs it (server_panel's test_link).
+    made.run = run
     running_now = tested and app.server_test["running"]
     button.enable(not running_now)
     draw()

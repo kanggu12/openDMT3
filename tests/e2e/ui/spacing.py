@@ -47,9 +47,11 @@ def _kind(widget):
     if getattr(widget, "opendmt3_under", None) is not None:
         # The column's foot (app.make_foot), placed over the column.
         return "foot"
-    if isinstance(widget, (widgets.SecretField, widgets.Select)) or (
-            isinstance(widget, tk.Entry) and not isinstance(widget.master, widgets.SecretField)):
+    if isinstance(widget, (widgets.Field, widgets.Select)):
         return "field"
+    if isinstance(widget, tk.Entry) or isinstance(widget.master, widgets.Field):
+        # The typing and the Show inside a field: part of the field, which lays out its own inside.
+        return None
     if isinstance(widget, widgets.Button):
         return "button"
     if isinstance(widget, (widgets.Toggle, widgets.Segmented)):
@@ -62,8 +64,12 @@ def _kind(widget):
 
 
 def _inset(widget):
-    """How far inside a widget's box what shows of it begins: its keyboard ring (a switch's, a row of choices', a link's
-    and PLAY's: the words or the picture start inside it)."""
+    """How far inside a widget's box what shows of it begins: the room its picture keeps for its keyboard ring (a
+    switch's, a tick box's: opendmt3_inset), or its ring as Tk draws it (a link's and PLAY's: the words or the picture
+    start inside it)."""
+    inset = getattr(widget, "opendmt3_inset", None)
+    if inset is not None:
+        return int(inset)
     try:
         # Tk answers a screen distance as its own object: in pixels through winfo_pixels.
         return widget.winfo_pixels(str(widget.cget("highlightthickness")))
@@ -187,8 +193,8 @@ def _surface(widget, page_fields):
     for words on the window itself."""
     parent = widget.master
     while parent is not None:
-        if isinstance(parent, widgets.SecretField):
-            # Show inside a password's field: part of the field, which lays out its own inside.
+        if isinstance(parent, widgets.Field):
+            # Show or the example inside a field: part of the field, which lays out its own inside.
             return None, None
         if isinstance(parent, widgets.Card):
             return parent, "card"
@@ -207,7 +213,11 @@ def _surface(widget, page_fields):
 
 
 def _in_scale(gap, ui):
-    return any(gap == ui.px(step) for step in SCALE)
+    """A gap on the scale: one of its steps exactly. At a scale other than 100 % (the virtual screen's 1.04) a gap made of
+    two paddings is rounded twice (12 + 12 is 24 there, px(24) 25): a sum of two of the scale's steps counts too."""
+    if any(gap == ui.px(step) for step in SCALE):
+        return True
+    return ui.scale != 1.0 and any(gap == ui.px(a) + ui.px(b) for a in SCALE for b in SCALE)
 
 
 def _gathered(root, origin):

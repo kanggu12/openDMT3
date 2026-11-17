@@ -299,10 +299,11 @@ def logo(width, scale=1.0, label="LAUNCHER", accent=theme.BLUE_HI, version=None)
 # How far a leaning edge runs sideways for each pixel of its height: one slope for every plate, tab and button.
 LEAN = 0.36
 
-# The menu column's mark: its width in logical pixels (DMT3 at the size the site's bar sets it, its capitals 19 px tall).
+# The menu column's mark: its width in logical pixels (DMT3 at the size the site's bar sets it, its capitals 19 px
+# tall).
 BAR_MARK = 108
-# The version's number beside the mark: this size (logical pixels) while it is as short as a usual version, a smaller one
-# for a longer one, and never smaller than that: the mark beside it keeps its size whatever the version.
+# The version's number beside the mark: this size (logical pixels) while it is as short as a usual version, a smaller
+# one for a longer one, and never smaller than that: the mark beside it keeps its size whatever the version.
 VERSION_POINTS, VERSION_POINTS_LONG = 15, 11
 
 
@@ -349,9 +350,9 @@ def version_block(label, version, scale=1.0, accent=theme.BLUE_HI):
 
 
 def brand(scale=1.0, version="", label="LAUNCHER", mark_width=BAR_MARK, accent=theme.BLUE_HI):
-    """The menu column's top, as the family's launchers have it: the mark (logo() without a label, OPEN over DMT3 with the
-    TECHNIKA 3 logo's blue 3) and the version block beside it (version_block: LAUNCHER over the version), the block's
-    foot on DMT3's foot. The mark is the same picture whatever the version. Returns an RGBA picture."""
+    """The menu column's top, as the family's launchers have it: the mark (logo() without a label, OPEN over DMT3 with
+    the TECHNIKA 3 logo's blue 3) and the version block beside it (version_block: LAUNCHER over the version), the
+    block's foot on DMT3's foot. The mark is the same picture whatever the version. Returns an RGBA picture."""
     mark = logo(int(round(mark_width * scale)), scale, label="", accent=accent)
     # The mark's own room round its letters (chrome_text's pad) stays out: the picture starts at its first pixel.
     mark = mark.crop(mark.getbbox())
@@ -369,8 +370,8 @@ def brand(scale=1.0, version="", label="LAUNCHER", mark_width=BAR_MARK, accent=t
 
 
 def numeral(text, colour, scale=1.0, size=28):
-    """A step's number, upright in the wide face in one colour, as the guide's steps down the menu column set it (OpenDMTQ's
-    lean, TECHNIKA 3's stand). Returns an RGBA picture just as tall as the figure."""
+    """A step's number, upright in the wide face in one colour, as the guide's steps down the menu column set it
+    (OpenDMTQ's lean, TECHNIKA 3's stand). Returns an RGBA picture just as tall as the figure."""
     k = SS
     t = size * scale * k
     font = ImageFont.truetype(theme.WIDE_FILE, max(1, int(round(t))))
@@ -454,6 +455,110 @@ def plain_plate(width, height, fill, top=None, cut_left=True):
     return img.resize((width, height), Image.LANCZOS)
 
 
+# A field is a slot sunk into its plate (FORMS.md): the well's dark, one pixel of machined edge, a shade along its top
+# inside. Its edge by state: at rest, a step lighter under the pointer, the keyboard's cyan (two pixels, drawn inward)
+# while it is typed in, the problem's pink while what was typed there is refused, quieter while it cannot be used.
+FIELD_EDGES = {"normal": theme.SLOT_EDGE, "hover": theme.SLOT_EDGE_HOVER, "focus": theme.CYAN, "error": theme.PINK,
+               "disabled": theme.SLOT_OFF_EDGE}
+# The well's own colour by state: the slot's dark, between the well and the plate while it cannot be used.
+FIELD_FILLS = {"disabled": theme.SLOT_OFF}
+
+
+def _mixed(colour, other, amount):
+    """`colour` with `amount` (0 to 1) of `other` over it, as RGB."""
+    a, b = _rgb(colour), _rgb(other)
+    return tuple(int(round(x + (y - x) * amount)) for x, y in zip(a, b))
+
+
+def field_face(width, height, state="normal", scale=1.0, bg=None):
+    """A text field's (or a drop-down's) face, as FORMS.md draws the slot: square (plates and keys are cut, slots are
+    not), the well's dark, one pixel of edge in the state's colour (FIELD_EDGES; two pixels of the keyboard's cyan,
+    drawn inward, while it is typed in; the pink edge with a faint pink line inside it while wrong), and one pixel of
+    shade along its top inside (none while it cannot be used). Returns an RGB picture of the field's size (`bg` is
+    not used: the face fills its box)."""
+    fill = FIELD_FILLS.get(state, theme.FIELD)
+    img = Image.new("RGB", (width, height), _rgb(fill))
+    draw = ImageDraw.Draw(img)
+    e = max(1, int(round(scale)))
+    if state not in ("disabled", "focus"):
+        # The shade inside the top edge, one pixel (two at 200 %) under it.
+        draw.rectangle([e, e, width - 1 - e, 2 * e - 1], fill=_rgb(theme.SLOT_SHADE))
+    edge = _rgb(FIELD_EDGES[state])
+    # The edge, then a second ring inside it while typed in (the field keeps its size).
+    for ring in range((2 if state == "focus" else 1) * e):
+        draw.rectangle([ring, ring, width - 1 - ring, height - 1 - ring], outline=edge)
+    if state == "error":
+        # The faint pink halo (FORMS.md), drawn inside: the field keeps its box.
+        halo = _mixed(fill, theme.PINK, 0.18)
+        for ring in range(e, 2 * e):
+            draw.rectangle([ring, ring, width - 1 - ring, height - 1 - ring], outline=halo)
+    return img
+
+
+def slot_key(width, height, state="normal", scale=1.0, focused=False):
+    """A key inside a slot (a password's Show, a Copy): small quiet metal with two corners cut, as the keys lean (the
+    top left and the foot's right); lighter under the pointer, lit while it is pressed in (Show while the password
+    shows: a cyan line along its foot inside), and the keyboard's cyan ring inside its edge while it has the keyboard.
+    Returns an RGBA picture."""
+    k = SS
+    w, h = width * k, height * k
+    cut = max(1, int(round(4 * scale))) * k
+    shape = [(cut, 0), (w, 0), (w, h - cut), (w - cut, h), (0, h), (0, cut)]
+    fill = {"normal": theme.RAIL, "hover": theme.RAIL_UP, "on": theme.RAIL_UP}[state]
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.polygon(shape, fill=_rgb(fill) + (255,))
+    line = max(1, int(round(2 * scale))) * k
+    if state == "on":
+        # Pressed in: the keyboard's cyan along its foot, inside.
+        draw.rectangle([cut, h - 2 * line, w - cut - 1, h - line - 1], fill=_rgb(theme.CYAN) + (255,))
+    if focused:
+        draw.line(shape + shape[:1], fill=_rgb(theme.CYAN) + (255,), width=line)
+    return img.resize((width, height), Image.LANCZOS)
+
+
+def field_mark(kind, size, colour, scale=1.0):
+    """A mark at a slot's left end (FORMS.md): the sign-in's person and lock, a search's magnifier, drawn in lines of
+    1.8 logical pixels in `colour`, `size` logical pixels square. Returns an RGBA picture."""
+    k = SS * 2
+    px = int(round(size * scale))
+    w = px * k
+    img = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    line = max(k, int(round(1.8 * scale * k)))
+    ink = _rgb(colour) + (255,)
+    u = w / 16.0
+    if kind == "person":
+        # A head over the shoulders' curve.
+        draw.ellipse([5.2 * u, 1.8 * u, 10.8 * u, 7.4 * u], outline=ink, width=line)
+        draw.arc([2.2 * u, 9.6 * u, 13.8 * u, 21.0 * u], 200, 340, fill=ink, width=line)
+    elif kind == "lock":
+        # The shackle over the body.
+        draw.arc([4.6 * u, 1.6 * u, 11.4 * u, 10.0 * u], 180, 360, fill=ink, width=line)
+        draw.line([(4.6 * u, 5.8 * u), (4.6 * u, 7.6 * u)], fill=ink, width=line)
+        draw.line([(11.4 * u, 5.8 * u), (11.4 * u, 7.6 * u)], fill=ink, width=line)
+        draw.rounded_rectangle([2.8 * u, 7.4 * u, 13.2 * u, 14.6 * u], radius=1.4 * u, outline=ink, width=line)
+    elif kind == "search":
+        draw.ellipse([2.0 * u, 2.0 * u, 11.0 * u, 11.0 * u], outline=ink, width=line)
+        draw.line([(10.0 * u, 10.0 * u), (14.0 * u, 14.0 * u)], fill=ink, width=line)
+    return img.resize((px, px), Image.LANCZOS)
+
+
+def chevron(width, height, colour, scale=1.0, up=False):
+    """A drop-down's arrow: a small chevron pointing down (up while its list is open above it), in `colour`, on
+    nothing (a picture with transparency)."""
+    k = SS
+    w, h = width * k, height * k
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    # 8 by 4.5 logical pixels round the middle, 1.6 thick.
+    half, drop = 4 * scale * k, 2.25 * scale * k
+    cx, cy = w / 2.0, h / 2.0
+    tip, base = (cy - drop, cy + drop) if up else (cy + drop, cy - drop)
+    ImageDraw.Draw(img).line([(cx - half, base), (cx, tip), (cx + half, base)], fill=_rgb(colour) + (255,),
+                             width=max(k, int(round(1.6 * scale * k))), joint="curve")
+    return img.resize((width, height), Image.LANCZOS)
+
+
 def name_plate(text, scale=1.0, fill=None, colour=None):
     """A section's name as the game labels a part of its screen (NO CREW on the song select): white words on a dark
     leaning plate, its right end cut on the slant. Returns an RGBA picture just big enough."""
@@ -479,6 +584,151 @@ def play_button(width, height, state="normal"):
     if state in look:
         return striped_plate(width, height, *look[state])
     return plain_plate(width, height, {"disabled": "#262d37", "playing": "#2c3646"}[state], top=theme.LINE)
+
+
+def tick_box(checked, state="normal", scale=1.0, colours=None, focused=False):
+    """A tick box (FORMS.md): a 20 px square slot, its edge a step lighter than a field's (it is small), lighter still
+    under the pointer; ticked, filled in the section's colour with the tick in its ink; the keyboard's cyan ring two
+    pixels out while it has the keyboard; quieter while it cannot be used. The picture has room round the box for the
+    ring (RING_ROOM logical pixels each side). Returns an RGBA picture."""
+    k = SS
+    room = int(round(TICK_RING_ROOM * scale))
+    size = int(round(20 * scale))
+    total = size + 2 * room
+    w = total * k
+    img = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    x0, x1 = room * k, (room + size) * k - 1
+    e = max(1, int(round(scale))) * k
+    colours = colours or theme.SECTION_COLOURS["technika"]
+    if state == "disabled":
+        draw.rectangle([x0, x0, x1, x1], fill=_rgb(theme.SLOT_OFF) + (255,))
+        draw.rectangle([x0, x0, x1, x1], outline=_rgb(theme.SLOT_OFF_EDGE) + (255,), width=e)
+        if checked:
+            draw.rectangle([x0, x0, x1, x1], fill=_rgb(theme.RAIL_UP) + (255,))
+    elif checked:
+        draw.rectangle([x0, x0, x1, x1], fill=_rgb(colours["fill"]) + (255,))
+    else:
+        draw.rectangle([x0, x0, x1, x1], fill=_rgb(theme.FIELD) + (255,))
+        draw.rectangle([x0 + e, x0 + e, x1 - e, x0 + 2 * e - 1], fill=_rgb(theme.SLOT_SHADE) + (255,))
+        edge = theme.TICK_EDGE_HOVER if state == "hover" else theme.SLOT_EDGE_HOVER
+        draw.rectangle([x0, x0, x1, x1], outline=_rgb(edge) + (255,), width=e)
+    if checked:
+        # The tick: a short stroke down and a long one up (the site's 16 px mark, square ends), in the fill's ink.
+        u = size * k / 20.0
+        ink = colours["ink"] if state != "disabled" else theme.FAINT
+        points = [(x0 + 4.8 * u, x0 + 10.4 * u), (x0 + 8.4 * u, x0 + 14.0 * u), (x0 + 15.6 * u, x0 + 6.2 * u)]
+        draw.line(points, fill=_rgb(ink) + (255,), width=max(k, int(round(2.4 * u))))
+    if focused:
+        ring = max(1, int(round(2 * scale))) * k
+        gap = max(1, int(round(2 * scale))) * k
+        draw.rectangle([x0 - gap - ring, x0 - gap - ring, x1 + gap + ring, x1 + gap + ring],
+                       outline=_rgb(theme.CYAN) + (255,), width=ring)
+    return img.resize((total, total), Image.LANCZOS)
+
+
+# The room a tick box's and a switch's picture keeps round it for the keyboard's ring (logical pixels): 2 of gap and
+# 2 of ring.
+TICK_RING_ROOM = 4
+
+
+def switch(on, state="normal", scale=1.0, colours=None, focused=False):
+    """A switch (FORMS.md): a 42 by 24 round track (only switches, lamps and badges are round); off, the slot with the
+    knob in the ash's grey at its left; on, the track in the section's colour with the knob in its ink at its right;
+    the edge lighter under the pointer; the keyboard's cyan ring two pixels out; quieter while it cannot be used. The
+    picture keeps TICK_RING_ROOM round the track for the ring. Returns an RGBA picture."""
+    k = SS
+    room = int(round(TICK_RING_ROOM * scale))
+    width, height = int(round(42 * scale)), int(round(24 * scale))
+    tw, th = (width + 2 * room) * k, (height + 2 * room) * k
+    img = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    x0, y0, x1, y1 = room * k, room * k, (room + width) * k - 1, (room + height) * k - 1
+    r = (y1 - y0) / 2.0
+    e = max(1, int(round(scale))) * k
+    colours = colours or theme.SECTION_COLOURS["technika"]
+    if state == "disabled":
+        track, edge, knob_colour = theme.SLOT_OFF, theme.SLOT_OFF_EDGE, theme.RAIL_UP
+    elif on:
+        track, edge, knob_colour = colours["fill"], colours["fill"], colours["ink"]
+    else:
+        track = theme.FIELD
+        edge = theme.TICK_EDGE_HOVER if state == "hover" else theme.SLOT_EDGE_HOVER
+        knob_colour = theme.MUTED
+    draw.rounded_rectangle([x0, y0, x1, y1], radius=r, fill=_rgb(track) + (255,), outline=_rgb(edge) + (255,), width=e)
+    # The knob: 14 px across, its middle 11 px in from the track's end.
+    d = 14 * scale * k
+    middle_x = (x1 - 11 * scale * k) if on else (x0 + 11 * scale * k)
+    middle_y = (y0 + y1) / 2.0
+    draw.ellipse([middle_x - d / 2, middle_y - d / 2, middle_x + d / 2, middle_y + d / 2], fill=_rgb(knob_colour) + (255,))
+    if focused:
+        ring = max(1, int(round(2 * scale))) * k
+        gap = max(1, int(round(2 * scale))) * k
+        draw.rounded_rectangle([x0 - gap - ring, y0 - gap - ring, x1 + gap + ring, y1 + gap + ring],
+                               radius=r + gap + ring, outline=_rgb(theme.CYAN) + (255,), width=ring)
+    return img.resize((width + 2 * room, height + 2 * room), Image.LANCZOS)
+
+
+def slider_knob(scale=1.0, state="normal", focused=False):
+    """A slider's knob (FORMS.md): 10 by 22, chalk, standing upright, a pixel of ink round it and a soft shadow under
+    it; white under the pointer; the metal while it cannot be used; the keyboard's cyan ring round it. The picture
+    keeps 4 logical pixels round the knob for the ring and the shadow. Returns an RGBA picture."""
+    k = SS
+    room = 4
+    w, h = int(round((10 + 2 * room) * scale)), int(round((22 + 2 * room) * scale))
+    img = Image.new("RGBA", (w * k, h * k), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    x0, y0 = room * scale * k, room * scale * k
+    x1, y1 = x0 + 10 * scale * k - 1, y0 + 22 * scale * k - 1
+    # The shadow: a pixel down, a little wider, at 60 %.
+    draw.rounded_rectangle([x0 - k, y0 + 1 * scale * k, x1 + k, y1 + 2 * scale * k], radius=2 * k,
+                           fill=(0, 0, 0, 150))
+    face = {"normal": theme.TEXT, "hover": "#ffffff", "disabled": theme.RAIL_UP}[state]
+    draw.rounded_rectangle([x0, y0, x1, y1], radius=1 * scale * k, fill=_rgb(face) + (255,),
+                           outline=_rgb(theme.INK) + (255,), width=max(k, int(round(scale * k))))
+    if focused:
+        ring = max(1, int(round(2 * scale))) * k
+        draw.rounded_rectangle([x0 - ring, y0 - ring, x1 + ring, y1 + ring], radius=2 * k,
+                               outline=_rgb(theme.CYAN) + (255,), width=ring)
+    return img.resize((w, h), Image.LANCZOS)
+
+
+def busy_stripes(width, height, phase, scale=1.0):
+    """The game's moving stripes over a key at work (FORMS.md's busy key): white bands 7 px wide every 14 px leaning
+    at 60 degrees, at 16 %, shifted `phase` (0 to 1) along one period. Returns an RGBA picture to lay over the key's
+    face."""
+    k = 2
+    w, h = width * k, height * k
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    period = 14 * scale * k
+    band = 7 * scale * k
+    lean = h * 0.577  # tan(30 degrees): the bands lean at 60 degrees from the key's foot
+    shift = phase * period
+    x = -lean - period + shift
+    while x < w + period:
+        draw.polygon([(x, h), (x + band, h), (x + band + lean, 0), (x + lean, 0)], fill=(255, 255, 255, 41))
+        x += period
+    return img.resize((width, height), Image.LANCZOS)
+
+
+def busy_frames(face, scale=1.0, count=8):
+    """A key at work (FORMS.md's busy key): its own face a little dimmer, with the game's moving stripes over it inside
+    its leaning outline, as `count` pictures one period apart, to be shown in turn. `face` is the key's face at rest
+    (button_face, margin 0). Returns RGB pictures."""
+    w, h = face.size
+    shape = _mask((w, h), lambda d, s: d.polygon(lean_outline(0, 0, w * s, h * s), fill=255))
+    dim = Image.eval(face.convert("RGB"), lambda v: int(v * 0.92))
+    base = face.convert("RGB").copy()
+    base.paste(dim, (0, 0), shape)
+    frames = []
+    for i in range(count):
+        stripes = busy_stripes(w, h, i / float(count), scale)
+        alpha = Image.composite(stripes.getchannel("A"), Image.new("L", (w, h), 0), shape)
+        frame = base.copy()
+        frame.paste(Image.new("RGB", (w, h), (255, 255, 255)), (0, 0), alpha)
+        frames.append(frame)
+    return frames
 
 
 def toggle(on, width, height, enabled=True, colour=None, knob=None):
@@ -510,10 +760,11 @@ def knob(size, colour=theme.TEXT, ring=theme.BLUE):
     return img.resize((size, size), Image.LANCZOS)
 
 
-def lamp(colour, lit=True, scale=1.0):
+def lamp(colour, lit=True, scale=1.0, size=(13, 10)):
     """A small leaning light beside a line: filled when lit, an outline when not. It says how a check stands
-    (fine, will change, problem) and which row of a list is the chosen one. Returns an RGBA picture."""
-    width, height = int(round(13 * scale)), int(round(10 * scale))
+    (fine, will change, problem) and which row of a list is the chosen one; a smaller one (`size`, logical pixels)
+    before a field's error (FORMS.md's 7 px lamp). Returns an RGBA picture."""
+    width, height = int(round(size[0] * scale)), int(round(size[1] * scale))
     w, h = width * SS, height * SS
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -525,32 +776,42 @@ def lamp(colour, lit=True, scale=1.0):
     return img.resize((width, height), Image.LANCZOS)
 
 
-def choice_row(texts, chosen, hover, colours, scale=1.0):
-    """A row of choices of which one is on, set as the game sets its plates side by side: every choice a leaning
-    slab, the chosen one striped in the section's colour (like PLAY), the others quiet
-    metal with grey words, lighter under the pointer.
+def choice_row(texts, chosen, hover, colours, scale=1.0, focused=None, enabled=True):
+    """A row of 2 to 4 choices of which one is on (FORMS.md's segmented keys): the game's leaning keys side by side, 2
+    px apart, 34 px tall, the metal with words in the ash's grey, the metal's lighter shade with chalk words under the
+    pointer, the chosen one filled in the section's colour with its ink; the keyboard's cyan two pixels inside the key
+    it is on (`focused`); quieter while it cannot be used.
 
-    texts: the words; chosen, hover: indexes (hover may be None). Returns (an RGBA picture, each choice's left and
-    right edge in it at half its height, for telling which one a click is on).
+    texts: the words; chosen, hover, focused: indexes (hover and focused may be None). Returns (an RGBA picture, each
+    choice's left and right edge in it at half its height, for telling which one a click is on).
     """
     font = ImageFont.truetype(theme.TEXT_BOLD_FILE, int(round(13.33 * scale)))
-    height = int(round(30 * scale))
-    pad, gap = int(round(13 * scale)), int(round(3 * scale))
+    height = int(round(34 * scale))
+    pad, gap = int(round(18 * scale)), int(round(2 * scale))
     lean = int(height * LEAN)
     widths = [int(font.getlength(text)) + 2 * pad + lean for text in texts]
-    # Each slab starts where the one before ends less the lean: their slanted ends run side by side, a gap apart.
+    # Each key starts where the one before ends less the lean: their slanted ends run side by side, a gap apart.
     total = sum(w - lean + gap for w in widths) - gap + lean
     img = Image.new("RGBA", (total, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     x, edges = 0, []
     for i, (text, w) in enumerate(zip(texts, widths)):
-        if i == chosen:
-            plate = striped_plate(w, height, colours["fill"], colours["accent"], colours["deep"])
-            colour = colours["ink"]
+        if not enabled:
+            fill, colour = (theme.RAIL_UP if i == chosen else theme.SLOT_OFF), theme.FAINT
+        elif i == chosen:
+            fill, colour = colours["fill"], colours["ink"]
         elif i == hover:
-            plate, colour = plain_plate(w, height, theme.RAIL_UP, top="#5a6573"), theme.TEXT
+            fill, colour = theme.RAIL_UP, theme.TEXT
         else:
-            plate, colour = plain_plate(w, height, theme.RAIL, top=theme.RAIL_UP), theme.MUTED
+            fill, colour = theme.RAIL, theme.MUTED
+        plate = plain_plate(w, height, fill)
+        if i == focused and enabled:
+            # The keyboard's ring, two pixels inside the key's own outline.
+            ring = Image.new("RGBA", (w * SS, height * SS), (0, 0, 0, 0))
+            points = lean_outline(0, 0, w * SS - 1, height * SS - 1, grow=-3 * scale * SS)
+            ImageDraw.Draw(ring).line(points + points[:2], fill=_rgb(theme.CYAN) + (255,),
+                                      width=max(SS, int(round(2 * scale * SS))))
+            plate.alpha_composite(ring.resize((w, height), Image.LANCZOS))
         img.alpha_composite(plate, (x, 0))
         draw.text((x + w / 2, height / 2), text, font=font, fill=_rgb(colour) + (255,), anchor="mm")
         edges.append((x + lean // 2, x + w - lean // 2))

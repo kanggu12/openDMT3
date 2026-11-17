@@ -288,21 +288,13 @@ def build_controls(app, parent):
             app.changed("cursor", value == "mouse")
             sections.redo("input")
 
-        made = card(holder, ui, w("controls.device"))
+        made = card(holder, ui, w("controls.device"), last=True)
         _row(made, ui, w("controls.input"),
              lambda p: widgets.Segmented(p, ui, [("mouse", w("controls.input.mouse")),
                                                  ("touch", w("controls.input.touch"))], device, set_device),
              w("controls.input.hint." + device), first=True)
 
-    def in_game_card(holder):
-        made = card(holder, ui, w("controls.ingame"), last=True)
-        for i, key in enumerate(("controls.tap", "controls.drag", "controls.hold", "controls.edge")):
-            if i:
-                widgets.divider(made.body, ui, pady=8)
-            widgets.label(made.body, ui, w(key), wrap_margin=0).pack(fill="x")
-
     sections.add("input", device_card)
-    sections.add("ingame", in_game_card)
 
 
 # ---------------------------------------------------------------------------------------------- Game
@@ -504,6 +496,9 @@ def send_song_list(app):
 
     def done(answer, error):
         if error is not None:
+            if getattr(error, "code", None) == "sign_in":
+                # The server no longer takes the sign-in: forgotten, as everywhere a call is refused so.
+                app.token_refused()
             dialogs.tell(app, "error", w("songlist.send.title"), w("songlist.not_sent"), w.error(error))
             return
         songs = ((answer.get("song_list") or {}).get("songs") or {}).get("count", 0)

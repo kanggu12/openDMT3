@@ -111,13 +111,14 @@ class Dialog:
     (the launcher's own window by default)."""
 
     def __init__(self, root, ui, kind, title, message, detail=None, buttons=(), default=0, cancel=None,
-                 window=None, on_close=None, progress=False, field=None, link=None, status=None):
+                 window=None, on_close=None, progress=False, field=None, link=None, status=None, field_error=None):
         self.root, self.ui = root, ui
         self.style = KINDS[kind]
         self.title, self.message, self.detail = title, message, detail
         self.buttons = list(buttons)
-        # A text field in the panel (a password: its words hidden), whose words the main button takes (value).
-        self.field, self.value, self._entry = field, "", None
+        # A text field in the panel (a password: its words hidden), whose words the main button takes (value), and what
+        # is wrong with what was typed there last, under it (FORMS.md: the problem's lamp, then the words).
+        self.field, self.value, self._entry, self.field_error = field, "", None, field_error
         # A line under the words that does something when clicked: (words, function), Another folder... and the like.
         self.link = link
         # Work under way that knows how far it is: the share done (None: not known yet, the light sweeps) and a line
@@ -180,9 +181,25 @@ class Dialog:
             y = c.bbox(link)[3]
         field = None
         if self.field:
+            from opendmt3.client import widgets
             y += px(16)
-            field = (px(PAD), y, panel_w - 2 * px(PAD), px(34))
-            y += px(34)
+            height = px(widgets.Field.HEIGHTS["md"])
+            field = (px(PAD), y, panel_w - 2 * px(PAD), height)
+            y += height
+            if self.field_error:
+                # What is wrong with the last try, right under the field: the problem's small lamp and the words in
+                # the pink that reads, from the field's left edge.
+                y += px(6)
+                lamp = art.lamp(theme.PINK, True, self.ui.scale, (9, 7))
+                self._error_lamp = ImageTk.PhotoImage(lamp, master=c)
+                words = c.create_text(px(PAD) + lamp.width + px(8), y, text=self.field_error, font=fonts.small,
+                                      fill=theme.BAD_INK, anchor="nw", width=text_w - lamp.width - px(8),
+                                      tags=("card", "words", "field_error"))
+                line = fonts.small.metrics("linespace")
+                # Raised with the words over the panel's picture, which is drawn after the layout.
+                c.create_image(px(PAD), y + (line - lamp.height) // 2, image=self._error_lamp, anchor="nw",
+                               tags=("card", "words", "field_error"))
+                y = c.bbox(words)[3]
         y += px(28)
         if self.progress:
             track = (px(PAD), y + px(BUTTON) // 2 - px(3), panel_w - px(PAD), y + px(BUTTON) // 2 + px(3))

@@ -638,6 +638,8 @@ def follow_width(ui, widget, margin=0, beside=()):
         # What the label wraps at now, in pixels (Tk hands a screen distance back as it was given).
         now = widget.winfo_pixels(str(widget.cget("wraplength")))
         wrap = wrap_width(room, now)
+        # Told its real room at least once (the UI run checks every wrapping label was).
+        widget.opendmt3_wrap_set = True
         if wrap != now:
             # Only a real change: setting the same width again would still ask the box to lay itself out.
             widget.configure(wraplength=wrap)
@@ -646,6 +648,7 @@ def follow_width(ui, widget, margin=0, beside=()):
     # then come from the label instead of the page. Narrow first, the box takes the page's width, then the
     # label grows into it.
     widget.configure(wraplength=ui.px(START_WRAP))
+    widget.opendmt3_wrap_set = False
     master.bind("<Configure>", update, add="+")
     widget.after_idle(update)
 
@@ -686,12 +689,15 @@ class Button(tk.Canvas):
     """
 
     LOOKS = {"secondary": "neutral", "danger": "danger_quiet"}
-    # Its height (logical pixels): a page's buttons, and the smaller ones a card has at its title's right end (Check
-    # again), which stand in the title tab's row as the site's small buttons stand in a table's.
-    HEIGHTS = {"normal": 34, "small": 26}
+    # Its height (logical pixels): a page's buttons, the smaller ones a card has at its title's right end (Check
+    # again), which stand in the title tab's row as the site's small buttons stand in a table's, and a form's keys, as
+    # tall as its fields (FORMS.md: "md" beside a page's field, "lg" the sign-in's).
+    HEIGHTS = {"normal": 34, "small": 26, "md": 42, "lg": 48}
 
-    def __init__(self, parent, ui, text, command, kind="secondary", size="normal"):
+    def __init__(self, parent, ui, text, command, kind="secondary", size="normal", fill=False):
         self.ui, self.bg, self.size = ui, parent.cget("bg"), size
+        # `fill`: as wide as its box gives it (the sign-in's key across its form), its face drawn again for the width.
+        self.fill, self._drawn_width = fill, None
         # The section the page belongs to, taken now: a main button keeps its page's colour.
         self.section_name = ui.section_name
         super().__init__(parent, bg=self.bg, highlightthickness=0, bd=0, cursor="hand2", takefocus=1)
@@ -708,6 +714,14 @@ class Button(tk.Canvas):
         self.bind("<Leave>", lambda e: self._paint("normal" if self.enabled else "disabled"))
         self.bind("<ButtonPress-1>", lambda e: self.enabled and self._paint("pressed"))
         self.bind("<ButtonRelease-1>", self._click)
+        if fill:
+            self.bind("<Configure>", lambda e: self._fill(e.width), add="+")
+
+    def _fill(self, width):
+        """As wide as its box: the faces drawn again at the new width (the words stay in its middle)."""
+        if width > 1 and width != self._drawn_width:
+            words, self.words = self.words, None
+            self.set_text(words, width)
 
     def _take_look(self, kind):
         """The kind's look (a main button in its page's section's colour) and its words' colour in each state."""
@@ -726,17 +740,27 @@ class Button(tk.Canvas):
         words, self.words = self.words, None
         self.set_text(words)
 
-    def set_text(self, text):
-        """Show other words (the guide's last Next becomes PLAY): the button takes the width they need."""
+    def set_text(self, text, width=None):
+        """Show other words (the guide's last Next becomes PLAY): the button takes the width they need (or `width`,
+        when it fills its box)."""
         if text == self.words:
             return
         self.words = text
         fonts, px = self.ui.fonts, self.ui.px
         height = px(self.HEIGHTS[self.size])
+        font = fonts.button_lg if self.size == "lg" else fonts.body_bold
         # The ends lean, so the words keep their distance from the slope, not from the box: half the lean more.
-        side = px(14 if self.size == "normal" else 10) + int(height * art.LEAN) // 2
-        width = fonts.body_bold.measure(text) + 2 * side
-        self.configure(width=width, height=height)
+        side = px(14 if self.size in ("normal", "md", "lg") else 10) + int(height * art.LEAN) // 2
+        need = font.measure(text) + 2 * side
+        if width is None and self.fill and self._drawn_width:
+            width = self._drawn_width
+        width = max(need, width or 0)
+        self._drawn_width = width if self.fill else None
+        if self.fill:
+            # Its own width stays the words' need: the box it fills gives it the rest.
+            tk.Canvas.configure(self, width=need, height=height)
+        else:
+            self.configure(width=width, height=height)
         self.delete("all")
         self.faces = {state: art.button_face((width, height), 0, self.look, state, False, self.ui.scale, bg=self.bg)
                       for state in ("normal", "hover", "pressed", "disabled")}
@@ -744,13 +768,14 @@ class Button(tk.Canvas):
         # The faces with the focus ring are made the first time the button gets the focus.
         self.focused_faces, self.focused_images = None, None
         self.face = self.create_image(0, 0, image=self.images["normal"], anchor="nw")
-        self.label = self.create_text(width // 2, height // 2, text=text, font=fonts.body_bold, anchor="center")
+        self.label = self.create_text(width // 2, height // 2, text=text, font=font, anchor="center")
         self._paint(self.state if self.enabled else "disabled")
 
     def _focus(self, on):
         self.focused = on
         if on and self.focused_faces is None:
-            width, height = int(self.cget("width")), int(self.cget("height"))
+            # The width it is drawn at: its words' need, or its box's when it fills one.
+            width, height = self._drawn_width or int(self.cget("width")), int(self.cget("height"))
             self.focused_faces = {state: art.button_face((width, height), 0, self.look, state, True, self.ui.scale,
                                                          bg=self.bg) for state in self.faces}
             self.focused_images = {state: ImageTk.PhotoImage(face, master=self)
@@ -785,41 +810,157 @@ class Button(tk.Canvas):
         self.configure(cursor="hand2" if on else "arrow")
         self._paint("normal" if on else "disabled")
 
+    # How long each of the busy stripes' pictures shows (ms): one period in 0.7 s, as the site's.
+    BUSY_STEP = 88
+
+    def busy(self, on):
+        """At work (FORMS.md's busy key): its words stay, the game's moving stripes run over its face, the pointer
+        waits, and it cannot be pressed until the answer comes; off, it is itself again."""
+        self.busy_now = bool(on)
+        if on:
+            self.enabled = False
+            self.configure(cursor="watch")
+            width = self._drawn_width or int(self.cget("width"))
+            face = self.faces["normal"]
+            if face.size[0] != width:
+                face = face.resize((width, face.size[1]))
+            self._busy_frames = [ImageTk.PhotoImage(frame, master=self) for frame in art.busy_frames(face, self.ui.scale)]
+            self._busy_step(0)
+        else:
+            job = getattr(self, "_busy_job", None)
+            if job is not None:
+                self.after_cancel(job)
+                self._busy_job = None
+            self.enable(True)
+
+    def _busy_step(self, i):
+        if not getattr(self, "busy_now", False) or not self.winfo_exists():
+            return
+        frame = self._busy_frames[i % len(self._busy_frames)]
+        self.itemconfigure(self.face, image=frame)
+        self.itemconfigure(self.label, fill=self.text_colour["normal"])
+        self._busy_job = self.after(self.BUSY_STEP, lambda: self._busy_step(i + 1))
+
 
 class Toggle(tk.Label):
-    """An on/off switch, on its parent's colour unless told; command(new_value) runs after each click."""
+    """A switch (FORMS.md, art.switch): on or off at once, round (only switches, lamps and badges are); off, the slot
+    with the knob in the ash's grey, on, the track in the page's section's colour with the knob in its ink; its edge
+    lighter under the pointer, the keyboard's cyan ring two pixels out once Tab has reached it; Space or Enter flips
+    it. On its parent's colour unless told; command(new_value) runs after each change."""
 
     def __init__(self, parent, ui, value, command, bg=None):
         bg = bg or parent.cget("bg")
-        # A two-pixel ring in the background colour, cyan while it has the keyboard's focus.
-        super().__init__(parent, bg=bg, cursor="hand2", bd=0, takefocus=1, highlightthickness=2,
-                         highlightbackground=bg, highlightcolor=theme.CYAN)
+        super().__init__(parent, bg=bg, cursor="hand2", bd=0, takefocus=1, highlightthickness=0)
         self.ui, self.value, self.command = ui, bool(value), command
-        size = (ui.px(42), ui.px(23))
-        # Both pictures are made once; a click only swaps them.
-        colour = ui.section["fill"]
-        self.pictures = {True: art.toggle(True, *size, colour=colour, knob=ui.section["ink"]),
-                         False: art.toggle(False, *size)}
-        self.images = {on: ImageTk.PhotoImage(p, master=parent) for on, p in self.pictures.items()}
-        self.configure(image=self.images[self.value])
-        # A dialog draws the window behind it from the widgets (snapshot.py): this is the switch's part.
-        self.opendmt3_picture = self.pictures[self.value]
-        self.bind("<Button-1>", lambda e: self.set(not self.value, notify=True))
-        # The keyboard: Tab brings the focus (the cyan ring around it), Space or Enter flips it.
+        self.colours = ui.section
+        # Where the track's visible edge starts inside the picture (the ring's room): setting rows line it up.
+        self.opendmt3_inset = ui.px(art.TICK_RING_ROOM)
+        self.over, self.focused, self.enabled = False, False, True
+        self.pictures = {}
+        self.bind("<Button-1>", lambda e: self.enabled and self.set(not self.value, notify=True))
         for key in ("<space>", "<Return>", "<KP_Enter>"):
-            self.bind(key, lambda e: self.set(not self.value, notify=True))
+            self.bind(key, lambda e: self.enabled and self.set(not self.value, notify=True))
+        self.bind("<Enter>", lambda e: self._paint(over=True))
+        self.bind("<Leave>", lambda e: self._paint(over=False))
+        self.bind("<FocusIn>", lambda e: self._paint(focused=True))
+        self.bind("<FocusOut>", lambda e: self._paint(focused=False))
+        self._paint()
+
+    def _paint(self, over=None, focused=None):
+        if over is not None:
+            self.over = over
+        if focused is not None:
+            self.focused = focused
+        state = "disabled" if not self.enabled else ("hover" if self.over else "normal")
+        look = (self.value, state, self.focused)
+        if look not in self.pictures:
+            picture = art.switch(self.value, state, self.ui.scale, self.colours, self.focused)
+            self.pictures[look] = (picture, ImageTk.PhotoImage(picture, master=self))
+        # A dialog draws the window behind it from the widgets (snapshot.py): this is the switch's part.
+        self.opendmt3_picture, image = self.pictures[look]
+        self.configure(image=image)
 
     def set(self, value, notify=False):
         self.value = bool(value)
-        self.configure(image=self.images[self.value])
-        self.opendmt3_picture = self.pictures[self.value]
+        self._paint()
         if notify:
             self.command(self.value)
 
+    def enable(self, on):
+        self.enabled = bool(on)
+        self.configure(cursor="hand2" if on else "arrow", takefocus=1 if on else 0)
+        self._paint()
+
+
+class Tick(tk.Frame):
+    """A line with a tick box (FORMS.md, art.tick_box): the box, then its words in the text's own size and ink;
+    ticked in the page's section's colour with the tick in its ink; the box's edge lighter under the pointer; the
+    keyboard's cyan ring round the box once Tab has reached it; Space or Enter, or a click on the box or the words,
+    ticks it or takes the tick away. A tick goes with its form's key (nothing happens until the form is sent).
+    `value` is whether it is ticked; command(value) after each change, if given."""
+
+    def __init__(self, parent, ui, text, value=False, command=None, bg=None):
+        bg = bg or parent.cget("bg")
+        super().__init__(parent, bg=bg)
+        self.ui, self.value, self.command = ui, bool(value), command
+        self.colours = ui.section
+        self.over, self.focused, self.enabled = False, False, True
+        self.pictures = {}
+        self.box = tk.Label(self, bg=bg, bd=0, highlightthickness=0, takefocus=1, cursor="hand2")
+        self.box.pack(side="left")
+        self.words = tk.Label(self, text=text, font=ui.fonts.body, fg=theme.TEXT, bg=bg, cursor="hand2", padx=0,
+                              pady=0)
+        # The box's ring room is part of its picture: the words keep 10 px from the box itself.
+        self.words.pack(side="left", padx=(ui.px(10) - ui.px(art.TICK_RING_ROOM), 0))
+        self.opendmt3_inset = ui.px(art.TICK_RING_ROOM)
+        for part in (self.box, self.words):
+            part.bind("<Button-1>", lambda e: self.flip())
+            part.bind("<Enter>", lambda e: self._paint(over=True))
+            part.bind("<Leave>", lambda e: self._paint(over=False))
+        for key in ("<space>", "<Return>", "<KP_Enter>"):
+            self.box.bind(key, lambda e: self.flip())
+        self.box.bind("<FocusIn>", lambda e: self._paint(focused=True))
+        self.box.bind("<FocusOut>", lambda e: self._paint(focused=False))
+        self._paint()
+
+    def flip(self):
+        if self.enabled:
+            self.value = not self.value
+            self.box.focus_set()
+            self._paint()
+            if self.command:
+                self.command(self.value)
+        return "break"
+
+    def set(self, value):
+        self.value = bool(value)
+        self._paint()
+
+    def enable(self, on):
+        self.enabled = bool(on)
+        self.words.configure(fg=theme.TEXT if on else theme.FAINT)
+        self.box.configure(takefocus=1 if on else 0)
+        self._paint()
+
+    def _paint(self, over=None, focused=None):
+        if over is not None:
+            self.over = over
+        if focused is not None:
+            self.focused = focused
+        state = "disabled" if not self.enabled else ("hover" if self.over else "normal")
+        look = (self.value, state, self.focused)
+        if look not in self.pictures:
+            picture = art.tick_box(self.value, state, self.ui.scale, self.colours, self.focused)
+            self.pictures[look] = (picture, ImageTk.PhotoImage(picture, master=self))
+        picture, image = self.pictures[look]
+        self.box.opendmt3_picture = picture
+        self.box.configure(image=image)
+
 
 class Segmented(tk.Label):
-    """A row of choices of which one is on, set as the game sets its plates side by side (art.choice_row): the
-    chosen one is the striped plate in the section's colour, as PLAY is striped.
+    """A row of 2 to 4 choices of which one is on (FORMS.md's segmented keys, art.choice_row): the game's leaning keys
+    side by side, the chosen one filled in the page's section's colour; the metal's lighter shade under the pointer;
+    once Tab has reached it, the keyboard's cyan two pixels inside the chosen key, and the arrows move the choice.
 
     options: (key, words) pairs; command(key) runs after a click or an arrow key changes the choice.
     """
@@ -827,40 +968,47 @@ class Segmented(tk.Label):
     def __init__(self, parent, ui, options, value, command, bg=None):
         # On its parent's colour unless told (a card's, or the page's).
         bg = bg or parent.cget("bg")
-        # A two-pixel ring in the background colour, cyan while it has the keyboard's focus (as the switches).
-        super().__init__(parent, bg=bg, cursor="hand2", bd=0, takefocus=1, anchor="nw", highlightthickness=2,
-                         highlightbackground=bg, highlightcolor=theme.CYAN)
+        super().__init__(parent, bg=bg, cursor="hand2", bd=0, takefocus=1, anchor="nw", highlightthickness=0)
         self.ui, self.command, self.options, self.value = ui, command, list(options), value
-        # The pictures are made as they are first shown: one for each (chosen, pointed at) pair.
-        self.hover, self.edges, self.pictures = None, [], {}
+        self.colours = ui.section
+        # The pictures are made as they are first shown: one for each (chosen, pointed at, ring) look.
+        self.hover, self.focused, self.edges, self.pictures = None, False, [], {}
         self.bind("<Button-1>", self._click)
         self.bind("<Motion>", lambda e: self._point(self._at(e.x, e.y)))
         self.bind("<Leave>", lambda e: self._point(None))
-        # The keyboard: Tab brings the focus (the cyan ring), the arrows move the choice.
+        # The keyboard: Tab brings the ring to the chosen key, the arrows move the choice.
         self.bind("<Left>", lambda e: self._step(-1))
         self.bind("<Right>", lambda e: self._step(1))
+        self.bind("<Home>", lambda e: self._step(-len(self.options)))
+        self.bind("<End>", lambda e: self._step(len(self.options)))
+        self.bind("<FocusIn>", lambda e: self._ring(True))
+        self.bind("<FocusOut>", lambda e: self._ring(False))
+        self._paint()
+
+    def _ring(self, on):
+        self.focused = on
         self._paint()
 
     def _paint(self):
         keys = [key for key, _ in self.options]
-        look = (keys.index(self.value) if self.value in keys else None, self.hover)
+        chosen = keys.index(self.value) if self.value in keys else None
+        look = (chosen, self.hover, chosen if self.focused else None)
         if look not in self.pictures:
             picture, self.edges = art.choice_row([words for _, words in self.options], look[0], look[1],
-                                                 self.ui.section, self.ui.scale)
+                                                 self.colours, self.ui.scale, focused=look[2])
             self.pictures[look] = (picture, ImageTk.PhotoImage(picture, master=self))
         # A dialog draws the window behind it from the widgets (snapshot.py): this is the row's part.
         self.opendmt3_picture, image = self.pictures[look]
         self.configure(image=image)
 
     def _at(self, x, y):
-        """Which choice a point of the label is on: the plates lean, so the line between two of them does too."""
-        ring = int(self.cget("highlightthickness"))
+        """Which choice a point of the label is on: the keys lean, so the line between two of them does too."""
         height = self.opendmt3_picture.height
         # The same point moved along the slope to half the height, where the edges were measured.
-        x = (x - ring) + art.LEAN * ((y - ring) - height / 2)
+        x = x + art.LEAN * (y - height / 2)
         for i, (left, right) in enumerate(self.edges):
-            # Up to the middle of the gap after a plate counts as that plate: no dead line between two choices.
-            if x < right + self.ui.px(2) or i == len(self.edges) - 1:
+            # Up to the middle of the gap after a key counts as that key: no dead line between two choices.
+            if x < right + self.ui.px(1) or i == len(self.edges) - 1:
                 return i
 
     def _point(self, index):
@@ -878,6 +1026,7 @@ class Segmented(tk.Label):
         to = min(len(keys) - 1, max(0, at + by))
         if keys[to] != self.value:
             self.set(keys[to], notify=True)
+        return "break"
 
     def set(self, value, notify=False):
         self.value = value
@@ -887,8 +1036,11 @@ class Segmented(tk.Label):
 
 
 class Slider(tk.Frame):
-    """A slider from `low` to `high` (0 to 100 unless given) with its number beside it, `unit` after the number (" ms",
-    say); command(value) runs when the drag ends."""
+    """A slider (FORMS.md) from `low` to `high` (0 to 100 unless given): a 4 px track filled from its start in the
+    page's section's colour, an upright chalk knob (art.slider_knob), white under the pointer, and the value at its
+    right in figures of one width, `unit` after the number (" ms", say). A drag or a click moves it; once Tab has
+    reached it (the cyan ring round the knob) the arrows step it by one, Page Up and Page Down by a tenth, Home and End
+    to its ends. command(value) runs when the drag ends, and after each key."""
 
     def __init__(self, parent, ui, value, command, bg=None, width=320, low=0, high=100, unit=""):
         # On its parent's colour unless told (a card's, or the page's).
@@ -897,22 +1049,44 @@ class Slider(tk.Frame):
         self.ui, self.command, self.value = ui, command, int(value)
         # The range the track spans, and what the number says after itself.
         self.low, self.high, self.unit = int(low), int(high), unit
-        self.w, self.h = ui.px(width), ui.px(26)
+        self.w, self.h = ui.px(width), ui.px(34)
         self.colour = ui.section["accent"]
-        self.knob_img = ImageTk.PhotoImage(art.knob(ui.px(18), ring=self.colour), master=parent)
-        self.canvas = tk.Canvas(self, width=self.w, height=self.h, bg=bg, highlightthickness=0, cursor="hand2")
+        self.over, self.focused = False, False
+        self.knobs = {(state, ring): ImageTk.PhotoImage(art.slider_knob(ui.scale, state, ring), master=parent)
+                      for state in ("normal", "hover") for ring in (False, True)}
+        self.canvas = tk.Canvas(self, width=self.w, height=self.h, bg=bg, highlightthickness=0, cursor="hand2",
+                                takefocus=1)
         self.canvas.pack(side="left")
-        # Room for the largest number and the unit, so the label never changes width as the knob moves.
-        room = max(4, len(str(self.high)) + 1) + len(unit)
-        self.number = tk.Label(self, text="", font=ui.fonts.body_bold, fg=theme.TEXT, bg=bg, width=room, anchor="e")
-        self.number.pack(side="left", padx=(ui.px(10), 0))
-        self.canvas.bind("<Button-1>", self._drag)
+        # Room for the largest number and the unit, so the label never changes width as the knob moves; the figures
+        # stand at its right end, and every slider of a page keeps the same room (7 characters: "+12 dB", "500 ms"),
+        # so their numbers end on one line.
+        room = max(7, len(str(self.high)) + 1 + len(unit))
+        self.number = tk.Label(self, text="", font=ui.fonts.body, fg=theme.TEXT, bg=bg, width=room, anchor="e",
+                               padx=0, pady=0)
+        self.number.pack(side="left", padx=(ui.px(14), 0))
+        # A press takes the keyboard too (its ring round the knob), so the arrows go on from where the pointer left it.
+        self.canvas.bind("<Button-1>", lambda e: (self.canvas.focus_set(), self._drag(e)))
         self.canvas.bind("<B1-Motion>", self._drag)
         self.canvas.bind("<ButtonRelease-1>", lambda e: self.command(self.value))
+        self.canvas.bind("<Enter>", lambda e: self._look(over=True))
+        self.canvas.bind("<Leave>", lambda e: self._look(over=False))
+        self.canvas.bind("<FocusIn>", lambda e: self._look(focused=True))
+        self.canvas.bind("<FocusOut>", lambda e: self._look(focused=False))
+        step = max(1, (self.high - self.low) // 10)
+        for key, by in (("<Left>", -1), ("<Right>", 1), ("<Down>", -1), ("<Up>", 1), ("<Prior>", step),
+                        ("<Next>", -step), ("<Home>", self.low - self.high), ("<End>", self.high - self.low)):
+            self.canvas.bind(key, lambda e, by=by: self._step(by))
+        self._draw()
+
+    def _look(self, over=None, focused=None):
+        if over is not None:
+            self.over = over
+        if focused is not None:
+            self.focused = focused
         self._draw()
 
     def _x(self, value):
-        """Where a value sits on the track (the knob's centre stays inside the canvas)."""
+        """Where a value sits on the track (the knob's middle stays inside the canvas)."""
         pad = self.ui.px(10)
         return pad + (self.w - 2 * pad) * (value - self.low) / float(max(1, self.high - self.low))
 
@@ -922,6 +1096,14 @@ class Slider(tk.Frame):
         # The nearest whole value on the track, never past either end.
         self.value = int(round(self.low + min(1.0, max(0.0, frac)) * (self.high - self.low)))
         self._draw()
+
+    def _step(self, by):
+        value = min(self.high, max(self.low, self.value + by))
+        if value != self.value:
+            self.value = value
+            self._draw()
+            self.command(self.value)
+        return "break"
 
     def _draw(self):
         c, mid = self.canvas, self.h // 2
@@ -935,7 +1117,7 @@ class Slider(tk.Frame):
             c.create_line(start, mid - self.ui.px(7), start, mid + self.ui.px(7), fill=theme.RAIL, width=self.ui.px(2))
         if self.value != 0 or not self.low < 0:
             c.create_line(start, mid, self._x(self.value), mid, fill=self.colour, width=thick, capstyle="round")
-        c.create_image(self._x(self.value), mid, image=self.knob_img)
+        c.create_image(self._x(self.value), mid, image=self.knobs[("hover" if self.over else "normal", self.focused)])
         # A value that goes both ways says its sign (+3 dB, -2 dB), as the in-game panel writes it.
         sign = "+" if self.low < 0 and self.value > 0 else ""
         self.number.configure(text=sign + str(self.value) + self.unit)
@@ -1011,9 +1193,10 @@ class Select(tk.Canvas):
         self.delete("all")
         picture = Image.new("RGB", (width, height), art._rgb(theme.FIELD))
         draw = ImageDraw.Draw(picture)
-        # The edge: cyan with the keyboard on it or while its list is open, lighter under the pointer, grey at rest.
-        edge = theme.CYAN if (self.focused or self.list is not None) else (theme.FAINT if self.over else theme.LINE)
-        draw.rectangle([0, 0, width - 1, height - 1], outline=art._rgb(edge))
+        # The slot's face (FORMS.md, as a field's): the keyboard's cyan two pixels wide with the keyboard on it or
+        # while its list is open, a step lighter under the pointer, the slot's edge at rest.
+        state = "focus" if (self.focused or self.list is not None) else ("hover" if self.over else "normal")
+        picture.paste(art.field_face(width, height, state, self.ui.scale), (0, 0))
         # The chevron at the right end, pointing down (up while the list is open over it).
         cx, cy, half = width - px(self.ARROW) // 2, height // 2, px(4)
         up = self.list is not None and self.list.above
@@ -1218,11 +1401,11 @@ def setting_row(parent, ui, title, control_factory, hint=None, bg=None):
     tk.Label(row, text=title, font=ui.fonts.body_bold, fg=theme.TEXT, bg=bg, anchor="w",
              width=0).grid(row=0, column=0, sticky="w", padx=(0, ui.px(LABEL_GAP)))
     control = control_factory(row)
-    # Every control's visible edge on one line: a switch and a row of choices keep their keyboard ring's room before
-    # what shows, so the others are set in by as much.
-    ring = 2
-    inset = int(str(control.cget("highlightthickness"))) if isinstance(control, (Toggle, Segmented)) else 0
-    control.grid(row=0, column=1, sticky="w", padx=(ring - inset, 0))
+    # Every control's visible edge on one line: a switch keeps its keyboard ring's room round its track inside its
+    # picture, so the others are set in by as much.
+    room = ui.px(art.TICK_RING_ROOM)
+    inset = getattr(control, "opendmt3_inset", 0)
+    control.grid(row=0, column=1, sticky="w", padx=(room - inset, 0))
     hint_label = None
     if hint:
         hint_label = label(row, ui, hint, font=ui.fonts.small, fg=theme.MUTED, bg=bg, wrap_margin=4)
@@ -1358,17 +1541,17 @@ class Lamp(tk.Label):
     """A small leaning light beside a line (art.lamp): filled when lit, an outline when not. `drop` is how far
     below a line's top it sits to stand in the middle of the first line of text."""
 
-    def __init__(self, parent, ui, colour, lit=True, bg=None):
+    def __init__(self, parent, ui, colour, lit=True, bg=None, size=(13, 10)):
         # On its parent's colour unless told (a card's, or the page's).
         bg = bg or parent.cget("bg")
         super().__init__(parent, bg=bg, bd=0, highlightthickness=0)
-        self.ui = ui
+        self.ui, self.size = ui, size
         self.show(colour, lit)
         self.drop = max(0, (ui.fonts.body.metrics("linespace") - self.opendmt3_picture.height + 1) // 2)
 
     def show(self, colour, lit=True):
         # A dialog draws the window behind it from the widgets (snapshot.py): this is the lamp's part.
-        self.opendmt3_picture = art.lamp(colour, lit, self.ui.scale)
+        self.opendmt3_picture = art.lamp(colour, lit, self.ui.scale, self.size)
         self.image = ImageTk.PhotoImage(self.opendmt3_picture, master=self)
         self.configure(image=self.image)
 
@@ -1406,112 +1589,447 @@ def check_note(parent, ui, text, problem=False, bg=None):
     return row
 
 
-def entry(parent, ui, width=18, secret=False):
-    """A text field in the theme: dark inside, a blue edge while typing. A password's field (`secret`) hides what is
-    typed and has Show at its right end to see it (SecretField)."""
-    if secret:
-        return SecretField(parent, ui, width)
-    field = tk.Entry(parent, width=width, font=ui.fonts.body, bg=theme.FIELD, fg=theme.TEXT, insertbackground=theme.TEXT,
-                     relief="flat", highlightthickness=1, highlightbackground=theme.LINE, highlightcolor=theme.CYAN)
-    return field
+# A field's typing in the launcher's colours: the selection in the metal's lighter shade, never Windows' blue.
+SELECTION = {"selectbackground": theme.RAIL_UP, "selectforeground": theme.TEXT, "selectborderwidth": 0}
 
 
-class SecretField(tk.Frame):
-    """A password's field: the dots of what is typed, and Show at its right end inside the same edge, which shows the
-    words until it is pressed again (Hide). Show takes the keyboard right after the field, as OpenDMTQ's does (Tab,
-    then Enter or Space presses it), and no key of its own shows the words. The field keeps what was typed and where
-    the cursor was. Used as a plain field is (get, insert, delete, bind, focus_set): the calls reach the field inside."""
+def entry(parent, ui, width=18, secret=False, placeholder=None, size="md"):
+    """A text field (Field): `width` characters wide, a password's dots and Show with `secret`, an example of what goes
+    there in faint grey while it is empty (`placeholder`)."""
+    return Field(parent, ui, width=width, secret=secret, placeholder=placeholder, size=size)
 
-    def __init__(self, parent, ui, width):
-        # The edge is the frame's: grey, cyan while the field or Show has the keyboard, as a plain field's.
-        super().__init__(parent, bg=theme.FIELD, highlightthickness=1, highlightbackground=theme.LINE,
-                         highlightcolor=theme.LINE)
-        self.ui, self.shown = ui, False
-        self.field = tk.Entry(self, width=width, font=ui.fonts.body, bg=theme.FIELD, fg=theme.TEXT,
-                              insertbackground=theme.TEXT, relief="flat", highlightthickness=0, show="\u2022")
-        self.field.pack(side="left", fill="both", expand=True)
-        # Show: quiet words at the right end, white under the pointer, a cyan ring with the keyboard on it.
-        self.toggle = tk.Label(self, text=ui.words("field.show"), font=ui.fonts.small, fg=theme.MUTED,
-                               bg=theme.FIELD, cursor="hand2", takefocus=1, padx=ui.px(8),
-                               highlightthickness=max(1, ui.px(1)), highlightbackground=theme.FIELD,
-                               highlightcolor=theme.CYAN)
-        self.toggle.pack(side="right", fill="y")
-        self.toggle.bind("<Button-1>", lambda e: self.flip())
-        # The keyboard on Show (Tab after the field): Enter or Space presses it, as a button.
-        for key in ("<Return>", "<KP_Enter>", "<space>"):
-            self.toggle.bind(key, lambda e: self.flip())
-        self.toggle.bind("<Enter>", lambda e: self.toggle.configure(fg=theme.TEXT))
-        self.toggle.bind("<Leave>", lambda e: self.toggle.configure(fg=theme.MUTED))
-        # The edge lights while the field or Show has the keyboard.
-        for part in (self.field, self.toggle):
-            part.bind("<FocusIn>", lambda e: self.configure(highlightbackground=theme.CYAN), add="+")
-            part.bind("<FocusOut>", lambda e: self.configure(highlightbackground=theme.LINE), add="+")
+
+class Field(tk.Canvas):
+    """The launcher's one text field (FORMS.md's slot), used by every form, dialog and step: a slot sunk into its
+    card (art.field_face), square, its edge in the state's colour: at rest, a step lighter under the pointer, the
+    keyboard's cyan two pixels wide while it is typed in, the problem's pink while what was typed there is refused
+    (set_error), quieter while it cannot be used (enable). Three heights (`size`, FORMS.md's launcher mapping): "md" a
+    page's (34 logical pixels, a page's buttons' height, so a row of fields and keys has one height), "sm" a table
+    row's (26, the small buttons'), "lg" the sign-in's (40: Button size "lg", the site's 48 door at the launcher's
+    scale). The
+    typing goes to a plain Tk entry in the slot's flat middle (`entry`: Windows' own typing, Korean input included); a
+    click anywhere on the face puts the caret there.
+
+    `secret`: a password's dots, and Show inside the slot's right end (a small quiet key, two corners cut), which shows
+    what was typed until it is pressed again (Hide, the key lit); Tab reaches it right after the field (its cyan
+    ring), Enter or Space presses it. `mark`: "person", "lock" or "search" at the slot's left end, faint, cyan while
+    the field is typed in. `placeholder`: an example in the faint grey while the field is empty and not typed in.
+    Used as a Tk entry is (get, insert, delete, bind, focus_set...): those calls reach the entry inside. Its width is
+    `width` characters, or what its box gives it (pack fill, grid sticky, a dialog's window): the face follows."""
+
+    # Its height, the room either side of the words, the key's room and its inset, the mark's size and room, by size
+    # (logical pixels).
+    HEIGHTS = {"sm": 26, "md": 34, "lg": 40}
+    PADS = {"sm": 8, "md": 10, "lg": 12}
+    KEY_INSET, KEY_MIN, MARK = 5, 56, {"sm": 14, "md": 16, "lg": 16}
+
+    def __init__(self, parent, ui, width=24, secret=False, placeholder=None, size="md", mark=None):
+        self.ui, self.bg, self.secret, self.size, self.mark_kind = ui, parent.cget("bg"), secret, size, mark
+        px = ui.px
+        super().__init__(parent, bg=self.bg, highlightthickness=0, bd=0, cursor="xterm", takefocus=0)
+        font = ui.fonts.field if size == "lg" else ui.fonts.body
+        self.entry = tk.Entry(self, width=width, font=font, bg=theme.FIELD, fg=theme.TEXT,
+                              insertbackground=theme.TEXT, relief="flat", bd=0, highlightthickness=0,
+                              disabledbackground=art.FIELD_FILLS["disabled"], disabledforeground=theme.FAINT,
+                              show="\u2022" if secret else "", **SELECTION)
+        self.focused, self.under, self.error, self.enabled, self.shown = False, False, False, True, False
+        self.height = px(self.HEIGHTS[size])
+        self.pad = px(self.PADS[size])
+        # The mark's room at the left: the mark and a step after it.
+        self.mark_room = (px(self.MARK[size]) + px(14)) if mark else 0
+        # Show inside a password's slot: a small key whose look is a picture (art.slot_key), its words Tk's.
+        self.toggle, self.key_width = None, 0
+        if secret:
+            words = (ui.words("field.show"), ui.words("field.hide"))
+            self.key_width = max(px(self.KEY_MIN), max(ui.fonts.key.measure(word) for word in words) + 2 * px(10))
+            key_height = self.height - 2 * px(self.KEY_INSET)
+            self._keys = {(state, ring): art.slot_key(self.key_width, key_height, state, ui.scale, ring)
+                          for state in ("normal", "hover", "on") for ring in (False, True)}
+            self._key_images = {look: ImageTk.PhotoImage(picture, master=self) for look, picture in self._keys.items()}
+            self.toggle = tk.Label(self, text=words[0], font=ui.fonts.key, fg=theme.MUTED, bg=theme.FIELD,
+                                   image=self._key_images[("normal", False)], compound="center", bd=0,
+                                   highlightthickness=0, cursor="hand2", takefocus=1)
+            self._key_under, self._key_ring = False, False
+            for sequence in ("<Button-1>", "<Return>", "<KP_Enter>", "<space>"):
+                self.toggle.bind(sequence, lambda e: self.flip())
+            self.toggle.bind("<Enter>", lambda e: self._paint_key(under=True), add="+")
+            self.toggle.bind("<Leave>", lambda e: self._paint_key(under=False), add="+")
+            self.toggle.bind("<FocusIn>", lambda e: self._paint_key(ring=True), add="+")
+            self.toggle.bind("<FocusOut>", lambda e: self._paint_key(ring=False), add="+")
+        # The mark's two looks (at rest, typed in).
+        self.marker = None
+        if mark:
+            self._marks = {focused: ImageTk.PhotoImage(art.field_mark(mark, self.MARK[size],
+                                                                      theme.CYAN if focused else theme.FAINT,
+                                                                      ui.scale), master=self)
+                           for focused in (False, True)}
+        # The example over the empty entry, shown while nothing is typed and the field is not typed in.
+        self.hint = None
+        if placeholder:
+            self.hint = tk.Label(self, text=placeholder, font=font, fg=theme.FAINT, bg=theme.FIELD, bd=0,
+                                 cursor="xterm", anchor="w", padx=0, pady=0)
+            self.hint.bind("<Button-1>", lambda e: self._caret())
+        # Its own size: the entry's characters and the rooms round them, its height.
+        key_room = (self.key_width + px(self.KEY_INSET) + px(8)) if secret else 0
+        tk.Canvas.configure(self, width=self.entry.winfo_reqwidth() + 2 * self.pad + self.mark_room + key_room,
+                            height=self.height)
+        self._face, self._size = None, None
+        self.entry.bind("<FocusIn>", lambda e: self._paint(focused=True), add="+")
+        self.entry.bind("<FocusOut>", lambda e: self._paint(focused=False), add="+")
+        # Typing takes back an error said about what was there (on_typed: the line under the field goes too).
+        self.on_typed = None
+        self.entry.bind("<Key>", self._typed, add="+")
+        for part in (self, self.entry) + tuple(p for p in (self.toggle, self.hint) if p is not None):
+            tk.Misc.bind(part, "<Enter>", lambda e: self._paint(under=True), add="+")
+            tk.Misc.bind(part, "<Leave>", lambda e: self._paint(under=False), add="+")
+        # A click on the face beside the words: the caret at their end, as a click past the words in the entry does.
+        tk.Misc.bind(self, "<Button-1>", lambda e: self._caret())
+        tk.Misc.bind(self, "<Configure>", lambda e: self._lay(), add="+")
+        self._lay()
+
+    # ---- the face and what stands on it
+
+    def _caret(self):
+        if self.enabled:
+            self.entry.focus_set()
+            self.entry.icursor("end")
+
+    def _lay(self):
+        """The face at the field's size now: the mark at its left, the entry in its flat middle, Show at its right."""
+        px = self.ui.px
+        width = max(1, self.winfo_width() if self.winfo_width() > 1 else int(self.cget("width")))
+        height = max(1, self.winfo_height() if self.winfo_height() > 1 else int(self.cget("height")))
+        if (width, height) == self._size:
+            return
+        self._size = (width, height)
+        self.faces = {state: art.field_face(width, height, state, self.ui.scale)
+                      for state in ("normal", "hover", "focus", "error", "disabled")}
+        self.images = {state: ImageTk.PhotoImage(face, master=self) for state, face in self.faces.items()}
+        tk.Canvas.delete(self, "all")
+        self._face = self.create_image(0, 0, image=self.images["normal"], anchor="nw")
+        left = self.pad + self.mark_room
+        right = (self.key_width + px(self.KEY_INSET) + px(8)) if self.secret else self.pad
+        if self.mark_kind:
+            self.marker = self.create_image(self.pad + px(2), height // 2, image=self._marks[False], anchor="w")
+        self.create_window(left, height // 2, window=self.entry, anchor="w", width=max(px(20), width - left - right))
+        if self.toggle is not None:
+            self.create_window(width - px(self.KEY_INSET), height // 2, window=self.toggle, anchor="e")
+        if self.hint is not None:
+            self._hint_item = self.create_window(left, height // 2, window=self.hint, anchor="w")
+        self._paint()
+
+    def _paint(self, focused=None, under=None):
+        """The face for the state: not usable, refused, typed in, under the pointer, else at rest; the mark lit while
+        typed in; the example while the field is empty and not typed in."""
+        if focused is not None:
+            self.focused = focused
+        if under is not None:
+            self.under = under
+        if not self.winfo_exists() or self._face is None:
+            return
+        state = ("disabled" if not self.enabled else "focus" if self.focused else "error" if self.error
+                 else "hover" if self.under else "normal")
+        self.itemconfigure(self._face, image=self.images[state])
+        # A dialog draws the window behind it from the widgets (snapshot.py): the face as it looks now.
+        self.opendmt3_picture = self.faces[state]
+        if self.marker is not None:
+            self.itemconfigure(self.marker, image=self._marks[self.focused])
+        if self.hint is not None:
+            empty = not self.entry.get()
+            self.itemconfigure(self._hint_item, state="normal" if empty and not self.focused else "hidden")
+
+    def _paint_key(self, under=None, ring=None):
+        """Show's look: pressed in while the password shows, lighter under the pointer, the ring with the keyboard."""
+        if under is not None:
+            self._key_under = under
+        if ring is not None:
+            self._key_ring = ring
+        state = "on" if self.shown else ("hover" if self._key_under else "normal")
+        self.toggle.configure(image=self._key_images[(state, self._key_ring)],
+                              fg=theme.TEXT if (self.shown or self._key_under) else theme.MUTED)
+        # A dialog draws the window from the widgets (snapshot.py): the key as it looks now.
+        self.toggle.opendmt3_picture = self._keys[(state, self._key_ring)]
+
+    def _typed(self, event):
+        if event.keysym in ("Return", "KP_Enter", "Tab", "ISO_Left_Tab", "Escape"):
+            return
+        if self.error:
+            self.set_error(False)
+            if self.on_typed:
+                self.on_typed()
+        # The example goes with the first key (the entry's words come with the key's release).
+        self.after_idle(self._paint)
+
+    # ---- what the field does
 
     def flip(self):
         """Show the typed words, or hide them again; the keyboard stays where it was."""
+        if not self.secret:
+            return "break"
         self.shown = not self.shown
-        self.field.configure(show="" if self.shown else "\u2022")
+        self.entry.configure(show="" if self.shown else "\u2022")
         self.toggle.configure(text=self.ui.words("field.hide" if self.shown else "field.show"))
+        self._paint_key()
         return "break"
 
-    # The field's own calls, so a password's field is used as any field is.
+    def set_error(self, on):
+        """What was typed here was refused (on: the problem's pink all round), or that is over."""
+        if bool(on) != self.error:
+            self.error = bool(on)
+            self._paint()
+
+    def enable(self, on):
+        """Typing in it, or not (a form at work): the quieter face, the words in the faint grey."""
+        self.enabled = bool(on)
+        self.entry.configure(state="normal" if on else "disabled")
+        if self.toggle is not None:
+            self.toggle.configure(takefocus=1 if on else 0)
+        self._paint()
+
+    def refresh(self):
+        """The example shown or not, after words were put into the field by the program."""
+        self._paint()
+
+    # The entry's own calls, so a field is used as a Tk entry is.
     def get(self):
-        return self.field.get()
+        return self.entry.get()
 
     def insert(self, index, text):
-        return self.field.insert(index, text)
+        self.entry.insert(index, text)
+        self._paint()
 
     def delete(self, first, last=None):
-        return self.field.delete(first, last)
+        self.entry.delete(first, last)
+        self._paint()
 
     def bind(self, sequence=None, func=None, add=None):
-        # Keys typed go to the field inside (Enter signs in, Esc closes a dialog).
-        return self.field.bind(sequence, func, add)
+        # Keys typed go to the entry inside (Enter submits, Esc closes a dialog).
+        return self.entry.bind(sequence, func, add)
 
     def focus_set(self):
-        return self.field.focus_set()
+        return self.entry.focus_set()
 
     def focus_force(self):
-        return self.field.focus_force()
+        return self.entry.focus_force()
 
     def icursor(self, index):
-        return self.field.icursor(index)
+        return self.entry.icursor(index)
 
     def select_range(self, start, end):
-        return self.field.select_range(start, end)
+        return self.entry.select_range(start, end)
+
+    def selection_present(self):
+        return self.entry.selection_present()
+
+    def event_generate(self, sequence, **kw):
+        # A key made by a program (the UI run's Enter) goes where a typed one goes: the entry.
+        if sequence.startswith("<Key") or sequence in ("<Return>", "<KP_Enter>", "<Escape>", "<Tab>"):
+            return self.entry.event_generate(sequence, **kw)
+        return tk.Canvas.event_generate(self, sequence, **kw)
 
 
-class FieldError(tk.Label):
-    """The words under one field of a form that say what is wrong with what was typed there (a password too short, an
-    ID taken), in the colour of a problem, as wide as the field; nothing (and no room) while there is nothing to say."""
+class Said(tk.Frame):
+    """One line that says how something stands, in place: a small lamp in its tone's colour and the words, wrapping to
+    the line's width; set() says it again. Tones: "ok" (lime), "warn" (amber), "bad" (pink, the words in the pink that
+    reads: theme.BAD_INK), None (no lamp, the hint's ink). Under a field it says what is wrong with what was typed
+    there (FORMS.md: the problem's 7 px lamp, then the words) or what the field takes (a hint); under a form, how the
+    form stands (too many tries, a server that does not answer), with a link under the words when there is a way on."""
 
-    def __init__(self, parent, ui, field, row, column, bg):
-        super().__init__(parent, text="", font=ui.fonts.small, fg=theme.PINK, bg=bg, justify="left", anchor="w",
+    TONES = {"ok": theme.LIME, "warn": theme.AMBER, "bad": theme.PINK}
+
+    def __init__(self, parent, ui, font=None, bg=None):
+        bg = bg or parent.cget("bg")
+        super().__init__(parent, bg=bg)
+        self.ui, self.tone, self.text, self.font = ui, None, "", font or ui.fonts.small
+        # FORMS.md's lamp before an error: the launcher's leaning one, 9 by 7.
+        self.lamp = Lamp(self, ui, theme.MUTED, bg=bg, size=(9, 7))
+        self.words = label(self, ui, "", font=self.font, fg=theme.HINT, bg=bg, wrap_margin=0, beside=(self.lamp,))
+        self.words.pack(side="right", fill="x", expand=True)
+        # A link after the words, when the line has a way on (Test the connection after a server that did not answer).
+        self.link = None
+
+    def set(self, text, tone=None, action=None):
+        """Say `text` in `tone`; `action` (words, command) adds a link under the words."""
+        self.text, self.tone = text or "", tone
+        if tone in self.TONES:
+            self.lamp.show(self.TONES[tone], True)
+            # The lamp on the middle of the words' first line.
+            drop = max(0, (self.font.metrics("linespace") - self.lamp.opendmt3_picture.height + 1) // 2)
+            self.lamp.pack(side="left", anchor="n", padx=(0, self.ui.px(8)), pady=(drop, 0))
+        else:
+            self.lamp.pack_forget()
+        self.words.configure(text=self.text, fg=theme.BAD_INK if tone == "bad" else theme.HINT if tone is None
+                             else theme.TEXT)
+        if self.link is not None:
+            self.link.destroy()
+            self.link = None
+        if action:
+            self.link = link(self, self.ui, action[0], action[1], bg=self.cget("bg"))
+            self.link.configure(font=self.ui.fonts.small)
+            self.link.pack(side="bottom", anchor="w", pady=(self.ui.px(4), 0), before=self.words)
+        return self
+
+
+class Form(tk.Frame):
+    """A form, as FORMS.md has every form of the launcher: each field named over it (small and semibold, in the ash's
+    grey, 6 px over the slot), the field, and under it what the field takes (a hint, in the hint's ink) or, while it
+    is wrong, what is wrong with it (the problem's lamp and words, in place of the hint); fields stacked one under
+    another or side by side in columns (`field(..., row, column)`, columns top-aligned, so an error under one never
+    moves the others); its key under them 24 px down, or beside the fields in their row (`button(beside=True)`); a
+    form-level line (too many tries, a server that does not answer) right above the keys (`tell`). Enter in any field
+    presses the key; a form at work (`busy`) cannot be typed in, and its key shows the game's moving stripes until the
+    answer comes. `width`: the fields' width (logical pixels; a stacked form keeps to a readable width)."""
+
+    # The room between a field's name and the field, between a field and its line under it, between a field and the
+    # next name, between columns, above the form's key, and between the form's line and the key (logical pixels:
+    # FORMS.md's).
+    NAME_GAP, UNDER_GAP, FIELD_GAP, COLUMN_GAP, BUTTON_GAP, LINE_GAP = 6, 6, 16, 16, 24, 12
+
+    # A side-by-side form's columns are at least this wide (logical pixels: FORMS.md's 160), their fields filling them.
+    COLUMN_LEAST = 160
+
+    def __init__(self, parent, ui, bg=None, width=None):
+        bg = bg or parent.cget("bg")
+        super().__init__(parent, bg=bg)
+        self.ui, self.bg, self.width = ui, bg, width
+        self.fields, self.errors, self.names, self.hints = {}, {}, {}, {}
+        self.submit_button, self.submit_words, self.command = None, None, None
+        self.grid_frame = tk.Frame(self, bg=bg)
+        self.grid_frame.pack(anchor="w", fill="x" if width else None)
+        self.keys = None
+        self.line = Said(self, ui)
+
+    def field(self, key, name, width=24, secret=False, placeholder=None, row=None, column=0, size="md", mark=None,
+              hint=None):
+        """A field named `name`, in its row and column (the next row of column 0 by default), `hint` under it."""
+        px = self.ui.px
+        row = len([k for k in self.fields if self.fields[k].opendmt3_place[1] == column]) if row is None else row
+        box = tk.Frame(self.grid_frame, bg=self.bg)
+        box.grid(row=row, column=column, sticky="new", padx=(0 if column == 0 else px(self.COLUMN_GAP), 0),
+                 pady=(0 if row == 0 else px(self.FIELD_GAP), 0))
+        # The column's width: the form's for a stacked one, at least FORMS.md's 160 side by side; the field fills it.
+        side_by_side = row == 0 and column > 0 or any(f.opendmt3_place[1] > 0 for f in self.fields.values())
+        least = px(self.width) if self.width else px(self.COLUMN_LEAST)
+        self.grid_frame.columnconfigure(column, minsize=least)
+        if side_by_side and not self.width:
+            # The first column too, once a second comes.
+            self.grid_frame.columnconfigure(0, minsize=least)
+        named = tk.Label(box, text=name, font=self.ui.fonts.label, fg=theme.MUTED, bg=self.bg, anchor="w",
                          padx=0, pady=0)
-        self.ui, self.field, self.place_at = ui, field, (row, column)
+        named.pack(anchor="w", pady=(0, px(self.NAME_GAP)))
+        made = Field(box, self.ui, width=width, secret=secret, placeholder=placeholder, size=size, mark=mark)
+        made.pack(anchor="w", fill="x")
+        made.opendmt3_place = (row, column)
+        error = Said(box, self.ui)
+        if hint:
+            # What the field takes, under it until an error takes its place.
+            error.set(hint)
+            error.pack(fill="x", pady=(px(self.UNDER_GAP), 0))
+        made.on_typed = lambda key=key: self.say(key, None)
+        # Enter in the field presses the form's key.
+        for sequence in ("<Return>", "<KP_Enter>"):
+            made.bind(sequence, lambda e: self.submit())
+        self.fields[key], self.errors[key], self.names[key], self.hints[key] = made, error, named, hint
+        return made
 
-    def say(self, text):
-        """Show `text` under the field, wrapped at its width."""
-        row, column = self.place_at
-        self.configure(text=text, wraplength=max(self.ui.px(120), self.field.winfo_reqwidth()))
-        self.grid(row=row, column=column, sticky="w", padx=(0, self.ui.px(12)), pady=(self.ui.px(4), 0))
+    def button(self, words, command, row=None, column=0, beside=False, main=None, size="normal", fill=False):
+        """The form's key: under the fields (24 px down), or `beside` them in their row at (row, column), its top on
+        the fields' top (under a name's height). `main(parent, words, command, size, fill)` makes it
+        (pages.main_button: lit while PLAY waits); the section's main look otherwise."""
+        px = self.ui.px
+        self.command, self.submit_words = command, words
+        if beside:
+            holder = tk.Frame(self.grid_frame, bg=self.bg)
+            holder.grid(row=row, column=column, sticky="nw", padx=(px(self.COLUMN_GAP), 0))
+            # Under the field's name, as the fields are: the name's line and its gap above the key.
+            spacer = tk.Frame(holder, bg=self.bg, height=self.ui.fonts.label.metrics("linespace") + px(self.NAME_GAP))
+            spacer.pack(side="top")
+            parent = holder
+            # Where the card is too narrow for the fields and the key in one row (a small window), the key goes under
+            # the fields, at the left, 24 px down (FORMS.md: the form wraps when the card is narrow).
+            self._beside = (holder, spacer, row, column)
+            tk.Misc.bind(self.master, "<Configure>", lambda e: self._wrap_key(), add="+")
+            self.after_idle(self._wrap_key)
+        else:
+            self.keys = parent = tk.Frame(self, bg=self.bg)
+            parent.pack(anchor="w", fill="x" if fill else None, pady=(px(self.BUTTON_GAP), 0))
+        made = (main(parent, words, self.submit, size, fill) if main
+                else Button(parent, self.ui, words, self.submit, kind="primary", size=size, fill=fill))
+        made.pack(side="top" if fill else "left", anchor="w", fill="x" if fill else None)
+        self.submit_button = made
+        return made
+
+    def _wrap_key(self):
+        """The key beside the fields while the row holds them all, else under them at the left."""
+        holder, spacer, row, column = self._beside
+        if not holder.winfo_exists():
+            return
+        px = self.ui.px
+        room = self.master.winfo_width()
+        if room <= 1:
+            return
+        # The fields' row as it asks to be (each column its least width or its field's, the gaps between) and the key
+        # with its gap.
+        fields = px(self.COLUMN_GAP) * (column - 1)
+        for c in range(column):
+            boxes = [b for b in self.grid_frame.grid_slaves(column=c) if b is not holder]
+            fields += max([int(self.grid_frame.columnconfigure(c)["minsize"])] +
+                          [b.winfo_reqwidth() for b in boxes])
+        need = fields + px(self.COLUMN_GAP) + self.submit_button.winfo_reqwidth()
+        under = need > room
+        if under == getattr(self, "_key_under", None):
+            return
+        self._key_under = under
+        if under:
+            holder.grid_configure(row=row + 1, column=0, columnspan=column, padx=(0, 0),
+                                  pady=(px(self.BUTTON_GAP), 0))
+            spacer.pack_forget()
+        else:
+            holder.grid_configure(row=row, column=column, columnspan=1, padx=(px(self.COLUMN_GAP), 0), pady=(0, 0))
+            spacer.pack(side="top", before=self.submit_button)
+
+    def say(self, key, text, tone="bad"):
+        """What is wrong with one field, under it in place of its hint (None: nothing wrong, the hint again), its
+        edge in the problem's colour while it is."""
+        error, made, hint = self.errors[key], self.fields[key], self.hints.get(key)
+        if text:
+            error.set(text, tone)
+        elif hint:
+            error.set(hint)
+        if text or hint:
+            if not error.winfo_manager():
+                error.pack(fill="x", pady=(self.ui.px(self.UNDER_GAP), 0))
+        elif error.winfo_manager():
+            error.pack_forget()
+        made.set_error(bool(text) and tone == "bad")
+
+    def tell(self, text, tone=None, action=None):
+        """The form's own line, right above its keys (None: hidden): how it stands, or why it could not."""
+        if text:
+            self.line.set(text, tone, action)
+            if not self.line.winfo_manager():
+                options = {"fill": "x", "anchor": "w", "pady": (self.ui.px(self.LINE_GAP), 0)}
+                if self.keys is not None:
+                    self.line.pack(before=self.keys, **options)
+                else:
+                    self.line.pack(**options)
+        elif self.line.winfo_manager():
+            self.line.pack_forget()
 
     def clear(self):
-        self.configure(text="")
-        self.grid_remove()
+        """Every field's error said no more (their hints again)."""
+        for key in self.fields:
+            self.say(key, None)
 
+    def submit(self):
+        if self.command and (self.submit_button is None or self.submit_button.enabled):
+            self.command()
+        return "break"
 
-def form_fields(parent, ui, specs, bg):
-    """A form's fields side by side: each one's name above it, the field, and the line under it for what is wrong with
-    it (FieldError). specs: (key, words, width, secret). Returns the grid frame, {key: field}, {key: FieldError}; the
-    form's button goes in its row 1 after the fields (column len(specs))."""
-    form = tk.Frame(parent, bg=bg)
-    fields, errors = {}, {}
-    for column, (key, words, width, secret) in enumerate(specs):
-        tk.Label(form, text=words, font=ui.fonts.small, fg=theme.MUTED, bg=bg).grid(row=0, column=column, sticky="w",
-                                                                                 padx=(0, ui.px(12)))
-        field = entry(form, ui, width=width, secret=secret)
-        field.grid(row=1, column=column, sticky="w", padx=(0, ui.px(12)), ipady=ui.px(4))
-        fields[key] = field
-        errors[key] = FieldError(form, ui, field, 2, column, bg)
-    return form, fields, errors
+    def busy(self, on):
+        """At work (on: the fields cannot be typed in, the key shows the game's moving stripes and cannot be
+        pressed), or done."""
+        for made in self.fields.values():
+            made.enable(not on)
+        if self.submit_button is not None:
+            self.submit_button.busy(on)

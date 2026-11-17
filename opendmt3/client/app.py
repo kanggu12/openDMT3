@@ -441,8 +441,11 @@ class LauncherApp:
                 elif state.mode == "server" and state.remote and state.remote.get("token"):
                     from opendmt3.client import remote
                     plays = [p for p in remote.plays(state.server_url, state.remote["token"]) if p["at"] >= since][:3]
-            except Exception:  # noqa: BLE001  (the session's line still shows without its plays)
+            except Exception as e:  # noqa: BLE001  (the session's line still shows without its plays)
                 log.exception("could not read the session's plays")
+                if getattr(e, "code", None) == "sign_in":
+                    # The server no longer takes the sign-in: forgotten, as everywhere a call is refused so.
+                    self.post(self.token_refused)
             self.post(lambda: self._plays_collected(plays))
 
         threading.Thread(target=work, daemon=True, name="plays").start()
@@ -504,14 +507,25 @@ class LauncherApp:
         self.refresh_checks()
 
     def _signed_out(self):
-        """Another server stopped taking the sign-in: forget it, and send the player to sign in again."""
+        """Another server stopped taking the sign-in at PLAY: forget it, and send the player to sign in again."""
         self._ready_shown()
         self.busy = False
+        self.token_refused()
+
+    def token_refused(self):
+        """Another server answered a call with "sign in again" (the connection test, RECORDS, the song list, PLAY): the
+        sign-in it no longer takes is forgotten (its card and token; the ID stays for the sign-in form), the status
+        line says so, and PLAY says why it cannot start; the page on show is drawn again in that state (ONLINE's
+        sign-in card gives way to its form). False when there was no sign-in to forget."""
+        if not (self.state.remote or {}).get("token"):
+            return False
+        log.info("the server no longer takes the sign-in: forgotten")
         actions.forget_sign_in(self.state)
         self.state.save()
         self.set_status(self.words("status.signed_out"), "warn")
         self.refresh_checks()
         self._paint_play()
+        return True
 
     def _update_outcome(self):
         """Say whether the update handed to Velopack at the last close went in (a silent update says nothing)."""

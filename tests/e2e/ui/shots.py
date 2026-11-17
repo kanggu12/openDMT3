@@ -538,6 +538,19 @@ def server_test_check(app, out, tag, problems):
                 outcome = server_test.as_text(steps, app.words).split("\n")[-1]
                 if outcome not in said:
                     problems.append("%s: the card does not say %r" % (label, outcome))
+                if name == "signed-out":
+                    # The server no longer takes the sign-in (review L5): forgotten, the sign-in card gives way to its
+                    # form with the ID kept, and PLAY says why it cannot start.
+                    forms = [x for x in widgets_of(app.root) if isinstance(x, widgets.Form) and "online.id" in x.fields
+                             and "online.dj" not in x.fields]
+                    if (app.state.remote or {}).get("token") or not forms:
+                        problems.append("%s: the sign-in the server refused is still kept, or no sign-in form shows"
+                                        % label)
+                    elif forms[0].fields["online.id"].get() != "NOVA":
+                        problems.append("%s: the sign-in form does not keep the ID (%r)"
+                                        % (label, forms[0].fields["online.id"].get()))
+                    if app.play_lit():
+                        problems.append("%s: PLAY is lit after the server refused the sign-in" % label)
                 if name == "game-closed":
                     copy = [x for x in widgets_of(app.root) if x.winfo_class() == "Label"
                             and x.cget("text") == app.words("server_test.copy")]
@@ -555,6 +568,9 @@ def server_test_check(app, out, tag, problems):
         app.state.mode, app.state.server_url, app.state.remote = kept
         app.server_test = None
         app.state.save()
+        # The ready check as it stands for the state put back (a refused sign-in left PLAY waiting for one).
+        app.refresh_checks()
+        settle(app)
 
 
 def interactions_check(app, out, tag, problems):
@@ -624,37 +640,43 @@ def interactions_check(app, out, tag, problems):
     app.state.mode = "this_pc"
     app.go("online")
     settle(app)
-    errors = [x for x in widgets_of(app.root) if isinstance(x, widgets.FieldError)]
-    fields = [x for x in widgets_of(app.root) if isinstance(x, (tk_entry(), widgets.SecretField))
-              and not isinstance(x.master, widgets.SecretField)]
-    if len(fields) >= 3 and len(errors) == 3:
+    forms = [x for x in widgets_of(app.root) if isinstance(x, widgets.Form) and "online.dj" in x.fields]
+    if forms:
+        form = forms[0]
+        fields = [form.fields[k] for k in ("online.id", "online.password", "online.dj")]
         fields[0].insert(0, "NEWDJ")
         fields[1].insert(0, "1")
         # Add a player, as a click on it does.
-        adding = [b for b in widgets_of(app.root) if isinstance(b, widgets.Button) and b.words == app.words("online.add")]
-        adding[0].press()
+        form.submit_button.press()
         wait_out(app, 0.3)
         shot(app, out, "%s_online-field-error" % tag)
         measure(app, "%s_online-field-error" % tag, problems)
-        said = [e for e in errors if e.winfo_exists() and e.winfo_ismapped() and e.cget("text")]
-        if len(said) != 1 or said[0].field is not fields[1]:
-            problems.append("%s: a password too short was not said under the Password field (%d said)"
-                            % (tag, len(said)))
+        said = [k for k, e in form.errors.items() if e.winfo_ismapped() and e.tone == "bad"]
+        if said != ["online.password"] or not fields[1].error:
+            problems.append("%s: a password too short was not said under the Password field (%s said)"
+                            % (tag, said))
+        # Typing in it takes the error back, the line and the edge.
+        fields[1].entry.focus_force()
+        fields[1].entry.event_generate("<Key>", keysym="a")
+        wait_out(app, 0.1)
+        if form.errors["online.password"].tone == "bad" or fields[1].error:
+            problems.append("%s: typing in the password did not take its error back (its hint again)" % tag)
         # Show takes the keyboard right after the password (Tab from the field), and Space on it shows the words.
         secret = fields[1]
-        secret.field.focus_force()
-        wait_out(app, 0.1)
-        after = secret.field.tk_focusNext()
+        after = secret.entry.tk_focusNext()
         if after is not secret.toggle:
             problems.append("%s: Tab from the password goes to %r, not its Show" % (tag, after))
         secret.toggle.focus_force()
         wait_out(app, 0.1)
         secret.toggle.event_generate("<space>")
         wait_out(app, 0.1)
-        if not secret.shown or secret.field.cget("show"):
+        if not secret.shown or secret.entry.cget("show"):
             problems.append("%s: Space on Show did not show the password" % tag)
+        # The next stop after Show is the DJ name (the Windows tests type ID, Tab, password, Tab, Tab, DJ name).
+        if secret.toggle.tk_focusNext() is not fields[2].entry:
+            problems.append("%s: Tab from the password's Show does not go to the DJ name" % tag)
     else:
-        problems.append("%s: the add-player form has %d fields and %d error lines" % (tag, len(fields), len(errors)))
+        problems.append("%s: no add-player form on ONLINE" % tag)
     app.state.mode = kept_mode
     # ---- RECORDS: a week by a click, then by the keys.
     app.go("records")
@@ -682,11 +704,6 @@ def interactions_check(app, out, tag, problems):
         problems.append("%s: a click and Left on the week chart did not say each week (%r, %r)" % (tag, clicked, moved))
     if any("mouse" in t.lower() or "마우스" in t or "point at" in t.lower() for t in said):
         problems.append("%s: the week chart's words ask for a pointer" % tag)
-
-
-def tk_entry():
-    import tkinter as tk
-    return tk.Entry
 
 
 def list_shot(app, shown, out, name):
@@ -768,8 +785,8 @@ def measure(app, name, problems):
             if w.winfo_rootx() + w.winfo_width() > right + 1 and w.winfo_viewable():
                 # Content inside the scrolled page counts only where it shows.
                 problems.append("%s: past the right edge: %s %r" % (name, cls, (w.cget("text") if cls == "Label" else "")[:40]))
-        if isinstance(w, tk.Label) and wrap_of(w) == app.ui.px(widgets.START_WRAP) and len(w.cget("text")) > 20:
-            # Still at its start width: its box never told it the real room (an error in follow_width, or no event).
+        if isinstance(w, tk.Label) and getattr(w, "opendmt3_wrap_set", True) is False and len(w.cget("text")) > 20:
+            # Never told its real room: still at its start width (an error in follow_width, or no event).
             problems.append("%s: wrapping never set: %r" % (name, w.cget("text")[:60]))
         if isinstance(w, widgets.Button) and w.winfo_width() + 1 < w.winfo_reqwidth():
             # A button the row has no room for is squeezed and cuts its words.
@@ -1421,7 +1438,8 @@ def song_list_check(app, out, tag, problems):
         shot(app, out, "%s_dialog-save-song-list" % tag)
         problems.extend("%s_dialog-save-song-list: %s" % (tag, p) for p in dialog.layout_problems())
         seen["start"] = dialog.entry.get()
-        seen["chosen"] = app.root.focus_get() is dialog.entry and dialog.entry.selection_present()
+        seen["chosen"] = (app.root.focus_get() in (dialog.entry, getattr(dialog.entry, "entry", None))
+                          and dialog.entry.selection_present())
         # Typing replaces the whole path, as it was chosen.
         dialog.entry.delete(0, "end")
         dialog.entry.insert(0, target)
@@ -2067,9 +2085,10 @@ def game_page_check(app, out, tag, problems):
 
 
 def labels(app):
-    """The words of every label showing on the page, as a person reads them."""
+    """The words of every label and button showing on the page, as a person reads them."""
     return [x.cget("text") for x in widgets_of(app.root)
-            if x.winfo_class() == "Label" and x.winfo_ismapped() and x.cget("text")]
+            if x.winfo_class() == "Label" and x.winfo_ismapped() and x.cget("text")] + [
+        x.words for x in widgets_of(app.root) if isinstance(x, widgets.Button) and x.winfo_ismapped() and x.words]
 
 
 def play_states_check(app, out, tag, made, problems):
@@ -2131,16 +2150,15 @@ def play_states_check(app, out, tag, made, problems):
         # A modified PC client plays: the note of what it plays without, under its line.
         said = show("modified", os.path.join(desktop, "Version modified", "game"))
         held("modified", said, w("intake.line.modified"), ready=True)
-        # A player's card goes in: the game logs in by itself; a guest presses NO ID CARD, and nothing is recorded.
+        # A player's card goes in; a guest plays with NO ID CARD, and nothing is recorded. No card of instructions on
+        # PLAY (how the game plays is the docs' guides'): none of its old lines anywhere.
         said = show("player", made["root"])
-        held("player", said, w("play.how.3.card"), w("play.how.4"), w("play.who.hint"), ready=True,
-             absent=(w("play.how.3"), w("play.who.hint.guest")))
+        held("player", said, w("play.who.hint"), w("play.records"), ready=True, absent=(w("play.who.hint.guest"),))
         said = show("guest", made["root"], player=None)
-        held("guest", said, w("play.how.3"), w("play.how.4"), w("play.who.hint.guest"), ready=True,
-             absent=(w("play.how.3.card"), w("play.who.hint")))
-        # Offline: everyone a guest, and where that is changed.
+        held("guest", said, w("play.who.hint.guest"), ready=True, absent=(w("play.who.hint"), w("play.records")))
+        # Offline: everyone a guest, and where that is changed (ONLINE, one press away).
         said = show("offline", made["root"], mode="offline", player=None)
-        held("offline", said, w("play.offline"), w("play.how.3"), ready=True)
+        held("offline", said, w("play.offline"), "ONLINE \u203a", ready=True)
         # Another server, connected, nobody signed in: nothing is broken, the status line says to sign in.
         said = show("server-signed-out", made["root"], mode="server", player=None,
                     remote={"game": "192.168.0.10:4725", "version": "0.3.0"})
@@ -2468,12 +2486,12 @@ def main():
             if app.words("guide.login.need") in labels(app) or not guide.next_button.enabled:
                 problems.append("%s: with a player chosen the guide still waits" % name)
         if i == len(guide_module.STEPS) - 1:
-            # STAGE START: what PLAY makes ready by itself is one line, and how to leave the game is said here, before
-            # the first PLAY.
+            # STAGE START: what PLAY makes ready by itself is one line, and the way to the launcher without playing.
             said = labels(app)
-            for key in ("play.rest", "play.how.4"):
-                if app.words(key) not in said:
-                    problems.append("%s: the last step does not say %r" % (name, app.words(key)))
+            for key in ("play.rest", "guide.4.launcher"):
+                words = app.words(key) + (" \u203a" if key == "guide.4.launcher" else "")
+                if words not in said:
+                    problems.append("%s: the last step does not say %r" % (name, words))
             if sum(1 for text in said if text.endswith("  \u00b7  " + app.words("play.will_change"))) > 1:
                 # One alone is said by its name; several are the one line (they were six, each "PLAY makes it").
                 problems.append("%s: the last step lists each thing PLAY makes ready" % name)

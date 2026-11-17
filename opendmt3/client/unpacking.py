@@ -54,13 +54,13 @@ def ask_password(app, found):
     """The password, asked in the launcher's dialog until it opens the archive: (the password, what the archive is
     with it), or (None, None) when the player cancels."""
     w = app.words
-    # The line under the question: empty at first, then why the last try did not open it.
-    detail = None
+    # Under the field (FORMS.md): nothing at first, then why the last try did not open the archive.
+    wrong = None
     while True:
         dialog = dialogs.Dialog(app.root, app.ui, "info", w("unpack.password.title"),
                                 w.error(intake.said("error.source.password")),
-                                detail, [(w("common.cancel"), None, "neutral"), (w("unpack.password.go"), True, "info")],
-                                default=1, cancel=None, field="secret")
+                                None, [(w("common.cancel"), None, "neutral"), (w("unpack.password.go"), True, "info")],
+                                default=1, cancel=None, field="secret", field_error=wrong)
         app.dialog = dialog
         try:
             answer = dialog.wait()
@@ -70,13 +70,13 @@ def ask_password(app, found):
             return None, None
         password = dialog.value
         if not password:
-            # Nothing typed: asked again, as at first.
-            detail = w.error(intake.said("error.source.password"))
+            # Nothing typed: said under the field, asked again.
+            wrong = w("unpack.password.none")
             continue
         looked = _with_password(app, found, password)
         if looked is not None:
             return password, looked
-        detail = w.error(intake.said("error.source.wrong_password"))
+        wrong = w.error(intake.said("error.source.wrong_password"))
 
 
 def _with_password(app, found, password):

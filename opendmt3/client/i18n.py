@@ -62,16 +62,6 @@ TEXT = {
     "play.rest": ("The rest is made ready at PLAY.", "나머지는 PLAY 때 준비됩니다."),
     "play.go.game": ("Client data", "클라이언트 데이터"),
     "play.go.online": ("ONLINE", "ONLINE"),
-    "play.how": ("How to play", "플레이 방법"),
-    "play.how.1": ("A click is a tap, a drag is a slide.", "클릭은 터치, 끌기는 슬라이드입니다."),
-    "play.how.2": ("Click TOUCH to START. FREE PLAY is on: no coins.", "TOUCH to START를 클릭하면 됩니다. FREE PLAY라 코인은 필요 없습니다."),
-    "play.how.3": ("NO ID CARD starts a game without a login.", "NO ID CARD를 누르면 로그인 없이 시작합니다."),
-    "play.how.3.card": ("Your card is in: the game logs you in.", "카드가 꽂혀 있어 게임에 바로 로그인됩니다."),
-    # How the overlay bar comes, as the in-game overlay has it (the handle at the game's top centre, OpenDMTQ's word).
-    "play.how.4": ("To quit: tap the handle at the game's top centre (or rest the pointer on it or at the top edge), "
-                   "and press X on the overlay bar.",
-                   "끝낼 때는 게임 맨 위 가운데 손잡이를 탭하거나 포인터를 손잡이나 맨 위 가장자리에 둔 뒤, "
-                   "오버레이 막대의 X를 누르세요."),
     "play.last": ("Last game", "지난 플레이"),
     "play.last.none": ("No game yet.", "아직 플레이 기록이 없습니다."),
     "play.pattern": ("pattern {n}", "패턴 {n}"),
@@ -282,17 +272,9 @@ TEXT = {
     "controls.input.mouse": ("Mouse", "마우스"),
     "controls.input.touch": ("Touch screen", "터치스크린"),
     "controls.input.hint.mouse": ("The pointer stays on screen.", "포인터가 화면에 보입니다."),
-    "controls.input.hint.touch": ("The pointer is hidden. One finger at a time.", "포인터를 숨깁니다. 한 번에 한 손가락만 인식합니다."),
-    "controls.ingame": ("In the game", "게임 안에서"),
-    "controls.tap": ("Click: a note or a button.", "클릭: 노트나 버튼."),
-    "controls.drag": ("Drag: slide notes, and the song list.", "끌기: 슬라이드 노트, 곡 목록 넘기기."),
-    "controls.hold": ("Hold: long notes.", "누르고 있기: 롱 노트."),
-    "controls.edge": ("The handle at the game's top centre tapped or held, the pointer resting on it or at the top "
-                      "edge, or a finger drawn down from that edge: the overlay bar, with the menu and quitting.",
-                      "게임 맨 위 가운데 손잡이를 탭하거나 길게 누르기, 포인터를 손잡이나 맨 위 가장자리에 두기, "
-                      "그 가장자리에서 아래로 끌기: 메뉴와 끝내기가 있는 오버레이 막대."),
-
-    # --------------------------------------------------------------------------------------------- game
+    # Every finger plays (0.3.0: openDMT3's own touch screen library in the game).
+    "controls.input.hint.touch": ("The pointer is hidden. Every finger plays, as on the cabinet.",
+                                  "포인터를 숨깁니다. 기체처럼 여러 손가락으로 칠 수 있습니다."),
     "game.sub": ("The client data, and how the cabinet is set up.", "클라이언트 데이터와 기체 설정입니다."),
     "game.files": ("Game files", "게임 파일"),
     "game.folder": ("Client data", "클라이언트 데이터"),
@@ -363,10 +345,6 @@ TEXT = {
     "online.connected": ("Connected to {base}: openDMT3 {version}, the game at {game}.",
                          "{base}에 연결했습니다. openDMT3 {version}, 게임 주소 {game}."),
     "online.signin": ("Sign in", "로그인"),
-    "online.signin.hint": ("With the ID and password from the server's owner. The launcher keeps the sign-in, never "
-                           "the password.",
-                           "서버 운영자에게 받은 ID와 비밀번호로 로그인하세요. 런처는 로그인 상태만 기억하고 비밀번호는 "
-                           "저장하지 않습니다."),
     "online.signed": ("Signed in as {dj} ({login_id}). The game logs in with this card.", "{dj}({login_id}) 계정으로 로그인했습니다. 게임은 이 카드로 로그인합니다."),
     "online.signout": ("Sign out", "로그아웃"),
     "check.remote": ("Server sign-in", "서버 로그인"),
@@ -377,6 +355,31 @@ TEXT = {
     "online.pick": ("Choose", "고르기"),
     "online.add": ("Add a player", "플레이어 추가"),
     "online.id": ("ID", "ID"),
+    # A form's fields (FORMS.md): an example of what to type in an empty field, in the faint grey, and what each takes
+    # under it, in the hint's ink (the accounts' own limits).
+    "online.id.example": ("NOVA", "NOVA"),
+    "online.dj.example": ("DJ NOVA", "DJ NOVA"),
+    "online.address.example": ("192.168.0.10:4730", "192.168.0.10:4730"),
+    "online.id.hint": ("Up to {max} letters and digits.", "영문과 숫자 {max}자까지."),
+    "online.password.hint": ("{min} to {max} letters and digits.", "영문과 숫자 {min}~{max}자."),
+    "online.dj.hint": ("Up to {max} characters, shown in the game.", "{max}자까지, 게임에 나옵니다."),
+    # The sign-in (FORMS.md's door): the server it signs in to, Remember my ID, a wrong ID or password in one sentence
+    # (as the site says it), the way back when the password is gone, a banned account's plate, signed in.
+    "online.signin.to": ("Signing in to", "로그인할 서버"),
+    "online.remember": ("Remember my ID on this PC", "이 PC에 ID 기억하기"),
+    "online.signin.wrong": ("ID or password does not match.", "ID 또는 비밀번호가 맞지 않습니다."),
+    "online.forgot": ("Forgot your password? The server's owner can give you a new one.",
+                      "비밀번호를 잊었다면 서버 운영자에게 새 비밀번호를 받으세요."),
+    "online.banned": ("This account is banned", "정지된 계정입니다"),
+    "online.banned.reason": ("Reason", "사유"),
+    "online.banned.lift": ("The server's owner can lift the ban.", "서버 운영자가 정지를 풀 수 있습니다."),
+    "online.banned.other": ("Sign in with another ID", "다른 ID로 로그인"),
+    "online.signing_out": ("Signing out...", "로그아웃하는 중..."),
+    "online.signed.title": ("Signed in", "로그인됨"),
+    "online.signed.on": ("On {base}. The game logs in with this card.", "{base}에 로그인했습니다. 게임은 이 카드로 로그인합니다."),
+    "error.signin.no_id": ("Type your ID.", "ID를 입력하세요."),
+    "unpack.password.none": ("Type the archive's password.", "압축 파일의 비밀번호를 입력하세요."),
+    "error.signin.no_password": ("Type your password.", "비밀번호를 입력하세요."),
     # The connection test (client/server_test.py): the card, its steps and what each says.
     "server_test": ("Connection test", "연결 테스트"),
     "server_test.run": ("Test the connection", "연결 테스트"),
@@ -451,8 +454,6 @@ TEXT = {
     "field.hide": ("Hide", "숨기기"),
     "online.password": ("Password", "비밀번호"),
     "online.dj": ("DJ name", "DJ 이름"),
-    "online.add.hint": ("ID: up to 8 letters and digits. DJ name: up to 8 characters, shown in the game. Password: {min} to {max} letters and digits.",
-                        "ID는 영문·숫자 8자까지, DJ 이름은 8자까지이고 게임에 보입니다. 비밀번호는 영문·숫자 {min}~{max}자입니다."),
     "online.added": ("Added {name}.", "{name} 플레이어를 추가했습니다."),
     "online.remove": ("Delete", "삭제"),
     "online.remove.title": ("Delete player", "플레이어 삭제"),
@@ -759,9 +760,11 @@ TEXT = {
     "guide.1.name": ("POWER ON", "POWER ON"),
     "guide.1.title": ("Welcome to openDMT3", "openDMT3에 오신 것을 환영합니다"),
     "guide.1.text": ("A few steps to your first song.", "첫 곡까지 몇 단계면 됩니다."),
-    "guide.1.notice": ("openDMT3 comes with no game files. Please use it only with game files you have the right to "
-                       "use.",
-                       "openDMT3에는 게임 파일이 들어 있지 않습니다. 쓸 권리가 있는 게임 파일로만 써 주세요."),
+    # The owner's own sentences, as the LAUNCHER page's notice has them (no advice to the player).
+    "guide.1.notice": ("openDMT3 contains no game data. If the copyright holder requests it, this project may be made "
+                       "private or shut down.",
+                       "openDMT3에는 게임 데이터가 포함되어 있지 않습니다. 저작권자의 요청이 있는 경우 본 프로젝트는 "
+                       "비공개되거나 폐쇄될 수 있습니다."),
     "guide.1.need": ("What you need", "준비물"),
     # The PC client is named in full once, here, where a player first reads of it.
     "guide.1.need.1": ("Your own TECHNIKA 3 client data: the game's PC client (a client that runs on a PC) and its "

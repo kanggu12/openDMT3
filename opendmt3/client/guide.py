@@ -403,10 +403,9 @@ class Guide:
         app.check_box.pack(fill="x")
         app.refresh_checks()
         pages.refresh_checks(app)
-        # How to leave the game, before the first PLAY: no key does, and nothing in the game says where the X is. On
-        # the step's card under the ready check, parted by its faint line (never on the page's field).
+        # The way to the launcher's pages without playing, where Skip stood on the steps before, under the ready check
+        # and parted from it by the card's faint line. (How the game plays and how to leave it are the guides' in the
+        # docs: the launcher shows no card of instructions.)
         widgets.divider(ready.body, ui)
-        widgets.label(ready.body, ui, w("play.how.4"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
-        # The way to the launcher's pages without playing, where Skip stood on the steps before.
         widgets.link(ready.body, ui, w("guide.4.launcher"), lambda: self.finish(play=False)).pack(anchor="w",
                                                                                                   pady=(px(12), 0))

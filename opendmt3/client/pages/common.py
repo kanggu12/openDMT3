@@ -114,13 +114,13 @@ def _inside(widget, box):
     return False
 
 
-def main_button(app, parent, text, command):
+def main_button(app, parent, text, command, size="normal", fill=False):
     """A page's main action (Connect, Sign in, Add a player, the launcher's update) as a button: lit in its page's colour
     while PLAY is not, and quiet beside a lit PLAY, so that a screen has one lit main action, as OpenDMTQ's launcher has
     it. It follows PLAY as PLAY changes (app._paint_play); the guide's steps, which have no PLAY, light it."""
     from opendmt3.client import widgets
     lit = getattr(app, "play_button", None) is not None and app.play_button.winfo_exists() and app.play_lit()
-    button = widgets.Button(parent, app.ui, text, command, kind="secondary" if lit else "primary")
+    button = widgets.Button(parent, app.ui, text, command, kind="secondary" if lit else "primary", size=size, fill=fill)
     app.main_buttons.append(button)
     return button
 
