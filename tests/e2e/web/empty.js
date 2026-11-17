@@ -17,7 +17,7 @@
 // Screenshots go to /out as LANG-empty-NAME-WIDTH.png. The last line is the summary the runner reads:
 // {"pages", "sticking", "cut", "unlabelled", "menu_cut", "askew", "states", "state_faults"}.
 const puppeteer = require('puppeteer');
-const {layout, layers, record} = require('/w/measure.js');
+const {layout, layers, frame, record} = require('/w/measure.js');
 
 const base = 'http://127.0.0.1:4730';
 // A desktop, a phone and the narrowest phone looked after.
@@ -31,16 +31,23 @@ const pages = ['/', '/rankings', '/rankings?by=best30', '/rankings?by=month', '/
   const browser = await puppeteer.launch({args: ['--no-sandbox']});
   const page = await browser.newPage();
   const summary = {pages: 0, sticking: 0, cut: 0, unlabelled: 0, menu_cut: 0, askew: 0, spacing: 0, layer_faults: 0,
-                   layers: 0, states: 0, state_faults: 0, form_faults: 0};
+                   layers: 0, states: 0, state_faults: 0, form_faults: 0, frame_faults: 0};
   const go = path => page.goto(base + path, {waitUntil: 'networkidle0'});
-  const shot = (lang, name, width) => page.screenshot({path: `/out/${lang}-empty-${name}-${width}.png`, fullPage: true});
+  // A whole page's picture, at rest at its top (one taken scrolled draws the sticky bar halfway down).
+  const shot = async (lang, name, width) => {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+    await page.screenshot({path: `/out/${lang}-empty-${name}-${width}.png`, fullPage: true});
+  };
   // A page looked at: measured, shot, and one of the run's lines.
   const look = async (lang, width, name, shown) => {
     // The layout's measure, then the page's floating layers opened one by one (measure.js: layers).
     const over = await layout(page);
     const opened = await layers(page);
     summary.layers += opened.opened;
-    record(summary, lang, width, 'empty ' + shown, Object.assign(over, {layers: opened.faults}));
+    // The page's frame on screen (measure.js: frame).
+    const framed = await frame(page);
+    record(summary, lang, width, 'empty ' + shown, Object.assign(over, {layers: opened.faults, frame: framed}));
     await shot(lang, name, width);
   };
   // A state that must hold, said as one of the run's lines.

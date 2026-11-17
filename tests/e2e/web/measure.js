@@ -255,6 +255,52 @@ const layers = async page => {
   return {faults, opened};
 };
 
+// The page's frame on screen, pressed where a person would look for it (elementFromPoint, as a click lands): the bar's
+// mark, the menu item of the page showing (on a phone MENU, the menu being in its sheet), and on the admin pages the
+// admin menu's item showing; at the page's top, and halfway down its scroll (the bar is sticky, and so is the admin menu
+// beside a wide page; on a tablet or a phone the admin menu is a band under the head, so it is looked for at the top
+// only). The door (the sign-in, the first run) has no frame by design. The page is left at its top, at rest, for its
+// picture (a picture taken scrolled drew the sticky bar halfway down the page).
+const frame = async page => {
+  const settle = () => page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+  const look = where => page.evaluate(where => {
+    const bar = document.querySelector('.bar');
+    if (!bar) return ['no bar'];
+    if (bar.classList.contains('door-bar')) return [];
+    const at = selector => {
+      const e = document.querySelector(selector);
+      if (!e) return where + ': no ' + selector;
+      const r = e.getBoundingClientRect();
+      if (!r.width || !r.height) return where + ': ' + selector + ' not shown';
+      const x = r.left + r.width / 2, y = r.top + Math.min(r.height / 2, 16);
+      if (y < 0 || y > innerHeight || x < 0 || x > innerWidth) return where + ': ' + selector + ' off the screen';
+      const hit = document.elementFromPoint(x, y);
+      return hit && (hit === e || e.contains(hit)) ? null : where + ': ' + selector + ' under ' + (hit ? hit.tagName + '.' + hit.className : 'nothing');
+    };
+    const faults = [at('.bar .brand')];
+    if (innerWidth <= 760) {
+      faults.push(at('.bar .menu-key'));
+    } else {
+      // The item of the page showing; a page of no section (one's account, the licences) has the menu itself.
+      faults.push(at(document.querySelector('.bar .menu a.on') ? '.bar .menu a.on' : '.bar .menu'));
+    }
+    if (document.querySelector('.side-nav') && (where === 'top' || innerWidth > 1000)) faults.push(at('.side-nav a.on'));
+    return faults.filter(Boolean);
+  }, where);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await settle();
+  const faults = await look('top');
+  const room = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+  if (room > 40) {
+    await page.evaluate(room => window.scrollTo(0, Math.round(room / 2)), room);
+    await settle();
+    faults.push(...await look('halfway'));
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await settle();
+  return faults;
+};
+
 // A page's measure as one of the run's lines, and its place in the run's summary: `summary` counts the pages looked
 // at and those with each kind of fault ({pages, sticking, cut, unlabelled, menu_cut, askew}).
 const record = (summary, lang, width, path, over) => {
@@ -268,7 +314,8 @@ const record = (summary, lang, width, path, over) => {
   if (over.spacing.length > 0) { summary.spacing = (summary.spacing || 0) + 1; faults.push('SPACING'); }
   if (over.layers && over.layers.length > 0) { summary.layer_faults = (summary.layer_faults || 0) + 1; faults.push('LAYER'); }
   if (over.forms && over.forms.length > 0) { summary.form_faults = (summary.form_faults || 0) + 1; faults.push('FORM'); }
+  if (over.frame && over.frame.length > 0) { summary.frame_faults = (summary.frame_faults || 0) + 1; faults.push('FRAME'); }
   console.log(lang, width, path, faults.length ? faults.join(', ') : 'ok', JSON.stringify(over));
 };
 
-module.exports = {layout, layers, record};
+module.exports = {layout, layers, frame, record};

@@ -21,7 +21,7 @@
 const fs = require('fs');
 const puppeteer = require('puppeteer');
 // The layout's measure, shared with the empty server's run (empty.js).
-const {layout, layers, record: recorded} = require('/w/measure.js');
+const {layout, layers, frame, record: recorded} = require('/w/measure.js');
 
 const base = process.env.SITE || 'http://site:4730';
 // The upload field's words in both languages, from the site's own table (run.sh reads strings.py): {key: [en, ko]}.
@@ -53,14 +53,22 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
                    filters: 0, filter_faults: 0, messages: 0,
                    message_faults: 0, looks: 0, look_faults: 0, tokens: 0, token_faults: 0, uploads: 0,
                    upload_faults: 0, song_lists: 0, song_list_faults: 0, drops: 0, drop_faults: 0, maintenances: 0,
-                   maintenance_faults: 0, form_faults: 0, bars: 0, bar_faults: 0};
+                   maintenance_faults: 0, form_faults: 0, frame_faults: 0, bars: 0, bar_faults: 0};
   // What the layout's measure finds on the page showing (measure.js), and its line and place in the summary.
   // The layout's measure, then the page's floating layers opened one by one (measure.js: layers), together.
+  // Last, the page's frame on screen (measure.js: frame), which leaves the page at its top for its picture.
   const measure = async () => {
     const over = await layout(page);
     const opened = await layers(page);
     summary.layers += opened.opened;
-    return Object.assign(over, {layers: opened.faults});
+    const framed = await frame(page);
+    return Object.assign(over, {layers: opened.faults, frame: framed});
+  };
+  // Every whole page's picture is taken at rest at its top (one taken scrolled draws the sticky bar halfway down).
+  const full = async path => {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+    await page.screenshot({path, fullPage: true});
   };
   const record = (lang, width, path, over) => recorded(summary, lang, width, path, over);
   // An upload field on the page as a person meets it, before the round's upload: what it says and that the browser's own
@@ -135,7 +143,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
       // The sign-in page first, then signed in for the rest.
       await page.goto(base + '/signin', {waitUntil: 'networkidle0'});
       record(lang, width, '/signin', await measure());
-      await page.screenshot({path: `/out/${lang}-signin-${width}.png`, fullPage: true});
+      await full(`/out/${lang}-signin-${width}.png`);
       await page.type('input[name=login_id]', 'BOSS');
       await page.type('input[name=password]', 'pass1234');
       await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('button.primary')]);
@@ -147,7 +155,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
         await page.evaluate(() => Promise.all([...document.images].map(i => { i.loading = 'eager';
           return i.complete ? null : new Promise(done => { i.onload = i.onerror = done; }); })));
         record(lang, width, path, await measure());
-        await page.screenshot({path: `/out/${lang}-${path.replace(/[\/?=&]/g, '_') || '_'}-${width}.png`, fullPage: true});
+        await full(`/out/${lang}-${path.replace(/[\/?=&]/g, '_') || '_'}-${width}.png`);
       }
       // Each question: open, inside the screen, its question filled in; Esc closes it and nothing goes.
       for (const [what, path, button, fill] of questions) {
@@ -186,7 +194,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
                       local: !!document.querySelector('.message-local')} : null;
       });
       record(lang, width, '/admin/players (message)', await measure());
-      await page.screenshot({path: `/out/${lang}-_admin_players-message-${width}.png`, fullPage: true});
+      await full(`/out/${lang}-_admin_players-message-${width}.png`);
       summary.messages += 1;
       const messageFine = message !== null && message.lines === message.rows && !message.scrolls && message.chosen &&
         !message.local;
@@ -238,7 +246,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
       await page.goto(base + '/admin/status', {waitUntil: 'networkidle0'});
       const looks = await page.evaluate(() => document.querySelectorAll('p.alert.look').length);
       record(lang, width, '/admin/status (to look at)', await measure());
-      await page.screenshot({path: `/out/${lang}-_admin_status-look-${width}.png`, fullPage: true});
+      await full(`/out/${lang}-_admin_status-look-${width}.png`);
       await page.evaluate(async others => {
         for (const id of others.ids) {
           await fetch('/api/v1/players/' + id + '/enable', {method: 'POST', headers: {Authorization: 'Bearer ' + others.token}});
@@ -262,7 +270,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
                 count: document.getElementById('song-count').textContent};
       });
       record(lang, width, '/songs (typed)', await measure());
-      await page.screenshot({path: `/out/${lang}-_songs-typed-${width}.png`, fullPage: true});
+      await full(`/out/${lang}-_songs-typed-${width}.png`);
       summary.filters += 1;
       const filterFine = asked === 0 && filtered.shown === 2 && filtered.all === 5 && filtered.count.includes('2')
         && filtered.count.includes('5');
@@ -282,7 +290,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
                       inside: box.getBoundingClientRect().right <= document.documentElement.clientWidth} : null;
       });
       record(lang, width, '/account (token made)', await measure());
-      await page.screenshot({path: `/out/${lang}-_account-token-${width}.png`, fullPage: true});
+      await full(`/out/${lang}-_account-token-${width}.png`);
       summary.tokens += 1;
       const tokenFine = token !== null && token.shape && !token.scrolls && token.inside;
       if (!tokenFine) summary.token_faults += 1;
@@ -323,7 +331,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
       const uploaded = await page.evaluate(() => ({ok: (document.querySelector('.toast[data-toast]:not(.bad) .toast-words') || {}).textContent || '',
                                                    rows: document.querySelectorAll('table.table tbody tr').length}));
       record(lang, width, '/admin/backups (uploaded)', await measure());
-      await page.screenshot({path: `/out/${lang}-_admin_backups-uploaded-${width}.png`, fullPage: true});
+      await full(`/out/${lang}-_admin_backups-uploaded-${width}.png`);
       summary.uploads += 1;
       const uploadFine = posted === 0 && told.shown && told.box && !told.sends && told.where === '/admin/backups' &&
         uploaded.ok.includes('upload.sqlite');
@@ -357,7 +365,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
       const taken = await page.evaluate(() => ({ok: (document.querySelector('.toast[data-toast]:not(.bad) .toast-words') || {}).textContent || '',
                                                  bad: (document.querySelector('.toast.bad[data-toast] .toast-words') || {}).textContent || ''}));
       record(lang, width, '/admin/song_list (uploaded)', await measure());
-      await page.screenshot({path: `/out/${lang}-_admin_song_list-uploaded-${width}.png`, fullPage: true});
+      await full(`/out/${lang}-_admin_song_list-uploaded-${width}.png`);
       summary.song_lists += 1;
       const songListFine = listPosted === 0 && listTold.shown && listTold.box && !listTold.sends &&
         listTold.where === '/admin/song_list' &&
@@ -375,7 +383,7 @@ const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
       const offered = await page.evaluate(() => ({start: !!document.querySelector('input[name=action][value=maintenance_on]'),
                                                   line: !!document.querySelector('.site-notice.maintenance')}));
       record(lang, width, '/admin/status (maintenance off)', await measure());
-      await page.screenshot({path: `/out/${lang}-_admin_status-maintenance-off-${width}.png`, fullPage: true});
+      await full(`/out/${lang}-_admin_status-maintenance-off-${width}.png`);
       const back = await page.evaluate(async token => (await fetch('/api/v1/maintenance', {method: 'POST',
         headers: {Authorization: 'Bearer ' + token}}).then(r => r.json())).on, others.token);
       summary.maintenances += 1;

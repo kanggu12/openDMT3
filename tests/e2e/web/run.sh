@@ -126,7 +126,9 @@ for what, key in (("pages stick out", "sticking"), ("pages cut words off", "cut"
                   ("pages have boxes touching, words nearer than their padding, a gap off the scale or words on the "
                    "bare page", "spacing"), ("pages have a floating layer off the screen or under something",
                                              "layer_faults"),
-                  ("pages have a form part out of its design (FORMS.md)", "form_faults")):
+                  ("pages have a form part out of its design (FORMS.md)", "form_faults"),
+                  ("pages have their bar, the menu item showing or the admin menu off the screen or under something "
+                   "(at the top or halfway down)", "frame_faults")):
     if s[key] + e[key]:
         problems.append("%s: %d" % (what, s[key] + e[key]))
 if empty_status:
@@ -156,7 +158,8 @@ if status:
     problems.append("the browser exited %d" % status)
 print("FAIL: " + "; ".join(problems) if problems else "PASS: %d pages and %d of an empty server, nothing sticks out, "
       "no words cut off, no cell without a label, the phone menu whole, every button's words in its middle, boxes "
-      "apart and on the scale, every form in its design, %d floating layers whole and on top; the toast and the "
+      "apart and on the scale, every form in its design, the bar and the admin menu on screen, %d floating layers "
+      "whole and on top; the toast and the "
       "phone's menu sheet pressed; %d "
       "questions fine; %d upload fields fine; the songs filter, the message to send, the list to look at, the token "
       "shown once, both uploads and maintenance off and on fine in %d runs; the empty server's %d states hold" % (
