@@ -61,8 +61,16 @@ class ContrastTest(unittest.TestCase):
         for name, colours in theme.SECTION_COLOURS.items():
             self.assertGreaterEqual(contrast(colours["accent"], theme.BAR), 3.0, name)
         # The meaning colours are read as words on cards (scores, links, warnings).
-        for colour in (theme.LIME, theme.PINK, theme.AMBER, theme.BLUE_HI, theme.CYAN):
+        for colour in (theme.LIME, theme.PINK, theme.AMBER, theme.BLUE_HI, theme.CYAN, theme.SCORE):
             self.assertGreaterEqual(contrast(colour, theme.PANEL), 4.5, colour)
+
+    def test_words_on_the_cabinets_lamps(self):
+        # A lamp with its word: white words over the lit body all the way down it (the words' foot is the lightest
+        # place under them), grey words on the black glass when off.
+        for kind, (top, foot) in theme.CHIPS.items():
+            self.assertGreaterEqual(contrast("#ffffff", foot), 4.4, kind)
+            self.assertGreaterEqual(contrast("#ffffff", middle(top, foot)), 4.5, kind)
+        self.assertGreaterEqual(contrast(theme.CHIP_OFF_INK, theme.CHIP_OFF), 4.5)
 
     def test_the_name_plates(self):
         # A card's tab (the seam's colour), a section's plate on a card and one on the page (widgets.Card, section).
@@ -100,32 +108,67 @@ class PictureTest(unittest.TestCase):
         for width in (192, 140):
             self.assertEqual(art.logo(width).width, width)
 
-    def test_a_page_header_shown_again_takes_its_shards_kept(self):
+    def test_every_head_has_one_stage_its_colour_by_section(self):
         from unittest import mock
-        colours = theme.section_colours("screen")
+        from opendmt3.core import stage
         drawn = []
-        real = art.shards
+        real = art._stage
 
         def counted(*a, **k):
-            drawn.append(a[:2])
+            if a[:2] not in art._STAGES:
+                drawn.append(a[:2])
             return real(*a, **k)
 
-        with mock.patch.object(art, "shards", counted), mock.patch.object(art, "_HEADER_SHARDS", type(art._HEADER_SHARDS)()):
-            first = art.header(300, 60, seed=11, colours=colours, title="SCREEN")
-            # The same page at the same size: the same picture, its shards drawn once.
-            again = art.header(300, 60, seed=11, colours=colours, title="SCREEN")
-            self.assertEqual(again.tobytes(), first.tobytes())
-            self.assertEqual(len(drawn), 1)
-            # Another title (the other language) on the same shards; another size or page draws its own.
-            art.header(300, 60, seed=11, colours=colours, title="화면")
-            art.header(320, 60, seed=11, colours=colours, title="SCREEN")
-            art.header(300, 60, seed=23, colours=theme.section_colours("sound"), title="SOUND")
-            self.assertEqual(drawn, [(300, 60), (320, 60), (300, 60)])
-            # Kept as asked: the oldest go once more are kept than HEADER_SHARDS_KEPT.
-            for seed in range(art.HEADER_SHARDS_KEPT + 2):
-                art.header(40, 20, seed=100 + seed, colours=colours)
-            self.assertEqual(len(art._HEADER_SHARDS), art.HEADER_SHARDS_KEPT)
-            self.assertNotIn((300, 60, 11, tuple(sorted(colours.items()))), art._HEADER_SHARDS)
+        fresh = type(art._GROUNDS)
+        with mock.patch.object(art, "_stage", counted), mock.patch.object(art, "_STAGES", fresh()), \
+                mock.patch.object(art, "_GROUNDS", fresh()):
+            screen = art.header(300, 60, colours=theme.section_colours("screen"), title="SCREEN")
+            # The same page at the same size: the same picture.
+            again = art.header(300, 60, colours=theme.section_colours("screen"), title="SCREEN")
+            self.assertEqual(again.tobytes(), screen.tobytes())
+            # Another page of another section, and the other language, at the same size: the same stage, drawn once.
+            art.header(300, 60, colours=theme.section_colours("online"), title="ONLINE")
+            art.header(300, 60, colours=theme.section_colours("screen"), title="화면")
+            self.assertEqual(drawn, [(300, 60)])
+            # Another size draws its own; kept as asked, the oldest going first.
+            art.header(320, 60, colours=theme.section_colours("screen"), title="SCREEN")
+            self.assertEqual(drawn, [(300, 60), (320, 60)])
+            for width in range(art.STAGES_KEPT + 2):
+                art.header(40 + width, 20, colours=theme.section_colours("play"))
+            self.assertEqual(len(art._STAGES), art.STAGES_KEPT)
+            self.assertLessEqual(len(art._GROUNDS), art.GROUNDS_KEPT)
+        # Four pieces take the section's colour, the rest none; the same pieces every time (one composition).
+        self.assertEqual(sum(stage.coloured(p) for p in stage.pieces()), 4)
+        self.assertEqual(stage.pieces(), stage.pieces())
+
+    def test_a_head_ends_in_its_sections_tube(self):
+        for page in ("play", "screen", "online", "help"):
+            colours = theme.section_colours(page)
+            for scale in (1.0, 2.0):
+                head = art.header(int(200 * scale), int(60 * scale), colours=colours, scale=scale)
+                row = int(round(scale))
+                h = head.height
+                # Light, full, light, and the shade under them, a logical pixel each, across the head's foot.
+                for i, colour in enumerate((colours["light"], colours["accent"], colours["light"])):
+                    self.assertEqual(head.getpixel((head.width // 2, h - (4 - i) * row)), art._rgb(colour), (page, scale))
+                self.assertEqual(head.getpixel((head.width // 2, h - 1)), (8, 10, 12), (page, scale))
+
+    def test_a_lamp_has_no_light_round_it(self):
+        # Lit, unlit and outlined lamps: nothing is drawn past the lamp's leaning shape (no glow), and a lit lamp is
+        # darker at its top than at its foot (lit from below).
+        for lit in (True, False, "quiet"):
+            for scale in (1.0, 2.0):
+                img = art.lamp(theme.NET, lit, scale)
+                w, h = img.size
+                shape = art._mask((w, h), lambda d, s: d.polygon(art.lean_outline(0, 0, w * s - 1, h * s - 1), fill=255))
+                for y in range(h):
+                    for x in range(w):
+                        if shape.getpixel((x, y)) == 0:
+                            self.assertEqual(img.getpixel((x, y))[3], 0, (lit, scale, x, y))
+        lit = art.lamp(theme.NET, True, 2.0)
+        w, h = lit.size
+        top, foot = lit.getpixel((w // 2, int(h * 0.3))), lit.getpixel((w // 2, h - 2))
+        self.assertLess(sum(top[:3]), sum(foot[:3]))
 
     def test_the_columns_lockup_fits_its_room_at_every_scale(self):
         # The column's top (art.brand) is the logo's lockup: OPEN and its slab over DMT3, LAUNCHER at DMT3's foot and
@@ -163,6 +206,10 @@ class PictureTest(unittest.TestCase):
             # From the top edge's last pixel down the diagonal to the right edge's first: the seam all the way.
             for i in range(size):
                 self.assertGreaterEqual(seam_share(corner.getpixel((i, i))), 0.5, (size, i, corner.getpixel((i, i))))
+            # With the top edge's light, the line along the cut starts in it and ends in the seam's colour.
+            lit = art.corner(size, theme.PANEL, theme.BG, seam=theme.SEAM, rim=theme.RIM)
+            first, last = lit.getpixel((1, 1)), lit.getpixel((size - 2, size - 2))
+            self.assertGreater(sum(first), sum(last), size)
 
     def test_the_version_never_changes_the_mark(self):
         # DMT3 and OPEN, the left part of the logo, are the same pixels whatever the version (the room beside

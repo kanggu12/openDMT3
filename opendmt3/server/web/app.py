@@ -72,6 +72,8 @@ from opendmt3.server.web.api import _error, api_unknown
 # wall's redirect, the 404 handler's error page, a 405's Allow and the health check come from there too.
 from opendmt3.server.web.common import (FORWARDED, LANG_COOKIE, SIDE_KEY, SIGN_IN_DAYS, _allowed, _health, _local,
                                         _rail, _redirect, admin_side, cookies, not_found, players_base)
+# The stage behind the players' pages' heads (core/stage.py's one composition, as SVG).
+from opendmt3.server.web import stage
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # The wide face the site shares with the launcher, kept once in the client's assets (opendmt3/client/assets/fonts):
@@ -221,6 +223,8 @@ class Site:
         self.templates.filters["clock"] = lambda t: time.strftime("%H:%M", time.localtime(t))
         # A size in bytes as the admin pages say sizes (KB, MB, GB with one decimal).
         self.templates.filters["size"] = _size_words
+        # The stage behind the players' pages' heads (stage.py: core/stage.py's one composition, as SVG).
+        self.templates.globals["stage"] = stage.svg
         # The lists made from everyone's plays, kept until the plays change (cache.py).
         self.lists = cache.Lists()
         # The seconds of requests each caller and each address spent lately (Shares), shared by every thread.

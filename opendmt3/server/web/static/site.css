@@ -10,7 +10,7 @@
 :root {
   /* Surfaces, darkest first: each layer a step lighter than the one it sits on. */
   --field: #101317; --bar: rgba(12, 14, 17, 0.86); --deck: #1a1f25; --deck-top: #232931; --rail: #2b323b;
-  --rail-up: #3a434e; --seam: #343c47; --well: #0d1014;
+  --rail-up: #3a434e; --seam: #2b3139; --well: #0d1014;
   --chalk: #eef2f6; --ash: #aab4bf; --faint: #7a8592; --ink: #0b0e12;
   /* The game's colours. */
   --blue: #2a5ff0; --blue-hi: #5b8cff; --blue-deep: #0d2a8f; --lime: #b4f02a; --pink: #ff4fa0; --amber: #ffb33d;
@@ -31,10 +31,40 @@
   --glass: rgba(26, 31, 37, 0.86);
   --glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.035);
   --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0, rgba(255, 255, 255, 0.012) 110px, transparent 240px);
-  --chrome: linear-gradient(180deg, #fff 0%, #e3e8ee 44%, #727c88 53%, #b6bec7 72%, #f3f5f8 100%);
+  /* Steel chrome (TECHNIKA 3's title-screen wordmark, measured): a bright line just over the dark horizon. */
+  --chrome: linear-gradient(180deg, #fff 0%, #e4e8ed 40%, #f7f9fb 46.5%, #737c88 50%, #c7cdd5 57%, #b2b9c2 76%, #eef1f4 100%);
+  /* The game's count digits: soft chrome, a faint horizon (the podium's places). */
+  --chrome-soft: linear-gradient(180deg, #fff 0%, #f2f4f6 48%, #d9dee3 50.5%, #f3f5f7 100%);
   /* The seam of a part with the game's cut corner (.card and its kin, below): lit from above, brightest along the top
-     and down the cut, dimmer down the sides and along the foot. */
-  --rim: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0, rgba(255, 255, 255, 0.07) 56px);
+     and down the cut, a hairline down the sides, and a step darker along the foot (the raised plate in one pixel, as the
+     Platinum Crew site's boxes: light top, dark foot). */
+  --rim: linear-gradient(180deg, rgba(255, 255, 255, 0.17) 0, rgba(255, 255, 255, 0.075) var(--cut),
+                         rgba(255, 255, 255, 0.075) calc(100% - 1px), rgba(0, 0, 0, 0.5) calc(100% - 1px));
+  /* A card is a reading surface: opaque, a faint sheen at its head (glass is for what floats over the page). */
+  --plate: #191d23;
+  --plate-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0, rgba(255, 255, 255, 0) 160px);
+  /* Raised (a side menu, an alert) and sunken (a meter's track, a well), in one pixel and one inner shade; never keys. */
+  --raise: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 0 rgba(0, 0, 0, 0.5), 0 10px 22px -14px rgba(0, 0, 0, 0.65);
+  --sink: inset 0 1px 2px rgba(0, 0, 0, 0.6), inset 0 -1px 0 rgba(255, 255, 255, 0.045);
+  /* What floats over the page (the bar, a toast, the phone's menu sheet, an open list, the notices): frosted, a light
+     along its top, a soft relief under it. Blur only there. */
+  --frost: blur(20px) saturate(1.4);
+  --float-rim: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  --relief: 0 1px 0 rgba(0, 0, 0, 0.4), 0 26px 54px -30px rgba(0, 0, 0, 0.85);
+  /* TECHNIKA 3's score colour (its result screen's SCORE, #e25906 on white, lifted for the dark: 6.7:1 on a card). */
+  --score: #ff7f3a;
+  /* Places: the first gold (the S grade, the 100 % star), the second and third silver (the Platinum Crew site's TOP 3). */
+  --gold: #f6c01f; --silver: #d9dee3; --gold-rim: #c99a24; --silver-rim: #8f99a3;
+  --gold-face: linear-gradient(180deg, #fffbd0 0%, #fcf079 34%, #f6c01f 50%, #d99a0b 52%, #f4cf4f 100%);
+  /* Platinum: the member's card alone (cold silver, one break at its middle, a light along its top). */
+  --platinum: linear-gradient(180deg, #f5f7f9 0%, #e3e8eb 46%, #cfd6db 50%, #dfe5e8 72%, #eef1f3 100%);
+  --platinum-ink: #13181e; --platinum-ink-2: #4a535d; --platinum-rim: #6f7984;
+  /* The cabinet's lamps: a line's lamp lit from below (dark at its top), nothing round it; unlit, quiet metal. */
+  --lamp-net: linear-gradient(180deg, #12531e 0, #32a923 70%, #6dff5c 100%);
+  --lamp-pink: linear-gradient(180deg, #6a1240 0, #e2387f 70%, #ff7ab8 100%);
+  --lamp-amber: linear-gradient(180deg, #6b4508 0, #e3961f 70%, #ffcd70 100%);
+  --lamp-quiet: linear-gradient(180deg, #1c2127 0, #3a434e 100%);
+  --lamp-light: inset 0 1px 0 rgba(255, 255, 255, 0.45);
   --wide: "DMT3 Wide", "Bahnschrift", "Arial", sans-serif;
   --text-face: "DMT3 Text", system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --cut: 14px;

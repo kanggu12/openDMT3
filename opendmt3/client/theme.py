@@ -54,10 +54,34 @@ INK = "#0b0e12"         # words on a bright colour (a lime, amber or pink button
 BLUE = "#2a5ff0"        # TECHNIKA 3's title screen: the main action (white words on it)
 BLUE_HI = "#5b8cff"     # the same, lit
 BLUE_DEEP = "#0d2a8f"   # the dark end of its gradients and shards
-LIME = "#b4f02a"        # STAR MIXING: "fine" in checks
+LIME = "#b4f02a"        # STAR MIXING: the settings' section colour (its keys and accents), never "fine"
 PINK = "#ff4fa0"        # POP MIXING: a crash, an error, removing for good
 AMBER = "#ffb33d"       # something PLAY will change, a warning
 CYAN = "#5fd3ff"        # the keyboard's place (focus rings)
+
+# The theme's details (_work/theme/THEME.md), measured from TECHNIKA 3's screens and the Platinum Crew site.
+# A card's edge as one line: a hairline round it, lit along its top (the light follows the cut corner down its
+# diagonal), a step darker along its foot (the raised plate in one pixel).
+SEAM = "#2b3139"
+RIM = "#46505c"
+FOOT = "#111317"
+# A lamp lit for "fine", "ready", "connected": the cabinet's NET lamp (lime is STAR MIXING's, a section's colour).
+NET = "#32a923"
+# TECHNIKA 3's score colour (its result screen's SCORE, #e25906 on white, lifted for a dark card: 6.6:1 on PANEL).
+SCORE = "#ff7f3a"
+# The cabinet's lamps with their words (ID CARD, NET and PATCH at the game's foot), lit: the body's top and foot, white
+# words over it at 5.2:1 and more. Off: black glass, a grey rim, grey words (5.2:1).
+CHIPS = {"net": ("#0f4a1a", "#25841b"), "card": ("#014a72", "#0682a6"), "patch": ("#4c0858", "#a018a2")}
+CHIP_OFF, CHIP_OFF_RIM, CHIP_OFF_INK = "#0b0d10", "#464f5a", "#7a8592"
+# The DJ level's badge: a gem in its tier's colour, a tier every ten levels (the game's level table), the master's at 99.
+LEVEL_TIERS = ("#85929d", "#c67c2f", "#d6c50c", "#b1c80b", "#2ddc3c", "#0ac1b1", "#0995df", "#2370f4", "#dc23ad",
+               "#ed1134")
+LEVEL_MASTER = "#dd8630"
+
+
+def level_tier(level):
+    """A DJ level's tier: one every ten levels, "master" at 99."""
+    return "master" if level >= 99 else max(0, level // 10)
 
 # A section's colour lights its head's shards, its title's tail, the rule beside its name in the menu and its main
 # buttons.
@@ -126,6 +150,8 @@ class Fonts:
         self.display_big = tkfont.Font(root, family=DISPLAY, size=17)                # PLAY
         self.body = tkfont.Font(root, family=TEXT_FONT, size=10)                     # text
         self.body_bold = tkfont.Font(root, family=TEXT_BOLD, size=10)                # labels and buttons
+        # Scores and counts in the game's heavy figures (Pretendard Bold, bundled; one width each where it has them).
+        self.figures = tkfont.Font(root, family=TEXT_FONT, size=11, weight="bold")
         self.small = tkfont.Font(root, family=TEXT_FONT, size=9)                     # hints
         # A form's words (FORMS.md's launcher mapping): a field's name small and semibold, what is typed in the
         # sign-in's large fields a step larger than the page's text, a key inside a field (Show) small and semibold,

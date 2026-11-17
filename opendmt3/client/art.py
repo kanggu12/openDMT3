@@ -12,22 +12,30 @@ import random
 import threading
 import time
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 from opendmt3.client import theme
 
 # Draw at this many times the final size, then scale down: smooth edges without a drawing library.
 SS = 3
-# A header's shards by what they are drawn from (the header's size in pixels, which carries the scaling, the page's
-# arrangement and its colours): a page shown again takes them from here. They are most of a header's drawing (22 of
-# 26 ms at 100 % scaling, 70 of 75 ms at 200 %), and were drawn again at every page switch. One per page of a window
-# size is kept (the launcher's nine pages, the guide's five steps); a resize leaves the old size's to go first.
-_HEADER_SHARDS = collections.OrderedDict()
-HEADER_SHARDS_KEPT = 10
-_header_shards_lock = threading.Lock()
+# The stage's facets are drawn at twice their size, not three times: their edges are low in contrast, and the third
+# time cost more than the long shards over them.
+FACET_SS = 2
+# The stage behind every head (core/stage.py), without its colour, by the head's size in pixels (which carries the
+# scaling): one picture for every page of a window size, since every page has the same composition. A resize leaves the
+# old size's to go first.
+_STAGES = collections.OrderedDict()
+STAGES_KEPT = 4
+# A head's ground (the stage with its section's colour, its fade and its spotlight) by size and colours: a page shown
+# again takes it from here. The stage is most of a head's drawing; the colour adds about 2 ms at 100 % (5 ms at 200 %).
+_GROUNDS = collections.OrderedDict()
+GROUNDS_KEPT = 10
+_grounds_lock = threading.Lock()
 
-# Chrome, top to bottom: bright, a dark band where the horizon reflects, bright again (the TECHNIKA 3 logo's face).
-CHROME = ((0.0, "#ffffff"), (0.44, "#e3e8ee"), (0.53, "#727c88"), (0.72, "#b6bec7"), (1.0, "#f3f5f8"))
+# Steel chrome, top to bottom (TECHNIKA 3's title-screen wordmark, measured): bright, a bright line just over the dark
+# band where the horizon reflects, the band, then bright again.
+CHROME = ((0.0, "#ffffff"), (0.40, "#e4e8ed"), (0.465, "#f7f9fb"), (0.50, "#737c88"), (0.57, "#c7cdd5"),
+          (0.76, "#b2b9c2"), (1.0, "#eef1f4"))
 
 
 def _rgb(hex_colour):
@@ -56,54 +64,113 @@ def _ramp(size, stops):
     return column.resize((max(1, w), max(1, h)), Image.BILINEAR)
 
 
-def shards(width, height, seed=7, density=1.0, colours=None):
-    """The page behind its title: gunmetal with shards cutting in from the right, like the title screen's. The
-    shards take the section's colour (the title screen's blue unless told otherwise)."""
-    colours = colours or theme.SECTION_COLOURS["technika"]
-    w, h = width * SS, height * SS
-    rng = random.Random(seed)
-    img = Image.new("RGB", (w, h), _rgb(theme.BG))
-    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(layer)
-    bright, deep = _rgb(colours["light"]), _rgb(colours["deep"])
-    # Large dark planes first, then bright splinters over them, all leaning the same way.
-    for i in range(int(16 * density)):
-        splinter = i >= 6
-        # Shards start on the right two thirds so the title on the left stays on dark metal.
-        x = rng.uniform(0.38, 1.08) * w
-        y = rng.uniform(-0.3, 1.1) * h
-        length = rng.uniform(0.45, 1.3) * h * (1.3 if not splinter else 1.0)
-        spread = rng.uniform(0.05, 0.20) * w
-        # A long thin triangle: one sharp tip, one short base edge, like broken glass.
-        points = [(x, y), (x + spread, y - length * 0.30), (x - spread * rng.uniform(0.3, 1.0), y + length)]
-        # Splinters half seen through, so the section's colour lights the page without shouting over the title.
-        alpha = rng.randint(115, 165) if splinter else rng.randint(120, 190)
-        draw.polygon(points, fill=(bright if splinter else deep) + (alpha,))
-    img.paste(layer, (0, 0), layer)
-    img = img.resize((width, height), Image.LANCZOS)
-    # A soft fade from the left, so the title reads on plain metal.
-    fade = Image.linear_gradient("L").rotate(90, expand=True).resize((width, height))
-    plain = Image.new("RGB", (width, height), _rgb(theme.BG))
-    return Image.composite(img, plain, fade.point(lambda v: min(255, int(v * 1.6))))
+def _stage_pieces():
+    """The stage's pieces (core/stage.py), read once."""
+    from opendmt3.core import stage as composition
+    global _PIECES
+    if _PIECES is None:
+        _PIECES = composition.pieces()
+    return _PIECES
 
 
-def header_shards(width, height, seed, colours):
-    """shards() for a page header, kept (_HEADER_SHARDS): the same picture for the same size, arrangement and colours.
-    Callers never change the picture they get (header() draws on a copy of it)."""
-    key = (width, height, seed, tuple(sorted(colours.items())))
-    with _header_shards_lock:
-        kept = _HEADER_SHARDS.get(key)
+_PIECES = None
+# The tones of the stage's pieces that have no colour (the coloured ones take the section's).
+_TONES = {"white": (255, 255, 255), "black": (0, 0, 0)}
+
+
+def _stage(width, height):
+    """The stage without its colour (core/stage.py): the faceted ground and the long shards over the window's metal, an
+    RGBA picture, before its fade. Kept by size (_STAGES)."""
+    from opendmt3.core import stage as composition
+    key = (width, height)
+    with _grounds_lock:
+        kept = _STAGES.get(key)
         if kept is not None:
-            # Used again: the last to go.
-            _HEADER_SHARDS.move_to_end(key)
+            _STAGES.move_to_end(key)
             return kept
-    picture = shards(width, height, seed=seed, colours=colours)
-    with _header_shards_lock:
-        _HEADER_SHARDS[key] = picture
-        while len(_HEADER_SHARDS) > HEADER_SHARDS_KEPT:
+    img = Image.new("RGBA", (width, height), _rgb(theme.BG) + (255,))
+    for k, wanted in ((FACET_SS, ("white", "black")), (SS, ("charcoal", "steel"))):
+        # The facets on a layer of their own at twice the size, then the shards at three times, each brought down.
+        layer = Image.new("RGBA", (width * k, height * k), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(layer)
+        for piece in _stage_pieces():
+            if piece["tone"] not in wanted:
+                continue
+            colour = _TONES.get(piece["tone"]) or (composition.CHARCOAL if piece["tone"] == "charcoal" else composition.STEEL)
+            draw.polygon([(x * width * k, y * height * k) for x, y in piece["points"]],
+                         fill=colour + (int(round(piece["alpha"] * 255)),))
+        img.alpha_composite(layer.resize((width, height), Image.LANCZOS))
+    with _grounds_lock:
+        _STAGES[key] = img
+        while len(_STAGES) > STAGES_KEPT:
+            _STAGES.popitem(last=False)
+    return img
+
+
+def stage_ground(width, height, colours):
+    """A head's ground: the stage, its four coloured pieces in the section's colours (drawn each in its own small box,
+    three times larger), the fade from the left (the title on plain metal), and the spotlight from above behind the
+    title. Kept by size and colours (_GROUNDS); callers never change the picture they get."""
+    from opendmt3.core import stage as composition
+    key = (width, height, tuple(sorted(colours.items())))
+    with _grounds_lock:
+        kept = _GROUNDS.get(key)
+        if kept is not None:
+            _GROUNDS.move_to_end(key)
+            return kept
+    img = _stage(width, height).copy()
+    for piece in _stage_pieces():
+        if not composition.coloured(piece):
+            continue
+        pts = [(x * width, y * height) for x, y in piece["points"]]
+        x0, y0 = max(0, int(min(p[0] for p in pts))), max(0, int(min(p[1] for p in pts)))
+        x1, y1 = min(width, int(max(p[0] for p in pts)) + 1), min(height, int(max(p[1] for p in pts)) + 1)
+        if x1 <= x0 or y1 <= y0:
+            continue
+        # Only the piece's own box is drawn three times larger: four pieces cost what one small picture does.
+        mask = Image.new("L", ((x1 - x0) * SS, (y1 - y0) * SS), 0)
+        ImageDraw.Draw(mask).polygon([((x - x0) * SS, (y - y0) * SS) for x, y in pts],
+                                     fill=int(round(piece["alpha"] * 255)))
+        mask = mask.resize((x1 - x0, y1 - y0), Image.LANCZOS)
+        colour = _rgb(colours["deep"] if piece["tone"] == "deep" else colours["light"])
+        img.paste(colour + (255,), (x0, y0, x1, y1), mask)
+    # The fade from the left: the stage comes in from nothing to all of it by FADE_TO of the width.
+    fade = Image.linear_gradient("L").rotate(90, expand=True).resize((width, height))
+    plain = Image.new("RGBA", (width, height), _rgb(theme.BG) + (255,))
+    img = Image.composite(img, plain, fade.point(lambda v: min(255, int(v / composition.FADE_TO))))
+    # The spotlight from above behind the title: an ellipse of light, white with a little of the section's colour,
+    # strongest at its middle and falling off as the square of the distance.
+    spot = composition.SPOT
+    rx, ry = max(1, int(spot["rx"] * width)), max(1, int(spot["ry"] * width))
+    radial = Image.radial_gradient("L").resize((2 * rx, 2 * ry), Image.BILINEAR).point(
+        lambda v: int(255 * spot["alpha"] * max(0.0, 1 - v / 255.0) ** 2))
+    light = Image.new("L", (width, height), 0)
+    light.paste(radial, (int(spot["x"] * width) - rx, int(spot["y"] * height) - ry))
+    img.paste(composition.spot_colour(_rgb(colours["accent"])) + (255,), (0, 0), light)
+    picture = img.convert("RGB")
+    with _grounds_lock:
+        _GROUNDS[key] = picture
+        while len(_GROUNDS) > GROUNDS_KEPT:
             # The least recently shown go first (another window size's, after a resize).
-            _HEADER_SHARDS.popitem(last=False)
+            _GROUNDS.popitem(last=False)
     return picture
+
+
+def shards(width, height, seed=None, density=1.0, colours=None):
+    """The stage behind a window of its own (a dialog with no launcher behind it, the installer's pictures): the same
+    composition as every head (`seed` and `density` are no longer used: one composition everywhere), in the section's
+    colours, the title screen's blue unless told."""
+    return stage_ground(width, height, colours or theme.SECTION_COLOURS["technika"])
+
+
+def tube(img, colours, scale=1.0):
+    """The section's colour as a thin tube along a head's foot (the Platinum Crew site's line over its pages): three
+    rows light, full, light, and a shade under them, each row a logical pixel. Drawn on `img` in place."""
+    row = max(1, int(round(scale)))
+    w, h = img.size
+    draw = ImageDraw.Draw(img)
+    for i, colour in enumerate((_rgb(colours["light"]), _rgb(colours["accent"]), _rgb(colours["light"]), (8, 10, 12))):
+        draw.rectangle([0, h - (4 - i) * row, w - 1, h - (3 - i) * row - 1], fill=colour)
 
 
 def read_discs(game, count=4, seed=None):
@@ -170,16 +237,17 @@ def chrome_text(parts, size, scale=1.0):
     return img, baseline
 
 
-def header(width, height, discs=(), seed=7, colours=None, title=None, title_tail=None, scale=1.0,
+def header(width, height, discs=(), seed=None, colours=None, title=None, title_tail=None, scale=1.0,
            title_at=(32, 98)):
-    """The page header: shards in the section's colour, the discs along the right edge, and the page's title in
-    chrome (its tail, such as the 3 of TECHNIKA 3, in the section's colour).
+    """The page header: the stage (one composition on every page, `seed` no longer used) with its section's colour, the
+    discs along the right edge, the page's title in steel chrome (its tail, such as the 3 of TECHNIKA 3, in the
+    section's colour), and the section's tube along its foot.
 
     title_at is the title's left edge and baseline in logical pixels.
     """
     colours = colours or theme.SECTION_COLOURS["technika"]
-    # The shards kept for this size and page (drawn the first time), copied to draw the rest over (convert copies).
-    img = header_shards(width, height, seed, colours).convert("RGBA")
+    # The ground kept for this size and section (drawn the first time), copied to draw the rest over (convert copies).
+    img = stage_ground(width, height, colours).convert("RGBA")
     if discs:
         # The discs are as tall as most of the header and overlap like a row of records.
         size = int(height * 0.78)
@@ -210,7 +278,9 @@ def header(width, height, discs=(), seed=7, colours=None, title=None, title_tail
         words, baseline = chrome_text(parts, int(round(34 * scale)), scale)
         pad = int(6 * scale) + max(1, int(round(1.4 * scale)))
         img.alpha_composite(words, (int(title_at[0] * scale) - pad, int(title_at[1] * scale) - baseline))
-    return img.convert("RGB")
+    img = img.convert("RGB")
+    tube(img, colours, scale)
+    return img
 
 
 def logo(width, scale=1.0, label="LAUNCHER", accent=theme.BLUE_HI, version=None):
@@ -349,15 +419,16 @@ def cut_masks(cut):
     return beyond.resize((cut, cut), Image.BOX), seam.resize((cut, cut), Image.BOX)
 
 
-def corner(size, inside, outside, seam=None):
+def corner(size, inside, outside, seam=None, rim=None):
     """A card's top-right corner, cut as the family's panels are (both sites' and OpenDMTQ's launcher's): the picture
     laid over the card's square corner, seam included (cut_masks): the page's colour beyond the cut, the card's seam
-    along it, the card's inside under it."""
+    along it, the card's inside under it. With `rim`, the seam along the cut starts in the top edge's light and fades to
+    the seam's colour at the right edge (the top light follows the cut)."""
     beyond, line = cut_masks(size)
     img = Image.new("RGB", (size, size), _rgb(inside))
     img.paste(_rgb(outside), (0, 0), beyond)
     if seam:
-        img.paste(_rgb(seam), (0, 0), line)
+        img.paste(_gradient((size, size), rim, seam) if rim else _rgb(seam), (0, 0), line)
     return img
 
 
@@ -720,20 +791,91 @@ def knob(size, colour=theme.TEXT, ring=theme.BLUE):
     return img.resize((size, size), Image.LANCZOS)
 
 
+# An unlit lamp: quiet metal, dark at its top and a step lighter at its foot.
+QUIET = ("#1c2127", "#3a434e")
+
+
 def lamp(colour, lit=True, scale=1.0, size=(13, 10)):
-    """A small leaning light beside a line: filled when lit, an outline when not. It says how a check stands
-    (fine, will change, problem) and which row of a list is the chosen one; a smaller one (`size`, logical pixels)
-    before a field's error (FORMS.md's 7 px lamp). Returns an RGBA picture."""
+    """A small leaning light beside a line, as the cabinet's lamps are: lit, its body dark at the top and lit from below
+    to its colour, a pixel of light along its top edge and nothing round it; "quiet", unlit metal (a state with nothing
+    to say); False, an outline in its colour (what PLAY will change). It says how a check stands (fine, will change,
+    problem) and which row of a list is the chosen one; a smaller one (`size`, logical pixels) before a field's error.
+    Returns an RGBA picture."""
     width, height = int(round(size[0] * scale)), int(round(size[1] * scale))
     w, h = width * SS, height * SS
+    shape = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(shape).polygon(lean_outline(0, 0, w - 1, h - 1), fill=255)
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    draw.polygon(lean_outline(0, 0, w - 1, h - 1), fill=_rgb(colour) + (255,))
-    if not lit:
-        # The middle taken out again: what stays is a line of even width along the outline.
+    if lit is False:
+        # An outline: a line of even width along the shape, its middle empty.
         line = 1.6 * scale * SS
-        draw.polygon(lean_outline(0, 0, w - 1, h - 1, grow=-line), fill=(0, 0, 0, 0))
+        ring = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(ring).polygon(lean_outline(0, 0, w - 1, h - 1), fill=255)
+        ImageDraw.Draw(ring).polygon(lean_outline(0, 0, w - 1, h - 1, grow=-line), fill=0)
+        img.paste(_rgb(colour) + (255,), (0, 0), ring)
+        return img.resize((width, height), Image.LANCZOS)
+    if lit == "quiet":
+        top, foot = QUIET
+    else:
+        # Lit from below: the colour at its foot, the same colour with most of its light gone at its top.
+        top, foot = "#%02x%02x%02x" % _mixed(colour, "#000000", 0.58), colour
+    img.paste(_gradient((w, h), top, foot).convert("RGBA"), (0, 0), shape)
+    if lit != "quiet":
+        # A pixel of light along its top edge, inside the shape, as the cabinet's lamps have their light rim.
+        edge = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(edge).rectangle([0, 0, w, SS - 1], fill=120)
+        img.paste((255, 255, 255, 255), (0, 0), ImageChops.darker(edge, shape))
     return img.resize((width, height), Image.LANCZOS)
+
+
+def lamp_chip(word, kind, lit=True, scale=1.0):
+    """The cabinet's status lamp with its word (ID CARD, NET at the game's foot): a small plate rounded as the game's
+    lamps are, its word in capitals in the wide face. Lit: its body dark at the top and lit from below
+    (theme.CHIPS[kind]), a light rim, white words (5.2:1 and more over the body); off: black glass, a grey rim, grey
+    words. Nothing round it. Returns an RGBA picture just big enough."""
+    font = ImageFont.truetype(theme.WIDE_FILE, max(6, int(round(8.5 * scale * SS))))
+    pad = int(round(8 * scale))
+    w = int(round(font.getlength(word) / SS)) + 2 * pad
+    h = int(round(18 * scale))
+    big = (w * SS, h * SS)
+    shape = Image.new("L", big, 0)
+    radius = 3 * scale * SS
+    ImageDraw.Draw(shape).rounded_rectangle([0, 0, big[0] - 1, big[1] - 1], radius=radius, fill=255)
+    ring = Image.new("L", big, 0)
+    ImageDraw.Draw(ring).rounded_rectangle([0, 0, big[0] - 1, big[1] - 1], radius=radius, outline=255,
+                                           width=max(SS, int(round(1.2 * scale * SS))))
+    img = Image.new("RGBA", big, (0, 0, 0, 0))
+    if lit:
+        top, foot = theme.CHIPS[kind]
+        img.paste(_gradient(big, top, foot).convert("RGBA"), (0, 0), shape)
+        rim, ink = (238, 244, 246), (255, 255, 255)
+    else:
+        img.paste(_rgb(theme.CHIP_OFF) + (255,), (0, 0), shape)
+        rim, ink = _rgb(theme.CHIP_OFF_RIM), _rgb(theme.CHIP_OFF_INK)
+    img.paste(rim + (int(255 * 0.85) if lit else 255,), (0, 0), ring)
+    words = Image.new("L", big, 0)
+    ImageDraw.Draw(words).text((big[0] / 2, big[1] / 2 + 0.5 * scale * SS), word, font=font, fill=255, anchor="mm")
+    img.paste(ink + (255,), (0, 0), words)
+    return img.resize((w, h), Image.LANCZOS)
+
+
+def level_gem(tier, scale=1.0, size=12):
+    """The DJ level's tier as the game's level badges show it: a gem in four facets, the top-left lit, the bottom-right
+    in shade, the other two in the tier's colour (theme.LEVEL_TIERS, a tier every ten levels; "master" at 99).
+    Returns an RGBA picture."""
+    colour = theme.LEVEL_MASTER if tier == "master" else theme.LEVEL_TIERS[max(0, min(len(theme.LEVEL_TIERS) - 1, tier))]
+    s = max(4, int(round(size * scale)))
+    big = s * SS
+    c = big / 2.0
+    img = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    lit, shade, body = _mixed(colour, "#ffffff", 0.45), _mixed(colour, "#000000", 0.45), _rgb(colour)
+    top, right, bottom, left, mid = (c, 0), (big, c), (c, big), (0, c), (c, c)
+    draw.polygon([top, mid, left], fill=lit + (255,))
+    draw.polygon([top, right, mid], fill=body + (255,))
+    draw.polygon([left, mid, bottom], fill=body + (255,))
+    draw.polygon([mid, right, bottom], fill=shade + (255,))
+    return img.resize((s, s), Image.LANCZOS)
 
 
 def choice_row(texts, chosen, hover, colours, scale=1.0, focused=None, enabled=True):
@@ -865,6 +1007,11 @@ def dialog_panel(soft, box, tab, scale, scene=None):
     sheen = Image.linear_gradient("L").resize((1, reach)).point(lambda v: int(14 * (1 - v / 255.0) ** 1.6))
     panel.paste(Image.new("RGB", (bw, min(reach, bh)), (255, 255, 255)), (0, 0), sheen.resize((bw, reach)).crop(
         (0, 0, bw, min(reach, bh))))
+    # The game's popups' light from the top-left corner, in the dialog's own colour (its tab's top), gone by 38 % of the
+    # way across: drawn small and stretched, a diagonal ramp costs nothing.
+    ramp = Image.new("L", (64, 64), 0)
+    ramp.putdata([int(255 * 0.22 * max(0.0, 1 - (x + y) / (2 * 64 * 0.38))) for y in range(64) for x in range(64)])
+    panel.paste(_rgb(tab[3]), (0, 0), ramp.resize((bw, bh), Image.BILINEAR))
     # The edge: one pixel of seam, lit along the top like polished metal, going on along the cut corner's diagonal.
     cut = min(panel_cut(scale), bw, bh)
     beyond, seam = cut_masks(cut)
