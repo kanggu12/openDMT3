@@ -48,14 +48,15 @@
 </div>
 {% endif %}
 {% if rail %}
-{# The rail: what the server is doing, on every page, before anything else. The game server's lamp is a disc (grooves
-   round a hub lit lime while it is on); maintenance in pink while it is on (the cabinets cannot log in); the players'
-   site's address at the right end. The counts go to the page that lists them, maintenance to the page that switches it. #}
+{# The rail: what the server is doing, on every page, before anything else. The game server and maintenance as the
+   cabinet's lamps with their words (the game's ID CARD and NET): the game's lit green while it is on, maintenance's lit
+   pink while it is on (the cabinets cannot log in); the players' site's address at the right end. The counts go to the
+   page that lists them, maintenance to the page that switches it. #}
 <div class="rail">
-  <span class="item{{ ' bad' if not rail.game }}"><span class="disc{{ ' off' if not rail.game }}" aria-hidden="true"></span>{{ w("rail.game") }} <b>{{ w("rail.on") if rail.game else w("rail.off") }}{% if rail.game %} · {{ rail.game_port }}{% endif %}</b></span>
+  <span class="item{{ ' bad' if not rail.game }}"><span class="lampchip net{{ ' on' if rail.game }}">{{ w("rail.game") }}</span> <b>{{ w("rail.on") if rail.game else w("rail.off") }}{% if rail.game %} · {{ rail.game_port }}{% endif %}</b></span>
   <a class="item" href="/admin/cabinets">{{ w("rail.cabinets") }} <b>{{ rail.cabinets }}</b></a>
   <a class="item" href="/admin/cabinets#launchers">{{ w("rail.launchers") }} <b>{{ rail.launchers }}</b></a>
-  <a class="item{{ ' bad' if rail.maintenance }}" href="/admin/status#maintenance">{{ w("rail.maintenance") }} <b>{{ w("rail.on") if rail.maintenance else w("rail.off") }}</b></a>
+  <a class="item{{ ' bad' if rail.maintenance }}" href="/admin/status#maintenance"><span class="lampchip bad{{ ' on' if rail.maintenance }}">{{ w("rail.maintenance") }}</span> <b>{{ w("rail.on") if rail.maintenance else w("rail.off") }}</b></a>
   {% if rail.up is not none %}<span class="item">{{ w("rail.up") }} <b>{{ w("common.hours", h=rail.up // 3600, m=(rail.up % 3600) // 60) if rail.up >= 3600 else w("common.minutes", m=rail.up // 60) }}</b></span>{% endif %}
   <a class="addr" href="{{ rail.address }}" title="{{ w('footer.players') }}" aria-label="{{ w('footer.players') }}: {{ rail.address }}">{{ rail.address }}</a>
 </div>
