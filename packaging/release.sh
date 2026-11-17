@@ -9,13 +9,13 @@
 #      repository's releases, every update package signed with the key and its signature checked;
 #   4. the release's files gathered into OUT_DIR/files by packaging/release_files.py, each named in lowercase with the
 #      tool, its part and the version (the launcher's update files keep Velopack's names, which installed launchers
-#      read), with opendmt3-<version>-checksums.txt over them and the notes' Files table:
+#      read), with opendmt3-<version>-checksums.txt over them:
 #        opendmt3-launcher-<version>-windows-x64-setup.exe   the launcher's installer
 #        opendmt3-server-<version>.zip                       the server alone, for Docker Compose or Python
 #        opendmt3-launcher-<version>-lgpl-sources.zip        the sources of DSOAL and OpenAL Soft, which it brings
 #        openDMT3-<version>-full.nupkg (-delta), .sig, releases.win.json   the launcher's update files
-#   5. with --publish: the GitHub release, titled with the tag itself (v1.2.3), its notes the Files table first (which
-#      file is for whom), then the changelog's section and the compare link.
+#   5. with --publish: the GitHub release, titled with the tag itself (v1.2.3), its notes one line on which file is whose
+#      (no table: the files' names say it), then the changelog's section and the compare link.
 # Without --publish it stops after step 3 and shows the release it would make: a rehearsal. With no key named the
 # rehearsal's packages are unsigned, and it says so; publishing needs them signed.
 #
@@ -114,17 +114,20 @@ else
 fi
 # The installer, the update files, the server package, the LGPL sources and the checksums, into one folder made again
 # (release_files.py checks every name, each LGPL archive against the build's SHA256SUMS, and every link of the server
-# package's guides); FILES.md beside it is the notes' Files table.
+# package's guides); FILES.md beside it lists them for the maintainer, not for the notes.
 FILES="$OUT/files"
 python3 packaging/release_files.py "$TAG" "$BUILD" "$FILES" > /dev/null
 # Every file listed in the checksums is there with that hash: what a downloader's sha256sum -c will say.
 (cd "$FILES" && sha256sum -c --quiet "opendmt3-${TAG#v}-checksums.txt")
 ls -l "$FILES"
-# The notes: the Files table first (which file is for whom), the changelog's section, then the compare link from the
-# changelog's own link list.
+# The notes: one line saying which file is whose (the files' own names say their part, version and system, so no table:
+# a table of files in the notes only confused), the changelog's section, then the compare link from the changelog's
+# own link list. FILES.md stays beside the files for the maintainer's eye; it is not published.
 compare=$(sed -n "s#^\[${TAG#v}\]: \(https://.*\)#\1#p" CHANGELOG.md)
 [ -n "$compare" ] || { echo "CHANGELOG.md has no link for [${TAG#v}] at its end" >&2; exit 1; }
-{ cat "$OUT/FILES.md"; printf '\n'; cat "$OUT/changelog-section.md"; printf '\n**Full Changelog**: %s\n' "$compare"; } \
+v=${TAG#v}
+{ printf 'openDMT3 %s. Players install `opendmt3-launcher-%s-windows-x64-setup.exe`; server owners run `opendmt3-server-%s.zip` ([the server guide](https://github.com/kanggu12/openDMT3/blob/%s/docs/server.md)).\n\n' "$v" "$v" "$v" "$TAG"
+  cat "$OUT/changelog-section.md"; printf '\n**Full Changelog**: %s\n' "$compare"; } \
   > "$OUT/release-notes.md"
 echo "notes: $OUT/release-notes.md ($(wc -l < "$OUT/release-notes.md") lines)"
 files=("$FILES"/*)

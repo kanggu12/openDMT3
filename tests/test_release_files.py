@@ -17,6 +17,10 @@ from pathlib import Path
 
 # The repository's top folder (this file is in tests/).
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# The server's package is made from the files git tracks: a tree exported without its .git (a source archive, the
+# local run of CI's jobs) cannot make it, so the tests that make it run only in a git checkout.
+IN_GIT = os.path.isdir(os.path.join(ROOT, ".git")) or os.path.isfile(os.path.join(ROOT, ".git"))
+NEEDS_GIT = unittest.skipUnless(IN_GIT, "the server's package is made from a git checkout's tracked files")
 
 
 def load(name):
@@ -68,6 +72,7 @@ class ReleaseFilesTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp)
         self.out = Path(self.tmp) / "out" / "files"
 
+    @NEEDS_GIT
     def test_every_file_with_its_role_its_version_and_the_checksums(self):
         code, table, err = run(files, "v" + V, str(build(Path(self.tmp) / "build")), str(self.out))
         self.assertEqual((code, err), (0, ""))
@@ -113,6 +118,7 @@ class ReleaseFilesTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("dsoal-0123abc.tar.gz is not the archive SHA256SUMS names", err)
 
+    @NEEDS_GIT
     def test_a_rehearsal_without_the_key_or_a_previous_release(self):
         # No signatures, no delta: the rest is there, and the table names only what is.
         code, table, err = run(files, V, str(build(Path(self.tmp) / "build", signed=False, delta=False)),
@@ -146,6 +152,7 @@ class ServerPackageTest(unittest.TestCase):
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp)
 
+    @NEEDS_GIT
     def test_the_server_and_its_guides_and_nothing_of_the_launcher_or_the_tests(self):
         path = files.server_zip(Path(ROOT), V, self.tmp)
         self.assertEqual(path.name, "opendmt3-server-%s.zip" % V)
@@ -179,6 +186,7 @@ class ServerPackageTest(unittest.TestCase):
         again = files.server_zip(Path(ROOT), V, os.path.join(self.tmp))
         self.assertEqual(again.read_bytes(), path.read_bytes())
 
+    @NEEDS_GIT
     def test_every_link_of_the_package_s_guides_is_in_the_package(self):
         tracked = set(files.tracked(Path(ROOT)))
         taken = set(files.guides(Path(ROOT), tracked))

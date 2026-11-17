@@ -208,7 +208,7 @@ def check_names(version, present):
 
 
 def table(version, present):
-    """The notes' Files table: each file there is, what it is, for whom."""
+    """A table of the files there are, what each is and for whom: FILES.md, for the maintainer (the notes carry none)."""
     rows = ["| File | What it is | For |", "| :--- | :--- | :--- |"]
     for pattern, what, who in ROLES:
         name = pattern.format(v=version)

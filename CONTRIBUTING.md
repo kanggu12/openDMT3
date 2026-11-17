@@ -235,7 +235,7 @@ release. A release, by a maintainer:
    the load test, and the installer on a real Windows PC.
    `OPENDMT3_SIGNING_KEY=<the key's file> packaging/release.sh vX.Y.Z OUT_DIR` rehearses the release: the version
    check, the build with the key and the signatures checked, the release's files in `OUT_DIR/files` with their
-   checksums, the notes with their Files table in `OUT_DIR/release-notes.md`, and the release it would make. The key is named in the
+   checksums, the notes in `OUT_DIR/release-notes.md`, and the release it would make. The key is named in the
    environment and nowhere else: no path is tried when it is not set.
 3. Commits, tags the commit (`git tag -a vX.Y.Z -m "Release X.Y.Z"`) and pushes both. The tag runs
    `.github/workflows/release.yml`: CI and the version check again on the tag's commit; no release is built or
@@ -245,7 +245,7 @@ release. A release, by a maintainer:
    changelog's section as its notes.
 
 What a release publishes (`packaging/release_files.py` gathers them into `OUT_DIR/files`, checks every name and
-writes the Files table the notes open with: which file is for whom). Every name is lowercase with the tool, the part and the version, except the update
+lists them in `OUT_DIR/FILES.md` for a look; the notes carry no table, the names say which file is whose). Every name is lowercase with the tool, the part and the version, except the update
 files: an installed launcher takes an update only from a feed naming its package exactly `openDMT3-X.Y.Z-full.nupkg`,
 so those keep Velopack's names. The guides' download lines name the version too: after raising it,
 `python3 packaging/doc_versions.py --write` puts it in them, and the tests fail until it has:
