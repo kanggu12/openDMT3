@@ -122,7 +122,8 @@ def routes(site):
     def _signed(request):
         """(the account, what signs it in, the token) for a token that works, else None. A sign-in token (POST
         /api/v1/session; what signs in is its signed values): made here, not too old, of an enabled account, from its
-        current password, and not ended by a sign-out (DELETE /api/v1/session). A named token: _named."""
+        current password, in the account's round of sign-in tokens (a ban starts the next one), and not ended by a
+        sign-out (DELETE /api/v1/session). A named token: _named."""
         token = _bearer(request)
         if token.startswith(tok.PREFIX):
             # A named token, made on the Account page: the database knows it, by a hash.
@@ -134,6 +135,9 @@ def routes(site):
         try:
             row = store.db.execute("SELECT * FROM accounts WHERE id = ?", (data.get("uid"),)).fetchone()
             if row is None or row["disabled"] or data.get("pw") != sess.password_mark(row["password"]):
+                return None
+            if data.get("g", 0) != row["token_generation"]:
+                # Made before a ban ended every token of the account (tokens from before rounds counted as 0).
                 return None
             if store.token_ended(sess.token_id(token)):
                 # Signed out with this very token: the account's other tokens go on.
@@ -188,10 +192,11 @@ def routes(site):
         return caller, None
 
     def _new_token(row):
-        """A token for the account: tied to its password (a new one ends it), with an id of its own (j), so each
-        sign-in's token differs from the next and a sign-out ends that one alone."""
+        """A token for the account: tied to its password (a new one ends it) and to its round of sign-in tokens (g: a
+        ban ends it), with an id of its own (j), so each sign-in's token differs from the next and a sign-out ends that
+        one alone."""
         return site.signer.sign({"kind": "api", "uid": row["id"], "pw": sess.password_mark(row["password"]),
-                                 "j": secrets.token_urlsafe(12)})
+                                 "g": row["token_generation"], "j": secrets.token_urlsafe(12)})
 
     def _me(row, card=None):
         # player: the account's number, as the rankings and GET /api/v1/djs/{player} name it. card: the card number

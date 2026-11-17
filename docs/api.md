@@ -14,7 +14,8 @@ What each admin page shows and does, beside its calls here: [admin.md](admin.md)
 ```
 
 Send the token with every other call as `Authorization: Bearer <token>`. It lasts 30 days, and stops working sooner
-when the account's password changes, when the account is disabled, or when the token is signed out:
+when the account's password changes or the account is banned (for good: lifting the ban does not bring it back),
+while the account is disabled, or when the token is signed out:
 `DELETE /api/v1/session`, sent with a token, ends that token and no other (the launcher's **Sign out** does so, and a
 launcher signed in on another PC stays signed in). Signing out on the site ends the site's sign-ins, not the tokens.
 
@@ -48,7 +49,7 @@ server keeps only a hash of it, so a lost one cannot be shown again: make anothe
 
 A named token does not expire. It acts as its account, with the account's rights at each call: it stops while the
 account is disabled and goes with the account. Revoking it (on the page, with `DELETE /api/v1/tokens/{id}`, or with
-`DELETE /api/v1/session` sent with it) ends it for good, and so does a new password for the account. What a call
+`DELETE /api/v1/session` sent with it) ends it for good, and so do a new password for the account and a ban. What a call
 changes goes into the change log under the ID with the token's name: `NOVA (token nightly backup)`. A read-only token
 gets `403 read_only` for anything but a `GET` and for an admin's call, and no admin's part of an answer (the cabinets'
 addresses, who set the notice). A restore puts the tokens back as the backup has them, as it does the passwords.
@@ -139,8 +140,8 @@ caller's ID, as the same change on the site does.
 | `POST /api/v1/players/max_points` | admin | `{"add", "login_ids"}`, `login_ids` a list of IDs (without it: every player) | `{"players"}`: how many balances changed, each kept within 0 to 999999 | `400 bad_request`, `400 refused`, `404 unknown_player` | (programs: MAX points for many players) |
 | `POST /api/v1/players/{login_id}/level` | admin | `{"level"}`, 1 to the game's last (99) | the player: the game shows that level from the next card login, and it grows from there as they clear stages (`exp_extra`, the change on top of `exp_plays`) | `400 bad_request`, `400 refused` (no table of levels before the song list is read), `404 unknown_player` | Admin, a player, level |
 | `DELETE /api/v1/players/{login_id}/level` | admin | | the player, the level of their cleared stages again | `404 unknown_player` | Admin, a player, back to the level of their plays |
-| `POST /api/v1/players/{login_id}/ban` | admin | `{"reason"}`, one line of 1 to 120 characters | the player, banned: the game refuses their card, the site and the launcher their sign-in (telling them the reason), and they leave the rankings | `400 bad_request`, `400 refused` (a reason's rules, the only enabled admin), `404 unknown_player` | Admin, a player, ban |
-| `DELETE /api/v1/players/{login_id}/ban` | admin | | the player, enabled again | `404 unknown_player` | Admin, a player, lift the ban |
+| `POST /api/v1/players/{login_id}/ban` | admin | `{"reason"}`, one line of 1 to 120 characters | the player, banned: the game refuses their card, the site and the launcher their sign-in (telling them the reason), and they leave the rankings. Their sign-ins on the site, their sign-in tokens and their named tokens end at once, as a new password ends them; the card number stays | `400 bad_request`, `400 refused` (a reason's rules, the only enabled admin), `404 unknown_player` | Admin, a player, ban |
+| `DELETE /api/v1/players/{login_id}/ban` | admin | | the player, enabled again: their card logs in again, and they sign in anew (what the ban ended stays ended) | `404 unknown_player` | Admin, a player, lift the ban |
 | `POST /api/v1/players/{login_id}/dj_card` | admin | any of `{"icon", "plate", "pattern", "comment"}` | the player with their card, by the rules of `POST /api/v1/me/dj_card` | `400 bad_request`, `400 refused`, `404 unknown_player` | Admin, a player, DJ card |
 | `DELETE /api/v1/players/{login_id}/picture` | admin | | the player, without their picture | `404 unknown_player` | Admin, a player, remove the picture |
 

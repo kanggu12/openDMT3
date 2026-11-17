@@ -197,11 +197,15 @@ class Players:
 
     def ban(self, login_id, reason, who="system"):
         """The account disabled with a reason: the game refuses its card, the site and the launcher its sign-in, and
-        the player is told the reason when they sign in. Never the only enabled admin (AccountError)."""
+        the player is told the reason when they sign in. Every sign-in the account has ends at once (on the site, the
+        launcher's tokens, the named tokens), and none comes back when the ban is lifted; the card number stays. Never
+        the only enabled admin (AccountError)."""
         self._row(login_id)
         reason = check_reason(reason)
         # The account rules first (the last enabled admin stays): nothing changes when they refuse.
         self.accounts.set_disabled(login_id, True, who=who)
+        # Whoever shares the account's sign-ins (a card passed round, a token copied) keeps nothing of them.
+        self.accounts.end_all_sign_ins(login_id)
         self.db.execute("UPDATE accounts SET ban_reason = ? WHERE login_id = ?", (reason, login_id))
         self.accounts._log(who, "banned %s: %s" % (login_id, reason), login_id)
         return reason

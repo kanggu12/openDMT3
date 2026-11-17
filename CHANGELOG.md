@@ -108,6 +108,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   chunks without a length, however long, no longer fills the server's memory (any signed-in player could).
 - The requests log keeps HTTP's own methods (any other as `OTHER`) and cuts a long address, and its CSV file never
   starts a cell as a formula, the method and the address included.
+- A ban ends the player's sign-ins on the site and in the launcher and their API tokens at once, as a new password
+  does, and lifting it brings none back; the card number stays.
 
 ## [0.3.1] - 2026-11-17
 

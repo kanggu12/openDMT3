@@ -30,6 +30,11 @@ A player's ID opens their own page (`/admin/players/<ID>`): MAX points (set, add
 level the game shows, a ban with its reason, their DJ card and picture, a new password, a new DJ name, and every change
 made to them. Its API twin is `GET /api/v1/players/{login_id}` with a call for each control.
 
+A ban ends the player's sign-ins at once, as a new password does: on the site, in the launcher, and their API tokens.
+Lifting it does not bring them back: the player signs in again. Their card number stays, so the card logs in at the
+cabinet again once the ban is lifted. Disabling an account from the list, without a reason, only holds its sign-ins
+back while it is disabled.
+
 API: `GET /api/v1/players` (with `?sort=` and `?order=`, and each player's `days`, `plays` and `last_play`),
 `GET /api/v1/players.csv`.
 

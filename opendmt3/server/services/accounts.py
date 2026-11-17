@@ -198,6 +198,17 @@ class Accounts:
         sign-ins when it was made, and this starts the next round. The launcher's tokens do not carry it."""
         self.db.execute("UPDATE accounts SET session_generation = session_generation + 1 WHERE id = ?", (account_id,))
 
+    def end_all_sign_ins(self, login_id):
+        """End every sign-in the account has, at once (a ban): its sign-ins on the site (their next round, as a
+        sign-out starts it), the sign-in tokens of POST /api/v1/session (their own next round: each token carries the
+        round it was made in) and its named API tokens. Its password and its card stay, and nothing of what ended comes
+        back once the ban is lifted: the player signs in anew."""
+        self.db.execute("UPDATE accounts SET session_generation = session_generation + 1,"
+                        " token_generation = token_generation + 1 WHERE login_id = ?", (login_id,))
+        # The named tokens go for good, as a new password takes them (set_password).
+        self.db.execute("DELETE FROM api_tokens WHERE account_id IN (SELECT id FROM accounts WHERE login_id = ?)",
+                        (login_id,))
+
     def end_token(self, token_id, account_id, expires, now=None):
         """End one API token before its time (DELETE /api/v1/session: the launcher's Sign out), and no other: the
         account's other tokens (a launcher on another PC) go on. Its id (a hash of it, web/session.py) is kept until

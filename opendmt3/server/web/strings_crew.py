@@ -103,8 +103,10 @@ TEXT = {
     "player.ban.reason": ("Reason", "사유"),
     "player.ban.yes": ("Ban", "정지하기"),
     "player.ban.ask": ("Ban {login_id}?", "{login_id}의 이용을 정지할까요?"),
-    "player.ban.detail": ("Their card stops logging in at once, and they leave the rankings until the ban is lifted.",
-                          "카드 로그인이 바로 막히고, 정지를 풀 때까지 순위에서 빠집니다."),
+    "player.ban.detail": ("Their card stops logging in and their sign-ins end at once, and they leave the rankings until "
+                          "the ban is lifted.",
+                          "카드 로그인이 바로 막히고 이 계정으로 로그인한 곳이 모두 로그아웃되며, 정지를 풀 때까지 순위에서 "
+                          "빠집니다."),
     "player.ban.on": ("The game refuses their card, and the site and the launcher their sign-in.",
                       "게임은 카드를, 사이트와 런처는 로그인을 거부합니다."),
     "player.unban": ("Lift the ban", "정지 풀기"),

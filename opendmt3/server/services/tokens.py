@@ -3,8 +3,9 @@ a name that says what it is for and a scope, read (GET calls only) or write (rea
 the database keeps its SHA-256 only (table api_tokens, db step 7), so a lost token cannot be shown again: make another.
 
 A token acts as its owner, with the owner's rights as they are at each call (web/api.py): it stops while the account is
-disabled and goes with the account; revoking it, or a new password for the account, ends it for good. The sign-in
-tokens of POST /api/v1/session are another kind (signed values, web/session.py) and work as before.
+disabled and goes with the account; revoking it, a new password for the account or a ban (accounts.end_all_sign_ins)
+ends it for good. The sign-in tokens of POST /api/v1/session are another kind (signed values, web/session.py) and work
+as before.
 """
 
 import hashlib

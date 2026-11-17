@@ -142,6 +142,13 @@ STEPS = [
         "ALTER TABLE changes ADD COLUMN account_id INTEGER",
         "CREATE INDEX changes_by_account ON changes (account_id, id)",
     ],
+    # 10: the account's round of sign-in tokens (POST /api/v1/session, the launcher's): each token carries the round it
+    # was made in, and a ban starts the next one, so every token made before the ban stops for good (lifting the ban
+    # brings none back), as the round of step 5 does it for the site's sign-ins. A sign-out on the site does not touch
+    # it. Every account starts at round 0, the round of the tokens made before this step.
+    [
+        "ALTER TABLE accounts ADD COLUMN token_generation INTEGER NOT NULL DEFAULT 0",
+    ],
 ]
 VERSION = len(STEPS)
 # How long a statement waits for another connection's write to end before it gives up with "database is locked", in

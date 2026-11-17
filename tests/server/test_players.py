@@ -362,6 +362,41 @@ class AdminPlayerPageTest(ApiBase):
         self.assertEqual(state["history"][0]["what"], "enabled the account NOVA")
         self.assertEqual(state["card_end"], self.site.accounts().by_login("NOVA")["card"][-4:])
 
+    def test_a_ban_ends_every_sign_in_and_lifting_it_brings_none_back(self):
+        from starlette.testclient import TestClient
+        browser = TestClient(self.app, client=("203.0.113.12", 50007))
+
+        def signed_in():
+            # NOVA on the site in a browser, a launcher's sign-in token and a named token of a program of theirs.
+            self.sign_in(browser)
+            launcher = self.token()
+            named = self.call("POST", "/api/v1/tokens", launcher, json={"name": "bot", "scope": "write"}).json()
+            return launcher, named["token"]
+
+        def working(launcher, named):
+            # What each answers: the Account page (303 back to the sign-in once it ends) and the account's API call.
+            return (browser.get("/account", follow_redirects=False).status_code,
+                    self.call("GET", "/api/v1/me", launcher).status_code, self.call("GET", "/api/v1/me", named).status_code)
+
+        card = self.site.accounts().by_login("NOVA")["card"]
+        boss = self.token("BOSS")
+        # Banned on the player's page, lifted there; banned through the API, lifted with the Players list's Enable.
+        for ban, lift in ((lambda: self.post("/admin/players/NOVA", action="ban", reason="Made-up reason"),
+                           lambda: self.post("/admin/players/NOVA", action="unban")),
+                          (lambda: self.call("POST", "/api/v1/players/NOVA/ban", boss, json={"reason": "Made-up"}),
+                           lambda: self.call("POST", "/api/v1/players/NOVA/enable", boss))):
+            launcher, named = signed_in()
+            self.assertEqual(working(launcher, named), (200, 200, 200))
+            ban()
+            # Every one ends at the ban.
+            self.assertEqual(working(launcher, named), (303, 401, 401))
+            lift()
+            # Lifting it brings none of them back: the player signs in anew, and that works.
+            self.assertEqual(working(launcher, named), (303, 401, 401))
+            self.assertEqual(working(*signed_in()), (200, 200, 200))
+        # The card number stays: the card keeps logging in at the cabinet once the ban is lifted.
+        self.assertEqual(self.site.accounts().by_login("NOVA")["card"], card)
+
     def test_a_banned_player_is_told_the_reason_when_signing_in(self):
         from starlette.testclient import TestClient
         store = self.site.accounts()
