@@ -50,7 +50,8 @@ class RemoteError(Worded):
 
 def normalize(address):
     """'192.168.0.10' -> 'http://192.168.0.10:4730'; keeps a scheme and a port that are given. An address with
-    port 443 and no scheme is https: that port is TLS's, as a site behind a TLS proxy shows its address."""
+    port 443 and no scheme is https: that port is TLS's, as a site behind a TLS proxy shows its address; an https
+    address with no port is on 443."""
     text = (address or "").strip().rstrip("/")
     if not text:
         raise RemoteError("type the server's address", key="error.remote.empty")
@@ -59,7 +60,9 @@ def normalize(address):
     try:
         parts = urllib.parse.urlsplit(text)
         # .port raises ValueError for a port that is not a number or out of range ("host:4730x", ":99999").
-        port = parts.port or DEFAULT_WEB_PORT
+        # An https address with no port is the standard one, 443, as a browser reads it: the address the site gives
+        # behind Caddy (./dmt3 expose) is https://NAME/. A plain address with none is the site's own port.
+        port = parts.port or (443 if parts.scheme == "https" else DEFAULT_WEB_PORT)
     except ValueError:
         raise RemoteError("%r is not an address" % address, key="error.remote.address", address=address) from None
     if not parts.hostname:

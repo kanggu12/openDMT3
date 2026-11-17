@@ -20,7 +20,7 @@ services:
     # The image: the published one of this version (amd64 and arm64), or this clone's own after ./dmt3 up --build,
     # which builds it as opendmt3-server:local and keeps OPENDMT3_IMAGE in .env. ./dmt3 always names it; the default
     # here is for docker compose run by hand, and moves with each release (tests/test_front_door.py checks it).
-    image: ${OPENDMT3_IMAGE:-ghcr.io/kanggu12/opendmt3-server:0.3.0}
+    image: ${OPENDMT3_IMAGE:-ghcr.io/kanggu12/opendmt3-server:0.3.1}
     # How ./dmt3 up --build (docker compose build) makes this clone's own.
     build:
       context: .

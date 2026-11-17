@@ -50,7 +50,8 @@ class RemoteTest(unittest.TestCase):
 
     def test_addresses_are_completed(self):
         self.assertEqual(remote.normalize("192.168.0.10"), "http://192.168.0.10:4730")
-        self.assertEqual(remote.normalize("https://dmt.example/"), "https://dmt.example:4730")
+        # The address the site gives behind HTTPS (./dmt3 expose): the standard port, as a browser reads it.
+        self.assertEqual(remote.normalize("https://dmt.example/"), "https://dmt.example:443")
         self.assertEqual(remote.normalize("10.0.0.5:8000"), "http://10.0.0.5:8000")
         # The address a site behind a TLS proxy shows on its Download page.
         self.assertEqual(remote.normalize("dmt.example:443"), "https://dmt.example:443")

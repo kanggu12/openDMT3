@@ -32,7 +32,11 @@ them.
 
 | Guide | For |
 | :--- | :--- |
-| [Running a server](server.md) | The server owner's guide: what you need, the three ways (in the launcher, with Docker, with Python), the song list, players, the site and the admin pages, DJ cards and the song select, backups, updating the server, handing out updates, a chat webhook, the internet, many players at once, without internet, what to keep private, the command line |
+| [Running a server](server.md) | The server owner's guide: what you need, the ways (in the launcher, on Windows, with Docker, with Python, on Kubernetes), the ports, removing a server, the song list, players, the site and the admin pages, DJ cards and the song select, backups, updating the server, handing out updates, a chat webhook, the internet, many players at once, without internet, what to keep private, the command line |
+| [Playing from outside your home](internet.md) | A name, the router's forwards, HTTPS with `./dmt3 expose` and Caddy, checking from outside, what is open |
+| [A closed network](closed-network.md) | What to bring in for a network with no internet, HTTPS with Caddy's own authority or yours, LAN parties |
+| [On Kubernetes](kubernetes.md) | The Helm chart: what it makes, the first account, the song list, the game's port, an Ingress with HTTPS, backups, updates, the kind test |
+| [Server questions](faq.md) | Which way to run it, why two ports, other ports, inviting players, HTTPS, the data, updating, removing, what to run first |
 | [What a server takes](client-data.md#what-a-server-takes) | The song list from the client data, and each way it comes in |
 | [The API](api.md) | What the site shows and does, as JSON, for scripts and the launcher; named tokens, the OpenAPI document |
 | [Troubleshooting a server](troubleshooting.md#the-server) | `./dmt3 doctor`, the owner's first account, the ports and WSL 2, sign-ins held back, the song list |

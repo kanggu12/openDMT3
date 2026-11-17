@@ -19,10 +19,10 @@ The pod runs as the image's own user (4725), with a read-only root file system, 
 
 ## Install
 
-Each release has the chart as `opendmt3-X.Y.Z-helm-chart.tgz`, X.Y.Z its version:
+Each release has the chart as `opendmt3-0.3.1-helm-chart.tgz`:
 
 ```sh
-helm install dmt3 https://github.com/kanggu12/openDMT3/releases/download/vX.Y.Z/opendmt3-X.Y.Z-helm-chart.tgz \
+helm install dmt3 https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-0.3.1-helm-chart.tgz \
   -n opendmt3 --create-namespace \
   --set admin.enabled=true --set admin.password=CHANGE1234
 ```
@@ -72,7 +72,7 @@ The site shows the new song list at once. To hand out the launcher, copy the rel
 downloads folder the same way:
 
 ```sh
-kubectl -n opendmt3 cp opendmt3-launcher-X.Y.Z-windows-x64-setup.exe "${POD#pod/}":/data/downloads/openDMT3-win-Setup.exe -c server
+kubectl -n opendmt3 cp opendmt3-launcher-0.3.1-windows-x64-setup.exe "${POD#pod/}":/data/downloads/openDMT3-win-Setup.exe -c server
 ```
 
 ## The game's port
@@ -87,6 +87,8 @@ kubectl -n opendmt3 get svc dmt3-opendmt3-game
   `game.service.annotations` takes the cloud's own settings (an internal load balancer, say).
 - On a cluster without load balancers, `game.service.type=NodePort` and `game.service.nodePort=30725`: cabinets
   connect to any node's address on that port.
+- Another port: `game.service.port=5725`. The server listens on the port cabinets reach (the node's port with
+  `NodePort`, else the Service's), so the site tells launchers that one.
 
 Cabinets behind one router share its address: the game's port takes up to 16 of them from one address, and 64 in all.
 
@@ -160,7 +162,7 @@ kubectl -n opendmt3 cp "${POD#pod/}":/data/backups/NAME.sqlite NAME.sqlite -c se
 Install the new release's chart over the old one:
 
 ```sh
-helm upgrade dmt3 https://github.com/kanggu12/openDMT3/releases/download/vX.Y.Z/opendmt3-X.Y.Z-helm-chart.tgz \
+helm upgrade dmt3 https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-0.3.1-helm-chart.tgz \
   -n opendmt3 --reuse-values
 ```
 

@@ -197,12 +197,17 @@ class StartStopTest(unittest.TestCase):
     def test_start_status_stop(self):
         data = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, data, True)
-        game, web = free_port(), free_port()
-        quiet("--data", data, "setup", "--game-port", str(game), "--web-port", str(web))
         self.addCleanup(quiet, "--data", data, "stop")
-        # The child is this same Python with this tree's package.
-        with mock.patch.dict(os.environ, {"PYTHONPATH": os.pathsep.join([os.getcwd()] + sys.path)}):
-            code, said = quiet("--data", data, "start")
+        for _ in range(5):
+            # Two free ports; another process on this PC may take one between the look and the start (tests run
+            # on several processes at once), and then two others are tried.
+            game, web = free_port(), free_port()
+            quiet("--data", data, "setup", "--game-port", str(game), "--web-port", str(web))
+            # The child is this same Python with this tree's package.
+            with mock.patch.dict(os.environ, {"PYTHONPATH": os.pathsep.join([os.getcwd()] + sys.path)}):
+                code, said = quiet("--data", data, "start")
+            if "is taken by another program" not in said:
+                break
         self.assertEqual(code, 0, said)
         record = standalone.running(data)
         self.assertIsNotNone(record)

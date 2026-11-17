@@ -4,7 +4,8 @@
 
 The README and the guides name a release's files by their versioned names (opendmt3-launcher-0.3.1-windows-x64-
 setup.exe, opendmt3-server-0.3.1.zip) and download them from that release's own address (releases/download/v0.3.1/),
-so a line copied from them fetches the file it names. Every such version must be `__version__`
+so a line copied from them fetches the file it names; compose.yaml's default image and the Helm chart's Chart.yaml
+are read the same way. Every such version must be `__version__`
 (opendmt3/__init__.py); so must the bug form's example version. Lists each line that names another and exits 1;
 --write puts this version in their place (a release raises the version, then runs this with --write). The standard
 library only, as .github/release_notes.py.
@@ -24,9 +25,16 @@ V = r"\d+\.\d+\.\d+(?:-(?:rc|alpha|beta)\.\d+)?"
 PATTERNS = [re.compile(r"(?<=opendmt3-launcher-)" + V + r"(?=-)"),
             re.compile(r"(?<=opendmt3-server-)" + V + r"(?=[./-])"),
             re.compile(r"(?<=/releases/download/v)" + V + r"(?=/)"),
+            # The Helm chart's and the checksums' names (opendmt3-0.3.1-helm-chart.tgz), and the server's image tag.
+            re.compile(r"(?<=opendmt3-)" + V + r"(?=-helm-chart|-checksums)"),
+            re.compile(r"(?<=opendmt3-server:)" + V + r"\b"),
+            # The Helm chart's own version and the server's in its Chart.yaml.
+            re.compile(r"(?<=^version: )" + V + r"$", re.M), re.compile(r"(?<=^appVersion: \")" + V + r"(?=\")", re.M),
             re.compile(r"(?<=placeholder: )" + V + r"$", re.M)]
 # The pages people copy download lines from (CHANGELOG.md keeps each release's own names, so it is not one).
-PAGES = ["README.md", "CONTRIBUTING.md", "packaging/server/README.md", ".github/ISSUE_TEMPLATE/bug.yml"]
+PAGES = ["README.md", "CONTRIBUTING.md", "packaging/server/README.md", ".github/ISSUE_TEMPLATE/bug.yml",
+         # The image compose.yaml runs by default, and the Helm chart's versions: a release moves them with the guides.
+         "compose.yaml", "deploy/helm/opendmt3/Chart.yaml"]
 
 
 def pages(root):

@@ -72,8 +72,10 @@ cd opendmt3-server-0.3.1
 ```
 
 The wizard asks where your client data is (for the song list) and which installer to hand out, then gives the site's
-address and the admin's password. A server also runs [in the launcher](docs/server.md#in-the-launcher) or
-[with Python](docs/server.md#with-python). More in [the server guide](docs/server.md).
+address and the admin's password. A server also runs [in the launcher](docs/server.md#in-the-launcher), from the
+[Windows server package](docs/server.md#on-windows) without Docker, from a
+[one-line install](docs/server.md#with-python) on Linux or macOS, or [on Kubernetes](docs/kubernetes.md);
+`./dmt3 expose` puts it on [HTTPS for the internet](docs/internet.md). More in [the server guide](docs/server.md).
 
 ## What it does
 
@@ -163,7 +165,9 @@ Choose how you play on the launcher's **Online** page:
 
 - **Players:** [Playing on your PC](docs/install.md), [The client data](docs/client-data.md),
   [Troubleshooting](docs/troubleshooting.md)
-- **Server owners:** [Running a server](docs/server.md), [The API](docs/api.md)
+- **Server owners:** [Running a server](docs/server.md), [Playing from outside your home](docs/internet.md),
+  [A closed network](docs/closed-network.md), [On Kubernetes](docs/kubernetes.md), [Server questions](docs/faq.md),
+  [The API](docs/api.md)
 - **Everyone:** [License and notice](docs/notice.md)
 
 ## Contributing

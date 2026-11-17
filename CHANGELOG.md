@@ -6,6 +6,29 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+### Added
+
+- The Windows server package, `opendmt3-server-<version>-windows-x64.zip`: the server on a Windows PC of its own,
+  without Docker, Python or the launcher, with the launcher's installer of the same release to hand out, start and
+  stop from any window, a firewall helper, repair and removal.
+- A one-line install for Linux and macOS without Docker (`opendmt3-server-<version>-linux-installer.sh` and
+  `-macos-installer.sh`), and the same server command line there.
+- The server's image for amd64 and arm64 on `ghcr.io/kanggu12/opendmt3-server`, which `./dmt3` runs by default
+  (`--build` for a copy's own), and a Helm chart, `opendmt3-<version>-helm-chart.tgz`.
+- `./dmt3 expose NAME`: the site over HTTPS with Caddy and a certificate it gets by itself, from Let's Encrypt, its
+  staging authority, your own ACME authority or Caddy's own on a closed network.
+- The invite: the players' address with a QR code on **Admin**, **Players**, in `GET /api/v1/server/invite`, and from
+  `./dmt3 invite`.
+- `./dmt3 ports`: the game's port and the site's set once, which every part then uses; `./dmt3 repair` and
+  `./dmt3 remove [--delete-data]`.
+- The server says where it is once it is up, with a logo and its addresses in a box.
+- Guides for the internet, a closed network, Kubernetes, and server questions.
+
+### Fixed
+
+- `.env` saved by Notepad (with a byte-order mark, CRLF or spaces around `=`) reads the same as any other.
+- The launcher connects to an `https://` address without a port on 443, as a browser does.
+
 ## [0.3.1] - 2026-11-17
 
 ### Added

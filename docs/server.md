@@ -9,13 +9,18 @@ launcher is one. The server knows each by the address it connects from, and the 
 **Admin**, **Cabinets** tab list them.
 
 You do not need a server to play alone: the launcher has one inside for that ([Playing on your PC](install.md), the
-player's guide). Run one when others play from their own PCs, in one of three ways, each the same server:
+player's guide). Run one when others play from their own PCs, in one of these ways, each the same server:
 
 | Way | Where it runs | For |
 | :--- | :--- | :--- |
 | [In the launcher](#in-the-launcher) | The launcher's own server on a Windows PC, while the launcher is open | The other PCs on that PC's network |
-| [With Docker](#with-docker) | Docker Compose with `./dmt3`, on Linux, macOS, or Windows in WSL 2 | A server that stays on, for every player who can reach it |
-| [With Python](#with-python) | Python 3.10 or newer on Linux, from the release's server package or a copy of this repository | The same, without Docker |
+| [On Windows](#on-windows) | The Windows server package, `opendmt3-server.exe`: no Docker, Python or launcher needed | A server that stays on, on a Windows PC |
+| [With Docker](#with-docker) | Docker Compose with `./dmt3`, on Linux, macOS, or Windows in WSL 2, from the published image | A server that stays on, for every player who can reach it |
+| [With Python](#with-python) | The one-line install on Linux or macOS, or Python 3.10 or newer from the release's server package or a copy of this repository | The same, without Docker |
+| [On Kubernetes](kubernetes.md) | The Helm chart, from the published image | A cluster you run already |
+
+The other guides for server owners: [Playing from outside your home](internet.md) (a name, the router, HTTPS),
+[A closed network](closed-network.md) (no internet), [On Kubernetes](kubernetes.md) and [Server questions](faq.md).
 
 <p align="center">
   <picture>
@@ -26,18 +31,19 @@ player's guide). Run one when others play from their own PCs, in one of three wa
 
 ## What you need
 
-- A PC that stays on. With Docker: Docker with Compose v2 and Python 3 (`./dmt3` is a Python script), on Linux, on
-  macOS, or on Windows in WSL 2. With Python: Python 3.10 or newer, on Linux. In the launcher: the launcher on a
-  Windows PC, nothing else.
-- The server: the release's server package, `opendmt3-server-0.3.1.zip` (what the server needs and nothing else), or a
-  clone of this repository (git).
+- A PC that stays on. On Windows: the Windows server package, nothing else. With Docker: Docker with Compose v2 and
+  Python 3 (`./dmt3` is a Python script), on Linux, on macOS, or on Windows in WSL 2. With Python: Python 3.10 or
+  newer, on Linux or macOS. In the launcher: the launcher on a Windows PC, nothing else.
+- The server: the release's server package, `opendmt3-server-0.3.1.zip` (what the server needs and nothing else), the
+  Windows server package `opendmt3-server-0.3.1-windows-x64.zip`, or a clone of this repository (git).
 - Memory and processor: the server held about 100 MB with 64 cabinets and 20 visitors at once
   ([Many players at once](#many-players-at-once)); its site works on two threads, and reading a song list uses up to
   eight cores.
 - Your own client data on the server PC, in a folder or an archive, or the song list the launcher saved from it
   ([what a server takes](client-data.md#what-a-server-takes)). The server keeps only the song list.
 - The launcher's installer, `opendmt3-launcher-0.3.1-windows-x64-setup.exe`, from the
-  [releases](https://github.com/kanggu12/openDMT3/releases/latest), to hand out from the site.
+  [releases](https://github.com/kanggu12/openDMT3/releases/latest), to hand out from the site (the Windows server
+  package brings it).
 
 ## In the launcher
 
@@ -54,6 +60,39 @@ The server runs while that launcher is open, and keeps its logins and records in
 that PC's own client data when the launcher opens, so the first PLAY does not wait for it. The other players open the
 same addresses in a browser for the site.
 [Playing on your PC](install.md#with-the-other-pcs-on-your-network) has the player's side.
+
+## On Windows
+
+On a Windows 10 or 11 PC of its own, without Docker, Python or the launcher: the release's
+`opendmt3-server-0.3.1-windows-x64.zip`, from the [releases](https://github.com/kanggu12/openDMT3/releases/latest).
+It brings its own Python, the official 7-Zip, and the launcher's installer of the same release to hand out.
+
+1. Unpack the whole zip into a folder of your own (for example `C:\openDMT3-server`), and start
+   `opendmt3-server.exe`. The server runs in its window; on the first start your browser opens this PC's site, where
+   you make the owner's account.
+2. Start **Open the firewall.cmd** (Windows asks for an administrator's yes): it opens TCP 4725 and 4730 for private
+   networks (`opendmt3-server firewall --public` for public ones too, `--remove` takes the rules out).
+3. The song list: **Admin**, **Song list** on the site (folders of this PC, an archive, or an upload), or
+   `opendmt3-server catalog D:\path\to\client\data` in a terminal in the folder.
+4. **Admin**, **Players** makes the players' accounts, and shows the address players open with a QR code.
+
+The data folder is `data` beside the program: the database, its backups, the log (`data\logs`, a new file every 2 MB,
+three kept), the settings and the installer the **Download** page hands out. **Start in the background.cmd** and
+**Stop the server.cmd** are the program's own `start` and `stop`, and `stop` also stops a server started in its
+window. The same commands run with Python on Linux and macOS ([With Python](#with-python)):
+
+| Command | Does |
+| :--- | :--- |
+| `opendmt3-server` or `opendmt3-server run` | Runs the server in this window until it closes (Ctrl+C, or `stop` from another one); `--no-browser` |
+| `opendmt3-server start`, `stop`, `status`, `logs` | In the background; stops the running one, however it was started; whether it runs and answers, with its addresses; the last lines of its log |
+| `opendmt3-server setup [--address A] [--game PATH] [--installer FILE] [--admin ID [--password P]] [--game-port N] [--web-port N]` | The players' address, the song list, the installer to hand out, the first account, the ports; each only when given |
+| `opendmt3-server invite` | The address players open, with its QR code |
+| `opendmt3-server firewall [--remove] [--public] [--print]` | Opens the two ports in Windows' firewall as an administrator; elsewhere prints the commands for ufw and firewalld |
+| `opendmt3-server expose NAME` | The site over HTTPS behind Caddy on this PC ([Playing from outside your home](internet.md#on-windows-or-with-python)) |
+| `opendmt3-server catalog PATH [--save FILE]`, `add-player`, `backup`, `backups`, `restore NAME` | The server's own `--catalog`, `--add-player`, `--backup`, `--backups` and `--restore` on this data folder |
+| `opendmt3-server repair`, `remove [--delete-data]` | The checks with their fixes; removing the server ([Removing a server](#removing-a-server)) |
+
+`--data FOLDER` before the command uses another data folder (or `OPENDMT3_DATA`).
 
 ## With Docker
 
@@ -105,7 +144,8 @@ It does these, in order; run again, each one that is done already changes nothin
 
 - keeps the site's address as the players reach it (`--address ADDRESS`: this PC's address on the network, a name,
   or a whole `https://...` address behind a proxy), so the message to send a player carries it;
-- builds the server's image and makes the data folder;
+- gets the server's image: the one published for this version (`ghcr.io/kanggu12/opendmt3-server`, for amd64 and
+  arm64), pulled; built from this copy when it cannot be pulled, or with `--build`; and makes the data folder;
 - makes the first (owner's) account `BOSS` with the admin pages and prints its password (`--admin ID` for another
   ID, `--password` to give one; nothing is made when the database has accounts already);
 - imports the song list (`--game PATH`: the client data in a folder or an archive, or a song list the launcher
@@ -179,7 +219,12 @@ missing and why, and where it came from. The API's twins are `GET` and `POST /ap
 
 | Command | Does |
 | :--- | :--- |
-| `./dmt3 up`, `./dmt3 down`, `./dmt3 restart` | Starts the server (building its image first; `--no-build` to start the image as it is), stops it, restarts it |
+| `./dmt3 up`, `./dmt3 down`, `./dmt3 restart` | Starts the server (getting its image first; `--no-build` to start the image as it is), stops it, restarts it |
+| `./dmt3 image [--build \| --published]` | The server's image: the published one of this version, pulled when it is not here; `--build` builds this copy's and keeps using it, `--published` goes back |
+| `./dmt3 ports [--game N] [--web N]` | The two ports ([Ports](#ports)) |
+| `./dmt3 invite` | The address players open, with its QR code |
+| `./dmt3 expose NAME` | The site over HTTPS at NAME, with Caddy ([Playing from outside your home](internet.md)) |
+| `./dmt3 repair`, `./dmt3 remove [--delete-data]` | The image again and the container afresh, then `doctor`; removing the server ([Removing a server](#removing-a-server)) |
 | `./dmt3 status` | The container's state, then `check`, then the site's address |
 | `./dmt3 logs [-f] [-n LINES]` | The server's log |
 | `./dmt3 backup`, `./dmt3 backups`, `./dmt3 restore NAME` | The server's `--backup`, `--backups` and `--restore NAME` ([Backups](#backups)) |
@@ -187,14 +232,14 @@ missing and why, and where it came from. The API's twins are `GET` and `POST /ap
 | `./dmt3 check` | The site answers `/health` and the game's port takes a connection |
 | `./dmt3 catalog [PATH] [--save FILE]` | Imports the song list from the client data in a folder or an archive, or from a song list ([The song list](#the-song-list); the folder kept mounted when not given); `--save` saves one instead |
 | `./dmt3 doctor` | Docker, the server's image, the two ports and the data folder, each problem with its fix |
-| The new server package (or `git pull`), then `./dmt3 up` | Updates the server: its image is built again from the new code, and the data stays ([Updating the server](#updating-the-server)) |
+| The new server package (or `git pull`), then `./dmt3 up` | Updates the server: the new version's image, and the data stays ([Updating the server](#updating-the-server)) |
 
 The commands that reach the database run the server's own command line ([Command line](#command-line)) in its
 container: in the running one, or in a new one that goes away. The same with Docker Compose itself, from the server's
 folder (the package's or the clone's):
 
 ```sh
-docker compose up -d --build
+docker compose up -d
 # the first (owner's) account; its password is printed:
 docker compose run --rm server --add-player BOSS --admin
 # the song list, imported once from your own client data (a folder or an archive) or a song list:
@@ -211,9 +256,24 @@ players' launchers update from.
 
 ## With Python
 
-On Linux, with Python 3.10 or newer. The server runs from the release's server package, unpacked, or a copy of this
-repository; nothing installs `opendmt3` itself. The song list is read once from your client data, before the first
-start (without it the site shows song numbers):
+On Linux or macOS, with Python 3.10 or newer (on Debian and Ubuntu, `python3-venv` too), one line installs the
+release's server, checked against the release's checksums, into `~/.local/share/opendmt3-server`, with its own
+Python environment and the official 7-Zip, and puts the command `opendmt3-server` in `~/.local/bin`:
+
+```sh
+curl -fsSL https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-server-0.3.1-linux-installer.sh | sh
+opendmt3-server setup --game /path/to/your/client/data
+opendmt3-server start
+```
+
+(on macOS the release's `-macos-installer.sh`). Its commands are the Windows package's ([On Windows](#on-windows));
+the data folder is `~/.local/share/opendmt3-server/data`. The same line again, or a newer release's, stops the
+running server, puts the new version in place and starts it again, with the data as it was;
+`sh -s -- --uninstall` after the pipe's `sh` removes it and keeps the data.
+
+By hand instead, from the release's server package, unpacked, or a copy of this repository; nothing installs
+`opendmt3` itself. The song list is read once from your client data, before the first start (without it the site
+shows song numbers):
 
 ```sh
 curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-server-0.3.1.zip
@@ -332,7 +392,8 @@ older database forward on its first start (a copy of it is kept first).
 
 - **With Docker**: unpack the new release's server package and copy the old folder's `.env` into it (the address
   and the client data kept at setup; the data itself is in Docker's volume, which the new folder uses as it is), or
-  `git pull` in a clone; then `./dmt3 up`: the image is built again from the new code, and the data stays. Then
+  `git pull` in a clone; then `./dmt3 up`: the new version's image is pulled (or built, with `--build`), and the data
+  stays. Then
   `./dmt3 setup --installer FILE` with the release's `opendmt3-launcher-0.3.1-windows-x64-setup.exe`, so the
   **Download** page hands out the new launcher.
 - **With Python**: stop the server, unpack the new server package and move the `data` folder into it, with a new
@@ -340,6 +401,10 @@ older database forward on its first start (a copy of it is kept first).
   repository; run the `pip install` line again, and start the server again. Put the
   new `opendmt3-launcher-0.3.1-windows-x64-setup.exe` in `data/downloads/`: of the installers there, the newest
   version is handed out.
+- **On Windows**: stop the server, unpack the new zip into a new folder, move the `data` folder into it, and start the
+  new `opendmt3-server.exe`. It brings the new launcher's installer and hands it out once the downloads folder has
+  none: delete the old installer in `data\downloads` first, or `opendmt3-server setup --installer FILE`.
+- **The one-line install**: the new release's line; it stops and starts the server itself.
 - **In the launcher**: the launcher's own update (**Launcher**, **Check for updates**) updates its server too.
 
 The players' launchers update themselves: from the project's releases, or from this server when it hands the updates
@@ -363,30 +428,26 @@ feed, the packages and their signatures, by their plain names.
 first place from another player. In Docker, add `OPENDMT3_WEBHOOK: URL` under the service's `environment:` in
 `compose.yaml`.
 
+## Ports
+
+The game connects on TCP 4725 and speaks its own protocol there, the server first; the site, the admin pages and the
+launcher's API share 4730. The launcher asks the site for the game's port, so players type only the site's address.
+Other ports are set once, and every part uses them:
+
+- **Docker**: `./dmt3 ports --game 5725 --web 8080` (or `./dmt3 setup --game-port 5725 --web-port 8080`) keeps them
+  in `.env` as `GAME_PORT` and `WEB_PORT`; `compose.yaml` publishes them and the server listens on the same numbers,
+  and a running server starts again on them.
+- **On Windows and with Python**: `opendmt3-server setup --game-port 5725 --web-port 8080`, then a restart.
+- **On Kubernetes**: `game.service.port` (or `game.service.nodePort`), which the server then listens on too.
+- **Python by hand**: `--port` and `--web-port` (or `OPENDMT3_GAME_PORT` and `OPENDMT3_WEB_PORT`).
+
 ## Over the internet
 
-The game's port speaks the game's own protocol, so it is opened as it is (TCP 4725). Sign-ins carry passwords: behind
-a reverse proxy that does HTTPS, they travel encrypted. With [Caddy](https://caddyserver.com) on the server PC, for
-example:
-
-```
-dmt.example.org {
-    reverse_proxy 127.0.0.1:4730
-}
-```
-
-and the server started with `--host 0.0.0.0 --web-host 127.0.0.1 --proxy 127.0.0.1`: the game's port is open to
-other PCs, the site listens on the server PC only, where the proxy reaches it, and the server believes forwarded
-headers from the proxy's own address only. Visitors are then told apart (a wrong password holds back only its own
-address) and HTTPS sign-ins get secure cookies. The proxy passes on the visitor's address in `X-Forwarded-For` and the
-site's name in `Host`, as Caddy does by itself. A request that came through the proxy never counts as a visit from the
-server PC: the owner's first page and the launcher's one-use links answer only the site opened on the server PC
-itself.
-
-In Docker, publish the site on the server PC only (`"127.0.0.1:4730:4730"` in place of `"4730:4730"` under `ports` in
-`compose.yaml`); `--proxy` then names the address the container sees the proxy's connections come from: for a proxy on
-the server PC, the gateway of the container's network (`docker network inspect opendmt3_default` shows it as `Gateway`).
-Add it to the service as `command: ["--proxy", "GATEWAY"]`.
+[Playing from outside your home](internet.md) has the name, the router's forwards and HTTPS: `./dmt3 expose NAME`
+puts Caddy in front of the site with a certificate it gets and renews by itself, and the server's own command line
+writes the same settings for a Caddy beside it (`opendmt3-server expose NAME`). By hand, with Caddy or another reverse
+proxy on the server PC: the site behind it on the server PC only (`--web-host 127.0.0.1`), the proxy's forwarded
+headers believed from its address alone (`--proxy 127.0.0.1`), the game's port opened as it is.
 
 Cabinets behind one router share its address: the game's port takes up to 16 of them from one address, and 64 in all.
 
@@ -434,20 +495,26 @@ The cabinets' links never wait for the site's work:
 
 ## Without internet
 
-The server needs no internet once it is installed: nothing it does reaches outside, and the site's fonts and pictures
-come with it. To set one up on a network with no way out, bring it in from a PC that has internet:
+The server needs no internet once it is installed. [A closed network](closed-network.md) has what to bring in from a
+PC that has internet (the Windows package, the image as a file, or the libraries), and HTTPS with Caddy's own
+authority or yours.
 
-- **Docker**: build the image there, then carry it as a file:
-  `docker save opendmt3-server:local -o opendmt3-server.tar`, and on the server `docker load -i opendmt3-server.tar`.
-  `./dmt3 setup` builds the image first, so on the server take its steps one at a time: `./dmt3 up --no-build` (or
-  `docker compose up -d`, without `--build`), then `./dmt3 add-player BOSS --admin` for the first account and
-  `./dmt3 catalog PATH` for the song list ([Every day](#every-day) has the installer's step too).
-- **Python**: `.venv/bin/pip download -d wheels starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0
-  python-multipart==0.0.20 pillow==11.3.0` there (on the same system and Python version as the server), and on the
-  server, in its folder (the server package's or the repository's), `python3 -m venv .venv` and
-  `.venv/bin/pip install --no-index --find-links wheels starlette jinja2 uvicorn python-multipart pillow`.
+## Removing a server
 
-The webhook is the only thing that reaches outside, and only when you give it one.
+- **Docker**: `./dmt3 remove` takes the containers (Caddy's too) and the images away and keeps the data volume;
+  `./dmt3 remove --delete-data` deletes the data too, after a backup read out into this folder
+  (`opendmt3-backup-<time>.sqlite`), and asks first (`--yes` does not). The copy of the repository or the package is
+  then deleted like any folder.
+- **On Windows and with Python**: `opendmt3-server remove` stops the server and takes its firewall rules out;
+  `--delete-data` deletes the data folder too, after a backup kept beside it. The Windows package put nothing
+  anywhere but its own folder: deleting that folder removes it. The one-line install's own `--uninstall` removes the
+  program and keeps the data.
+- **On Kubernetes**: `helm uninstall`, then the data volume with `kubectl delete pvc` ([On Kubernetes](kubernetes.md)).
+- **In the launcher**: the launcher's own removal ([Playing on your PC](install.md)).
+
+`./dmt3 repair` and `opendmt3-server repair` come first when something is broken: the image again and the
+container afresh, or the package's files checked against its list (each damaged one named, the fix being the zip
+unpacked again over the folder), the data folder and the ports.
 
 ## What to keep private
 
@@ -469,7 +536,7 @@ openDMT3 makes these files readable by their owner only (on Linux and macOS).
 | `--data DIR` | The folder for the database and files (`OPENDMT3_DATA`; `data` by default) |
 | `--host ADDRESS` | The address to listen on: `0.0.0.0` for other PCs (`127.0.0.1` by default) |
 | `--web-host ADDRESS` | The site's address to listen on, when not `--host`'s: `127.0.0.1` behind a proxy on the server PC |
-| `--port N`, `--web-port N` | The game's port (4725) and the site's (4730; 0 for no site) |
+| `--port N`, `--web-port N` | The game's port (4725, `OPENDMT3_GAME_PORT`) and the site's (4730, `OPENDMT3_WEB_PORT`; 0 for no site) |
 | `--catalog PATH` | Imports the song list (with its jackets and the DJ cards) from the client data in a folder or in an archive (`OPENDMT3_ARCHIVE_PASSWORD` for its password), or from a song list, each part one line, then starts. Run as root on a data folder someone else owns, root only reads: the data folder is written as its owner |
 | `--catalog PATH --save FILE` | Saves the song list from `PATH` into `FILE` (a folder: `openDMT3-song-list.zip` in it) instead, checked as a server takes it, and exits; the server's data is not touched |
 | `--game FOLDER` | The folder holding the client data, which the admin's **Song list** tab finds and imports again (`OPENDMT3_GAME`; in Docker, `GAME_DIR`) |
