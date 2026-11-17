@@ -106,7 +106,7 @@ class MaintenanceSiteTest(ApiBase):
             self.assertLess(page.index(self.BAR), page.index('<div class="site-notice" role="status">'), path)
         page = self.client.get("/admin/players").text
         self.assertNotIn(self.BAR, page)
-        self.assertIn('<a class="item bad" href="/admin/status#maintenance">Maintenance <b>On</b></a>', page)
+        self.assertIn('<a class="item bad" href="/admin/status#maintenance"><span class="lampchip bad on">Maintenance</span> <b>On</b></a>', page)
         self.assertIn("The game cannot log in until maintenance ends.", self.client.get("/").text)
         from starlette.testclient import TestClient
         stranger = TestClient(self.app, client=("203.0.113.9", 50000))

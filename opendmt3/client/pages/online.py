@@ -749,7 +749,7 @@ def _home_panel(app, parent):
     # switch is for.
     widgets.setting_row(home.body, ui, w("online.home.open"),
                         lambda p: widgets.Toggle(p, ui, app.state.lan, app.set_lan),
-                        w("online.home.hint.on" if found else "online.home.hint")).pack(fill="x")
+                        w("online.home.hint.on") if found else None).pack(fill="x")
     if not app.state.lan:
         return
     if not found:

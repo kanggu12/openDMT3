@@ -38,7 +38,7 @@
   {# This month's view: under it, each month before with its first three (equal totals share a place). #}
   {% if by == "month" and month.past %}
   <div class="card">
-    <h3>{{ w("rankings.past") }}</h3>
+    <h3 lang="en">{{ w("rankings.past") }}</h3>
     <div class="past-months">
       {% for past in month.past %}
       <div class="past-month">

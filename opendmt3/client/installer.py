@@ -160,7 +160,7 @@ def plan(have, here, running, words=None):
     w = words or i18n.Words("en")
     closing = (" " + w("setup.closing")) if running else ""
     if have is None:
-        return ("info", w("setup.tab"), w("setup.install.ask", v=here), w("setup.install.detail"),
+        return ("info", w("setup.tab.install"), w("setup.install.ask", v=here), w("setup.install.detail"),
                 w("setup.install"), "install")
     if version_key(have) < version_key(here):
         return ("info", w("setup.tab.update"), w("setup.update.ask", v=here),
@@ -230,8 +230,8 @@ class Installer:
             # This version is installed: what can be done with it, as Windows' own installers offer it. Open is the
             # main one (lit, with the ring); Repair and Uninstall are quiet, Uninstall in a quiet tint of the colour of
             # taking away (one lit button on the screen).
-            detail = w("setup.repair.detail") + ((" " + w("setup.repair.closing")) if running else "")
-            self.show("info", w("setup.tab"), w("setup.installed", v=__version__), detail,
+            detail = w("setup.repair.closing") if running else None
+            self.show("info", w("setup.tab.installed"), w("setup.installed", v=__version__), detail,
                       [(w("setup.uninstall"), "uninstall", "danger_quiet"), (w("setup.repair"), "repair", "neutral"),
                        (w("setup.open"), "open", "info")], default=2, cancel="cancel")
             return
@@ -278,7 +278,7 @@ class Installer:
         w = self.words
         self.action = action
         tab, line = WORK[action]
-        self.show("info", w(tab), w(line, v=__version__), w("setup.work.detail"), progress=True)
+        self.show("info", w(tab), w(line, v=__version__), None, progress=True)
         try:
             self.process = run_setup(self.log_path)
         except OSError as e:
@@ -348,7 +348,7 @@ class Installer:
                       cancel="cancel")
             return
         self.everything = everything
-        self.show("danger", w("setup.work.uninstall"), w("help.uninstall.working.plain"), w("setup.work.detail"),
+        self.show("danger", w("setup.work.uninstall"), w("help.uninstall.working.plain"), None,
                   progress=True)
         try:
             self.process = leaving.start_uninstall(updater, everything)
@@ -385,7 +385,7 @@ class Installer:
         w = self.words
         title = title or w("setup.failed")
         if os.path.isfile(self.log_path):
-            self.show("error", w("setup.tab"), title, w("setup.failed.log", why=why, path=self.log_path),
+            self.show("error", w("setup.tab.failed"), title, w("setup.failed.log", why=why, path=self.log_path),
                       [(w("setup.close"), "close", "neutral"), (w("setup.open_log"), "log", "info")], default=1,
                       cancel="close")
         else:

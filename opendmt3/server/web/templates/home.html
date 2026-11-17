@@ -9,7 +9,7 @@
 <section class="grid">
   {# One's own DJ as the game shows the card, with what the game keeps of them, and the way to change it. #}
   <div class="card dj">
-    <h3>{{ w("home.dj") }}</h3>
+    <h3 lang="en">{{ w("home.dj") }}</h3>
     {% set name = user.dj_name %}{% include "_djcard.html" %}
     <dl class="facts">
       <div><dt>{{ w("profile.points") }}</dt><dd>{{ "{:,}".format(card.max_points) }}</dd></div>
@@ -19,7 +19,7 @@
   </div>
   {# The first DJs of the mode the Rankings page opens on, and the way to the whole ranking. #}
   <div class="card">
-    <h3>{{ w("home.top", mode=top.name) if top else w("title.rankings") }}</h3>
+    <h3 lang="en">{{ w("home.top", mode=top.name) if top else w("title.rankings") }}</h3>
     {% if not top %}<p class="muted">{{ w("rankings.none") }}</p>{% else %}
     <ol class="past-top">
       {% for r in top.rows %}
@@ -31,7 +31,7 @@
   </div>
   {# Who is at a cabinet now: across the page, a short list (or one line when none is). #}
   <div class="card wide">
-    <h3>{{ w("home.cabinets") }}</h3>
+    <h3 lang="en">{{ w("home.cabinets") }}</h3>
     {% if not cabinets %}<p class="muted">{{ w("home.cabinets.none") }}</p>{% endif %}
     <ul class="cabinets">
     {% for c in cabinets %}
@@ -43,7 +43,7 @@
   {# The newest plays that beat their player's best on the chart before them, each with by how much: the widest
      rows of the page, across both columns. #}
   <div class="card records wide">
-    <h3>{{ w("home.records") }}</h3>
+    <h3 lang="en">{{ w("home.records") }}</h3>
     {% if not records %}<p class="muted">{{ w("home.records.none") }}</p>{% endif %}
     <ul class="plays">
     {% for p in records %}
@@ -55,7 +55,7 @@
   </div>
   {% for title, plays, total, show_dj in [(w("home.mine"), mine, mine_total, False), (w("home.everyone"), everyone, everyone_total, True)] %}
   <div class="card">
-    <h3>{{ title }}</h3>
+    <h3 lang="en">{{ title }}</h3>
     {% if not plays %}<p class="muted">{{ w("home.plays.none") }}</p>{% endif %}
     <ul class="plays">
     {% for p in plays %}

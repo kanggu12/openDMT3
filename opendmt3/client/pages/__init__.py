@@ -19,17 +19,19 @@ __all__ = ["BUILDERS", "HEADERS", "ROWS_THAT_COME", "Sections", "TITLES", "build
 
 
 def _plain_header(key):
-    """A page's head: its title (the page's name in the menu) and the line under it."""
+    """A page's head: its title (the page's name in the menu) alone. A line under it that listed the page's own cards
+    said again what the title and the cards' names say."""
     def words(app):
-        return TITLES[key], app.words(key + ".sub")
+        return TITLES[key], ""
     return words
 
 
 # PLAY's head is the game's, as the site's front page has it (TECHNIKA 3 with the logo's blue 3), and its line says
 # where PLAY plays, as OpenDMTQ's PLAY says the server it plays on.
-HEADERS = {"play": lambda app: (app.words("play.title"), where_play_plays(app))}
-HEADERS.update({key: _plain_header(key) for key in ("screen", "sound", "controls", "game", "online", "records", "help",
-                                                   "about")})
+HEADERS = {"play": lambda app: (app.words("play.title"), where_play_plays(app)),
+           # RECORDS' line is PLAY's: where the records are, the one fact a records page needs.
+           "records": lambda app: (TITLES["records"], where_play_plays(app))}
+HEADERS.update({key: _plain_header(key) for key in ("screen", "sound", "controls", "game", "online", "help", "about")})
 
 
 BUILDERS = {

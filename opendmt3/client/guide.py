@@ -17,7 +17,7 @@ from opendmt3.client.pages.common import card
 # Step keys name the words in i18n (guide.<key>.name, .title, .text); the number shown is the place in this list.
 STEPS = ("1", "2", "3", "login", "4")
 # The few words each step says after its question, in the line under its title.
-LEADS = {"1": "guide.1.text", "2": "guide.2.text", "login": "guide.login.text", "4": "guide.4.text"}
+LEADS = {"4": "guide.4.text"}
 
 
 class Guide:

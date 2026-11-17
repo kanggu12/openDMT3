@@ -42,7 +42,7 @@ def _play_without_window(app, parent):
 
     widgets.divider(quick.body, ui)
     widgets.setting_row(quick.body, ui, w("about.autostart"), lambda p: widgets.Toggle(p, ui, on, flip),
-                        w("about.autostart.hint")).pack(fill="x")
+                        None).pack(fill="x")
 
 
 def language_options(app):

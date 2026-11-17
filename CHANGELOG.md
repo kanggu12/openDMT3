@@ -82,6 +82,16 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ### Changed
 
+- TECHNIKA 3's and the Platinum Crew site's details on the launcher and both sites: one stage composition behind every
+  page head (mostly charcoal, the section's colour in four pieces, a spotlight from above) with the section's thin tube
+  line under it; the cabinet's lamps, lit from below with nothing round them, and its NET and ID CARD lamps with their
+  words at the launcher's foot and in the admin pages' rail; scores in the game's score colour and heavy figures; the
+  first place gold and the second and third silver; the DJ card as the member's platinum card, with one silver shine
+  after a sign-in or a saved card; the sign-in card's name on the login page's hanging tab; steel chrome titles; opaque
+  reading cards and frosted floats (the bar, toasts, the phone's menu, open lists, notices on one sheet).
+- Fewer words that only said again what a screen shows: no line under the launcher's page titles but PLAY's and
+  RECORDS' "On ...", no hint that only names its row, no welcome formula in the first-start guide, the installer's
+  "This takes a few seconds." gone; the site's "openDMT3 · ..." label over its titles gone; card names of two words.
 - The admin pages open at **Status**; the Players list is for looking and every change to a player is on their own
   page. Pages that work rather than show have a low head; the phone's heroes are low.
 - A card's cut corner is one seam drawn by the card's own shape, along the top, down the cut and round the rest, on

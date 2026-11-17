@@ -27,7 +27,7 @@
     {% endif %}
   </div>
   <div class="card wide">
-    <h3>{{ w("dj.activity") }}</h3>
+    <h3 lang="en">{{ w("dj.activity") }}</h3>
     {% set weeks = dj.activity.weeks %}{% set top = weeks|map(attribute="plays")|max %}
     <p class="weeks-max">{{ w("dj.activity.max", n=top) }}</p>
     {# One bar per week, this week last; the numbers are in each bar's tip (hover or keyboard) and in the table. #}
@@ -52,7 +52,7 @@
   <div class="column">
     {% if dj.activity.songs %}
     <div class="card">
-      <h3>{{ w("dj.top") }}</h3>
+      <h3 lang="en">{{ w("dj.top") }}</h3>
       <ul class="plays">
       {% for t in dj.activity.songs %}
         <li><a class="song" href="/songs/{{ t.song }}">{{ t.title }}</a><span class="score">{{ t.plays }}</span></li>
@@ -62,7 +62,7 @@
     </div>
     {% endif %}
     <div class="card">
-      <h3>{{ w("dj.recent") }}</h3>
+      <h3 lang="en">{{ w("dj.recent") }}</h3>
       {% if not dj.recent %}<p class="muted">{{ w("dj.none") }}</p>{% endif %}
       <ul class="plays">
       {% for p in dj.recent %}
@@ -76,7 +76,7 @@
   </div>
   <div class="column">
     <div class="card">
-      <h3>{{ w("dj.bests") }}</h3>
+      <h3 lang="en">{{ w("dj.bests") }}</h3>
       {% if not dj.bests %}<p class="muted">{{ w("dj.none") }}</p>{% endif %}
       <ul class="plays">
       {% for b in dj.bests[:bests_shown] %}

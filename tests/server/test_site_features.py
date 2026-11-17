@@ -1011,7 +1011,7 @@ class HomeSongsDownloadTest(SiteBase):
         page = self.client.get("/").text
         self.assertIn("No cleared stage yet.", page)
         # The card is named in the page's words, as its other cards are (not by the menu's capitals).
-        self.assertIn("<h3>Rankings</h3>", page)
+        self.assertIn('<h3 lang="en">Rankings</h3>', page)
 
     def test_the_songs_page_counts_the_songs_shown_and_marks_rows_for_the_filter(self):
         self.catalog([{"number": 1, "title": "Made-up Opening", "composer": "Someone"},
@@ -1758,8 +1758,9 @@ class StatesTest(SiteBase):
         page = self.client.get("/").text
         # The way to the launcher is the page's one main key, in its head; then Your DJ before the lists. No card says
         # how to play (the guides do).
-        order = [page.index(words) for words in ('<p class="hero-key">', "<h3>Your DJ</h3>",
-                                                 "<h3>Connected cabinets</h3>", "<h3>New records</h3>")]
+        # (The cards' names are in the game's English on both languages' pages: lang="en".)
+        order = [page.index(words) for words in ('<p class="hero-key">', '<h3 lang="en">Your DJ</h3>',
+                                                 '<h3 lang="en">Connected cabinets</h3>', '<h3 lang="en">New records</h3>')]
         self.assertEqual(order, sorted(order))
         self.assertIn('<a class="btn primary" href="/download">Get the launcher</a>', page)
         self.assertEqual(page.count('class="btn primary"'), 1)

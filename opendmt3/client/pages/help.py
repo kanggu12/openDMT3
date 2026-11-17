@@ -50,7 +50,7 @@ def build_help(app, parent):
     logs = os.path.join(st.config_dir(), "logs")
     widgets.setting_row(tools.body, ui, w("help.logs"),
                         lambda p: widgets.Button(p, ui, w("common.open"), lambda: actions.open_folder(logs)),
-                        w("help.logs.hint")).pack(fill="x")
+                        None).pack(fill="x")
     widgets.divider(tools.body, ui)
     widgets.setting_row(tools.body, ui, w("help.repair.row"),
                         lambda p: widgets.Button(p, ui, w("help.repair"), lambda: repair_program(app)),

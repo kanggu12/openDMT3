@@ -405,7 +405,7 @@ class WebTest(WebBase):
         row = self.make()
         self.sign_in(self.client)
         page = self.client.get("/dj/%d" % row["id"])
-        self.assertIn("Stages cleared, last 12 weeks", page.text)
+        self.assertIn("Last 12 weeks", page.text)
         token = self.client.post("/api/v1/session", json={"login_id": "NOVA", "password": "pass1234"}).json()["token"]
         dj = self.client.get("/api/v1/djs/%d" % row["id"], headers={"Authorization": "Bearer " + token}).json()
         self.assertEqual(len(dj["activity"]["weeks"]), 12)

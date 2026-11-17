@@ -1911,15 +1911,15 @@ class LauncherTest(FolderCase):
     def test_the_picture_rows_have_words_in_both_languages(self):
         from opendmt3.client import i18n
         # Every row, its hint and every value's label, in English and Korean, none falling back to the key.
-        keys = ["screen.upscale", "screen.upscale.hint", "screen.sharpness", "screen.sharpness.hint",
-                "screen.antialiasing", "screen.antialiasing.hint", "screen.fps", "screen.fps.hint.off",
+        # (The hints that only said what a row is went: upscaling's, anti-aliasing's, the counter's when it is off.)
+        keys = ["screen.upscale", "screen.sharpness", "screen.sharpness.hint",
+                "screen.antialiasing", "screen.fps",
                 "screen.fps.hint.on", "screen.fps.position", "screen.fps.position.hint", "screen.shape",
                 "screen.shape.hint", "screen.pass_times", "screen.pass_times.hint"]
         keys += ["screen.fps.position." + value for value in values.FPS_POSITIONS]
         keys += ["screen.shape." + value for value in values.PICTURE_SHAPES]
         keys += ["screen.upscale." + value for value in values.UPSCALES]
-        keys += ["screen.render", "screen.render.hint.game", "screen.render.hint.display",
-                 "screen.antialiasing.hint.display"]
+        keys += ["screen.render", "screen.render.hint.game", "screen.render.hint.display"]
         keys += ["screen.render." + value for value in values.RENDER_SIZES]
         keys += ["screen.antialiasing." + value for value in values.ANTIALIASINGS]
         # The Sound page's audio offset and its hint; motion clarity, its hint and its three values.
@@ -1938,10 +1938,11 @@ class LauncherTest(FolderCase):
         # there does).
         self.assertEqual(i18n.Words("en")("screen.fps"), "FPS counter")
         self.assertEqual(i18n.Words("ko")("screen.fps"), "FPS 표시")
-        for key in ("screen.fps.hint.off", "screen.fps.hint.on", "screen.fps.position.hint"):
+        for key in ("screen.fps.hint.on", "screen.fps.position.hint"):
             for language in ("en", "ko"):
                 self.assertNotIn("F12", i18n.Words(language)(key))
-        self.assertEqual(i18n.Words("en")("screen.fps.hint.off"), "Shows the frames a second over the game.")
+        # Off, the row has no hint: its name says what it turns on.
+        self.assertNotIn("screen.fps.hint.off", i18n.TEXT)
         self.assertEqual(i18n.Words("en")("screen.fps.position.hint"),
                          "Bottom right is beside the game's FREE PLAY, below the notes.")
         self.assertEqual(i18n.Words("ko")("screen.fps.position.hint"), "오른쪽 아래는 게임의 FREE PLAY 옆, 노트 아래입니다.")

@@ -349,6 +349,9 @@ class LauncherApp:
         if not self.state.game_folder:
             return self.words("status.choose_folder")
         stopping = actions.blocking(self.checks or [])
+        if stopping and stopping[0].key == "remote" and self.page == "online":
+            # On the page where the sign-in is: what is missing, never a pointer to the page one is on.
+            return self.words("status.sign_in")
         return actions.why_not(stopping[0], self.words) if stopping else self.words("status.choose_folder")
 
     def _step_name(self, step):
@@ -594,9 +597,12 @@ class LauncherApp:
         # choice brings, so the controls stand on one line as rows come and go (OpenDMTQ's pages do the same).
         widgets.fit_names(content, self.ui, pages.rows_that_come(page))
         self.body.to_top()
-        # The page's head in the same turn as the page: the shards are kept from the page's last visit at this size
-        # (art.header_shards).
+        # The page's head in the same turn as the page: the stage is kept from the last head at this size
+        # (art.stage_ground).
         self._queue_header(now=True)
+        # The status line's sign-in sentence says it as this page needs it (ONLINE is where the sign-in is).
+        if self.status_text in (self.words("status.sign_in_first"), self.words("status.sign_in")):
+            self.set_status(self.why_not_ready(), "warn")
 
     def redraw(self, page):
         """The page on show drawn again for a choice that adds or takes rows, or an answer that came: where it was

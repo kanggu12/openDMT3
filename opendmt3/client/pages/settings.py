@@ -76,8 +76,7 @@ def build_screen(app, parent):
         v = app.state.values
         made = card(holder, ui, w("screen.frames"))
         _row(made, ui, w("screen.vsync"),
-             lambda p: widgets.Toggle(p, ui, v["vsync"], lambda on: app.changed("vsync", on)),
-             w("screen.vsync.hint"), first=True)
+             lambda p: widgets.Toggle(p, ui, v["vsync"], lambda on: app.changed("vsync", on)), None, first=True)
         # The game's logic runs once a frame, so it stays at 60 a second; how those frames are paced is the choice.
         _row(made, ui, w("screen.pacing"),
              lambda p: widgets.Segmented(p, ui, [(value, w("screen.pacing." + value))
@@ -110,7 +109,7 @@ def build_screen(app, parent):
             sections.redo("frames")
 
         _row(made, ui, w("screen.fps"), lambda p: widgets.Toggle(p, ui, v["show_fps"], set_fps),
-             w("screen.fps.hint." + ("on" if v["show_fps"] else "off")))
+             w("screen.fps.hint.on") if v["show_fps"] else None)
         if v["show_fps"]:
             # Its corner, a choice of its own (kept while the counter is off, for the next time it is on).
             _row(made, ui, w("screen.fps.position"),
@@ -149,24 +148,21 @@ def build_screen(app, parent):
         if render == "game":
             _row(made, ui, w("screen.upscale"),
                  lambda p: widgets.Segmented(p, ui, [(value, w("screen.upscale." + value))
-                                                     for value in choices.UPSCALES], upscale, set_upscale),
-                 w("screen.upscale.hint"))
+                                                     for value in choices.UPSCALES], upscale, set_upscale), None)
         if render == "game" and upscale in choices.SHARPENING_UPSCALES:
             # Only FSR 1 and NIS read the sharpness; for the others the row would change nothing, so it is left out.
             _row(made, ui, w("screen.sharpness"),
                  lambda p: widgets.Slider(p, ui, v["sharpness"], lambda val: app.changed("sharpness", val)),
                  w("screen.sharpness.hint"))
-        # Drawn at the screen's size, nothing is enlarged after the anti-aliasing: its hint says where it runs then.
-        aa_hint = "screen.antialiasing.hint" if render == "game" else "screen.antialiasing.hint.display"
         # Nine choices are too many for a row of choices: a drop-down, as the window sizes are.
         _row(made, ui, w("screen.antialiasing"),
              lambda p: widgets.Select(p, ui, [(value, w("screen.antialiasing." + value))
                                               for value in choices.ANTIALIASINGS],
                                       v["antialiasing"], lambda value: app.changed("antialiasing", value), width=16),
-             w(aa_hint))
+             None)
         for name, key in (("glow", "screen.glow"), ("videos", "screen.videos")):
             _row(made, ui, w(key), lambda p, n=name: widgets.Toggle(p, ui, v[n], lambda on, n=n: app.changed(n, on)),
-                 w(key + ".hint"))
+                 None)
 
     def advanced(holder):
         v = app.state.values
@@ -206,7 +202,8 @@ def build_sound(app, parent):
                                          ("key_volume", "sound.keys"))):
             _row(made, ui, w(key),
                  lambda p, n=name: widgets.Slider(p, ui, v[n], lambda val, n=n: app.changed(n, val)),
-                 w(key + ".hint"), first=i == 0)
+                 # The master volume's hint says what it leaves alone; the others' only said what the row is.
+                 w(key + ".hint") if key == "sound.master" else None, first=i == 0)
 
     def equalizer(holder):
         # The equalizer's five bands, flat at 0, each -12 to 12 dB (the in-game layer's last stage, on the whole mix).
@@ -217,7 +214,8 @@ def build_sound(app, parent):
             _row(made, ui, w("sound." + name),
                  lambda p, n=name: widgets.Slider(p, ui, v[n], lambda val, n=n: app.changed(n, val), low=low,
                                                   high=high, unit=" dB"),
-                 w("sound." + name + ".hint"), first=i == 0)
+                 # Only the top band's hint says something the name does not (when the device has no room for it).
+                 w("sound." + name + ".hint") if name == "eq_12k" else None, first=i == 0)
 
     def output(holder):
         v = app.state.values
@@ -235,7 +233,7 @@ def build_sound(app, parent):
         _row(made, ui, w("sound.device"),
              lambda p: widgets.Select(p, ui, options, chosen,
                                       lambda value: (app.changed("sound_device", value), redo()), width=30),
-             w("sound.device.gone") if gone else w("sound.device.hint"), first=True)
+             w("sound.device.gone") if gone else None, first=True)
         # Who mixes the game's sounds (native/cardreader/openal.c): Windows' DirectSound, or OpenAL Soft sharing the
         # device or having it to itself; after a game where OpenAL Soft did not open, the page says DirectSound played
         # instead.
@@ -417,7 +415,7 @@ def build_game(app, parent):
     cabinet = card(parent, ui, w("game.cabinet"), last=not os.path.isdir(data))
     _row(cabinet, ui, w("game.freeplay"),
          lambda p: widgets.label(p, ui, w("game.freeplay.always"), font=ui.fonts.body_bold, fg=theme.TEXT),
-         w("game.freeplay.hint"), first=True)
+         None, first=True)
     _row(cabinet, ui, w("game.unlock"), lambda p: widgets.Toggle(p, ui, app.state.unlock, app.set_unlock),
          w("game.unlock.hint"))
     if os.path.isdir(data):

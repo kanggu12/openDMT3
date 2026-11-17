@@ -118,6 +118,8 @@ h2 { font-size: 20px; }
 h3 { display: flex; align-items: center; gap: 12px; font: 400 11px/1.4 var(--wide); letter-spacing: 0.08em;
      text-transform: uppercase; color: var(--ash); margin-bottom: 14px; }
 body.lang-ko h3 { font: 600 14px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
+/* A card's name kept in the game's English on a Korean page (the showcase pages' names, as the menu's): the wide capitals. */
+body.lang-ko h3[lang="en"] { font: 400 11px/1.4 var(--wide); letter-spacing: 0.08em; text-transform: uppercase; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
 /* ------------------------------------------------------------------------------------------------ bar */

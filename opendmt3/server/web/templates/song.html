@@ -11,7 +11,7 @@
   <div class="charts">
   {% for c in song.charts %}
     <div class="card">
-      <h3>{{ w("song.chart.level" if c.level else "song.chart", mode=c.mode_name, n=c.pattern, level=c.level) }}</h3>
+      <h3 lang="en">{{ w("song.chart.level" if c.level else "song.chart", mode=c.mode_name, n=c.pattern, level=c.level) }}</h3>
       <table class="table board">
         <thead><tr><th class="num">#</th><th>{{ w("rankings.dj") }}</th><th class="num">{{ w("song.score") }}</th><th class="wide-only">{{ w("song.when") }}</th></tr></thead>
         <tbody>
