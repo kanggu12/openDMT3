@@ -19,13 +19,13 @@
 set -u
 OUT=$(realpath -m "${1:?usage: run.sh OUT_DIR}")
 REPO=${OPENDMT3_REPO:-$(cd "$(dirname "$0")/../../.." && pwd)}
-# 27 pages (the sign-in page, 19 signed in, the players page with a message to send, the Status page with a line to
+# 29 pages (the sign-in page, 21 signed in with two players' own pages, the players page with a message to send, the Status page with a line to
 # look at, the songs page filtered, the account page with a token just made, the backups page after an upload, the
 # Song list tab after a song list's upload, the Status page with maintenance off) x 2 widths x 2 languages; eight
 # questions (a player deleted, a player's plays reset, a new password, every play reset, a backup deleted, a token
 # revoked, a player banned, one's own account deleted), one message, one list to look at, one songs filter, one token, one upload of each kind and one maintenance
 # off and on each round.
-EXPECTED_PAGES=108
+EXPECTED_PAGES=116
 EXPECTED_DIALOGS=32
 EXPECTED_ROUNDS=4
 # The empty server (empty.js): the first-run page in 2 languages x 2 widths and once refused in each language, the

@@ -12,7 +12,9 @@
 .subnav a.on { color: var(--chalk); border-left-color: var(--accent); background: var(--deck-top); }
 .sections { min-width: 0; }
 .area-section { scroll-margin-top: 84px; margin-bottom: 30px; }
-.area-section > h2 { font: 400 18px/1.2 var(--wide); letter-spacing: 0.02em; margin: 0 0 14px; color: var(--chalk); }
+/* Each section's name on a glass strip of its own, as every word of a page sits on something (the layout check's rule). */
+.area-section > h2 { font: 400 18px/1.2 var(--wide); letter-spacing: 0.02em; margin: 0 0 14px; color: var(--chalk);
+                     background: var(--glass); box-shadow: var(--glass-rim); padding: 10px 14px; }
 body.lang-ko .area-section > h2 { font: 700 20px/1.3 var(--text-face); letter-spacing: 0; }
 
 /* The profile's head: the picture, the name and what the game shows of the level and the points, the picture's forms. */
@@ -69,7 +71,8 @@ body.lang-ko .facts dt { font: 600 12px/1.4 var(--text-face); letter-spacing: 0;
 input[aria-invalid="true"] { border-color: var(--pink); }
 .secret { display: flex; min-width: 0; }
 .secret input { flex: 1; min-width: 0; }
-.reveal { flex: none; height: 42px; padding: 0 12px; margin-left: -1px; color: var(--ash); background: var(--rail);
+/* Show stands a step from its field: two boxes side by side never touch. */
+.reveal { flex: none; height: 42px; padding: 0 12px; margin-left: 6px; color: var(--ash); background: var(--rail);
           border: 1px solid var(--seam); font: 13px var(--text-face); cursor: pointer; }
 .reveal:hover { color: var(--chalk); background: var(--rail-up); }
 .reveal[aria-pressed="true"] { color: var(--chalk); }
@@ -118,7 +121,9 @@ input[aria-invalid="true"] { border-color: var(--pink); }
   .account-area { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 14px; }
   /* The rail becomes a row of three that stays at the top while the page scrolls under it. */
   .subnav { top: 96px; z-index: 5; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; background: var(--field); }
-  .subnav a { text-align: center; padding: 10px 4px; border-left: 0; border-bottom: 3px solid transparent; font-size: 13px; }
+  /* The row is the one box; its names are no boxes of their own but the one on show, so none touches another. */
+  .subnav a { text-align: center; padding: 10px 4px; border-left: 0; border-bottom: 3px solid transparent; font-size: 13px;
+              background: transparent; }
   .subnav a.on { border-bottom-color: var(--accent); }
   .area-section { scroll-margin-top: 150px; }
   .profile-head, .player-head { grid-template-columns: minmax(0, 1fr); }
