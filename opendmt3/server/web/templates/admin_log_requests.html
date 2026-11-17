@@ -38,6 +38,14 @@
         <td data-label="{{ w('requests.who') }}">{{ r.who or "-" }}</td>
       </tr>{% endfor %}</tbody>
     </table>
+    {# Newer and older pages of the list, as the plays log has them. #}
+    {% if log.newer or log.older %}
+    <nav class="pages">
+      {% if log.newer %}<a class="btn small" href="{{ links.newer }}">{{ w("log.plays.newer") }}</a>{% endif %}
+      <span class="muted small">{{ w("log.plays.page", n=log.page) }}</span>
+      {% if log.older %}<a class="btn small" href="{{ links.older }}">{{ w("log.plays.older") }}</a>{% endif %}
+    </nav>
+    {% endif %}
     {% endif %}
   </div>
 {% include "_admin_close.html" %}

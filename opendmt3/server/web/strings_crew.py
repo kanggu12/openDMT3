@@ -81,6 +81,7 @@ TEXT = {
                               "서버 운영자가 곡 목록을 가져오면 레벨을 정할 수 있습니다."),
     "player.ban": ("Ban", "이용 정지"),
     "player.ban.reason": ("Reason", "사유"),
+    "player.dj_page.hidden": ("no DJ page while the account is disabled", "비활성화된 동안 DJ 페이지 없음"),
     "player.ban.told": ("The player is told it when they sign in.", "플레이어가 로그인할 때 이 사유를 봅니다."),
     "player.ban.missing": ("Write the reason: the player is told it.", "사유를 입력하세요. 플레이어에게 보입니다."),
     "player.points.missing": ("Type a number.", "숫자를 입력하세요."),

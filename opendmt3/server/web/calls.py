@@ -390,10 +390,13 @@ CALLS = [
     Call("GET", "/api/v1/log/plays.csv", "admin", ADMIN, "Every play the filter leaves, all its pages, as CSV.",
          params=LOG_FILTER, files="text/csv", errors=((400, "bad_request"),)),
     Call("GET", "/api/v1/log/requests", "admin", ADMIN,
-         "The requests log: the last day by half hours, and the newest requests the filter leaves.",
-         params=REQUESTS_FILTER,
+         "The requests log: the last day by half hours, and the newest requests the filter leaves (a page of them with "
+         "per, as the Logs tab shows them).",
+         params=REQUESTS_FILTER + (query("per", "integer", "Requests a page, 1 to 200 (without it, the newest 200)."),
+                                   query("page", "integer", "The page, 1 the newest.")),
          answer={"chart": "array", "most": "integer", "day": "object", "requests": "array", "found": "integer",
-                 "kept": "integer", "bytes": "integer"}, errors=((400, "bad_request"),)),
+                 "kept": "integer", "bytes": "integer", "page": "integer", "newer": "boolean", "older": "boolean"},
+         errors=((400, "bad_request"),)),
     Call("GET", "/api/v1/log/requests.csv", "admin", ADMIN, "Every request the log keeps that the filter leaves, as "
                                                             "CSV.", params=REQUESTS_FILTER, files="text/csv",
          errors=((400, "bad_request"),)),

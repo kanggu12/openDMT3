@@ -407,8 +407,12 @@ def routes(site):
             return _not_found(site, request)
         wanted = insights.requests_wanted(request.query_params)
         kept = {key: wanted[key] for key in ("q", "kind") if wanted[key]}
-        return site.render(request, "admin_log_requests.html", user=user, wanted=wanted,
-                           log=insights.requests_log(site, wanted), kinds=list(insights.requestlog.KINDS),
+        # A page of REQUESTS_PAGE, with the ways to the newer and the older ones (the filter kept in them).
+        log = insights.requests_log(site, wanted, per=insights.REQUESTS_PAGE)
+        links = {side: "/admin/log/requests?" + urlencode(dict(kept, page=wanted["page"] + step))
+                 for side, step in (("newer", -1), ("older", 1))}
+        return site.render(request, "admin_log_requests.html", user=user, wanted=wanted, links=links,
+                           log=log, kinds=list(insights.requestlog.KINDS),
                            csv="/admin/log/requests.csv" + ("?" + urlencode(kept) if kept else ""),
                            log_mb=(insights.requestlog.MOST_BYTES * insights.requestlog.FILES) >> 20,
                            log_days=insights.requestlog.DAYS)

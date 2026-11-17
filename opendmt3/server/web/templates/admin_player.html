@@ -32,7 +32,7 @@
         <div><dt>{{ w("me.account.since") }}</dt><dd>{{ p.created_at|when }}</dd></div>
         <div><dt>{{ w("player.card") }}</dt><dd><code>…{{ p.card_end }}</code></dd></div>
       </dl>
-      <p class="muted small">{{ w("player.next_login") }} · <a href="/dj/{{ p.player }}">{{ w("player.dj_page") }}</a> · <a href="/admin/log/plays?player={{ p.player }}">{{ w("player.plays_log") }}</a></p>
+      <p class="muted small">{{ w("player.next_login") }} · {% if not p.disabled %}<a href="/dj/{{ p.player }}">{{ w("player.dj_page") }}</a>{% else %}{{ w("player.dj_page.hidden") }}{% endif %} · <a href="/admin/log/plays?player={{ p.player }}">{{ w("player.plays_log") }}</a></p>
     </div>
   </div>
 

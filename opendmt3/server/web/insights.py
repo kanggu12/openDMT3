@@ -171,18 +171,35 @@ def requests_wanted(params):
     moved, refused or failed, or a status of three digits). What cannot be read is no filter; `unread` names it."""
     kind = params.get("kind", "").strip()
     read = kind in requestlog.KINDS or (kind.isdigit() and len(kind) == 3)
+    # The page of the list (the newest first): the Logs tab shows REQUESTS_PAGE a page; a page past what is kept is
+    # the last one there is.
+    page = params.get("page", "1").strip()
     return {"q": params.get("q", "").strip()[:64], "kind": kind if read else "",
+            "page": max(1, min(int(page), 1000)) if page.isdigit() else 1,
             "unread": ["kind"] if kind and not read else []}
 
 
-def requests_log(site, wanted, now=None, most=200):
+# The requests the Logs tab shows a page (a phone's page of 400 rows was 53 screens long).
+REQUESTS_PAGE = 50
+
+
+def requests_log(site, wanted, now=None, most=200, per=None):
     """The Logs tab's Requests view: the last day by half hours (the chart), and the newest requests the filter
-    leaves, at most `most`, with how many it left of those kept in memory."""
+    leaves, at most `most`, with how many it left of those kept in memory. With `per`, one page of them: the
+    wanted page's `per` (newer and older say whether there are pages either side)."""
+    page = wanted.get("page", 1)
+    if per:
+        most = min(requestlog.RECENT, page * per + 1)
     shown, found = site.requests.recent(wanted["q"], wanted["kind"], most)
+    older = False
+    if per:
+        older = len(shown) > page * per
+        shown = shown[(page - 1) * per:page * per]
     chart = site.requests.chart(now)
     return {"chart": chart, "most": max([s["ok"] + s["bad"] for s in chart] + [0]),
             "day": {"ok": sum(s["ok"] for s in chart), "bad": sum(s["bad"] for s in chart)},
-            "requests": shown, "found": found, "kept": requestlog.RECENT, "bytes": site.requests.size()}
+            "requests": shown, "found": found, "kept": requestlog.RECENT, "bytes": site.requests.size(),
+            "page": page, "newer": bool(per) and page > 1, "older": older}
 
 
 def _iso(at):

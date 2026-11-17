@@ -1224,7 +1224,10 @@ def routes(site):
         wanted, refused = _requests_wanted(request)
         if refused:
             return refused
-        return JSONResponse(insights.requests_log(site, wanted))
+        # A page of ?per= (at most 200), as the Logs tab shows them a page; without ?per= the newest 200, as before.
+        per = request.query_params.get("per", "")
+        per = max(1, min(int(per), 200)) if per.isdigit() else None
+        return JSONResponse(insights.requests_log(site, wanted, per=per))
 
     def api_log_requests_csv(request):
         """Every request the log keeps that the filter leaves, as the Logs tab's CSV file."""

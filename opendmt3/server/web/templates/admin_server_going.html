@@ -9,6 +9,8 @@
     <p class="done-line" role="status">{{ w("server.going." + action, folder=data_dir, kept=kept) }}</p>
     {% if action == "restart" %}
     <p class="muted small going-wait" aria-live="polite">{{ w("server.going.wait") }}</p>
+    {# A minute with no answer: said, with the way back to the Server tab (site.js shows it). #}
+    <p class="alert going-slow" role="status" hidden>{{ w("server.going.slow") }} <a href="/admin/server">{{ w("job.again") }}</a></p>
     <noscript><p><a class="btn small" href="/admin/server">{{ w("job.again") }}</a></p></noscript>
     {% else %}
     <p>{{ w("server.going.start." + runner.kind, command=runner.commands.get("start") or "") }}</p>

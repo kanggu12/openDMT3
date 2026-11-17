@@ -404,7 +404,10 @@
   "use strict";
   var card = document.querySelector(".server-going[data-back]");
   if (!card || typeof window.fetch !== "function") { return; }
+  // A minute with no new run answering: the page says so, with the way back (it goes on asking meanwhile).
+  var started = Date.now(), slow = card.querySelector(".going-slow");
   function ask() {
+    if (slow && slow.hidden && Date.now() - started > 60000) { slow.hidden = false; }
     fetch("/health", {cache: "no-store"})
       .then(function (answer) { return answer.ok ? answer.json() : null; }, function () { return null; })
       .then(function (health) {

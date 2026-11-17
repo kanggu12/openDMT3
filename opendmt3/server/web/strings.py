@@ -772,6 +772,9 @@ TEXT = {
     "server.going.remove": ("The server is stopping to be removed.", "제거하려고 서버를 끄고 있습니다."),
     "server.going.wait": ("This page goes back to the Server tab once the server answers.",
                           "서버가 응답하면 이 페이지가 서버 탭으로 돌아갑니다."),
+    "server.going.slow": ("No answer after a minute: the server may have stopped while starting. Its log on the server PC "
+                          "says why.",
+                          "1분이 지나도 답이 없습니다. 서버가 켜지다 멈췄을 수 있습니다. 까닭은 서버 PC의 로그에 있습니다."),
     "server.going.start.python": ("To start it again, run its command again in the same place: {command}",
                                   "다시 켜려면 같은 곳에서 그 명령을 다시 실행하세요: {command}"),
     "server.going.start.standalone": ("To start it again, on the server PC: {command}", "다시 켜려면 서버 PC에서: {command}"),
