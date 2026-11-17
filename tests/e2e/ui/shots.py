@@ -501,6 +501,8 @@ def server_test_check(app, out, tag, problems):
                                     "version": "0.3.1"}
                 if token:
                     app.state.remote.update(login_id="NOVA", dj_name="DJ NOVA", card="1" * 20, token=token)
+                # The ready check and PLAY as they stand for this server.
+                app.refresh_checks()
                 app.go("online")
                 settle(app)
                 if name == "passed":
@@ -522,7 +524,8 @@ def server_test_check(app, out, tag, problems):
                     app.root.update()
                     time.sleep(0.05)
                 settle(app)
-                app.body.show(run[0], app.ui.px(16))
+                # The card's steps and outcome in view: it is the page's last card.
+                app.body.canvas.yview_moveto(1.0)
                 app.root.update()
                 label = "%s_online-test-%s" % (tag, name)
                 shot(app, out, label)
