@@ -73,15 +73,25 @@ def build_screen(app, parent):
                                                  for value in choices.FRAME_PACINGS],
                                          v["frame_pacing"], lambda value: app.changed("frame_pacing", value)),
              w("screen.pacing.hint"))
-        # Motion clarity: only on a main screen at a whole multiple of 60 Hz from 120 up, where each frame has whole
-        # refreshes of its own to be lit over (the in-game overlay turns it off on any other).
+        # Motion clarity: only on a main screen whose highest rate at its size is a whole multiple of 60 Hz from 120
+        # up, where each frame has whole refreshes of its own to be lit over (the in-game overlay turns it off on any
+        # other). The highest, never the rate Windows gives programs now (dynamic refresh rate gives them 60): when the
+        # two differ the hint says what of Windows' to change, as the in-game layer's log does.
         from opendmt3.client import window_room
-        if window_room.strobe_offered(window_room.refresh_rate()):
+        offered = window_room.refresh_rate()
+        if window_room.strobe_offered(offered):
+            screen = window_room.main_screen() or {}
+            advice = screen.get("advice", window_room.AS_IS)
+            hint = w("screen.motion.hint")
+            if advice != window_room.AS_IS:
+                # The rate to choose: the one on the cable when dynamic, else the screen's highest at its size.
+                hz = (screen.get("signal") if advice == window_room.DYNAMIC else screen.get("highest")) or offered
+                hint += " " + w("screen.motion.hint." + advice, now=screen.get("current"), hz=hz)
             _row(made, ui, w("screen.motion"),
                  lambda p: widgets.Segmented(p, ui, [(value, w("screen.motion." + value))
                                                      for value in choices.MOTION_CLARITIES],
                                              v["motion_clarity"], lambda value: app.changed("motion_clarity", value)),
-                 w("screen.motion.hint"))
+                 hint)
 
         def set_fps(on):
             app.changed("show_fps", on)

@@ -122,6 +122,15 @@ TEXT = {
                            "screen at once.",
                            "CRT처럼 한 프레임 동안 화면을 잠깐만 밝혀 움직이는 노트의 잔상이 줄고 화면은 어두워집니다. CRT 빔은 "
                            "위에서 아래로 훑고, 검은 프레임은 화면 전체를 한꺼번에 밝힙니다."),
+    # What of Windows' keeps motion clarity off on this screen (window_room.refresh_advice, the in-game layer's rule).
+    "screen.motion.hint.dynamic": ("Windows' dynamic refresh rate gives the game {now} Hz on this screen: for motion "
+                                   "clarity, choose {hz} Hz in place of Dynamic in Windows' display settings.",
+                                   "이 화면은 Windows의 동적 새로 고침 빈도 때문에 게임에 {now}Hz로 보입니다. 잔상 "
+                                   "줄이기를 쓰려면 Windows 디스플레이 설정에서 동적 대신 {hz}Hz를 고르세요."),
+    "screen.motion.hint.set_lower": ("This screen is set to {now} Hz: for motion clarity, set it to {hz} Hz in "
+                                     "Windows' display settings.",
+                                     "이 화면은 {now}Hz로 설정되어 있습니다. 잔상 줄이기를 쓰려면 Windows 디스플레이 "
+                                     "설정에서 {hz}Hz로 바꾸세요."),
     "screen.fps": ("FPS counter", "FPS 표시"),
     "screen.fps.hint.off": ("Shows the frames a second over the game.", "초당 프레임 수를 게임 화면 위에 표시합니다."),
     "screen.fps.hint.on": ("The frames a second and the time of a frame, small and faint in a corner of the game.",

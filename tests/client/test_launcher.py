@@ -1623,6 +1623,26 @@ class LauncherTest(FolderCase):
         # Off Windows the screen's rate is not known, so the row is not offered there.
         if sys.platform != "win32":
             self.assertIsNone(window_room.refresh_rate())
+            self.assertEqual(window_room.screen_rates(), [])
+
+    def test_a_screens_rates_say_what_of_windows_keeps_motion_clarity_off(self):
+        from opendmt3.client import window_room as room
+        # The in-game layer's rule (native/cardreader/logic.c refresh_advice, the same cases in test_native.c): a
+        # screen at its highest rate, one set below it, Windows 11's dynamic refresh rate (60 given, 120 on the cable),
+        # 119.88 Hz given as 119, nothing known.
+        self.assertEqual(room.refresh_advice(144, 144, 144), room.AS_IS)
+        self.assertEqual(room.refresh_advice(60, 240, 60), room.SET_LOWER)
+        self.assertEqual(room.refresh_advice(60, 120, 120), room.DYNAMIC)
+        self.assertEqual(room.refresh_advice(119, 120, 120), room.AS_IS)
+        self.assertEqual(room.refresh_advice(239, 240, None), room.AS_IS)
+        self.assertEqual(room.refresh_advice(None, 240, 240), room.AS_IS)
+        # The row is offered from the highest rate, so a dynamic screen giving 60 keeps it, with the hint saying what
+        # to change in Windows.
+        screen = {"name": "\\\\.\\DISPLAY1", "main": True, "size": (1920, 1080), "current": 60, "highest": 120,
+                  "signal": 120, "advice": room.DYNAMIC}
+        with mock.patch.object(room, "screen_rates", return_value=[screen]):
+            self.assertEqual(room.refresh_rate(), 120)
+            self.assertTrue(room.strobe_offered(room.refresh_rate()))
         # --set takes it as the page keeps it, at any rate (the layer turns it off where the display gives none).
         from opendmt3.client import main
         self.state.save()

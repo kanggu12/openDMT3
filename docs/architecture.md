@@ -620,6 +620,13 @@ With VSync on, the display's own phase is read at each tick (`GetRasterStatus`) 
 64th of a refresh towards the middle of a refresh, so the present waits for the same refresh every frame: on a 240 Hz
 display every fourth. A display that reports no refresh rate, or whose raster position never moves, is left alone.
 
+Each time the device takes a mode, every screen's rates go in the log (`hooks.c` `screens_said`): the rate programs are
+given now (the display mode's, which the lock keeps to), the highest of its modes at its size, and the rate on the cable
+to its monitor (`QueryDisplayConfig`'s signal), above the given one where Windows 11's dynamic refresh rate gives
+programs 60 Hz while the monitor runs at 120 or more. Their presents wait for the given rate's refreshes, so motion
+clarity stays off there, and the log says what of Windows' keeps it so (`logic.c` `refresh_advice`, the launcher's
+`window_room.refresh_advice`, which offers the row from the highest rate and says the same on it).
+
 The sound is left as the game makes it: it asks for priority level and sets the primary buffer to 22050 Hz, 16 bits,
 stereo, and its own buffers are 44100 Hz, 16 bits. Under Wine the mix runs at the output device's format whatever the
 primary buffer says (recorded at a 48 kHz, 24-bit output, the music keeps its content up to 18 kHz, as at 44.1 kHz),

@@ -261,6 +261,19 @@ int64_t jit_work(const JitClock *j);
  * 1 Hz (Windows gives a rate of 119.88 or 239.76 Hz as 119 or 239), 0 for any other rate. */
 int strobe_refreshes(int hz);
 
+/* A screen's refresh rates as Windows reads them (the 0.4.0 list's #9): `current`, the rate programs are given now (the
+ * display mode's); `highest`, the highest of its modes at its present size; `signal`, the rate the cable carries to the
+ * monitor (QueryDisplayConfig's), which is above the current one where Windows 11's dynamic refresh rate shows programs
+ * 60 Hz while the monitor runs faster. 0: not known. What motion clarity needs said of it: */
+enum {
+    REFRESH_AS_IS = 0,     /* nothing: the rate given is the highest (or nothing is known) */
+    REFRESH_SET_LOWER,     /* the screen is set below its highest rate at this size (Windows' display settings) */
+    REFRESH_DYNAMIC        /* dynamic refresh rate: the monitor runs faster than programs are given */
+};
+int refresh_advice(int current, int highest, int signal);
+/* The rate motion clarity is offered from: the highest at the screen's size, else the current one (0: none known). */
+int refresh_offered(int current, int highest);
+
 /* The flip model's present statistics over two seconds, judged: whether the display follows the frames (a variable
  * refresh rate). `refreshes_a_frame` is what the display's mode gives a 60 a second frame (4 at 240 Hz); `steps` the
  * game's own frames that were the only present shown since the one before, `one_steps` those shown one refresh after

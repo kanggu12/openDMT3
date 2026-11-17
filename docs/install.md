@@ -163,7 +163,7 @@ on the site, under **My account**: playing on this PC, **Play**, **Open my recor
 | Page | What it does |
 | :--- | :--- |
 | **Play** | Who plays, the ready check (what PLAY makes), how to play, the last game's stages |
-| **Screen** | Full screen or a window and its size, vertical sync, frame pacing, motion clarity (on a display at a whole multiple of 60 Hz from 120 up), the picture's shape, the FPS counter and its corner, the size the game draws at, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time, the flip model |
+| **Screen** | Full screen or a window and its size, vertical sync, frame pacing, motion clarity (on a display that can run at a whole multiple of 60 Hz from 120 up), the picture's shape, the FPS counter and its corner, the size the game draws at, the upscale filter and its sharpness, anti-aliasing, glow, background videos, loading ahead, measuring the picture's GPU time, the flip model |
 | **Sound** | The volumes of the music and of the keysounds (the sound each note plays when you hit it), the output device, who mixes the game's sounds, low latency, and the audio offset for a device that plays late |
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen), and how each plays |
 | **Game** | The client data in use, with its client, songs and jackets; the song list (**Save the song list...** and, signed in as a server's admin, **Send the song list to this server**); FREE PLAY; the hidden patterns |
@@ -218,12 +218,17 @@ is read as late as the frame's own work allows.
   (beside the game's FREE PLAY, below the notes, where it covers none of the game's own labels); **Top left**,
   **Top right** or
   **Bottom left** can be chosen instead.
-- **Motion clarity** (**Screen**, shown when the main screen runs at a whole multiple of 60 Hz from 120 up, such as
-  120, 180 or 240 Hz, off by default): each frame is shown over its refreshes as a CRT showed it. **CRT beam** lights
-  the picture row by row from the top down, as a CRT's beam did, so its lower rows show later in the frame (the bottom
-  about 12.5 ms after the top at 240 Hz); **Black frames** lights the whole of it at once for a part of the frame. Each
-  pixel stays lit for less of the frame the darker it is, so moving notes smear less, and the picture keeps
-  less of its light (half at 120 Hz, 70 % from 240 Hz). It needs VSync on.
+- **Motion clarity** (**Screen**, shown when the main screen can run at a whole multiple of 60 Hz from 120 up at its
+  size, such as 120, 180 or 240 Hz, off by default): each frame is shown over its refreshes as a CRT showed it. **CRT
+  beam** lights the picture row by row from the top down, as a CRT's beam did, so its lower rows show later in the frame
+  (the bottom about 12.5 ms after the top at 240 Hz); **Black frames** lights the whole of it at once for a part of the
+  frame. Each pixel stays lit for less of the frame the darker it is, so moving notes smear less, and the picture keeps
+  less of its light (half at 120 Hz, 70 % from 240 Hz). It needs VSync on. The game itself stays at 60 frames a second
+  at any refresh rate (it runs its logic once a frame); a faster screen shows each of them over more refreshes. The row
+  says when Windows keeps it off: a screen set below its highest rate (choose that rate in Windows' display settings),
+  or Windows 11's **Dynamic** refresh rate, which gives programs 60 Hz while the monitor runs faster (choose the rate
+  itself, 120 Hz say, in place of **Dynamic**). The in-game log names each screen's rate now, its highest and whether it
+  is dynamic.
 - **Flip model** (**Screen**, **Advanced**, off by default): in full screen, each frame is handed to Windows instead
   of copied into its own surface (Direct3D 9Ex), the way Windows can show a game as in exclusive full screen and a
   display's variable refresh rate (G-SYNC, FreeSync) can follow the frames.

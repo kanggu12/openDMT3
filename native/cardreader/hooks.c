@@ -458,16 +458,146 @@ static LONGLONG g_vrr_kept;
 
 static void take_refresh_rate(IDirect3DDevice9 *dev);
 
+/* ------------------------------------------------------------------------------------------ the screens' rates */
+
+/* Windows 7's display configuration calls, looked up so this library loads where they are missing. */
+typedef LONG(WINAPI *BufferSizesFn)(UINT32, UINT32 *, UINT32 *);
+typedef LONG(WINAPI *QueryConfigFn)(UINT32, UINT32 *, DISPLAYCONFIG_PATH_INFO *, UINT32 *, DISPLAYCONFIG_MODE_INFO *,
+                                    DISPLAYCONFIG_TOPOLOGY_ID *);
+typedef LONG(WINAPI *DeviceInfoFn)(DISPLAYCONFIG_DEVICE_INFO_HEADER *);
+
+/* The rate the cable carries to the monitor showing a screen (its GDI name, \\.\DISPLAY1): QueryDisplayConfig's
+ * signal, in whole hertz rounded down as Windows gives modes (119.88 is 119); 0 where it cannot be read. */
+static int screen_signal_hz(const WCHAR *gdi_name)
+{
+    static BufferSizesFn sizes;
+    static QueryConfigFn query;
+    static DeviceInfoFn info;
+    static int looked;
+    if (!looked) {
+        looked = 1;
+        HMODULE user = GetModuleHandleA("user32.dll");
+        sizes = user ? (BufferSizesFn)(void *)GetProcAddress(user, "GetDisplayConfigBufferSizes") : NULL;
+        query = user ? (QueryConfigFn)(void *)GetProcAddress(user, "QueryDisplayConfig") : NULL;
+        info = user ? (DeviceInfoFn)(void *)GetProcAddress(user, "DisplayConfigGetDeviceInfo") : NULL;
+    }
+    if (!sizes || !query || !info)
+        return 0;
+    UINT32 np = 0, nm = 0;
+    /* The active paths only: one a screen shown. */
+    if (sizes(QDC_ONLY_ACTIVE_PATHS, &np, &nm) != ERROR_SUCCESS || !np || !nm)
+        return 0;
+    DISPLAYCONFIG_PATH_INFO *paths = calloc(np, sizeof *paths);
+    DISPLAYCONFIG_MODE_INFO *modes = calloc(nm, sizeof *modes);
+    int hz = 0;
+    if (paths && modes && query(QDC_ONLY_ACTIVE_PATHS, &np, paths, &nm, modes, NULL) == ERROR_SUCCESS) {
+        for (UINT32 i = 0; i < np && !hz; i++) {
+            /* The path's source by its GDI name: the screen asked about. */
+            DISPLAYCONFIG_SOURCE_DEVICE_NAME name;
+            memset(&name, 0, sizeof name);
+            name.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+            name.header.size = sizeof name;
+            name.header.adapterId = paths[i].sourceInfo.adapterId;
+            name.header.id = paths[i].sourceInfo.id;
+            if (info(&name.header) != ERROR_SUCCESS || lstrcmpiW(name.viewGdiDeviceName, gdi_name))
+                continue;
+            /* The target's mode: the signal's own vertical rate; else the path's rate. */
+            DISPLAYCONFIG_RATIONAL r = paths[i].targetInfo.refreshRate;
+            UINT32 m = paths[i].targetInfo.modeInfoIdx;
+            if (m < nm && modes[m].infoType == DISPLAYCONFIG_MODE_INFO_TYPE_TARGET &&
+                modes[m].targetMode.targetVideoSignalInfo.vSyncFreq.Denominator)
+                r = modes[m].targetMode.targetVideoSignalInfo.vSyncFreq;
+            hz = r.Denominator ? (int)(r.Numerator / r.Denominator) : 0;
+        }
+    }
+    free(paths);
+    free(modes);
+    return hz;
+}
+
+/* The game's screen's rates (0: not known), as screens_said read them: what is said of motion clarity in the log. */
+static int g_screen_current, g_screen_highest, g_screen_signal;
+
+/* Each screen's rates in the log, the game's screen marked (the 0.4.0 list's #9: a screen on Windows 11's dynamic
+ * refresh rate gives programs 60 Hz while its monitor runs at 120 or more): the rate programs are given now, the
+ * highest of its modes at its size, the rate on the cable, and whether it is dynamic. */
+static void screens_said(void)
+{
+    HWND game = layer_window();
+    HMONITOR mine = game ? MonitorFromWindow(game, MONITOR_DEFAULTTONEAREST) : NULL;
+    WCHAR mine_name[CCHDEVICENAME] = L"";
+    MONITORINFOEXW mi;
+    mi.cbSize = sizeof mi;
+    if (mine && GetMonitorInfoW(mine, (MONITORINFO *)&mi))
+        lstrcpynW(mine_name, mi.szDevice, CCHDEVICENAME);
+    g_screen_current = g_screen_highest = g_screen_signal = 0;
+    DISPLAY_DEVICEW dd;
+    for (DWORD i = 0;; i++) {
+        memset(&dd, 0, sizeof dd);
+        dd.cb = sizeof dd;
+        if (!EnumDisplayDevicesW(NULL, i, &dd, 0))
+            break;
+        /* Only screens on the desktop. */
+        if (!(dd.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP))
+            continue;
+        DEVMODEW now;
+        memset(&now, 0, sizeof now);
+        now.dmSize = sizeof now;
+        if (!EnumDisplaySettingsW(dd.DeviceName, ENUM_CURRENT_SETTINGS, &now))
+            continue;
+        /* The highest of its modes at its present size. */
+        int highest = 0;
+        DEVMODEW m;
+        for (DWORD k = 0;; k++) {
+            memset(&m, 0, sizeof m);
+            m.dmSize = sizeof m;
+            if (!EnumDisplaySettingsW(dd.DeviceName, k, &m))
+                break;
+            if (m.dmPelsWidth == now.dmPelsWidth && m.dmPelsHeight == now.dmPelsHeight &&
+                (int)m.dmDisplayFrequency > highest)
+                highest = (int)m.dmDisplayFrequency;
+        }
+        /* 0 and 1 stand for the hardware's default: no rate. */
+        int current = now.dmDisplayFrequency > 1 ? (int)now.dmDisplayFrequency : 0;
+        int signal = screen_signal_hz(dd.DeviceName);
+        int advice = refresh_advice(current, highest, signal);
+        int game_screen = mine_name[0] && !lstrcmpiW(mine_name, dd.DeviceName);
+        if (game_screen) {
+            g_screen_current = current;
+            g_screen_highest = highest;
+            g_screen_signal = signal;
+        }
+        char name[64];
+        WideCharToMultiByte(CP_UTF8, 0, dd.DeviceName, -1, name, sizeof name, NULL, NULL);
+        ingame_log("display: screen %s%s, %lux%lu: %d Hz now, %d Hz highest at this size, %d Hz on the cable, %s", name,
+                   game_screen ? " (the game's)" : "", now.dmPelsWidth, now.dmPelsHeight, current, highest, signal,
+                   advice == REFRESH_DYNAMIC ? "dynamic refresh rate (programs are given the rate now)" : "fixed");
+    }
+}
+
 /* The display's refresh rate, for the display lock (VSync on) and motion clarity's sub-frames: from the device's
  * display mode. */
 static void take_refresh(IDirect3DDevice9 *dev)
 {
     /* A new mode is judged afresh: nothing kept from before it. */
     g_vrr_kept = 0;
+    /* Every screen's rates in the log (a new mode may be a new screen), the game's kept for what is said below. */
+    screens_said();
     take_refresh_rate(dev);
     /* Sub-frames a refresh apart by openDMT3's clock: only with it and VSync, at the rate the display gave. */
     g_sub_ticks = g_refresh_ticks;
     strobe_refresh(g_refresh_ticks ? g_refresh_hz : 0, g_vsync);
+    /* Motion clarity chosen and off on this screen though its monitor could: what of Windows' keeps it so. The rate kept
+     * to stays the one programs are given (their presents wait for its refreshes, dynamic or not). */
+    int advice = refresh_advice(g_screen_current, g_screen_highest, g_screen_signal);
+    int could = strobe_refreshes(advice == REFRESH_DYNAMIC ? g_screen_signal : g_screen_highest);
+    if (g_settings.motion && !strobe_subframes() && could && advice == REFRESH_DYNAMIC)
+        ingame_log("strobe: off: Windows' dynamic refresh rate gives programs %d Hz while the monitor runs at %d Hz "
+                   "(choose %d Hz in place of Dynamic in Windows' display settings)",
+                   g_screen_current, g_screen_signal, g_screen_signal);
+    else if (g_settings.motion && !strobe_subframes() && could && advice == REFRESH_SET_LOWER)
+        ingame_log("strobe: off: the screen is set to %d Hz, its highest at this size is %d Hz (Windows' display "
+                   "settings)", g_screen_current, g_screen_highest);
 }
 
 static void take_refresh_rate(IDirect3DDevice9 *dev)

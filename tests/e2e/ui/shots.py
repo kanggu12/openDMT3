@@ -2661,8 +2661,12 @@ def main():
     # ---- the screen page with a filter that sharpens (the sharpness row appears), on top of window mode's size row,
     # and on a 240 Hz main screen (the motion clarity row appears), so the longest form of the page is measured too
     from opendmt3.client import window_room
-    rate = window_room.refresh_rate
+    rate, main = window_room.refresh_rate, window_room.main_screen
     window_room.refresh_rate = lambda: 240
+    # On Windows 11's dynamic refresh rate (60 Hz given to programs, 240 on the cable): the row's longest hint, which
+    # says what of Windows' to change.
+    window_room.main_screen = lambda: {"name": "DISPLAY1", "main": True, "size": (1920, 1080), "current": 60,
+                                       "highest": 240, "signal": 240, "advice": window_room.DYNAMIC}
     # The screen's own rate given back whatever happens while the page is measured at 240 Hz.
     try:
         app.changed("upscale", "fsr1")
@@ -2672,8 +2676,10 @@ def main():
         measure(app, tag + "_screen-sharpness", problems)
         if app.words("screen.motion") not in labels(app):
             problems.append("%s_screen-sharpness: no motion clarity row on a 240 Hz screen" % tag)
+        if not any(app.words("screen.motion.hint.dynamic", now=60, hz=240) in t for t in labels(app)):
+            problems.append("%s_screen-sharpness: the motion clarity row does not say dynamic refresh rate's 60 Hz" % tag)
     finally:
-        window_room.refresh_rate = rate
+        window_room.refresh_rate, window_room.main_screen = rate, main
     # Back to the default, so the screens after this one look as before.
     app.changed("upscale", choices.UPSCALE_DEFAULT)
     # ---- the screen page with the game drawn at the screen's size: the upscale filter's rows leave, its hint says why

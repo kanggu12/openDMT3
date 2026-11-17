@@ -559,6 +559,26 @@ int strobe_refreshes(int hz)
     return hz > 0 && n >= 2 && off >= -1 && off <= 1 ? n : 0;
 }
 
+int refresh_advice(int current, int highest, int signal)
+{
+    /* Nothing known of what programs are given: nothing to say. */
+    if (current <= 0)
+        return REFRESH_AS_IS;
+    /* The monitor carries more refreshes than programs are given (2 Hz over: 119.88 is given as 119): dynamic. */
+    if (signal > current + 1)
+        return REFRESH_DYNAMIC;
+    /* A faster mode at this size that is not chosen. */
+    if (highest > current + 1)
+        return REFRESH_SET_LOWER;
+    return REFRESH_AS_IS;
+}
+
+int refresh_offered(int current, int highest)
+{
+    /* The highest at this size when it is known (the row is never hidden by a setting of Windows'), else the current. */
+    return highest > current ? highest : current;
+}
+
 int display_follows(int refreshes_a_frame, long steps, long one_steps)
 {
     /* A fixed rate of two or more refreshes a frame, two seconds' worth of single presents to judge, and nine in ten

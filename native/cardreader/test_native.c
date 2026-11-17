@@ -678,6 +678,19 @@ static void test_gate(void)
 }
 
 /* The handle's press (#7 of the 0.4.0 list: a tap and a long press bring the bar, as a draw down does). */
+/* A screen's rates (#9 of the 0.4.0 list): what motion clarity is offered from, and what is said of the screen. */
+static void test_refresh_advice(void)
+{
+    check(refresh_advice(144, 144, 144) == REFRESH_AS_IS, "refresh: a screen at its highest rate");
+    check(refresh_advice(60, 240, 60) == REFRESH_SET_LOWER, "refresh: a 240 Hz screen set to 60 Hz");
+    check(refresh_advice(60, 120, 120) == REFRESH_DYNAMIC, "refresh: dynamic refresh: 60 given, 120 on the cable");
+    check(refresh_advice(119, 120, 120) == REFRESH_AS_IS && refresh_advice(239, 240, 0) == REFRESH_AS_IS,
+          "refresh: 119.88 Hz given as 119 is its highest");
+    check(refresh_advice(0, 240, 240) == REFRESH_AS_IS, "refresh: nothing known, nothing said");
+    check(refresh_offered(60, 180) == 180 && refresh_offered(240, 0) == 240 && refresh_offered(0, 0) == 0,
+          "refresh: offered from the highest at the screen's size");
+}
+
 static void test_mark_press(void)
 {
     MarkPress m;
@@ -2444,6 +2457,7 @@ int main(void)
     test_keys();
     test_gate();
     test_mark_press();
+    test_refresh_advice();
     test_bar_clock();
     test_slides();
     test_slot_index();
