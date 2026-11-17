@@ -1,6 +1,6 @@
 """Updates of the installed launcher, through Velopack (the installer's own update channel).
 
-Only a launcher installed by openDMT3-win-Setup.exe can update itself; one run from source or from a copied
+Only a launcher installed by the openDMT3 installer can update itself; one run from source or from a copied
 folder says so instead. Where releases are published is set when the launcher is built: build.sh writes the
 OPENDMT3_UPDATE_SOURCE it was given (a GitHub repository URL, an HTTP folder or a local folder) into
 update-source.txt next to this module. A build made without one has no update address and says so. The same

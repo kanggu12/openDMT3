@@ -59,6 +59,10 @@ set -u
 SRC=$(realpath "${1:?usage: ingame.sh GAME_PARENT RELEASES_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]}")
 REL=$(realpath "${2:?}")
 OUT=$(realpath -m "${3:?}")
+# The launcher's installer as packaging/windows/build.sh names it (opendmt3-launcher-<version>-windows-x64-setup.exe):
+# the newest, when the folder holds builds of several versions.
+SETUP=$(cd "$REL" && ls opendmt3-launcher-*-windows-x64-setup.exe 2>/dev/null | sort -V | tail -1)
+[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-setup.exe in $REL"; exit 1; }
 LINKS=${4:-}
 DLLS=${5:-}
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -94,7 +98,7 @@ mounts=(-v "$PARENT:/root/Desktop/$NAME" -v "$REL:/rel:ro" -v "$OUT:/out" -v "$H
 # The safety net off (measuring: OPENDMT3_SAFETY=off) wherever the layer's places and its frames are checked: on Wine's
 # software renderer a busy machine makes it step FSR 1 down, and its toast is one more part on the screen than the
 # step being checked; the run that tests the net (4) turns it on.
-docker run -d --name "$C" --network none -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' -e 'OPENDMT3_POSTFX_DUMP=Z:\out' \
+docker run -d --name "$C" --network none -e SETUP="$SETUP" -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' -e 'OPENDMT3_POSTFX_DUMP=Z:\out' \
   -e OPENDMT3_SAFETY=off "${WINE_RUN_ARGS[@]}" "${mounts[@]}" \
   "$(wine_image opendmt3-wine-ingame:local)" bash -c '
   # The virtual screen kept off the GPU (gpu.sh; plain Xvfb on the CPU image).
@@ -105,7 +109,7 @@ docker run -d --name "$C" --network none -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.l
   wineboot -i >/dev/null 2>&1; wineserver -w
   [ -d /dlls ] && cp /dlls/*.dll /w/drive_c/windows/syswow64/
   touch /out/.prefix-ready
-  wine /rel/openDMT3-win-Setup.exe > /out/setup.log 2>&1 &
+  wine "/rel/$SETUP" > /out/setup.log 2>&1 &
   sleep infinity' >/dev/null
 rm -f "$OUT/ingame.log"
 wait_s() { python3 -c "import time; time.sleep($1)"; }

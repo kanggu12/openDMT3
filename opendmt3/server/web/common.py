@@ -44,9 +44,9 @@ OWNER_COOKIE = "opendmt3_owner"
 MADE_COOKIE = "opendmt3_made"
 SIGNIN_COOKIE = "opendmt3_signin"
 SIGN_IN_DAYS = 30
-# The installer's name in the downloads folder (Site.downloads): the Download page offers it, /download/windows hands
-# it out, and the admin's Status page says when it is missing.
-INSTALLER = "openDMT3-win-Setup.exe"
+# How the admin's Status page names the installer the downloads folder (Site.downloads) should hold when it has none:
+# the Download page offers the one there (downloads.installer_path), /download/windows hands it out.
+INSTALLER = downloads.PATTERN
 # The command that imports the song list on the server PC, as the Status page's Song list card shows it.
 CATALOG_COMMAND = "./dmt3 catalog"
 # The Status page's list of what to look at: a backup older than this is worth a line.
@@ -565,7 +565,7 @@ def _to_look_at(site, user, now=None):
     if not cat.load(site.data_dir):
         # Without it songs show by number and the DJ cards have nothing to choose from; the Song list tab imports it.
         out.append({"key": "songs", "values": {}, "href": "/admin/song_list"})
-    if not os.path.isfile(os.path.join(site.downloads, INSTALLER)):
+    if downloads.installer_path(site.downloads) is None:
         # The folder named, so the admin knows where the file goes; in Docker that folder is inside the server's
         # volume, out of the admin's reach, so the command that puts the file there is named instead (_look_text).
         out.append({"key": "installer", "values": {"file": INSTALLER, "folder": site.downloads}, "href": None})
@@ -996,16 +996,19 @@ def _download(site, request):
     version; None when there is no installer to hand out), the address the launcher asks for, and the name the
     installer is handed out under (both from the address this request came to)."""
     host, port = _host_port(request)
-    return {"installer": downloads.facts(os.path.join(site.downloads, INSTALLER)), "address": "%s:%d" % (host, port),
-            "file": downloads.download_name(host, port)}
+    # The file handed out, and its facts: its version goes into the name it is handed out under as well.
+    path = downloads.installer_path(site.downloads)
+    facts = downloads.facts(path) if path else None
+    return {"installer": facts, "address": "%s:%d" % (host, port),
+            "file": downloads.download_name(host, port, facts and facts["version"])}
 
 
 def _installer(site, request):
     """The installer with this server on its end (preset.py), as /download/windows and its API twin hand it out: the
     launcher it installs starts on this server, at the address this request came by, so the player types none. Its
     name carries the address too. None when the server has no installer to hand out."""
-    path = os.path.join(site.downloads, INSTALLER)
-    if not os.path.isfile(path):
+    path = downloads.installer_path(site.downloads)
+    if path is None:
         return None
     end = preset.tail(str(request.base_url).rstrip("/"), request.url.netloc)
 
@@ -1020,7 +1023,8 @@ def _installer(site, request):
         yield end
 
     return StreamingResponse(body(), media_type="application/octet-stream", headers={
-        "Content-Disposition": 'attachment; filename="%s"' % downloads.download_name(*_host_port(request)),
+        "Content-Disposition": 'attachment; filename="%s"' % downloads.download_name(*_host_port(request),
+                                                                                      downloads.version(path)),
         "Content-Length": str(os.path.getsize(path) + len(end))})
 
 

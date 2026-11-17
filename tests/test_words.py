@@ -77,8 +77,17 @@ PROSE = ("README.md", "CONTRIBUTING.md", "docs/*.md", ".github/*.md", ".github/I
 LAYER = (r"\blayers?\b", "the in-game layer is the one layer, and only in the guides for contributors")
 # The guides for contributors, where the in-game layer is described in full (and the game's messages, beside it).
 CONTRIBUTORS = ("architecture.md", "testing.md", "test-cases.md", "protocol.md")
-# The one sentence that may say "game data": the notice that the software holds none (both languages).
-ALLOWED = ("openDMT3's software contains no game data", "openDMT3 소프트웨어에는 게임 데이터가 들어 있지 않습니다")
+# The one sentence that may say "game data": the owner's notice that openDMT3 holds none (both languages, and the
+# repository's own form of it in the README and the notice).
+ALLOWED = ("openDMT3 contains no game data", "This repository contains no game data",
+           "openDMT3에는 게임 데이터가 포함되어 있지 않습니다")
+# The owner's notice word for word, in each language, and the wordings it replaced, which must not come back.
+NOTICE = {"en": "contains no game data. If the copyright holder requests it, this project may be made private or "
+                "shut down.",
+          "ko": "openDMT3에는 게임 데이터가 포함되어 있지 않습니다. 저작권자의 요청이 있는 경우 본 프로젝트는 비공개되거나 "
+                "폐쇄될 수 있습니다."}
+OLD_NOTICE = ("made private or taken down", "비공개로 돌리거나 내립니다", "software contains no game data",
+              "소프트웨어에는 게임 데이터가 들어 있지 않습니다")
 
 
 def found(text, patterns):
@@ -223,6 +232,32 @@ class WordsTest(unittest.TestCase):
         self.assertEqual(missing, [], "\n".join(missing))
         # Several hundred look-ups: a pattern that stopped finding them would pass with none.
         self.assertGreater(looked, 600)
+
+    def test_the_notice_is_the_owner_s_sentence_and_the_old_wording_never_comes_back(self):
+        # The launcher's Launcher page and the site's footer, in both languages, and the README and the notice.
+        texts = {"launcher": i18n.TEXT["about.notice"], "site": strings.TEXT["footer.rights"]}
+        for where, (en, ko) in texts.items():
+            self.assertIn("openDMT3 " + NOTICE["en"], en, where)
+            self.assertIn(NOTICE["ko"], ko, where)
+        pages = {}
+        for page in ("README.md", os.path.join("docs", "notice.md")):
+            with open(os.path.join(ROOT, page), encoding="utf-8") as f:
+                # Lines joined, so a sentence wrapped at 120 characters reads as one.
+                pages[page] = re.sub(r"\s+", " ", f.read())
+        self.assertIn("This repository " + NOTICE["en"], pages["README.md"])
+        self.assertIn("This repository contains no game data. If the copyright holder requests it, this project may "
+                      "be made private or shut down", pages[os.path.join("docs", "notice.md")])
+        # Nowhere a person reads (the tables, the guides, the server package's README) says it the old way.
+        everywhere = [t for table in (i18n.TEXT, strings.TEXT, errors.TEXT) for pair in table.values() for t in pair]
+        for path in glob.glob(os.path.join(ROOT, "*.md")) + glob.glob(os.path.join(ROOT, "docs", "*.md")) + \
+                [os.path.join(ROOT, "packaging", "server", "README.md")]:
+            if os.path.basename(path) == "CHANGELOG.md":
+                # The changelog keeps what earlier releases said.
+                continue
+            with open(path, encoding="utf-8") as f:
+                everywhere.append(re.sub(r"\s+", " ", f.read()))
+        back = [old for old in OLD_NOTICE for text in everywhere if old in text]
+        self.assertEqual(back, [])
 
     def test_the_instrument_finds_what_it_is_for(self):
         # Each banned word is found where it is said, and the allowed notice is not.

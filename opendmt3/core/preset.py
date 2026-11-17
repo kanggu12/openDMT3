@@ -1,8 +1,8 @@
 """The server an installer handed out by a server's site is set up for, and the hand-over from the installer to the
 launcher (as the OpenDMTQ PC client does it, with its own mark).
 
-The site adds an end to openDMT3-win-Setup.exe as it hands it out (server/web/pages.py): the server's details as JSON, their
-length in 4 bytes (little-endian), and OPENDMT3-PRESET1:
+The site adds an end to the launcher's installer as it hands it out (server/web/pages.py): the server's details as
+JSON, their length in 4 bytes (little-endian), and OPENDMT3-PRESET1:
 
     <{"version": 1, "url": "http://host:port", "name": "host:port"}><length><OPENDMT3-PRESET1>
 

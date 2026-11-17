@@ -14,8 +14,8 @@ OPENDMT3_ARCHIVE_PASSWORD.
 
 The game connects on --port; people open the site on --web-port (0 turns the site off), at --web-host (the same
 address as --host unless given: 127.0.0.1 keeps the site for a reverse proxy on this PC). DIR holds the
-database, the site's signing secret, backups/ (one a day while it runs, a week kept) and downloads/ (put
-openDMT3-win-Setup.exe there to hand it out).
+database, the site's signing secret, backups/ (one a day while it runs, a week kept) and downloads/ (put a release's
+opendmt3-launcher-<version>-windows-x64-setup.exe there, as it is, to hand it out).
 On a first start with no account, open the site from this PC to make the owner's account.
 """
 

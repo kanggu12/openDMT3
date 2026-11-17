@@ -7,9 +7,15 @@
 #      built is what is tagged, and the release is made from that tag);
 #   3. the launcher and its installer built as packaging/windows/build.sh builds them, looking for updates in this
 #      repository's releases, every update package signed with the key and its signature checked;
-#   4. with --publish: the GitHub release, titled with the tag itself (v1.2.3), the changelog's section as its notes
-#      (GitHub's compare link under them), with the installer, the files launchers update from, and the source
-#      archives of the two LGPL libraries the launcher brings (DSOAL and OpenAL Soft).
+#   4. the release's files gathered into OUT_DIR/files by packaging/release_files.py, each named in lowercase with the
+#      tool, its part and the version (the launcher's update files keep Velopack's names, which installed launchers
+#      read), with opendmt3-<version>-checksums.txt over them and the notes' Files table:
+#        opendmt3-launcher-<version>-windows-x64-setup.exe   the launcher's installer
+#        opendmt3-server-<version>.zip                       the server alone, for Docker Compose or Python
+#        opendmt3-launcher-<version>-lgpl-sources.zip        the sources of DSOAL and OpenAL Soft, which it brings
+#        openDMT3-<version>-full.nupkg (-delta), .sig, releases.win.json   the launcher's update files
+#   5. with --publish: the GitHub release, titled with the tag itself (v1.2.3), its notes the Files table first (which
+#      file is for whom), then the changelog's section and the compare link.
 # Without --publish it stops after step 3 and shows the release it would make: a rehearsal. With no key named the
 # rehearsal's packages are unsigned, and it says so; publishing needs them signed.
 #
@@ -38,8 +44,9 @@ step() { printf '== %s\n' "$*"; }
 mkdir -p "$OUT"
 
 step "The tag, __version__ and CHANGELOG.md name one version"
-python3 .github/release_notes.py "$TAG" > "$OUT/release-notes.md"
-echo "notes: $OUT/release-notes.md ($(wc -l < "$OUT/release-notes.md") lines)"
+python3 .github/release_notes.py "$TAG" > "$OUT/changelog-section.md"
+# The guides' download lines name this version's files (packaging/doc_versions.py --write puts it in).
+python3 packaging/doc_versions.py
 
 if [ "$PUBLISH" = yes ]; then
   step "The tag is this commit, nothing is uncommitted, the tag is on GitHub"
@@ -89,29 +96,14 @@ TEST_KEYS="$BUILD/dist/openDMT3/_internal/opendmt3/core/update-test-keys.txt"
   || { echo "the launcher built takes a key besides the project's ($TEST_KEYS): not a release" >&2; exit 1; }
 
 step "The files of the release"
-# The installer people download, Velopack's packages with the project's signature beside each, and the feed files
-# Velopack reads from a GitHub release (releases.win.json, RELEASES for older readers). vpk's portable zip and its own
-# list of what it made are no part of a release: the installer installs, and the packages update.
-files=("$BUILD/releases/openDMT3-win-Setup.exe" "$BUILD/releases/releases.win.json" "$BUILD/releases/RELEASES")
-# This version's packages, the whole one and the delta from the previous release when one was made; the previous
-# release's own package, kept beside them to make the delta, is in its own release already (Velopack looks for a
-# package in every release of the repository).
+# The update packages: this version's, the whole one and the delta from the previous release when one was made; the
+# previous release's own package, kept beside them to make the delta, is in its own release already (Velopack looks
+# for a package in every release of the repository).
 packages=("$BUILD"/releases/openDMT3-"${TAG#v}"-*.nupkg)
 [ -f "${packages[0]}" ] || { echo "the build made no update package in $BUILD/releases" >&2; exit 1; }
 unsigned=0
 for package in "${packages[@]}"; do
-  files+=("$package")
-  if [ -f "$package.sig" ]; then files+=("$package.sig"); else unsigned=$((unsigned + 1)); fi
-done
-# The source of the two LGPL libraries the launcher brings for the Sound page's OpenAL Soft mixer (DSOAL and OpenAL
-# Soft, native/openal/build.sh): the archives they were built from, in the same release as the installer, as the LGPL
-# asks of whoever hands them on.
-# The two archives native/openal/build.sh kept, as its SHA256SUMS names them, each checked against it.
-(cd "$BUILD/openal/sources" && sha256sum -c --quiet SHA256SUMS) \
-  || { echo "the build's OpenAL source archives are missing or not the ones it built from" >&2; exit 1; }
-while read -r _ name; do files+=("$BUILD/openal/sources/$name"); done < "$BUILD/openal/sources/SHA256SUMS"
-for file in "${files[@]}"; do
-  [ -f "$file" ] || { echo "missing: $file" >&2; exit 1; }
+  [ -f "$package.sig" ] || unsigned=$((unsigned + 1))
 done
 if [ "$unsigned" -gt 0 ]; then
   echo "$unsigned of ${#packages[@]} packages are not signed (no key named): launchers would not put them in"
@@ -120,11 +112,25 @@ else
   # Each signature against the keys built into the launcher (opendmt3/core/signing.py), as a launcher checks it.
   python3 -m opendmt3.core.signing check "${packages[@]}"
 fi
-sha256sum "$BUILD/releases/openDMT3-win-Setup.exe"
+# The installer, the update files, the server package, the LGPL sources and the checksums, into one folder made again
+# (release_files.py checks every name, each LGPL archive against the build's SHA256SUMS, and every link of the server
+# package's guides); FILES.md beside it is the notes' Files table.
+FILES="$OUT/files"
+python3 packaging/release_files.py "$TAG" "$BUILD" "$FILES" > /dev/null
+# Every file listed in the checksums is there with that hash: what a downloader's sha256sum -c will say.
+(cd "$FILES" && sha256sum -c --quiet "opendmt3-${TAG#v}-checksums.txt")
+ls -l "$FILES"
+# The notes: the Files table first (which file is for whom), the changelog's section, then the compare link from the
+# changelog's own link list.
+compare=$(sed -n "s#^\[${TAG#v}\]: \(https://.*\)#\1#p" CHANGELOG.md)
+[ -n "$compare" ] || { echo "CHANGELOG.md has no link for [${TAG#v}] at its end" >&2; exit 1; }
+{ cat "$OUT/FILES.md"; printf '\n'; cat "$OUT/changelog-section.md"; printf '\n**Full Changelog**: %s\n' "$compare"; } \
+  > "$OUT/release-notes.md"
+echo "notes: $OUT/release-notes.md ($(wc -l < "$OUT/release-notes.md") lines)"
+files=("$FILES"/*)
 
-# The release: the tag as its title, the changelog's section as its notes, GitHub's compare link under them.
-release=(gh release create "$TAG" "${files[@]}" --title "$TAG" --notes-file "$OUT/release-notes.md" --generate-notes
-         --verify-tag)
+# The release: the tag as its title, the notes made above (GitHub's own notes would add a second compare link).
+release=(gh release create "$TAG" "${files[@]}" --title "$TAG" --notes-file "$OUT/release-notes.md" --verify-tag)
 if [ "$PUBLISH" = no ]; then
   step "Rehearsal: the release it would make (packaging/release.sh $TAG OUT_DIR --publish makes it)"
   printf '  %q\n' "${release[@]}"

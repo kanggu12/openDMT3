@@ -37,8 +37,8 @@ def _take_the_windows_modules():
             what = "%s is not the openDMT3.exe made with openDMT3-cmd.exe (%s)." % (where, e)
         else:
             what = "openDMT3-cmd.exe needs openDMT3.exe beside it, and %s is not there." % where
-        lines = [what + " Run openDMT3-win-Setup.exe again and choose Repair."]
-        korean = "openDMT3.exe가 없거나 바뀌었습니다. openDMT3-win-Setup.exe를 다시 실행해 복구를 고르세요."
+        lines = [what + " Run the openDMT3 installer again and choose Repair."]
+        korean = "openDMT3.exe가 없거나 바뀌었습니다. openDMT3 설치 프로그램을 다시 실행해 복구를 고르세요."
         try:
             # A console takes any letters; a file or a pipe takes its code page's, which may have no Hangul: then the
             # Korean line is left out rather than written as escapes.

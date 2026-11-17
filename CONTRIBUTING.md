@@ -41,7 +41,7 @@ One package, `opendmt3`, in three parts ([docs/architecture.md](docs/architectur
 | `native/cardreader/` | The card reader library with the in-game overlay, 32-bit C built with MinGW | `crt_r1.c`, then `layer.c` | `test_native.c`, run by `test.sh` |
 | `native/openal/` | DSOAL and OpenAL Soft for the Sound page's mixer, built for 32-bit Windows from their pinned source archives, with their notices | `build.sh` | `tests/test_launcher_licences.py`, `tests/core/test_card_reader_notices.py` |
 | `dmt3`, `packaging/docker/` | `./dmt3`: the server with Docker Compose, the build and the tests; the server's image and the setup wizard | `dmt3` (`main`), `wizard.py` | `tests/test_front_door.py`, `tests/test_setup_wizard.py` |
-| `packaging/windows/`, `packaging/release.sh` | The launcher's and the installer's build on Linux, and a release | `build.sh` | `tests/test_windows_build.py`, `tests/test_launcher_licences.py` |
+| `packaging/windows/`, `packaging/release.sh`, `packaging/release_files.py`, `packaging/server/` | The launcher's and the installer's build on Linux, and a release with its files (the server package's README in `packaging/server/`) | `build.sh` | `tests/test_windows_build.py`, `tests/test_launcher_licences.py`, `tests/test_release_files.py` |
 | `tests/e2e/` | The suites beyond unit tests: the launcher's screens, the site's, the real client under Wine, the load test, an upgrade | [docs/testing.md](docs/testing.md) | |
 
 The version is written once, as `__version__` in `opendmt3/__init__.py`; the server, the launcher, the installer and
@@ -226,14 +226,16 @@ release. A release, by a maintainer:
 
 1. Moves the `[Unreleased]` notes under `## [X.Y.Z] - YYYY-MM-DD` in CHANGELOG.md, adds its link at the foot
    (`[X.Y.Z]: https://github.com/kanggu12/openDMT3/compare/vA.B.C...vX.Y.Z` from the release before, and
-   `[Unreleased]` compared from `vX.Y.Z`), and sets `__version__` in `opendmt3/__init__.py` to `X.Y.Z`.
+   `[Unreleased]` compared from `vX.Y.Z`), sets `__version__` in `opendmt3/__init__.py` to `X.Y.Z`, and runs
+   `python3 packaging/doc_versions.py --write` so the guides' download lines and the bug form name it.
    `python3 .github/release_notes.py vX.Y.Z` prints the notes, its `### Security` part included; with no section for
    the version, or a tag the code does not carry, there is no release.
 2. Runs the checks of [docs/testing.md](docs/testing.md#before-a-release): `./dmt3 test`, the native tests, the
    launcher's and the site's screens, the build, the Wine tests with that build, the upgrade from the last release,
    the load test, and the installer on a real Windows PC.
    `OPENDMT3_SIGNING_KEY=<the key's file> packaging/release.sh vX.Y.Z OUT_DIR` rehearses the release: the version
-   check, the build with the key and the signatures checked, and the release it would make. The key is named in the
+   check, the build with the key and the signatures checked, the release's files in `OUT_DIR/files` with their
+   checksums, the notes with their Files table in `OUT_DIR/release-notes.md`, and the release it would make. The key is named in the
    environment and nowhere else: no path is tried when it is not set.
 3. Commits, tags the commit (`git tag -a vX.Y.Z -m "Release X.Y.Z"`) and pushes both. The tag runs
    `.github/workflows/release.yml`: CI and the version check again on the tag's commit; no release is built or
@@ -242,14 +244,20 @@ release. A release, by a maintainer:
    checks and build from the tagged commit, then the GitHub release, titled with the tag itself (`vX.Y.Z`), the
    changelog's section as its notes.
 
-What a release publishes:
+What a release publishes (`packaging/release_files.py` gathers them into `OUT_DIR/files`, checks every name and
+writes the Files table the notes open with: which file is for whom). Every name is lowercase with the tool, the part and the version, except the update
+files: an installed launcher takes an update only from a feed naming its package exactly `openDMT3-X.Y.Z-full.nupkg`,
+so those keep Velopack's names. The guides' download lines name the version too: after raising it,
+`python3 packaging/doc_versions.py --write` puts it in them, and the tests fail until it has:
 
 | What | Files |
 | :--- | :--- |
-| The installer | `openDMT3-win-Setup.exe` |
+| The launcher's installer | `opendmt3-launcher-X.Y.Z-windows-x64-setup.exe` |
+| The server alone, for Docker Compose or Python, with its guides | `opendmt3-server-X.Y.Z.zip` |
 | The update packages, each with the project's signature | `openDMT3-X.Y.Z-full.nupkg` and its `.sig`; with `OPENDMT3_PREVIOUS_RELEASE` naming the last release's build (its `OUT_DIR/build/releases`), a delta package from that release too, so a launcher of that version downloads only what changed (`packaging/windows/previous.py`) |
-| The feed installed launchers read | `releases.win.json`, `RELEASES` |
-| The source of the two LGPL libraries the launcher brings for the Sound page's OpenAL Soft mixer | `openal-soft-1.25.2.tar.gz` and `dsoal-<commit>.tar.gz`, the archives `native/openal/build.sh` builds them from (its `SHA256SUMS` names them) |
+| The feed installed launchers read | `releases.win.json` |
+| The source of the two LGPL libraries the launcher brings for the Sound page's OpenAL Soft mixer | `opendmt3-launcher-X.Y.Z-lgpl-sources.zip`: the archives `native/openal/build.sh` builds them from, with its `SHA256SUMS` |
+| Every file's SHA-256 | `opendmt3-X.Y.Z-checksums.txt` |
 
 The launcher shows its version beside its logo and on its **Launcher** page, and a server at the foot of every page
 of its site.

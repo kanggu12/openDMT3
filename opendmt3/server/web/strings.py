@@ -74,9 +74,11 @@ TEXT = {
     "download.steps": ("Then", "그다음"),
     "download.step1": ("Run {file}. If Windows says it protected your PC: More info, then Run anyway.",
                        "{file}를 실행하세요. Windows가 PC를 보호했다고 하면 '추가 정보', '실행'을 누르세요."),
-    "download.step1.none": ("Get openDMT3-win-Setup.exe from the project's releases and run it. If Windows says it "
-                            "protected your PC: More info, then Run anyway.",
-                            "프로젝트 릴리스에서 openDMT3-win-Setup.exe를 받아 실행하세요. Windows가 PC를 보호했다고 하면 '추가 정보', '실행'을 누르세요."),
+    "download.step1.none": ("Get the launcher's installer (opendmt3-launcher-<version>-windows-x64-setup.exe) from the "
+                            "project's releases and run it. If Windows says it protected your PC: More info, then Run "
+                            "anyway.",
+                            "프로젝트 릴리스에서 런처 설치 파일(opendmt3-launcher-<버전>-windows-x64-setup.exe)을 받아 "
+                            "실행하세요. Windows가 PC를 보호했다고 하면 '추가 정보', '실행'을 누르세요."),
     "download.facts": ("{size} MB, put on this server {when}", "{size} MB, {when}에 이 서버에 올렸습니다."),
     "download.facts.version": ("Version {version}, {size} MB, put on this server {when}",
                                "버전 {version}, {size} MB, {when}에 이 서버에 올렸습니다."),
@@ -566,10 +568,10 @@ TEXT = {
                       "TECHNIKA belong to NEOWIZ.",
                       "NEOWIZ와 관계없고 승인받지 않은 비공식 비상업 프로젝트입니다. DJMAX와 TECHNIKA의 권리는 NEOWIZ에 "
                       "있습니다."),
-    "footer.rights": ("openDMT3's software contains no game data; please use it only with game files you have the right "
-                      "to use. If a rights holder asks, the project will be made private or taken down.",
-                      "openDMT3 소프트웨어에는 게임 데이터가 들어 있지 않습니다. 쓸 권리가 있는 게임 파일로만 써 주세요. "
-                      "권리자가 요청하면 프로젝트를 비공개로 돌리거나 내립니다."),
+    "footer.rights": ("openDMT3 contains no game data. If the copyright holder requests it, this project may be made "
+                      "private or shut down.",
+                      "openDMT3에는 게임 데이터가 포함되어 있지 않습니다. 저작권자의 요청이 있는 경우 본 프로젝트는 "
+                      "비공개되거나 폐쇄될 수 있습니다."),
     "me.title": ("My account", "내 계정"),
     "me.sub": ("Your DJ card, your DJ name, your password and your API tokens.",
                "DJ 카드, DJ 이름, 비밀번호를 바꾸고 API 토큰을 만듭니다."),

@@ -949,8 +949,8 @@ say when DirectSound played in OpenAL Soft's place.
 Both libraries are built for 32-bit Windows by `native/openal/build.sh` from pinned source archives (OpenAL Soft's
 release 1.25.2, DSOAL's commit e111282 of 2026-10-06: DSOAL makes no releases) with MinGW-w64's GCC 14, their runtimes
 linked in, in a container with no network; `openal-NOTICES.txt` beside them holds their licence texts, read from the
-archives. They are under the GNU LGPL, so each release carries both archives beside its installer
-(`packaging/release.sh`). They are built without libstdc++'s assertions, which both projects turn on by default: with
+archives. They are under the GNU LGPL, so each release carries both archives beside its installer, in
+`opendmt3-launcher-<version>-lgpl-sources.zip` (`packaging/release_files.py`). They are built without libstdc++'s assertions, which both projects turn on by default: with
 them, six of six runs of a test program on DSOAL ended in an assertion at their exit (a condition variable whose
 waiting thread was already gone), exit code 3, which on Windows is a runtime error box as the game closes; without
 them, six of six ended with 0.

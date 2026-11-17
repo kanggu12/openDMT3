@@ -211,14 +211,14 @@ TEXT = {
     "error.api.busy": ("The server is importing a song list already. Send it again in a moment.",
                        "서버가 이미 곡 목록을 가져오는 중입니다. 잠시 뒤에 다시 보내세요."),
     # Help, Repair and --repair (client/repair.py).
-    "error.repair.not_installed": ("repair works in the launcher installed by openDMT3-win-Setup.exe",
-                                   "복구는 openDMT3-win-Setup.exe로 설치한 런처에서 됩니다."),
+    "error.repair.not_installed": ("repair works in the launcher installed by the openDMT3 installer",
+                                   "복구는 openDMT3 설치 프로그램으로 설치한 런처에서 됩니다."),
     "error.repair.no_package": (
-        "the installed package is not on this PC (run openDMT3-win-Setup.exe again and choose Repair)",
-        "설치된 패키지가 이 PC에 없습니다. openDMT3-win-Setup.exe를 다시 실행해 복구를 고르세요."),
+        "the installed package is not on this PC (run the openDMT3 installer again and choose Repair)",
+        "설치된 패키지가 이 PC에 없습니다. openDMT3 설치 프로그램을 다시 실행해 복구를 고르세요."),
     "error.repair.package": (
-        "the installed package cannot be read (run openDMT3-win-Setup.exe again and choose Repair)",
-        "설치된 패키지를 읽을 수 없습니다. openDMT3-win-Setup.exe를 다시 실행해 복구를 고르세요."),
+        "the installed package cannot be read (run the openDMT3 installer again and choose Repair)",
+        "설치된 패키지를 읽을 수 없습니다. openDMT3 설치 프로그램을 다시 실행해 복구를 고르세요."),
     # An update whose package lacks the project's signature (client/updates.py).
     "error.update.unsigned": ("the update to {version} is not signed by the openDMT3 project, so it was not put in",
                               "{version} 업데이트에 openDMT3 프로젝트의 서명이 없어 설치하지 않았습니다."),

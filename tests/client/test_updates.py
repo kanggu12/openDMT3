@@ -454,6 +454,17 @@ class OfferTest(UpdateCase):
                     result.version = version
                     self.refused_before_anything(result)
 
+    def test_a_feed_in_other_letters_is_refused_so_the_update_files_keep_velopacks_names(self):
+        # Every launcher installed so far checks the feed's names letter for letter (PACKAGE_ID, openDMT3): the
+        # release's update files stay openDMT3-<version>-full.nupkg and -delta.nupkg, never lowercased with the rest
+        # of the release's files (packaging/release_files.py).
+        self.release()
+        for name in (named(VERSION).lower(), named(VERSION).upper()):
+            with self.subTest(name=name):
+                self.refused_before_anything(self.result(name=name))
+        self.release()
+        self.refused_before_anything(self.result(deltas=[(named(VERSION, "delta").lower(), VERSION)]))
+
     def test_the_version_offered_is_newer_than_the_one_installed(self):
         for version in (INSTALLED, "9.9.7", OLDER, "9.9.8-rc.1"):
             with self.subTest(version=version):

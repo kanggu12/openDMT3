@@ -387,7 +387,7 @@ def delete_data(folder):
 
 def uninstaller():
     """Velopack's Update.exe above the installed launcher's `current` folder, or None when this launcher was not
-    installed by openDMT3-win-Setup.exe (run from source or from a copied folder: there is nothing to uninstall)."""
+    installed by the openDMT3 installer (run from source or from a copied folder: there is nothing to uninstall)."""
     from opendmt3.client import shortcuts
     try:
         exe = shortcuts.launcher_exe()

@@ -194,6 +194,30 @@ class SetupTest(unittest.TestCase):
         self.assertNotIn("the server", steps)
 
 
+class ReleasePackageTest(unittest.TestCase):
+    def test_the_build_s_installer_is_found_under_the_release_s_name(self):
+        with tempfile.TemporaryDirectory() as built:
+            releases = os.path.join(built, "releases")
+            os.makedirs(releases)
+            with mock.patch.object(dmt3, "BUILD_DIR", built):
+                # No build yet: no installer to hand out.
+                self.assertIsNone(dmt3.default_installer())
+                # Two builds' installers in the folder: the newer version's (by its name, these hold no version).
+                for version in ("0.3.1", "0.3.10", "0.3.2"):
+                    with open(os.path.join(releases, "opendmt3-launcher-%s-windows-x64-setup.exe" % version), "wb") as f:
+                        f.write(b"MZ")
+                self.assertEqual(os.path.basename(dmt3.default_installer()),
+                                 "opendmt3-launcher-0.3.10-windows-x64-setup.exe")
+
+    def test_the_clone_s_own_commands_say_so_in_the_server_package(self):
+        # The server package has no tests/ and no packaging/windows/: ./dmt3 test and build say where they run.
+        with tempfile.TemporaryDirectory() as package, mock.patch.object(dmt3, "ROOT", package):
+            for command in ("test", "build"):
+                with self.subTest(command=command), contextlib.redirect_stdout(io.StringIO()) as out:
+                    self.assertEqual(dmt3.main([command]), 2)
+                self.assertIn("runs in a clone of the repository", out.getvalue())
+
+
 class SetupOptionsTest(unittest.TestCase):
     def setUp(self):
         patcher = mock.patch.object(dmt3, "default_installer", return_value=None)

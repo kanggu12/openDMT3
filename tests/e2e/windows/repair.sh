@@ -1,6 +1,6 @@
 #!/bin/bash
 # The installer over the same version, under Wine on a virtual screen with no network: the install is damaged
-# first (a program file deleted from the launcher's folder), then openDMT3-win-Setup.exe is run as a person would.
+# first (a program file deleted from the launcher's folder), then the launcher's installer is run as a person would.
 # It must say this version is installed and offer Repair beside Open; Repair (the ring moved to it with the arrow
 # key, then Enter) must put the missing file back, keep the settings as they were, and start the launcher.
 # Before that, Help's Repair (openDMT3-cmd --repair) puts back a launcher file that went missing and an updater that
@@ -11,12 +11,16 @@
 #   tests/e2e/windows/repair.sh BUILD_DIR OUT_DIR
 #
 # BUILD_DIR is the OUT_DIR of packaging/windows/build.sh: its setup/velopack-setup.exe installs the version first,
-# its releases/openDMT3-win-Setup.exe is the installer people run. No game folder is needed.
+# its releases/opendmt3-launcher-<version>-windows-x64-setup.exe is the installer people run. No game folder is needed.
 set -u
 BUILD=$(realpath "${1:?usage: repair.sh BUILD_DIR OUT_DIR}")
 OUT=$(realpath -m "${2:?}")
 VERSION=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$(dirname "$0")/../../../opendmt3/__init__.py")
 mkdir -p "$OUT"
+# The launcher's installer as packaging/windows/build.sh names it (opendmt3-launcher-<version>-windows-x64-setup.exe):
+# the newest, when the folder holds builds of several versions.
+SETUP=$(cd "$BUILD/releases" && ls opendmt3-launcher-*-windows-x64-setup.exe 2>/dev/null | sort -V | tail -1)
+[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-setup.exe in $BUILD/releases"; exit 1; }
 C=opendmt3-repair
 docker rm -f "$C" >/dev/null 2>&1
 docker run -d --name "$C" --network none -v "$BUILD/setup/velopack-setup.exe:/setup/Setup.exe:ro" \
@@ -64,12 +68,12 @@ in_c "[ ! -e $APP/current/openDMT3.exe ]" || fail "the program file was not take
 # Without openDMT3.exe the console program says what to do, in two lines, and fails: no traceback.
 in_c "cd $APP/current && wine openDMT3-cmd.exe --repair 2>&1; echo \"exit \$?\"" | tr -d '\r' > "$OUT/no-window.txt"
 sed 's/^/  | /' "$OUT/no-window.txt"
-grep -q "Run openDMT3-win-Setup.exe again and choose Repair." "$OUT/no-window.txt" && grep -q "^exit 1$" "$OUT/no-window.txt" \
+grep -q "Run the openDMT3 installer again and choose Repair." "$OUT/no-window.txt" && grep -q "^exit 1$" "$OUT/no-window.txt" \
   || fail "without openDMT3.exe the console program did not name the installer's Repair and fail"
 grep -qiE "traceback|PYI-[0-9]+:ERROR" "$OUT/no-window.txt" && fail "without openDMT3.exe the console program printed a traceback"
 
 echo "== the installer"
-in_c "wine /rel/openDMT3-win-Setup.exe > /out/setup.log 2>&1 &"
+in_c "wine /rel/$SETUP > /out/setup.log 2>&1 &"
 end=$((SECONDS + 120)); until windows | grep -q "|openDMT3 Setup$" || [ $SECONDS -gt $end ]; do wait_s 1; done
 windows | grep -q "|openDMT3 Setup$" || fail "the installer's window did not open"
 wait_s 2; shot 01-asks

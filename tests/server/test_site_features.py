@@ -456,7 +456,7 @@ class LookTest(SiteBase):
         self.assertIn('href="/admin/backups"', lines[0])
         self.assertIn("No song list", lines[1])
         self.assertIn('href="/admin/song_list"', lines[1])
-        self.assertIn("put openDMT3-win-Setup.exe in " + self.site.downloads, lines[2])
+        self.assertIn("put opendmt3-launcher-&lt;version&gt;-windows-x64-setup.exe in " + self.site.downloads, lines[2])
         # A backup eight days old is still too old; one now is not.
         backups.make(self.site.db_path, self.tmp, "manual", now=time.time() - 8 * 86400)
         self.assertIn("No backup", self.looks()[0])
@@ -1047,10 +1047,10 @@ class HomeSongsDownloadTest(SiteBase):
         self.assertIn("3.0 MB, put on this server 2026-11-02 09:30", page)
         self.assertNotIn("Version", page.split('class="muted small file-facts"', 1)[1].split("</p>", 1)[0])
         # Step 1 names the file as it comes, with this server's address in it.
-        self.assertIn("Run openDMT3-win-Setup-dmt.example-443.exe.", page)
+        self.assertIn("Run opendmt3-launcher-windows-x64-setup-dmt.example-443.exe.", page)
         got = browser.get("/download/windows")
         self.assertEqual(got.headers["content-disposition"],
-                         'attachment; filename="openDMT3-win-Setup-dmt.example-443.exe"')
+                         'attachment; filename="opendmt3-launcher-windows-x64-setup-dmt.example-443.exe"')
         self.assertEqual(int(got.headers["content-length"]), len(got.content))
         # A program with a version resource: its version too.
         with open(path, "wb") as f:
@@ -1059,15 +1059,57 @@ class HomeSongsDownloadTest(SiteBase):
         browser.cookies.set("opendmt3_lang", "ko")
         page = browser.get("/download").text
         self.assertIn("버전 1.2.3", page)
-        self.assertIn("openDMT3-win-Setup-dmt.example-443.exe를 실행하세요.", page)
+        self.assertIn("opendmt3-launcher-1.2.3-windows-x64-setup-dmt.example-443.exe를 실행하세요.", page)
 
     def test_the_installers_name_keeps_letters_digits_dots_and_dashes_only(self):
         from opendmt3.server.services import downloads
         self.assertEqual(downloads.download_name("dmt.example.org", 4730),
-                         "openDMT3-win-Setup-dmt.example.org-4730.exe")
-        self.assertEqual(downloads.download_name("::1", 4730), "openDMT3-win-Setup---1-4730.exe")
-        self.assertEqual(downloads.download_name("게임.example", 80), "openDMT3-win-Setup---.example-80.exe")
-        self.assertEqual(downloads.download_name('a"b/c\\d', 1), "openDMT3-win-Setup-a-b-c-d-1.exe")
+                         "opendmt3-launcher-windows-x64-setup-dmt.example.org-4730.exe")
+        self.assertEqual(downloads.download_name("::1", 4730), "opendmt3-launcher-windows-x64-setup---1-4730.exe")
+        self.assertEqual(downloads.download_name("게임.example", 80),
+                         "opendmt3-launcher-windows-x64-setup---.example-80.exe")
+        self.assertEqual(downloads.download_name('a"b/c\\d', 1), "opendmt3-launcher-windows-x64-setup-a-b-c-d-1.exe")
+        # The version read from the file goes in after the part, as the release names it; a host in capitals is the
+        # same host, named in lowercase as every release file is.
+        self.assertEqual(downloads.download_name("DMT.Example.org", 443, "0.3.1"),
+                         "opendmt3-launcher-0.3.1-windows-x64-setup-dmt.example.org-443.exe")
+        # Anything but a version's letters from a file's resource is left out of the name.
+        self.assertEqual(downloads.download_name("h", 1, "1/../2"), "opendmt3-launcher-windows-x64-setup-h-1.exe")
+
+    def test_the_downloads_folder_hands_out_the_newest_installer_under_either_name(self):
+        from opendmt3.server.services import downloads
+        folder = os.path.join(self.tmp, "downloads-choice")
+        # No folder, then an empty one: nothing to hand out.
+        self.assertIsNone(downloads.installer_path(folder))
+        os.makedirs(folder)
+        self.assertIsNone(downloads.installer_path(folder))
+        # A server set up with 0.3.0 holds its installer under the stored name: it keeps handing that one out.
+        stored = os.path.join(folder, downloads.STORED)
+        with open(stored, "wb") as f:
+            f.write(windows_program((0, 3, 0, 0)))
+        self.assertEqual(downloads.installer_path(folder), stored)
+        # A release's file dropped in as downloaded, newer by its version: that one, the older left where it is.
+        newer = os.path.join(folder, "opendmt3-launcher-0.3.1-windows-x64-setup.exe")
+        with open(newer, "wb") as f:
+            f.write(windows_program((0, 3, 1, 0)))
+        self.assertEqual(downloads.installer_path(folder), newer)
+        # ./dmt3 setup puts a still newer one under the stored name: the version decides, not the name.
+        with open(stored, "wb") as f:
+            f.write(windows_program((0, 4, 0, 0)))
+        self.assertEqual(downloads.installer_path(folder), stored)
+        # Without a version resource, the name's version ranks it (here below the stored 0.4.0).
+        bare = os.path.join(folder, "opendmt3-launcher-0.3.9-windows-x64-setup.exe")
+        with open(bare, "wb") as f:
+            f.write(b"MZ")
+        self.assertEqual(downloads.installer_path(folder), stored)
+        # Other names are no installer of openDMT3's: a mixed-case copy, a vpk setup, a folder with the name.
+        os.remove(stored)
+        os.remove(bare)
+        for other in ("openDMT3-Launcher-9.0.0-Windows-x64-Setup.exe", "Setup.exe", "notes.txt"):
+            with open(os.path.join(folder, other), "wb") as f:
+                f.write(windows_program((9, 0, 0, 0)))
+        os.makedirs(os.path.join(folder, "opendmt3-launcher-9.9.9-windows-x64-setup.exe"))
+        self.assertEqual(downloads.installer_path(folder), newer)
 
 
 class VersionTest(unittest.TestCase):
@@ -1554,13 +1596,15 @@ class StatesTest(SiteBase):
         self.assertIn("This server has no installer to hand out.", page)
         # No file of this server's to run, and no launcher that knows this server: the release's file, and the
         # address typed by hand.
-        self.assertIn("Get openDMT3-win-Setup.exe from the project&#39;s releases and run it.", page)
+        self.assertIn("Get the launcher&#39;s installer (opendmt3-launcher-&lt;version&gt;-windows-x64-setup.exe) from "
+                      "the project&#39;s releases and run it.", page)
         self.assertIn("choose Another server, type the address (192.168.0.5:4730) and press Connect.", page)
-        self.assertNotIn("openDMT3-win-Setup-192.168.0.5-4730.exe", page)
+        self.assertNotIn("-192.168.0.5-4730.exe", page)
         self.assertNotIn("opens on this server", page)
         browser.cookies.set("opendmt3_lang", "ko")
         page = browser.get("/download").text
-        self.assertIn("프로젝트 릴리스에서 openDMT3-win-Setup.exe를 받아 실행하세요.", page)
+        self.assertIn("프로젝트 릴리스에서 런처 설치 파일(opendmt3-launcher-&lt;버전&gt;-windows-x64-setup.exe)을 받아 실행하세요.",
+                      page)
         self.assertIn("&#39;다른 서버&#39;를 고르고 주소(192.168.0.5:4730)를 입력한 뒤 &#39;연결&#39;을 누르세요.", page)
 
     def test_the_first_run_page_names_the_rules_and_the_sign_in_page_says_the_account_was_made(self):

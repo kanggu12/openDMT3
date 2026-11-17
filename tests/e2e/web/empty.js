@@ -114,8 +114,8 @@ const pages = ['/', '/rankings', '/rankings?by=best30', '/rankings?by=month', '/
       const download = await page.evaluate(() => ({alert: (document.querySelector('.alert') || {}).innerText || '',
         steps: [...document.querySelectorAll('ol.steps li')].map(li => li.innerText), button: !!document.querySelector('a.btn.big')}));
       state(lang, width, 'download without an installer', !download.button && download.alert.length > 0 &&
-            download.steps.length === 3 && download.steps[0].includes('openDMT3-win-Setup.exe') &&
-            !/Setup-[0-9a-z.-]+\.exe/.test(download.steps[0]) && download.steps[1].includes('127.0.0.1:4730'), download);
+            download.steps.length === 3 && download.steps[0].includes('-windows-x64-setup.exe') &&
+            !/setup-[0-9a-z.-]+\.exe/.test(download.steps[0]) && download.steps[1].includes('127.0.0.1:4730'), download);
       // The Status page before any reading: the song list said once in the list to look at, three "not yet" in the
       // table, and no line more.
       await go('/admin/status');

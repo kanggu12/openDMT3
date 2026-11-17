@@ -1,4 +1,4 @@
-"""The program PyInstaller freezes into openDMT3-win-Setup.exe: the installer's dialogs around Velopack's setup.
+"""The program PyInstaller freezes into the launcher's installer: the installer's dialogs around Velopack's setup.
 
 run() ends an error nothing caught in the installer's own error window, never in PyInstaller's plain one."""
 

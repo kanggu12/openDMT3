@@ -6,8 +6,9 @@ and asks nothing, so every question and every message comes from here instead, i
 like the launcher's: install, update, repair or go back a version, close a launcher that is open first, wait
 while a game is running, and what went wrong if it failed. When it is done the launcher starts.
 
-  openDMT3-win-Setup.exe                         the dialogs
-  openDMT3-win-Setup.exe --silent [--no-start]   no dialog: install or update, then start the launcher
+  opendmt3-launcher-<version>-windows-x64-setup.exe                         the dialogs
+  opendmt3-launcher-<version>-windows-x64-setup.exe --silent [--no-start]   no dialog: install or update, then start
+                                                                            the launcher
 """
 
 import glob
@@ -388,7 +389,7 @@ def main(argv=None):
 
 
 def run(argv=None):
-    """main() as openDMT3-win-Setup.exe starts it: an error nothing caught ends in the installer's own error
+    """main() as the installer's program starts it: an error nothing caught ends in the installer's own error
     window, never in PyInstaller's plain one, and in its log."""
     try:
         return main(argv)

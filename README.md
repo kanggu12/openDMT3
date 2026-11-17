@@ -45,7 +45,7 @@ you, and a server of your own in place of the game's online service.
 
 On Windows 10 or 11, with your own client data ([which](docs/client-data.md#which-client-data)):
 
-1. Download **[openDMT3-win-Setup.exe](https://github.com/kanggu12/openDMT3/releases/latest/download/openDMT3-win-Setup.exe)**
+1. Download **[opendmt3-launcher-0.3.1-windows-x64-setup.exe](https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-launcher-0.3.1-windows-x64-setup.exe)**
    and run it. If Windows says it protected your PC, choose **More info**, then **Run anyway**.
 2. Choose **Install**. The launcher's first-start guide finds your client data and takes you to **PLAY**.
 
@@ -55,17 +55,19 @@ On Linux the same installer runs under Wine ([how](docs/install.md#on-linux-with
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/steps-dark.svg">
-    <img alt="Playing in three steps. 1, Install: run openDMT3-win-Setup.exe, which installs for your Windows user only, without administrator rights. 2, DISC CHECK: the launcher finds your client data and says what it is, here made-up client data in a folder that is READY, with its original PC client, its songs and jackets, only read and never changed. 3, PLAY: your card goes in and the game starts" src="docs/images/steps-light.svg" width="100%">
+    <img alt="Playing in three steps. 1, Install: run the launcher's installer, which installs for your Windows user only, without administrator rights. 2, DISC CHECK: the launcher finds your client data and says what it is, here made-up client data in a folder that is READY, with its original PC client, its songs and jackets, only read and never changed. 3, PLAY: your card goes in and the game starts" src="docs/images/steps-light.svg" width="100%">
   </picture>
 </p>
 
 ### Run a server
 
-For players on their own PCs. On Linux, macOS or Windows in WSL 2, with Docker (Compose v2), git and Python 3:
+For players on their own PCs. On Linux, macOS or Windows in WSL 2, with Docker (Compose v2) and Python 3, from the
+release's server package (or a clone of the repository: `git clone`, then `./dmt3 setup` in it):
 
 ```sh
-git clone https://github.com/kanggu12/openDMT3
-cd openDMT3
+curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-server-0.3.1.zip
+unzip opendmt3-server-0.3.1.zip
+cd opendmt3-server-0.3.1
 ./dmt3 setup
 ```
 
@@ -123,8 +125,8 @@ One process answers the cabinets, the site and the API at once, and none of them
   </picture>
 </p>
 
-**Not yet:** the rank and max combo of each stage, missions and crews, and two-finger touch. Motion clarity and the flip
-model are experiments, off by default.
+**Not yet:** the rank and max combo of each stage, and missions and crews. Every finger on a touch screen plays, but
+no real touch screen has tried it yet. Motion clarity and the flip model are experiments, off by default.
 
 ## How it works
 
@@ -153,7 +155,9 @@ Choose how you play on the launcher's **Online** page:
   tested on NVIDIA), a mouse or a touch screen, and your client data (about 38 GB). The launcher is about 43 MB, installed without administrator
   rights.
 - **A server:** the launcher, Docker, or Python 3.10 or newer, with ports 4725 (the game) and 4730 (the site) open to
-  the players' PCs. It needs only the song list from the client data, about 13 MB.
+  the players' PCs. It needs only the song list from the client data, about 13 MB. It held about 100 MB of memory
+  with 64 cabinets and 20 visitors at once; its site works on two threads, and reading a song list uses up to eight
+  cores.
 
 ## Guides
 
@@ -168,13 +172,13 @@ Bug reports, ideas and pull requests are welcome in [Issues](https://github.com/
 [CONTRIBUTING.md](CONTRIBUTING.md) is the contributors' guide: where the code is, how to run it and its tests with no
 game files, and how a change goes in.
 
-## Credits and license
+## License
 
-The launcher and the site follow the look of TECHNIKA 3's own screens, in DMT3 Wide (a cut of Saira) and Pretendard.
-openDMT3 brings AMD FidelityFX Super Resolution 1, NVIDIA Image Scaling, Anime4K, SMAA, FXAA, the Blur Busters CRT beam
-simulator, DSOAL, OpenAL Soft, Velopack and 7-Zip; [the notice](docs/notice.md#license) lists each with its license.
+MIT ([LICENSE](LICENSE)). The libraries, filters and fonts openDMT3 brings are listed with their licenses in
+[the notice](docs/notice.md#license): AMD FidelityFX Super Resolution 1, NVIDIA Image Scaling, Anime4K, SMAA, FXAA, the
+Blur Busters CRT beam simulator, DSOAL, OpenAL Soft, Velopack and 7-Zip, and DMT3 Wide (a cut of Saira) and Pretendard,
+in which the launcher and the site follow the look of TECHNIKA 3's own screens.
 
-openDMT3's own code and documentation are under the MIT License ([LICENSE](LICENSE)). The license does not cover the
-game or its files, which are not in this repository. DJMAX and TECHNIKA are trademarks of NEOWIZ. If a rights holder
-asks through the issues, the repository will promptly be made private or taken down, in whole or in part
-([notice](docs/notice.md)).
+The license does not cover the game or its files. DJMAX and TECHNIKA are trademarks of NEOWIZ.
+This repository contains no game data. If the copyright holder requests it, this project may be made private or shut
+down. [The notice](docs/notice.md#for-rights-holders) says how to ask.

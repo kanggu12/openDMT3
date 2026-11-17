@@ -8,7 +8,8 @@
 #      licence texts of what it carries in its licenses folder, with NOTICES.txt (notices.py, with that Python)
 #   3. Velopack's vpk (.NET) -> Velopack's setup, a portable zip and the update packages: the whole package, and a
 #      delta package from the previous release's when it is kept (previous.py: an update then downloads what changed)
-#   4. PyInstaller again -> openDMT3-win-Setup.exe: the installer's dialogs with Velopack's setup inside
+#   4. PyInstaller again -> opendmt3-launcher-<version>-windows-x64-setup.exe: the installer's dialogs with Velopack's
+#      setup inside, under the name the release gives it (lowercase, as every release file is named)
 # Usage: [OPENDMT3_UPDATE_SOURCE=<where releases are published>] [OPENDMT3_PREVIOUS_RELEASE=<folder or package>]
 #        [OPENDMT3_SIGNING_KEY=<the signing key's file>] [OPENDMT3_TEST_UPDATE_KEY=<a public key>]
 #        packaging/windows/build.sh OUT_DIR
@@ -119,6 +120,7 @@ ls -la "$OUT/releases"
 
 # ---- 4. the installer people run: openDMT3's dialogs around Velopack's setup, in one file
 rm -rf "$OUT/setup" && mkdir -p "$OUT/setup"
+# vpk names its setup after the package (openDMT3-win-Setup.exe): it goes inside openDMT3's own, never out as it is.
 mv "$OUT/releases/openDMT3-win-Setup.exe" "$OUT/setup/velopack-setup.exe"
 docker run --rm --network none -e PYTHONDONTWRITEBYTECODE=1 -e OPENDMT3_BUILD_DIR='Z:\out\assets' \
   -e OPENDMT3_VELOPACK_SETUP='Z:\out\setup\velopack-setup.exe' \
@@ -126,5 +128,7 @@ docker run --rm --network none -e PYTHONDONTWRITEBYTECODE=1 -e OPENDMT3_BUILD_DI
     wine 'C:\\python\\python.exe' -m PyInstaller --noconfirm --log-level WARN \
       --distpath 'Z:\\out\\setup\\dist' --workpath 'Z:\\out\\setup\\work' 'Z:\\src\\packaging\\windows\\setup.spec' \
       > /out/pyinstaller-setup.log 2>&1; code=\$?; wineserver -w; exit \$code"
-cp "$OUT/setup/dist/openDMT3-win-Setup.exe" "$OUT/releases/openDMT3-win-Setup.exe"
-ls -la "$OUT/releases/openDMT3-win-Setup.exe"
+# The release's name for it: the tool, the part, the version, the system (release.sh publishes it as it is).
+SETUP="opendmt3-launcher-$VERSION-windows-x64-setup.exe"
+cp "$OUT/setup/dist/opendmt3-setup.exe" "$OUT/releases/$SETUP"
+ls -la "$OUT/releases/$SETUP"

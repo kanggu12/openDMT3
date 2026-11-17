@@ -181,7 +181,7 @@ def _repair():
         say("  %s %s%s" % ("missing" if name in result.missing else "changed", name,
                             " (not put back)" if name in result.failed else ""))
     if result.failed:
-        say("Files put back: %d; not put back: %d. Run openDMT3-win-Setup.exe again and choose Repair."
+        say("Files put back: %d; not put back: %d. Run the openDMT3 installer again and choose Repair."
              % (result.restored, len(result.failed)), error=True)
         return 2
     if result.restored:
@@ -198,7 +198,7 @@ def _update(yes, state):
     from opendmt3.client import updates
     result = updates.check(updates.source_for(state))
     if result.kind != "available":
-        said = {"not_installed": "Updates work in the launcher installed by openDMT3-win-Setup.exe.",
+        said = {"not_installed": "Updates work in the launcher installed by the openDMT3 installer.",
                 "no_source": "No update address is set for this build.",
                 "uptodate": "This is the newest version (%s)." % (updates.current_version() or __version__),
                 "failed": "Could not check for updates: %s" % result.error}
@@ -245,7 +245,7 @@ def _uninstall(yes, everything, state):
     from opendmt3.client import leaving
     updater = leaving.uninstaller()
     if updater is None:
-        say("Uninstalling works in the launcher installed by openDMT3-win-Setup.exe. This launcher runs from a "
+        say("Uninstalling works in the launcher installed by the openDMT3 installer. This launcher runs from a "
              "folder: delete the folder to remove it.", error=True)
         return 2
     if _busy_for_uninstall():

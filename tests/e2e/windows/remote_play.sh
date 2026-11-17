@@ -35,7 +35,7 @@ REPO=$(cd "$(dirname "$0")/../../.." && pwd)
 docker build -q -f "$REPO/packaging/docker/Dockerfile" -t opendmt3-server:local "$REPO" >/dev/null \
   || { echo "FAIL: the server image did not build"; cleanup; exit 1; }
 # The newest whole package's version: a release's folder keeps the one before too (its delta is made from it), and
-# openDMT3-win-Setup.exe installs the newest.
+# its installer installs the newest.
 WANT=$(ls "$REL"/openDMT3-*-full.nupkg 2>/dev/null | sed -n 's/.*openDMT3-\(.*\)-full\.nupkg$/\1/p' | sort -V | tail -1)
 GOT=$(docker run --rm --network none --entrypoint python opendmt3-server:local -c "import opendmt3; print(opendmt3.__version__)")
 [ -n "$WANT" ] && [ "$GOT" = "$WANT" ] \
@@ -52,7 +52,12 @@ chmod -R a+rwX "$DATA"
 docker run --rm --network none -v "$DATA:/data" opendmt3-server:local --add-player BOSS --password pass1234 --dj BOSS --admin
 docker run --rm --network none -v "$DATA:/data" opendmt3-server:local --add-player NOVA --password pass1234 --dj "DJ NOVA"
 [ -f "$DATA/catalog.json" ] || { echo "FAIL: no song list"; cleanup; exit 1; }
-cp "$REL/openDMT3-win-Setup.exe" "$DATA/downloads/"
+# The launcher's installer as packaging/windows/build.sh names it (opendmt3-launcher-<version>-windows-x64-setup.exe):
+# the newest, when the folder holds builds of several versions.
+SETUP=$(cd "$REL" && ls opendmt3-launcher-*-windows-x64-setup.exe 2>/dev/null | sort -V | tail -1)
+[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-setup.exe in $REL"; exit 1; }
+# Put in the downloads folder under the release's own name, as an owner drops a downloaded one in.
+cp "$REL/$SETUP" "$DATA/downloads/"
 docker run -d --name "$SRV" --network "$NET" --network-alias dmt-server -v "$DATA:/data" opendmt3-server:local >/dev/null
 
 echo "== PC"
@@ -79,13 +84,13 @@ page = web.open("http://dmt-server:4730/signin", timeout=10).read().decode()
 token = page.split("name=" + chr(34) + "csrf" + chr(34) + " value=" + chr(34), 1)[1].split(chr(34), 1)[0]
 web.open("http://dmt-server:4730/signin", urllib.parse.urlencode({"csrf": token, "login_id": "NOVA", "password": "pass1234"}).encode(), timeout=10)
 data = web.open("http://dmt-server:4730/download/windows", timeout=60).read()
-open("/tmp/openDMT3-win-Setup.exe", "wb").write(data)
+open("/tmp/from-the-site-setup.exe", "wb").write(data)
 print("downloaded", len(data), "bytes")
 EOF
   # No settings written beforehand: the installer from the site carries the server on its end (preset.py), and the
   # launcher it installs starts on that server by itself.
   touch /out/.pc-ready
-  wine /tmp/openDMT3-win-Setup.exe > /out/setup.log 2>&1 &
+  wine /tmp/from-the-site-setup.exe > /out/setup.log 2>&1 &
   sleep infinity' >/dev/null
 wait_s() { python3 -c "import time; time.sleep($1)"; }
 shot() { docker exec -e DISPLAY=:99 "$PC" sh -c "xwd -root -silent | convert xwd:- png:/out/$1.png"; echo "  $OUT/$1.png"; }

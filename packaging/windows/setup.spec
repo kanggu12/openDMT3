@@ -1,5 +1,6 @@
-# PyInstaller recipe for openDMT3-win-Setup.exe: one file holding the installer's dialogs (opendmt3/client/installer.py)
-# and Velopack's own setup, which it runs without a window. Run by packaging/windows/build.sh inside the Wine build
+# PyInstaller recipe for the launcher's installer (build.sh copies it out as
+# opendmt3-launcher-<version>-windows-x64-setup.exe, the release's name for it): one file holding the installer's
+# dialogs (opendmt3/client/installer.py) and Velopack's own setup, which it runs without a window. Run by packaging/windows/build.sh inside the Wine build
 # container, from the repository root, after vpk has made Velopack's setup.
 import os
 import runpy
@@ -34,6 +35,6 @@ pyz = PYZ(analysis.pure)
 # The picture shown while the one file unpacks itself, before Python starts (installer.py closes it).
 splash = Splash(os.path.join(BUILD, "setup-splash.png"), binaries=analysis.binaries, datas=analysis.datas,
                 text_pos=None, always_on_top=False)
-EXE(pyz, analysis.scripts, splash, splash.binaries, analysis.binaries, analysis.datas, [], name="openDMT3-win-Setup",
+EXE(pyz, analysis.scripts, splash, splash.binaries, analysis.binaries, analysis.datas, [], name="opendmt3-setup",
     console=False, icon=os.path.join(BUILD, "openDMT3.ico"), version=os.path.join(BUILD, "setup-version.txt"),
     upx=False)

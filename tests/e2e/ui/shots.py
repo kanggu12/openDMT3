@@ -830,9 +830,9 @@ def repair_check(app, out, tag, problems):
         ("done", repair.Result(812, ["Update.exe"], [], [])),
         ("restart", repair.Result(812, [], [current], [])),
         ("partly", repair.Result(812, [], [current, "Update.exe"], [current])),
-        ("failed", repair.RepairError("the installed package cannot be read (run openDMT3-win-Setup.exe again and "
+        ("failed", repair.RepairError("the installed package cannot be read (run the openDMT3 installer again and "
                                       "choose Repair)", "error.repair.package")),
-        ("source", repair.RepairError("repair works in the launcher installed by openDMT3-win-Setup.exe",
+        ("source", repair.RepairError("repair works in the launcher installed by the openDMT3 installer",
                                       "error.repair.not_installed")),
     ]
     real = repair.run

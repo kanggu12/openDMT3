@@ -1,0 +1,91 @@
+"""The version the guides' download lines name, against the one the code carries.
+
+    python3 packaging/doc_versions.py [--write] [--root DIR]
+
+The README and the guides name a release's files by their versioned names (opendmt3-launcher-0.3.1-windows-x64-
+setup.exe, opendmt3-server-0.3.1.zip) and download them from that release's own address (releases/download/v0.3.1/),
+so a line copied from them fetches the file it names. Every such version must be `__version__`
+(opendmt3/__init__.py); so must the bug form's example version. Lists each line that names another and exits 1;
+--write puts this version in their place (a release raises the version, then runs this with --write). The standard
+library only, as .github/release_notes.py.
+"""
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+# The repository: this file is in packaging/.
+ROOT = Path(__file__).resolve().parent.parent
+# A version as release files carry it: a pre-release only as rc.N, alpha.N or beta.N, so the part of a name after the
+# version (-windows-x64) is never read as one.
+V = r"\d+\.\d+\.\d+(?:-(?:rc|alpha|beta)\.\d+)?"
+# Where a version is part of a download: a release file's name, a release's download address, the bug form's example.
+PATTERNS = [re.compile(r"(?<=opendmt3-launcher-)" + V + r"(?=-)"),
+            re.compile(r"(?<=opendmt3-server-)" + V + r"(?=[./-])"),
+            re.compile(r"(?<=/releases/download/v)" + V + r"(?=/)"),
+            re.compile(r"(?<=placeholder: )" + V + r"$", re.M)]
+# The pages people copy download lines from (CHANGELOG.md keeps each release's own names, so it is not one).
+PAGES = ["README.md", "CONTRIBUTING.md", "packaging/server/README.md", ".github/ISSUE_TEMPLATE/bug.yml"]
+
+
+def pages(root):
+    """Every page checked, as paths from the tree's top: the fixed ones and every guide in docs/."""
+    return PAGES + sorted("docs/" + p.name for p in (root / "docs").glob("*.md"))
+
+
+def code_version(root):
+    """`__version__` as opendmt3/__init__.py writes it (the line build.sh reads too)."""
+    text = (root / "opendmt3" / "__init__.py").read_text(encoding="utf-8")
+    return re.search(r'^__version__ = "([^"]*)"', text, re.M).group(1)
+
+
+def stale(root, version):
+    """Each place that names another version, as (page, line number, the version there)."""
+    found = []
+    for page in pages(root):
+        path = root / page
+        if not path.is_file():
+            # A page the tree does not have (a test's own tree): nothing to check there.
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            for pattern in PATTERNS:
+                found += [(page, number, m.group(0)) for m in pattern.finditer(line) if m.group(0) != version]
+    return found
+
+
+def write(root, version):
+    """Puts the version in every place that names another; returns how many pages changed."""
+    changed = 0
+    for page in pages(root):
+        path = root / page
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        new = text
+        for pattern in PATTERNS:
+            new = pattern.sub(version, new)
+        if new != text:
+            path.write_text(new, encoding="utf-8")
+            changed += 1
+    return changed
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--write", action="store_true", help="put the code's version in every place")
+    parser.add_argument("--root", type=Path, default=ROOT, help="the tree to read (the tests give their own)")
+    args = parser.parse_args(argv)
+    version = code_version(args.root)
+    if args.write:
+        print("%d pages now name %s" % (write(args.root, version), version))
+        return 0
+    found = stale(args.root, version)
+    for page, number, other in found:
+        print("%s:%d names %s, the code is %s (packaging/doc_versions.py --write)" % (page, number, other, version),
+              file=sys.stderr)
+    return 1 if found else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -15,7 +15,7 @@ player's guide). Run one when others play from their own PCs, in one of three wa
 | :--- | :--- | :--- |
 | [In the launcher](#in-the-launcher) | The launcher's own server on a Windows PC, while the launcher is open | The other PCs on that PC's network |
 | [With Docker](#with-docker) | Docker Compose with `./dmt3`, on Linux, macOS, or Windows in WSL 2 | A server that stays on, for every player who can reach it |
-| [With Python](#with-python) | Python 3.10 or newer on Linux, from a copy of this repository | The same, without Docker |
+| [With Python](#with-python) | Python 3.10 or newer on Linux, from the release's server package or a copy of this repository | The same, without Docker |
 
 <p align="center">
   <picture>
@@ -26,12 +26,17 @@ player's guide). Run one when others play from their own PCs, in one of three wa
 
 ## What you need
 
-- A PC that stays on. With Docker: Docker with Compose v2, git and Python 3 (`./dmt3` is a Python script), on Linux,
-  on macOS, or on Windows in WSL 2. With Python: Python 3.10 or newer and git, on Linux. In the launcher: the launcher
-  on a Windows PC, nothing else.
+- A PC that stays on. With Docker: Docker with Compose v2 and Python 3 (`./dmt3` is a Python script), on Linux, on
+  macOS, or on Windows in WSL 2. With Python: Python 3.10 or newer, on Linux. In the launcher: the launcher on a
+  Windows PC, nothing else.
+- The server: the release's server package, `opendmt3-server-0.3.1.zip` (what the server needs and nothing else), or a
+  clone of this repository (git).
+- Memory and processor: the server held about 100 MB with 64 cabinets and 20 visitors at once
+  ([Many players at once](#many-players-at-once)); its site works on two threads, and reading a song list uses up to
+  eight cores.
 - Your own client data on the server PC, in a folder or an archive, or the song list the launcher saved from it
   ([what a server takes](client-data.md#what-a-server-takes)). The server keeps only the song list.
-- The launcher's installer, `openDMT3-win-Setup.exe`, from the
+- The launcher's installer, `opendmt3-launcher-0.3.1-windows-x64-setup.exe`, from the
   [releases](https://github.com/kanggu12/openDMT3/releases/latest), to hand out from the site.
 
 ## In the launcher
@@ -52,14 +57,18 @@ same addresses in a browser for the site.
 
 ## With Docker
 
-On Linux, macOS, or Windows in WSL 2. It needs Docker with Compose v2, git, and Python 3 (`./dmt3` is a Python script,
-with nothing to install):
+On Linux, macOS, or Windows in WSL 2. It needs Docker with Compose v2 and Python 3 (`./dmt3` is a Python script, with
+nothing to install). From the release's server package:
 
 ```sh
-git clone https://github.com/kanggu12/openDMT3.git
-cd openDMT3
+curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-server-0.3.1.zip
+unzip opendmt3-server-0.3.1.zip
+cd opendmt3-server-0.3.1
 ./dmt3 setup
 ```
+
+Or from a clone of the repository, the same server: `git clone https://github.com/kanggu12/openDMT3.git`, then
+`./dmt3 setup` in `openDMT3`. Every command below runs in that folder, the package's or the clone's.
 
 A wizard in the terminal, one question a page, each answer's meaning shown as you give it. Esc goes back a page,
 Enter on to the next:
@@ -77,7 +86,8 @@ Enter on to the next:
    at as you type, and says its one line: `Client data in a folder, original PC client, 177 songs: ready`, then the
    song list, the jackets and the DJ cards. An archive with a password gets a box for it. Links inside the client
    data's folder are followed: the folders they point into are mounted read-only too. Empty: none now.
-7. **The installer to hand out**: the one `./dmt3 build` left, a file (an `openDMT3-win-Setup.exe` downloaded from the
+7. **The installer to hand out**: the one `./dmt3 build` left, a file (an
+   `opendmt3-launcher-0.3.1-windows-x64-setup.exe` downloaded from the
    [releases](https://github.com/kanggu12/openDMT3/releases/latest)), or none for now, with its version and size.
 8. **Confirm**: every answer on one page; a number goes back to change it.
 9. **Setting up**: the image, the data folder, the account, the song list, the jackets, the DJ cards, the installer,
@@ -88,7 +98,7 @@ A terminal that cannot draw the pages (`TERM=dumb`, a window smaller than 64 by 
 prompts. With options, or from a script, `setup` asks nothing:
 
 ```sh
-./dmt3 setup --game /path/to/client/data --installer openDMT3-win-Setup.exe
+./dmt3 setup --game /path/to/client/data --installer opendmt3-launcher-0.3.1-windows-x64-setup.exe
 ```
 
 It does these, in order; run again, each one that is done already changes nothing:
@@ -177,11 +187,11 @@ missing and why, and where it came from. The API's twins are `GET` and `POST /ap
 | `./dmt3 check` | The site answers `/health` and the game's port takes a connection |
 | `./dmt3 catalog [PATH] [--save FILE]` | Imports the song list from the client data in a folder or an archive, or from a song list ([The song list](#the-song-list); the folder kept mounted when not given); `--save` saves one instead |
 | `./dmt3 doctor` | Docker, the server's image, the two ports and the data folder, each problem with its fix |
-| `git pull`, then `./dmt3 up` | Updates the server: its image is built again from the new code, and the data stays ([Updating the server](#updating-the-server)) |
+| The new server package (or `git pull`), then `./dmt3 up` | Updates the server: its image is built again from the new code, and the data stays ([Updating the server](#updating-the-server)) |
 
 The commands that reach the database run the server's own command line ([Command line](#command-line)) in its
-container: in the running one, or in a new one that goes away. The same with Docker Compose itself, from the top of
-the repository:
+container: in the running one, or in a new one that goes away. The same with Docker Compose itself, from the server's
+folder (the package's or the clone's):
 
 ```sh
 docker compose up -d --build
@@ -190,7 +200,7 @@ docker compose run --rm server --add-player BOSS --admin
 # the song list, imported once from your own client data (a folder or an archive) or a song list:
 docker compose run --rm -v /path/to/client/data:/game:ro server --catalog /game --setup-only
 # the installer for the site's Download page:
-docker compose cp openDMT3-win-Setup.exe server:/data/downloads/
+docker compose cp opendmt3-launcher-0.3.1-windows-x64-setup.exe server:/data/downloads/
 ```
 
 The data lives in a named volume (`opendmt3_data`), and the server runs as its own user, not root.
@@ -201,13 +211,14 @@ players' launchers update from.
 
 ## With Python
 
-On Linux, with Python 3.10 or newer and git. The server runs from a copy of this repository; nothing installs
-`opendmt3` itself. The song list is read once from your client data, before the first start (without it the site
-shows song numbers):
+On Linux, with Python 3.10 or newer. The server runs from the release's server package, unpacked, or a copy of this
+repository; nothing installs `opendmt3` itself. The song list is read once from your client data, before the first
+start (without it the site shows song numbers):
 
 ```sh
-git clone https://github.com/kanggu12/openDMT3.git
-cd openDMT3
+curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-server-0.3.1.zip
+unzip opendmt3-server-0.3.1.zip
+cd opendmt3-server-0.3.1
 python3 -m venv .venv
 .venv/bin/pip install starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0 python-multipart==0.0.20 pillow==11.3.0
 .venv/bin/python -m opendmt3.server --data data --catalog /path/to/your/client/data --setup-only
@@ -224,7 +235,7 @@ Then open the site at the address the server prints (`site on ...`) on the serve
 that page makes the first one, the owner's. On a server PC without a browser,
 `.venv/bin/python -m opendmt3.server --data data --add-player BOSS --admin` makes it and prints its password. (In
 Docker, use `--add-player` as above: there the site never sees a visit from the server PC.) Put
-`openDMT3-win-Setup.exe` in `data/downloads/` to hand it out.
+`opendmt3-launcher-0.3.1-windows-x64-setup.exe` in `data/downloads/`, under its own name, to hand it out.
 
 To update, see [Updating the server](#updating-the-server).
 
@@ -319,11 +330,16 @@ with the reason, and nothing of it stays. The API takes the file as the body of 
 A release changes the server and the launcher together; the data folder stays as it is, and a newer server takes an
 older database forward on its first start (a copy of it is kept first).
 
-- **With Docker**: `git pull`, then `./dmt3 up`: the image is built again from the new code, and the data stays.
-  Then `./dmt3 setup --installer FILE` with the release's `openDMT3-win-Setup.exe`, so the **Download** page hands out
-  the new launcher.
-- **With Python**: stop the server, `git pull` in the copy of the repository, run the `pip install` line again, and
-  start the server again. Put the new `openDMT3-win-Setup.exe` in `data/downloads/`.
+- **With Docker**: unpack the new release's server package and copy the old folder's `.env` into it (the address
+  and the client data kept at setup; the data itself is in Docker's volume, which the new folder uses as it is), or
+  `git pull` in a clone; then `./dmt3 up`: the image is built again from the new code, and the data stays. Then
+  `./dmt3 setup --installer FILE` with the release's `opendmt3-launcher-0.3.1-windows-x64-setup.exe`, so the
+  **Download** page hands out the new launcher.
+- **With Python**: stop the server, unpack the new server package and move the `data` folder into it, with a new
+  `.venv` made there by the `venv` line (a virtual environment does not move), or `git pull` in the copy of the
+  repository; run the `pip install` line again, and start the server again. Put the
+  new `opendmt3-launcher-0.3.1-windows-x64-setup.exe` in `data/downloads/`: of the installers there, the newest
+  version is handed out.
 - **In the launcher**: the launcher's own update (**Launcher**, **Check for updates**) updates its server too.
 
 The players' launchers update themselves: from the project's releases, or from this server when it hands the updates
@@ -428,7 +444,7 @@ come with it. To set one up on a network with no way out, bring it in from a PC 
   `./dmt3 catalog PATH` for the song list ([Every day](#every-day) has the installer's step too).
 - **Python**: `.venv/bin/pip download -d wheels starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0
   python-multipart==0.0.20 pillow==11.3.0` there (on the same system and Python version as the server), and on the
-  server, in its copy of the repository, `python3 -m venv .venv` and
+  server, in its folder (the server package's or the repository's), `python3 -m venv .venv` and
   `.venv/bin/pip install --no-index --find-links wheels starlette jinja2 uvicorn python-multipart pillow`.
 
 The webhook is the only thing that reaches outside, and only when you give it one.

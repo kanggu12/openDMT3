@@ -8,7 +8,7 @@ players and records, and the game folder are no part of the program and are neve
 
 Windows does not let a file of a running program be written over, but lets it be renamed: such a file is moved
 aside first, and the aside copy goes at the next repair. What still cannot be put back is counted, and the
-installer's own Repair (openDMT3-win-Setup.exe run again) takes over from there. As in the OpenDMTQ PC client.
+installer's own Repair (the openDMT3 installer run again) takes over from there. As in the OpenDMTQ PC client.
 """
 
 import logging
@@ -81,7 +81,7 @@ def package_path(root):
     version = installed_version(root)
     path = os.path.join(root, "packages", "%s-%s-full.nupkg" % (PACKAGE_ID, version)) if version else None
     if not path or not os.path.isfile(path):
-        raise RepairError("the installed package is not on this PC (run openDMT3-win-Setup.exe again and choose "
+        raise RepairError("the installed package is not on this PC (run the openDMT3 installer again and choose "
                           "Repair)", "error.repair.no_package")
     return path
 
@@ -170,12 +170,12 @@ def _put_back(package, info, target):
 def run(root=None):
     """Compare the installed program with its package and put back what is missing or changed; returns the Result.
 
-    RepairError when this launcher was not installed by openDMT3-win-Setup.exe, or its package is gone or cannot be
+    RepairError when this launcher was not installed by the openDMT3 installer, or its package is gone or cannot be
     read.
     """
     root = root or install_root()
     if not root or not installed_version(root):
-        raise RepairError("repair works in the launcher installed by openDMT3-win-Setup.exe",
+        raise RepairError("repair works in the launcher installed by the openDMT3 installer",
                           "error.repair.not_installed")
     path = package_path(root)
     _sweep(root)
@@ -206,7 +206,7 @@ def run(root=None):
     except (zipfile.BadZipFile, zlib.error, EOFError, OSError) as e:
         # The package itself is damaged or cannot be opened: only the installer has another copy.
         log.warning("repair: the installed package cannot be read: %s", e)
-        raise RepairError("the installed package cannot be read (run openDMT3-win-Setup.exe again and choose "
+        raise RepairError("the installed package cannot be read (run the openDMT3 installer again and choose "
                           "Repair)", "error.repair.package") from e
     log.info("repair: %d files compared, %d missing, %d changed, %d not put back", checked, len(missing),
              len(changed), len(failed))

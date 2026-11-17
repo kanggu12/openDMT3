@@ -6,6 +6,31 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-17
+
+### Added
+
+- The server has a download of its own, `opendmt3-server-0.3.1.zip`: what a server needs to run with Docker Compose
+  (`./dmt3 setup`) or with Python, with its guides, and none of the launcher's parts or the tests. Unpacked, it runs
+  as a clone of the repository does.
+- The release notes start with a table of the release's files: what each is and who it is for, with
+  `opendmt3-0.3.1-checksums.txt` holding the SHA-256 of every file.
+
+### Changed
+
+- The release's files say which part they are and of which version, in lowercase:
+  `opendmt3-launcher-0.3.1-windows-x64-setup.exe` is the launcher's installer, and the source archives of the two LGPL
+  libraries the launcher brings are one `opendmt3-launcher-0.3.1-lgpl-sources.zip`, no longer two files beside the
+  installer. The launcher's update files keep their names, which every installed launcher reads, and `RELEASES`,
+  a feed file no launcher of openDMT3's reads, is no longer published.
+- A server hands out its installer under the release's name with its own address after it
+  (`opendmt3-launcher-0.3.1-windows-x64-setup-dmt.example.org-443.exe`), and takes an installer put in its downloads
+  folder under the release's name as it is: of the installers there, the newest version is handed out. One put there
+  by an earlier setup keeps being handed out.
+- The launcher's and the installer's messages name the openDMT3 installer, not a file name of one release.
+- The notice on the launcher's **Launcher** page, the site's footer and the README says: openDMT3 contains no game
+  data, and if the copyright holder requests it, this project may be made private or shut down.
+
 ## [0.3.0] - 2026-11-13
 
 ### Added
@@ -119,7 +144,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - Updates inside the launcher, signed by the project, and an installer with repair and removal, in English and
   Korean.
 
-[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/kanggu12/openDMT3/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/kanggu12/openDMT3/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kanggu12/openDMT3/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/kanggu12/openDMT3/compare/v0.1.0...v0.1.1

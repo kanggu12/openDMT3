@@ -7,7 +7,7 @@ everyday play; to run a server for other players' PCs, see [Running a server](se
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/steps-dark.svg">
-    <img alt="Playing in three steps. 1, Install: run openDMT3-win-Setup.exe, which installs for your Windows user only, without administrator rights. 2, DISC CHECK: the launcher finds your client data and says what it is, here made-up client data in a folder that is READY, with its original PC client, its songs and jackets, only read and never changed. 3, PLAY: your card goes in and the game starts" src="images/steps-light.svg" width="100%">
+    <img alt="Playing in three steps. 1, Install: run the launcher's installer, which installs for your Windows user only, without administrator rights. 2, DISC CHECK: the launcher finds your client data and says what it is, here made-up client data in a folder that is READY, with its original PC client, its songs and jackets, only read and never changed. 3, PLAY: your card goes in and the game starts" src="images/steps-light.svg" width="100%">
   </picture>
 </p>
 
@@ -21,8 +21,9 @@ everyday play; to run a server for other players' PCs, see [Running a server](se
 
 ## Install
 
-1. Get `openDMT3-win-Setup.exe` from the [releases](https://github.com/kanggu12/openDMT3/releases/latest), or the
-   installer on your server's **Download** page (its name carries the server's address).
+1. Get `opendmt3-launcher-0.3.1-windows-x64-setup.exe` from the
+   [releases](https://github.com/kanggu12/openDMT3/releases/latest), or the installer on your server's **Download**
+   page (its name carries the server's address).
 2. Run it. Downloaded with a browser, it may make Windows say it protected your PC: **More info**, then **Run anyway**
    (the installer is not signed). Windows 11's Smart App Control, when it is on, blocks unsigned programs, this one
    among them, and has no **Run anyway**.
@@ -36,8 +37,8 @@ internet, so step 2's question does not come; Smart App Control, when it is on, 
 
 ```powershell
 cd ~
-curl.exe -LO https://github.com/kanggu12/openDMT3/releases/latest/download/openDMT3-win-Setup.exe
-.\openDMT3-win-Setup.exe
+curl.exe -LO https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-launcher-0.3.1-windows-x64-setup.exe
+.\opendmt3-launcher-0.3.1-windows-x64-setup.exe
 ```
 
 Run again, the installer updates an older openDMT3, offers **Repair** or **Open openDMT3** over the same version, and
@@ -55,8 +56,8 @@ in-game overlay, updates and **Repair**, drawn on the processor and on a graphic
 3. Download the installer and run it; the launcher opens as on Windows:
 
    ```sh
-   curl -LO https://github.com/kanggu12/openDMT3/releases/latest/download/openDMT3-win-Setup.exe
-   wine openDMT3-win-Setup.exe
+   curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-launcher-0.3.1-windows-x64-setup.exe
+   wine opendmt3-launcher-0.3.1-windows-x64-setup.exe
    ```
 
 The launcher looks for client data in your Desktop, Downloads and Documents (Wine shows your own folders there), and

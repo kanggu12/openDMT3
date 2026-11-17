@@ -9,8 +9,8 @@
 #   docker compose run --rm -v /path/to/game:/game:ro server --catalog /game --setup-only
 # (./dmt3 catalog PATH does the same, with the folders a game folder's links point into mounted too; the site's Admin,
 # Song list takes an uploaded song list.)
-# The installer for the site's Download page:
-#   docker compose cp openDMT3-win-Setup.exe server:/data/downloads/
+# The installer for the site's Download page, under the release's own name (of those there, the newest is handed out):
+#   docker compose cp opendmt3-launcher-<version>-windows-x64-setup.exe server:/data/downloads/
 # The project's name: its container (opendmt3-server-1), its network (opendmt3_default) and its data volume
 # (opendmt3_data) carry it.
 name: opendmt3

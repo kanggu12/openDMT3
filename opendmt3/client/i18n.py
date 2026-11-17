@@ -485,9 +485,9 @@ TEXT = {
     "help.repair.done.restart": ("Files put back: {n}. Some are the launcher's own: close the launcher and open it "
                                  "again.", "되돌린 파일: {n}개. 런처 파일도 되돌렸으니 런처를 닫고 다시 여세요."),
     "help.repair.partly": ("Not everything could be repaired.", "일부를 복구하지 못했습니다."),
-    "help.repair.partly.detail": ("Files put back: {n}. Not put back: {failed}. Run openDMT3-win-Setup.exe again "
+    "help.repair.partly.detail": ("Files put back: {n}. Not put back: {failed}. Run the openDMT3 installer again "
                                   "and choose Repair.", "되돌린 파일: {n}개. 되돌리지 못한 파일: {failed}개. "
-                                  "openDMT3-win-Setup.exe를 다시 실행해 복구를 고르세요."),
+                                  "openDMT3 설치 프로그램을 다시 실행해 복구를 고르세요."),
     "help.repair.failed": ("Repair failed.", "복구하지 못했습니다."),
     "help.uninstall": ("Uninstall", "제거"),
     "help.uninstall.row": ("openDMT3", "openDMT3"),
@@ -515,8 +515,8 @@ TEXT = {
     "help.uninstall.busy.detail": ("Uninstalling closes the launcher.", "제거하면 런처가 닫힙니다."),
     "help.uninstall.busy.play": ("PLAY is getting the game ready. Try again once it is done.",
                                  "PLAY가 게임을 준비하는 중입니다. 끝난 뒤 다시 시도하세요."),
-    "help.uninstall.not_installed": ("Uninstalling works in the launcher installed by openDMT3-win-Setup.exe.",
-                                     "제거는 openDMT3-win-Setup.exe로 설치한 런처에서 됩니다."),
+    "help.uninstall.not_installed": ("Uninstalling works in the launcher installed by the openDMT3 installer.",
+                                     "제거는 openDMT3 설치 프로그램으로 설치한 런처에서 됩니다."),
     "help.uninstall.not_installed.detail": ("This launcher runs from a folder without being installed. Delete the "
                                             "folder to remove it.",
                                             "이 런처는 설치하지 않고 폴더에서 실행 중입니다. 지우려면 그 폴더를 지우세요."),
@@ -538,8 +538,8 @@ TEXT = {
     "about.available": ("openDMT3 {v} is available.", "openDMT3 {v} 버전이 나왔습니다."),
     "about.checking": ("Checking...", "확인하는 중..."),
     "about.uptodate": ("This is the newest version.", "최신 버전입니다."),
-    "about.not_installed": ("Updates work in the launcher installed by openDMT3-win-Setup.exe.",
-                            "업데이트는 openDMT3-win-Setup.exe로 설치한 런처에서 됩니다."),
+    "about.not_installed": ("Updates work in the launcher installed by the openDMT3 installer.",
+                            "업데이트는 openDMT3 설치 프로그램으로 설치한 런처에서 됩니다."),
     "about.no_source": ("No update address is set for this build.", "이 빌드에는 업데이트 주소가 없습니다."),
     "about.update_failed": ("Could not check for updates: {error}", "업데이트를 확인하지 못했습니다: {error}"),
     "about.apply_failed": ("The update failed: {error}", "업데이트하지 못했습니다: {error}"),
@@ -630,15 +630,14 @@ TEXT = {
     "about.legal": ("About", "정보"),
     # The licence alone: the notice under it says what the software holds and how to use it.
     "about.license": ("openDMT3 is MIT licensed.", "openDMT3는 MIT 라이선스입니다."),
-    # OpenDMTQ's two notice lines word for word, with openDMT3's names (the site's footer has the same two). The second
-    # line's "game data" / "게임 데이터" is the one place those words stand: what the software does not contain.
+    # Two notice lines (the site's footer has the same two). The second is the owner's sentence word for word, and its
+    # "game data" / "게임 데이터" is the one place those words stand: what openDMT3 does not contain.
     "about.notice": ("An unofficial, non-commercial project, not affiliated with or endorsed by NEOWIZ. DJMAX and "
-                     "TECHNIKA belong to NEOWIZ.\nopenDMT3's software contains no game data; please use it only with "
-                     "game files you have the right to use. If a rights holder asks, the project will be made private "
-                     "or taken down.",
+                     "TECHNIKA belong to NEOWIZ.\nopenDMT3 contains no game data. If the copyright holder requests it, "
+                     "this project may be made private or shut down.",
                      "NEOWIZ와 관계없고 승인받지 않은 비공식 비상업 프로젝트입니다. DJMAX와 TECHNIKA의 권리는 NEOWIZ에 "
-                     "있습니다.\nopenDMT3 소프트웨어에는 게임 데이터가 들어 있지 않습니다. 쓸 권리가 있는 게임 파일로만 써 "
-                     "주세요. 권리자가 요청하면 프로젝트를 비공개로 돌리거나 내립니다."),
+                     "있습니다.\nopenDMT3에는 게임 데이터가 포함되어 있지 않습니다. 저작권자의 요청이 있는 경우 본 "
+                     "프로젝트는 비공개되거나 폐쇄될 수 있습니다."),
 
     # -------------------------------------------------------------------------------------------- guide
     "guide.skip": ("Skip: I set it up myself", "건너뛰기(직접 설정)"),

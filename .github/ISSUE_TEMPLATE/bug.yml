@@ -20,7 +20,7 @@ body:
     attributes:
       label: Where it happened
       options:
-        - The launcher on Windows (openDMT3-win-Setup.exe)
+        - The launcher on Windows (the openDMT3 installer)
         - The game, started by the launcher
         - A server with Docker (./dmt3 setup)
         - A server with Docker Compose itself
@@ -32,7 +32,7 @@ body:
     attributes:
       label: openDMT3 version
       description: The launcher's **Launcher** page says it, and a server's site says it at the foot of every page.
-      placeholder: 0.3.0
+      placeholder: 0.3.1
   - type: input
     id: windows
     attributes:

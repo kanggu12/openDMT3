@@ -37,7 +37,9 @@ SERVER_CLI = ["python", "-m", "opendmt3.server", "--data", "/data"]
 WIZARD = os.path.join("packaging", "docker", "wizard.py")
 # Where ./dmt3 build leaves the Windows build by default; setup looks there for the installer to hand out.
 BUILD_DIR = os.path.join(ROOT, "build", "windows")
-# The installer's file name, the one the site's Download page hands out from /data/downloads.
+# The name setup copies the installer under into /data/downloads, whatever the file given is called: the one servers set
+# up before release files carried their version already hold theirs under (server/services/downloads.py, STORED), so
+# a setup run again puts the new one in its place.
 INSTALLER = "openDMT3-win-Setup.exe"
 # The one line pyflakes is known to report: updates.py imports velopack only to see whether it is there.
 KNOWN_LINT = "'velopack' imported but unused"
@@ -426,9 +428,12 @@ def site_lines():
 
 
 def default_installer():
-    """The installer ./dmt3 build left in its default folder, or None."""
-    path = os.path.join(BUILD_DIR, "releases", INSTALLER)
-    return path if os.path.isfile(path) else None
+    """The installer ./dmt3 build left in its default folder (opendmt3-launcher-<version>-windows-x64-setup.exe, the
+    newest when builds of several versions are there), or None."""
+    library()
+    # The same choice the site makes in its downloads folder, so a build's folder is read as one too.
+    from opendmt3.server.services import downloads
+    return downloads.installer_path(os.path.join(BUILD_DIR, "releases"))
 
 
 def simple_command(args, running):
@@ -1094,6 +1099,13 @@ def main(argv=None):
     if args.command == "setup" and asked_nothing(argv) and sys.stdin.isatty() and sys.stdout.isatty():
         # ./dmt3 setup alone, at a terminal: the wizard. With options, or from a script, it runs as before.
         return wizard().run(FrontDoor())
+    # The release's server package holds the server alone (packaging/release_files.py): the tests and the launcher's
+    # build are a clone's, and saying so beats Python's word for a missing folder.
+    clone_only = {"test": "tests", "build": os.path.join("packaging", "windows")}
+    if args.command in clone_only and not os.path.isdir(os.path.join(ROOT, clone_only[args.command])):
+        say("./dmt3 %s runs in a clone of the repository (git clone https://github.com/kanggu12/openDMT3.git): this "
+            "folder holds the server alone." % args.command)
+        return 2
     special = {"setup": cmd_setup, "catalog": cmd_catalog, "check": cmd_check, "doctor": cmd_doctor,
                "test": cmd_test}
     if args.command in special:

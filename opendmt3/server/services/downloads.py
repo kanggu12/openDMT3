@@ -18,10 +18,56 @@ VERSION_MOST = 64 * 1024
 ENTRIES_MOST = 4096
 
 
-def download_name(host, port):
-    """The installer's name as it is handed out: the server's address in it, every character other than a letter,
-    a digit, a dot or a dash made a dash (openDMT3-win-Setup-dmt.example.org-443.exe), as OpenDMTQ names its own."""
-    return "openDMT3-win-Setup-" + re.sub(r"[^A-Za-z0-9.-]", "-", "%s-%s" % (host, port)) + ".exe"
+# The name the server keeps its installer under in its downloads folder: ./dmt3 setup copies the file given under it,
+# and a server set up before release files carried their version holds its installer under it, so it stays as it is.
+STORED = "openDMT3-win-Setup.exe"
+# A release's own name for the launcher's installer (opendmt3-launcher-0.3.1-windows-x64-setup.exe), as an owner
+# downloads it and may put it in the folder as it is: the version is read from the name only to order two of them.
+RELEASED = re.compile(r"^opendmt3-launcher-(\d+)\.(\d+)\.(\d+)(?:-[0-9a-z.-]+)?-windows-x64-setup\.exe$")
+# How the Status page names what the folder should hold (its version left as a pattern: it outlives a release).
+PATTERN = "opendmt3-launcher-<version>-windows-x64-setup.exe"
+
+
+def _order(path, name):
+    """How a candidate installer ranks: by the version in its resource (or, failing that, in its name), then by when
+    it was put there, so the newest release wins and, between two of one version, the copy put there last."""
+    found = version(path)
+    match = RELEASED.match(name)
+    # The resource is the file's own word; the name is the release's, used when the resource cannot be read.
+    numbers = [int(n) for n in re.findall(r"\d+", found)[:3]] if found else (
+        [int(n) for n in match.groups()] if match else [])
+    try:
+        at = os.stat(path).st_mtime
+    except OSError:
+        # Gone between the listing and now: it ranks last.
+        at = 0
+    return numbers, at
+
+
+def installer_path(folder):
+    """The installer the downloads folder hands out, or None: the newest of the one kept under STORED and any put there
+    under a release's own name (RELEASED), so an owner may drop a downloaded file in without renaming it."""
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        # No downloads folder yet: nothing to hand out.
+        return None
+    # Only the two kinds of name: anything else in the folder is no installer of openDMT3's.
+    found = [os.path.join(folder, n) for n in names if n == STORED or RELEASED.match(n)]
+    # Plain files only: a folder that happens to carry the name is not one.
+    found = [p for p in found if os.path.isfile(p)]
+    return max(found, key=lambda p: _order(p, os.path.basename(p))) if found else None
+
+
+def download_name(host, port, version=None):
+    """The installer's name as it is handed out: the release's own (opendmt3-launcher-<version>-windows-x64-setup)
+    with the server's address after it, in lowercase as every release file is named, and every character other than a
+    letter, a digit, a dot or a dash made a dash (opendmt3-launcher-0.3.1-windows-x64-setup-dmt.example.org-443.exe).
+    Without a version read from the file, the name has none."""
+    # Only a version's own letters go into the name: anything else from a file's resource is left out.
+    tag = "-%s" % version if version and re.fullmatch(r"[0-9A-Za-z.-]+", version) else ""
+    address = re.sub(r"[^a-z0-9.-]", "-", ("%s-%s" % (host, port)).lower())
+    return "opendmt3-launcher%s-windows-x64-setup-%s.exe" % (tag.lower(), address)
 
 
 def facts(path):

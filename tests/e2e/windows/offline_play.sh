@@ -1,6 +1,6 @@
 #!/bin/bash
 # Playing offline, from the installer to the game's card screen, under Wine on a virtual screen with no network:
-#   a fresh Wine prefix, openDMT3-win-Setup.exe run as a person would (Enter on its Install), the first-start guide
+#   a fresh Wine prefix, the launcher's installer run as a person would (Enter on its Install), the first-start guide
 #   clicked through with Offline chosen on LOG IN (no server, no logins, no records), then PLAY: the game's own
 #   window over the whole screen, and TOUCH to START, after which the game goes on as a guest (no card in its
 #   reader) to the mode select. Passes when the game is still open 15 s after TOUCH to START with no crash dump,
@@ -19,6 +19,10 @@ set -u
 PARENT=$(realpath "${1:?usage: offline_play.sh GAME_PARENT RELEASES_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]}")
 REL=$(realpath "${2:?}")
 OUT=$(realpath -m "${3:?}")
+# The launcher's installer as packaging/windows/build.sh names it (opendmt3-launcher-<version>-windows-x64-setup.exe):
+# the newest, when the folder holds builds of several versions.
+SETUP=$(cd "$REL" && ls opendmt3-launcher-*-windows-x64-setup.exe 2>/dev/null | sort -V | tail -1)
+[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-setup.exe in $REL"; exit 1; }
 LINKS=${4:-}
 DLLS=${5:-}
 NAME=$(basename "$PARENT")
@@ -33,7 +37,7 @@ mounts=(-v "$PARENT:/root/Desktop/$NAME:ro" -v "$REL:/rel:ro" -v "$OUT:/out")
 [ -n "$LINKS" ] && mounts+=(-v "$LINKS:$LINKS:ro")
 [ -n "$DLLS" ] && mounts+=(-v "$(realpath "$DLLS"):/dlls:ro")
 # UTF-8 file names on the Linux side; Windows' own code page stays 1252.
-docker run -d --name "$C" --network none -e LANG=C.UTF-8 "${WINE_RUN_ARGS[@]}" "${mounts[@]}" \
+docker run -d --name "$C" --network none -e LANG=C.UTF-8 -e SETUP="$SETUP" "${WINE_RUN_ARGS[@]}" "${mounts[@]}" \
   "$(wine_image opendmt3-wine:local)" bash -c '
   # The virtual screen kept off the GPU (gpu.sh; plain Xvfb on the CPU image).
   env -u GALLIUM_DRIVER -u LD_LIBRARY_PATH Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp >/dev/null 2>&1 &
@@ -43,7 +47,7 @@ docker run -d --name "$C" --network none -e LANG=C.UTF-8 "${WINE_RUN_ARGS[@]}" "
   wineboot -i >/dev/null 2>&1; wineserver -w
   [ -d /dlls ] && cp /dlls/*.dll /w/drive_c/windows/syswow64/
   touch /out/.prefix-ready
-  wine /rel/openDMT3-win-Setup.exe > /out/setup.log 2>&1 &
+  wine "/rel/$SETUP" > /out/setup.log 2>&1 &
   sleep infinity' >/dev/null
 wait_s() { python3 -c "import time; time.sleep($1)"; }
 shot() { docker exec -e DISPLAY=:99 "$C" sh -c "xwd -root -silent | convert xwd:- png:/out/$1.png"; echo "  $OUT/$1.png"; }

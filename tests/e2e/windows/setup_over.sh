@@ -1,7 +1,7 @@
 #!/bin/bash
 # The installer over an older openDMT3 that is open, under Wine on a virtual screen with no network: the older
-# release goes in with Velopack's own silent setup, its launcher is started, then openDMT3-win-Setup.exe (the
-# installer's dialogs) is run as a person would. It must ask to update and say the open launcher closes first;
+# release goes in with Velopack's own silent setup, its launcher is started, then the launcher's installer (its
+# dialogs) is run as a person would. It must ask to update and say the open launcher closes first;
 # Enter on Update must leave the new version installed and its launcher running, with the desktop shortcut and
 # playing when Windows starts (set on the older one) still there.
 #
@@ -14,6 +14,10 @@ OLD=$(realpath "${1:?usage: setup_over.sh OLD_VELOPACK_SETUP NEW_RELEASES_DIR OU
 REL=$(realpath "${2:?}")
 OUT=$(realpath -m "${3:?}")
 mkdir -p "$OUT"
+# The launcher's installer as packaging/windows/build.sh names it (opendmt3-launcher-<version>-windows-x64-setup.exe):
+# the newest, when the folder holds builds of several versions.
+SETUP=$(cd "$REL" && ls opendmt3-launcher-*-windows-x64-setup.exe 2>/dev/null | sort -V | tail -1)
+[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-setup.exe in $REL"; exit 1; }
 NEW_VERSION=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$(dirname "$0")/../../../opendmt3/__init__.py")
 C=opendmt3-setup-over
 docker rm -f "$C" >/dev/null 2>&1
@@ -53,7 +57,7 @@ windows | grep -q "|openDMT3$" || fail "the older launcher did not open"
 echo "  $OLD_VERSION installed and open"
 
 echo "== the installer"
-in_c "wine /rel/openDMT3-win-Setup.exe > /out/setup.log 2>&1 &"
+in_c "wine /rel/$SETUP > /out/setup.log 2>&1 &"
 end=$((SECONDS + 120)); until windows | grep -q "|openDMT3 Setup$" || [ $SECONDS -gt $end ]; do wait_s 1; done
 windows | grep -q "|openDMT3 Setup$" || fail "the installer's window did not open"
 wait_s 2; shot 01-asks
