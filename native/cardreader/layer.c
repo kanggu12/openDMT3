@@ -653,6 +653,8 @@ int layer_parts(LayerPart *out, int max, int w, int h)
     step(&g_mark, dt, fade_ms, fade_ms);
     /* The sound panel's values as they are now (the panel's, or the launcher's change while it is open). */
     memcpy(g_card.sound, soundset_values()->v, sizeof g_card.sound);
+    /* And the bands the sound's sample rate leaves off (shown off, with the reason in the log: mix.c). */
+    g_card.sound_off = mix_bands_off();
     /* The panel drawn is the open one, or the last one while it slides back up. */
     if (open)
         g_shown = g_card;
@@ -752,7 +754,7 @@ int layer_parts(LayerPart *out, int max, int w, int h)
                   held + 1;
         /* The sound panel drawn again when a value changes (by its knob, its keys or the launcher). */
         if (g_shown.open == CARD_SOUND)
-            key = (int)((unsigned)key * 131u + (unsigned)soundset_version());
+            key = (int)(((unsigned)key * 131u + (unsigned)soundset_version()) * 37u + g_shown.sound_off);
         if (key != g_drawn_panel && sprite_for(&g_s_panel, g_lay.panel.w, g_lay.panel.h, 8 * u)) {
             redraw_start();
             look_panel(&g_s_panel, &g_shown, &g_lay, hover, held, text_gdi, NULL);
@@ -958,6 +960,9 @@ static void quit_game(void)
     g_quitting = 1;
     g_card.open = CARD_NONE;
     ingame_log("quit: the player chose Quit the game");
+    /* The sound panel's last changes into the sound file before the game goes (the launcher reads it when the game
+     * closes): a second at most. */
+    soundset_flush();
     HANDLE watch = CreateThread(NULL, 0, quit_watch, NULL, 0, NULL);
     if (watch)
         CloseHandle(watch);
@@ -974,7 +979,6 @@ static void set_fps(int on)
     ingame_log("layer: frame rate chip %s", on ? "on" : "off");
 }
 
-/* Do what a key or a choice asked for. */
 /* A sound value set from the panel, said in the log once its knob or key lets go of it (each change goes to the sound
  * at once and to the file soon after: soundset.c). */
 static void sound_set(int which, int value)
@@ -992,6 +996,7 @@ static void sound_at(int column, float y)
     sound_set(column, ui_sound_value_at(&moved, column, y - g_panel_dy));
 }
 
+/* Do what a key or a choice asked for. */
 static void act(int what)
 {
     if (what == ACT_SOUND_OPEN) {

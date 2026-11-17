@@ -3,12 +3,18 @@
  * compiler as the DLL and run under Wine by test.sh. Each check prints its name; the program ends with the count of
  * failures as its exit code.
  */
+#include <windows.h>
+/* windows.h's old 16-bit words, names of the tests' own variables here. */
+#undef near
+#undef far
 #include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "contacts.h"
+#include "ingame.h"
 #include "logic.h"
 #include "methods.h"
 #include "passtimes.h"
@@ -694,6 +700,177 @@ static double mixed_peak(const MixShape *m, double hz, int rate)
 }
 
 /* The sound's values (#11 of the 0.4.0 list): the shared file, the volumes' move and the equaliser. */
+/* ---- the sound file's writer in the game (soundset.c), with what it calls of the rest of the DLL stood in for: its log
+ * kept to look at, the volumes and the mix taking the values as they come. */
+static char g_sound_log[8192];
+void ingame_log(const char *fmt, ...)
+{
+    char line[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(line, sizeof line, fmt, ap);
+    va_end(ap);
+    if (strlen(g_sound_log) + strlen(line) + 2 < sizeof g_sound_log) {
+        strcat(g_sound_log, line);
+        strcat(g_sound_log, "\n");
+    }
+}
+void sound_volumes_start(int music, int keys)
+{
+    (void)music;
+    (void)keys;
+}
+void sound_volumes(int music, int keys)
+{
+    (void)music;
+    (void)keys;
+}
+void mix_set(const SoundValues *v)
+{
+    (void)v;
+}
+
+/* The file's text, or "" (a test's own read, the file shared as any reader would). */
+static void read_sound_file(const WCHAR *path, char *out, int room)
+{
+    out[0] = 0;
+    FILE *f = _wfopen(path, L"rb");
+    if (!f)
+        return;
+    size_t n = fread(out, 1, (size_t)room - 1, f);
+    out[n] = 0;
+    fclose(f);
+}
+
+/* Write a text to a file (the tests' own files). */
+static void put_file(const WCHAR *path, const char *text)
+{
+    FILE *f = _wfopen(path, L"wb");
+    if (f) {
+        fputs(text, f);
+        fclose(f);
+    }
+}
+
+static void test_sound_file(void)
+{
+    WCHAR dir[MAX_PATH], path[MAX_PATH], lock_path[MAX_PATH];
+    GetTempPathW(MAX_PATH, dir);
+    wcscat(dir, L"odt3-sound-test");
+    CreateDirectoryW(dir, NULL);
+    _snwprintf(path, MAX_PATH, L"%ls\\sound.ini", dir);
+    _snwprintf(lock_path, MAX_PATH, L"%ls\\sound.ini.lock", dir);
+    SetFileAttributesW(path, FILE_ATTRIBUTE_NORMAL);
+    DeleteFileW(path);
+    SoundValues v;
+    sound_values_default(&v);
+    static char text[80 * 1024];
+    DWORD error = 0;
+    /* A write: only the changed line, the other lines kept, the file swapped in whole. */
+    put_file(path, "# mine\nmaster_volume=100\nkey_volume=90\n");
+    read_sound_file(path, text, sizeof text);
+    v.v[SOUND_MASTER] = 70;
+    check(soundset_write_file(path, text, &v, 1u << SOUND_MASTER, &error), "sound file: written");
+    read_sound_file(path, text, sizeof text);
+    check(!strcmp(text, "# mine\nmaster_volume=70\nkey_volume=90\n"), "sound file: its own line only");
+    /* Read-only: the swap is refused (error 5) and the file is as it was. */
+    SetFileAttributesW(path, FILE_ATTRIBUTE_READONLY);
+    v.v[SOUND_MASTER] = 60;
+    error = 0;
+    check(!soundset_write_file(path, text, &v, 1u << SOUND_MASTER, &error) && error == ERROR_ACCESS_DENIED,
+          "sound file: a read-only file refuses the write, with its error");
+    SetFileAttributesW(path, FILE_ATTRIBUTE_NORMAL);
+    /* The game's writer as it runs: started on the file, a change made while the file is read-only waits (kept, said
+     * in the log once) and is written when the file can be written again; the review found it dropped. */
+    SetEnvironmentVariableW(L"OPENDMT3_SOUND_FILE", path);
+    SetEnvironmentVariableA("OPENDMT3_SOUND_VALUES", "master_volume=70;key_volume=90");
+    soundset_start();
+    SetFileAttributesW(path, FILE_ATTRIBUTE_READONLY);
+    g_sound_log[0] = 0;
+    soundset_change(SOUND_MASTER, 40);
+    Sleep(1500);
+    read_sound_file(path, text, sizeof text);
+    check(strstr(text, "master_volume=70") && strstr(g_sound_log, "not written (error 5"),
+          "sound file: a change the file refuses is kept, said in the log");
+    SetFileAttributesW(path, FILE_ATTRIBUTE_NORMAL);
+    Sleep(1500);
+    read_sound_file(path, text, sizeof text);
+    check(strstr(text, "master_volume=40") && strstr(g_sound_log, "written (1 value) after"),
+          "sound file: the kept change is written when the file can be written again");
+    /* The lock held by another writer past its wait: the change waits, and is written once the lock is let go. */
+    HANDLE held = CreateFileW(lock_path, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_ALWAYS,
+                              FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    soundset_change(SOUND_KEYS, 30);
+    Sleep(2500);
+    read_sound_file(path, text, sizeof text);
+    int waited = strstr(text, "key_volume=90") != NULL;
+    CloseHandle(held);
+    Sleep(1500);
+    read_sound_file(path, text, sizeof text);
+    check(held != INVALID_HANDLE_VALUE && waited && strstr(text, "key_volume=30"),
+          "sound file: a change waits out a held lock, then is written");
+    /* Another writer's value comes in; one of ours still waiting is never replaced by the file's. */
+    SetFileAttributesW(path, FILE_ATTRIBUTE_READONLY);
+    soundset_change(SOUND_EQ0 + 2, 5);
+    Sleep(800);
+    SetFileAttributesW(path, FILE_ATTRIBUTE_NORMAL);
+    put_file(path, "# mine\nmaster_volume=40\nkey_volume=30\nmusic_volume=55\neq_1k=-7\n");
+    Sleep(1500);
+    soundset_frame();
+    read_sound_file(path, text, sizeof text);
+    check(soundset_values()->v[SOUND_MUSIC] == 55 && soundset_values()->v[SOUND_EQ0 + 2] == 5 &&
+              strstr(text, "eq_1k=5") && strstr(text, "music_volume=55"),
+          "sound file: the other writer's value taken, ours that waited written over theirs");
+    /* The quit's last write: tried for a second when the file refuses, then done once it can. */
+    SetFileAttributesW(path, FILE_ATTRIBUTE_READONLY);
+    soundset_change(SOUND_MASTER, 20);
+    Sleep(50);
+    DWORD t0 = GetTickCount();
+    int first = soundset_flush();
+    DWORD took = GetTickCount() - t0;
+    SetFileAttributesW(path, FILE_ATTRIBUTE_NORMAL);
+    int second = soundset_flush();
+    read_sound_file(path, text, sizeof text);
+    check(!first && took < 2500 && second && strstr(text, "master_volume=20"),
+          "sound file: the quit's last write tried a second, then written");
+    /* A file longer than the old 4 KB read: read whole, its last line kept at the next write (it was cut before). */
+    {
+        static char longer[6200];
+        strcpy(longer, "# a long note\n");
+        while (strlen(longer) < 6000)
+            strcat(longer, "# padding padding padding padding padding padding padding padding\n");
+        strcat(longer, "master_volume=20\neq_12k=12\n");
+        put_file(path, longer);
+        Sleep(1200);
+        soundset_change(SOUND_MASTER, 25);
+        Sleep(1500);
+        read_sound_file(path, text, sizeof text);
+        size_t n = strlen(text);
+        check(n > 6000 && strstr(text, "eq_12k=12\n") && strstr(text, "master_volume=25"),
+              "sound file: a file over 4 KB read whole and kept whole");
+    }
+    /* Past 64 KB: not read, never written over (a cut would lose its end), said in the log. */
+    {
+        FILE *f = _wfopen(path, L"wb");
+        for (int i = 0; i < 1200 && f; i++)
+            fputs("# a very long note, line after line, past what the game reads ...........\n", f);
+        if (f) {
+            fputs("master_volume=25\n", f);
+            fclose(f);
+        }
+        Sleep(1200);
+        g_sound_log[0] = 0;
+        soundset_change(SOUND_MASTER, 35);
+        Sleep(1500);
+        read_sound_file(path, text, sizeof text);
+        check(strstr(g_sound_log, "longer than 64 KB") != NULL, "sound file: past 64 KB not written over, said");
+        /* Back to a short file, so what waits is written and the run ends with nothing kept. */
+        put_file(path, "master_volume=25\n");
+        Sleep(1500);
+    }
+    SetFileAttributesW(path, FILE_ATTRIBUTE_NORMAL);
+}
+
 static void test_sound_panel(void)
 {
     /* The menu's Sound opens the panel in its place; its eight columns under the X, each with its track, in the
@@ -739,23 +916,92 @@ static void test_sound_panel(void)
           c.open == CARD_NONE, "sound panel: a column stays, Enter goes back to the game");
 }
 
+/* The shared table of sound.ini lines (tests/fixtures/sound_lines.txt, copied beside this program by test.sh; the
+ * launcher's test reads the same file): each line read by the game's rule as the table says. Returns the lines checked,
+ * and puts the first line read otherwise in `wrong`. */
+static int sound_table(char *wrong, int room)
+{
+    char path[MAX_PATH], *slash;
+    GetModuleFileNameA(NULL, path, sizeof path);
+    slash = strrchr(path, '\\');
+    if (!slash)
+        return 0;
+    strcpy(slash + 1, "sound_lines.txt");
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return 0;
+    char raw[512];
+    int checked = 0;
+    wrong[0] = 0;
+    while (fgets(raw, sizeof raw, f)) {
+        raw[strcspn(raw, "\n")] = 0;
+        char *tab = strrchr(raw, '\t');
+        if (raw[0] == '#' || !tab)
+            continue;
+        *tab = 0;
+        /* The line as the file holds it: \t a tab, \r a carriage return, \B a byte order mark. */
+        char line[512];
+        int n = 0;
+        for (char *c = raw; *c && n < (int)sizeof line - 4; c++) {
+            if (c[0] == '\\' && c[1] == 't')
+                line[n++] = '\t', c++;
+            else if (c[0] == '\\' && c[1] == 'r')
+                line[n++] = '\r', c++;
+            else if (c[0] == '\\' && c[1] == 'B')
+                line[n++] = (char)0xEF, line[n++] = (char)0xBB, line[n++] = (char)0xBF, c++;
+            else
+                line[n++] = *c;
+        }
+        line[n] = 0;
+        SoundValues v;
+        sound_values_default(&v);
+        /* Every value set to a mark first, so "read" shows as a change from it. */
+        for (int k = 0; k < SOUND_VALUES; k++)
+            v.v[k] = 77;
+        unsigned named = sound_values_parse(line, &v, NULL, NULL);
+        char got[16] = "-";
+        for (int k = 0; k < SOUND_VALUES; k++)
+            if (named & (1u << k))
+                snprintf(got, sizeof got, "%d", v.v[k]);
+        if (strcmp(got, tab + 1) && !wrong[0])
+            snprintf(wrong, (size_t)room, "%s -> %s, the table says %s", raw, got, tab + 1);
+        checked++;
+    }
+    fclose(f);
+    return checked;
+}
+
 static void test_sound_values(void)
 {
     SoundValues s;
     sound_values_default(&s);
     check(s.v[SOUND_MASTER] == 100 && s.v[SOUND_KEYS] == 100 && s.v[SOUND_EQ0 + 2] == 0, "sound: 100 % and flat");
-    /* Read: known lines, spaces and \r allowed; out of range and unknown lines left alone. */
-    unsigned named = sound_values_parse("# a note\nmaster_volume = 80\r\nmusic_volume=101\neq_1k=-3\nother=5\n", &s);
+    /* Read: known lines, spaces and \r allowed; a bad value line left as if absent and counted; other lines left. */
+    int refused = 0;
+    const char *first = NULL;
+    unsigned named = sound_values_parse("# a note\nmaster_volume = 80\r\nmusic_volume=101\neq_1k=-3\nother=5\n"
+                                        "key_volume=0x20\n", &s, &refused, &first);
     check(named == ((1u << SOUND_MASTER) | (1u << (SOUND_EQ0 + 2))) && s.v[SOUND_MASTER] == 80 &&
-          s.v[SOUND_MUSIC] == 100 && s.v[SOUND_EQ0 + 2] == -3, "sound: the file's lines read, a bad one left");
-    /* Written: only the changed value's line, every other line (another writer's) kept, a missing one added. */
+              s.v[SOUND_MUSIC] == 100 && s.v[SOUND_KEYS] == 100 && s.v[SOUND_EQ0 + 2] == -3 && refused == 2 && first &&
+              !strncmp(first, "music_volume=101", 16),
+          "sound: the file's lines read, bad ones left and counted");
+    /* The one rule, line by line, from the table both readers' tests read (the launcher's too). */
+    char wrong[600];
+    int lines = sound_table(wrong, sizeof wrong);
+    check(lines >= 20 && !wrong[0], "sound: every line of the shared table read as it says");
+    if (wrong[0])
+        printf("     %s\n", wrong);
+    /* Written: only the changed value's line, every other line (another writer's, a bad one, a comment) kept, a
+     * missing one added, a byte order mark at the start dropped. */
     char out[512];
     s.v[SOUND_KEYS] = 40;
     s.v[SOUND_MASTER] = 10;
-    int n = sound_values_merge("# a note\nmaster_volume=55\r\nkey_volume=90\nkey_volume=91\n", &s,
-                               (1u << SOUND_KEYS) | (1u << (SOUND_EQ0 + 4)), out, sizeof out);
-    check(n > 0 && !strcmp(out, "# a note\nmaster_volume=55\nkey_volume=40\neq_12k=0\n"),
-          "sound: a write changes its own lines only");
+    int n = sound_values_merge("\xEF\xBB\xBF# a note\nmaster_volume=55\r\neq_1k=1_0\nkey_volume=90\nkey_volume=91\n",
+                               &s, (1u << SOUND_KEYS) | (1u << (SOUND_EQ0 + 4)), out, sizeof out);
+    check(n > 0 && !strcmp(out, "# a note\nmaster_volume=55\neq_1k=1_0\nkey_volume=40\neq_12k=0\n"),
+          "sound: a write changes its own lines only, the byte order mark dropped");
+    n = sound_values_merge("\xEF\xBB\xBFmaster_volume=55\n", &s, 1u << SOUND_MASTER, out, sizeof out);
+    check(n > 0 && !strcmp(out, "master_volume=10\n"), "sound: the first line after a byte order mark is a value's too");
     check(sound_values_merge(NULL, &s, 1u << SOUND_MUSIC, out, sizeof out) > 0 && !strcmp(out, "music_volume=100\n"),
           "sound: the first write makes the file");
     check(sound_values_merge("master_volume=55\n", &s, 1u << SOUND_MUSIC, out, 10) == -1, "sound: no room, no file");
@@ -763,8 +1009,13 @@ static void test_sound_values(void)
     check(volume_moved(-1500, 60, 60) == -1500 && volume_moved(-1500, 60, 30) == -1500 - 602 &&
           volume_moved(-300, 50, 100) == 0 && volume_moved(-300, 50, 0) == -10000 &&
           volume_moved(-4000, 0, 1) == -4000, "sound: a volume moved from where the game started it");
-    /* The mix: off at 100 % and flat (nothing touched); the master as an amplitude; a band's own frequency raised by its
-     * gain, a far one not; the shelves; 16 bits clipped at full scale. */
+    /* Which volume a buffer follows, and when its volume is set again at its play: a loop whose volume the game set
+     * before its first play (then taken for a key sound) is set again for the music's, even with the music unmoved. */
+    check(volume_kind(1, 100, 176400) == 0 && volume_kind(0, 1764000, 176400) == 0 && volume_kind(0, 100, 176400) == 1,
+          "sound: a loop or 10 s and more is the music's, the rest the key sounds'");
+    check(volume_reapply(2, 0, 0) && !volume_reapply(1, 0, 0) && volume_reapply(1, 0, 1) && !volume_reapply(0, 1, 0),
+          "sound: a loop set as a key sound before its play is set again at it");
+    /* The mix: off at 100 % and flat (nothing touched); the master as an amplitude. */
     MixShape m;
     sound_values_default(&s);
     mix_shape(&m, &s, 48000);
@@ -772,26 +1023,87 @@ static void test_sound_values(void)
     s.v[SOUND_MASTER] = 50;
     mix_shape(&m, &s, 48000);
     check(m.on && fabs(mixed_peak(&m, 1000, 48000) - 0.5) < 0.01, "mix: the master at 50 % halves the amplitude");
+    /* A band raised: its frequency over the others by its gain, the preamp taking the curve's top off, so the raised
+     * band stays where it was and a far one goes down by it. */
     sound_values_default(&s);
     s.v[SOUND_EQ0 + 2] = 6;
     mix_shape(&m, &s, 48000);
     double at = mixed_peak(&m, 1000, 48000), far = mixed_peak(&m, 100, 48000);
-    check(fabs(at - 1.995) < 0.05 && fabs(far - 1.0) < 0.06, "mix: +6 dB at 1 kHz doubles 1 kHz, leaves 100 Hz");
+    check(fabs(at - 1.0) < 0.03 && fabs(far - 0.501) < 0.04 && fabs(m.preamp_db + 6.0f) < 0.1f,
+          "mix: +6 dB at 1 kHz, 6 dB over 100 Hz, with the preamp taking 6 dB off");
+    /* Every band at +12: neighbouring peaks add up to +14 dB between them; the preamp takes all of it off, so the mix
+     * is never louder than it was (the review's 0.9 sine at 1 kHz came out at 4.6 before). */
+    sound_values_default(&s);
+    for (int b = 0; b < EQ_BANDS; b++)
+        s.v[SOUND_EQ0 + b] = 12;
+    mix_shape(&m, &s, 48000);
+    double worst = 0;
+    for (double hz = 30; hz < 18000; hz *= 1.12)
+        worst = fmax(worst, mixed_peak(&m, hz, 48000));
+    check(m.preamp_db < -13.5f && worst <= 1.02, "mix: every band at +12 dB never louder than the mix was");
+    /* The shelves: the low one raises the bass over the top, the high one lowers the top. */
     sound_values_default(&s);
     s.v[SOUND_EQ0] = 12;
     s.v[SOUND_EQ0 + 4] = -12;
     mix_shape(&m, &s, 48000);
-    check(fabs(mixed_peak(&m, 25, 48000) - 3.98) < 0.25 && mixed_peak(&m, 20000, 48000) < 0.35,
+    check(mixed_peak(&m, 25, 48000) / mixed_peak(&m, 1000, 48000) > 3.5 && mixed_peak(&m, 20000, 48000) < 0.1,
           "mix: the low shelf raises the bass, the high shelf lowers the top");
+    /* Full scale held: 16 bits never wrap, a float never passes 1.0 (a sound already at full scale and a boost). */
     int16_t loud[4] = {30000, -30000, 100, -100};
     MixState st;
     memset(&st, 0, sizeof st);
     sound_values_default(&s);
-    s.v[SOUND_MASTER] = 100;
     s.v[SOUND_EQ0 + 2] = 12;
     mix_shape(&m, &s, 48000);
     mix_run_s16(&m, &st, loud, 2, 2);
-    check(loud[0] <= 32767 && loud[1] >= -32768 && loud[0] > 30000, "mix: 16 bits clipped at full scale, not wrapped");
+    check(loud[0] <= 32767 && loud[1] >= -32768, "mix: 16 bits held at full scale, not wrapped");
+    static float big[4800 * 2];
+    for (int i = 0; i < 4800; i++)
+        big[2 * i] = big[2 * i + 1] = (float)(1.0 * sin(2 * 3.14159265358979 * 1000 * i / 48000.0));
+    memset(&st, 0, sizeof st);
+    s.v[SOUND_MASTER] = 100;
+    mix_shape(&m, &s, 48000);
+    mix_run_float(&m, &st, big, 4800, 2);
+    float over = 0;
+    for (int i = 0; i < 4800 * 2; i++)
+        over = fmaxf(over, fabsf(big[i]));
+    check(over <= 1.0f, "mix: a float never past full scale");
+    /* One NaN does not silence the stream for good: the state starts again after its buffer (it stayed NaN before). */
+    memset(&st, 0, sizeof st);
+    float buf[480 * 2];
+    for (int i = 0; i < 480 * 2; i++)
+        buf[i] = 0.1f;
+    buf[10] = NAN;
+    mix_run_float(&m, &st, buf, 480, 2);
+    for (int k = 0; k < 10; k++) {
+        for (int i = 0; i < 480 * 2; i++)
+            buf[i] = 0.1f;
+        mix_run_float(&m, &st, buf, 480, 2);
+    }
+    check(isfinite(buf[0]) && isfinite(buf[479]) && fabsf(buf[479]) > 0.01f, "mix: a NaN does not poison the stream");
+    /* In silence the state goes to 0, never to denormal numbers. */
+    memset(&st, 0, sizeof st);
+    for (int i = 0; i < 480 * 2; i++)
+        buf[i] = 0.1f;
+    mix_run_float(&m, &st, buf, 480, 2);
+    for (int k = 0; k < 400; k++) {
+        memset(buf, 0, sizeof buf);
+        mix_run_float(&m, &st, buf, 480, 2);
+    }
+    int denormal = 0;
+    for (int b = 0; b < EQ_BANDS; b++)
+        for (int c = 0; c < MIX_CHANNELS; c++)
+            denormal |= (st.z1[b][c] != 0 && fabsf(st.z1[b][c]) < 1.2e-38f) || (st.z2[b][c] != 0 && fabsf(st.z2[b][c]) < 1.2e-38f);
+    check(!denormal, "mix: no denormal numbers left in the state in silence");
+    /* The bands at their places: a band at or above half the rate is left off and said (12 kHz at 22050 Hz), and the
+     * mask of the bands running tells a change of them (the state starts again then: mix.c). */
+    sound_values_default(&s);
+    s.v[SOUND_EQ0 + 1] = 3;
+    s.v[SOUND_EQ0 + 4] = 3;
+    mix_shape(&m, &s, 22050);
+    check(m.bands == 1 && m.mask == (1u << 1) && m.dropped == (1u << 4), "mix: 12 kHz left off at 22050 Hz, and said");
+    mix_shape(&m, &s, 48000);
+    check(m.bands == 2 && m.mask == ((1u << 1) | (1u << 4)) && !m.dropped, "mix: both at 48000 Hz");
 }
 
 /* A screen's rates (#9 of the 0.4.0 list): what motion clarity is offered from, and what is said of the screen. */
@@ -2576,6 +2888,7 @@ int main(void)
     test_refresh_advice();
     test_sound_values();
     test_sound_panel();
+    test_sound_file();
     test_bar_clock();
     test_slides();
     test_slot_index();

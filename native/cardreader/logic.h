@@ -329,6 +329,7 @@ typedef struct {
     int sound[8];          /* the sound panel's values as they are (SoundValues' order: master, music, keys, the five
                             * bands), copied in by the layer before it draws */
     int step;              /* the keys' last move of a sound value (ACT_SOUND): +1 or -1 steps */
+    unsigned sound_off;    /* the equaliser's bands left off at the sound's sample rate (bit b: band b), shown off */
 } Card;
 
 /* How many answers the card has: the menu's four rows (Back to the game, Show FPS, Sound, Quit the game), the
@@ -677,29 +678,50 @@ extern const char *const SOUND_NAMES[SOUND_VALUES];
 void sound_values_default(SoundValues *s);
 /* A value kept within its range (percent 0 to 100, a band -12 to 12). */
 int sound_value_clamp(int which, int value);
-/* The file's lines read over `s` (a name=value line a value; a line it does not know, or one out of range, left as
- * `s` had it). Returns a mask of the values the text named. */
-unsigned sound_values_parse(const char *text, SoundValues *s);
+/* The file's one rule for a line, the launcher's too (client/sound_file.py, the shared table
+ * tests/fixtures/sound_lines.txt): a value's name, '=', a decimal whole number of at most four ASCII digits with a minus
+ * sign before it or not, within the value's range; spaces and tabs round each part, a \r at its end; a UTF-8 byte order
+ * mark at the file's start skipped. Which value a line names (-1: none of them), and whether its value is one the rule
+ * takes (`*value` set then). A line naming a value with anything else ("40abc", "0x20", "1_0", "+4", out of range) is
+ * none the rule takes: as if it were not there, said in the log. */
+int sound_line_value(const char *line, int len, int *value);
+/* The file's lines read over `s` (a line that is not a value's, or one the rule does not take, left as `s` had it).
+ * Returns a mask of the values the text named; *refused (if given) counts the lines naming a value the rule did not
+ * take, and *first_refused (if given) points at the first of them. */
+unsigned sound_values_parse(const char *text, SoundValues *s, int *refused, const char **first_refused);
 /* The file again with the values in `changed` (a mask) set from `s` and every other line as it was (another writer's
- * value kept): `old` the file as read just now (NULL or empty: none yet), `out` the new text. Returns its length, or -1
- * when it does not fit. */
+ * value kept, a line the rule does not take kept too, a byte order mark at the start dropped): `old` the file as read
+ * just now (NULL or empty: none yet), `out` the new text. Returns its length, or -1 when it does not fit; the room
+ * needed is at most strlen(old) + SOUND_VALUES * 24 + 1. */
 int sound_values_merge(const char *old, const SoundValues *s, unsigned changed, char *out, int size);
 
 /* A DirectSound volume (hundredths of a dB, 0 the loudest) for a buffer the game set to `game_v`, with the music's or
  * the key sounds' percent moved from `launch` (what setting.ini gave the game at its start, which made `game_v`) to
  * `now`: the game's own loudness at the start, the change on top of it (no louder than DirectSound's 0), silent at 0 %. */
 long volume_moved(long game_v, int launch, int now);
+/* Which volume a buffer of the game's follows: the music's (0) for a loop (the menus') or a buffer of 10 s or more (a
+ * song's music), the key sounds' (1) for the rest. A loop is known as one only at its play. */
+int volume_kind(int looping, unsigned long size, unsigned long bytes_a_second);
+/* Whether a buffer's volume must be set again at its play: its kind's volume moved since the game's start, or the kind
+ * its volume was last set for (`applied`: kind + 1, 0 none yet) is not the one it has now (a loop whose volume the game
+ * set before its first play was taken for a key sound then). */
+int volume_reapply(int applied, int kind_now, int moved_now);
 
-/* The last stage of the game's sound, on its way to Windows (the mix's buffers, sound.c): the master volume and the
- * equaliser, five biquad filters (RBJ's cookbook) one after the other on each channel. */
+/* The last stage of the game's sound, on its way to Windows (the mix's buffers, mix.c): the master volume and the
+ * equaliser, five biquad filters (RBJ's cookbook) one after the other on each channel. The curve's highest gain over
+ * the hearing range is taken off before it (an automatic preamp: a boost raises its band over the others, it never
+ * takes the mix past where it was), and every sample is held within full scale after it. */
 typedef struct {
     float b0, b1, b2, a1, a2;
 } Biquad;
 #define MIX_CHANNELS 8
 typedef struct {
     int on;                /* anything to do: off (the buffers untouched) at 100 % and flat */
-    float gain;            /* the master volume as an amplitude */
+    float gain;            /* the master volume and the preamp, as one amplitude */
+    float preamp_db;       /* the preamp: minus the curve's highest gain in dB (0 when nothing is raised) */
     int bands;             /* the bands not flat, in `band` */
+    unsigned mask;         /* which of the five those are (bit b): a change of it starts the filters' state again */
+    unsigned dropped;      /* bands not flat but left off: their middle at or above half the sample rate */
     Biquad band[EQ_BANDS];
 } MixShape;
 typedef struct {
@@ -707,7 +729,11 @@ typedef struct {
 } MixState;
 /* The shape for these values at a sample rate. */
 void mix_shape(MixShape *m, const SoundValues *s, int rate);
-/* Run over interleaved samples in place: 32-bit float, or 16-bit and 32-bit whole numbers (kept within their range). */
+/* The curve's gain in dB at `hz` (the bands only, no preamp or master), for the preamp and the tests. */
+double mix_curve_db(const MixShape *m, double hz, int rate);
+/* Run over interleaved samples in place: 32-bit float, or 16-bit and 32-bit whole numbers, each held within full scale.
+ * After each run the state is cleaned: a value that is not a finite number (a NaN in the stream) starts the state
+ * again, and one too small to be heard is taken to 0 (denormal numbers are slow on some processors). */
 void mix_run_float(const MixShape *m, MixState *st, float *x, int frames, int channels);
 void mix_run_s16(const MixShape *m, MixState *st, int16_t *x, int frames, int channels);
 void mix_run_s32(const MixShape *m, MixState *st, int32_t *x, int frames, int channels);

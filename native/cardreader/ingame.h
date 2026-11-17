@@ -172,6 +172,15 @@ void soundset_frame(void);
 const SoundValues *soundset_values(void);
 long soundset_version(void);
 void soundset_change(int which, int value);
+/* What waits to be written into the sound file, written now (the game's quit), a second at most: 1 when nothing waits
+ * after it. */
+int soundset_flush(void);
+/* The sound file at `path` with the values in `mask` set from `v` and every other line of `old` (the file as read under
+ * its lock) kept, swapped in whole through a temporary beside it: 1 when written, else 0 with Windows' error. */
+int soundset_write_file(const WCHAR *path, const char *old, const SoundValues *v, unsigned mask, DWORD *error);
+/* The equaliser's bands a live stream leaves off at its sample rate (bit b: the band's middle at or above half the
+ * rate): the in-game panel shows them off. */
+unsigned mix_bands_off(void);
 void sound_summary(void);
 /* The song's music as it plays (the music lock): how far it is in ms and the frame it started at; 0 when none plays. */
 int sound_music_position(double *ms, long *started_frame);

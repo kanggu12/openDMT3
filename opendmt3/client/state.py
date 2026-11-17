@@ -5,6 +5,7 @@ so an update or a reinstall keeps it. Writes go through a temporary file so a cr
 """
 
 import json
+import logging
 import os
 import sys
 import tempfile
@@ -12,6 +13,8 @@ import tempfile
 from opendmt3.core import game as g
 from opendmt3.client import sound_file
 from opendmt3.core.cabinet import steps, values as choices
+
+log = logging.getLogger("opendmt3.launcher")
 
 FILE_NAME = "launcher.json"
 # Bumped when a field changes meaning; an older file is read and upgraded, a newer one is refused.
@@ -101,6 +104,8 @@ class LauncherState:
         self.lan = False                 # this PC: open the built-in server to the other PCs on its network as well
         self.sound_path = None           # the sound file both the launcher and the game write (sound_file.py), beside
                                          # the settings file it was loaded from (None: beside the default one)
+        self.sound_waiting = {}          # sound values changed here and not yet written to that file ({name: value}):
+                                         # written at the next sync, never replaced by the file's older value meanwhile
 
     # ------------------------------------------------------------------------------------------- files
 
@@ -154,7 +159,7 @@ class LauncherState:
     def sync_sound(self):
         """The sound file's values taken in (the in-game panel's changes), or the file made from ours when there is
         none yet (sound_file.sync)."""
-        sound_file.sync(self, self.sound_path or sound_file.path_beside(self.path()))
+        sound_file.sync(self, self.sound_path or sound_file.path_beside(self.path()), self.sound_waiting)
 
     @classmethod
     def _from(cls, data, state):
@@ -175,6 +180,12 @@ class LauncherState:
         state.server_url = data.get("server_url") or None
         state.remote = data.get("remote") if isinstance(data.get("remote"), dict) else None
         state.lan = bool(data.get("lan", False))
+        # Sound changes the last launcher could not write to the sound file: still waiting (only the sound's names,
+        # whole numbers; anything else in a hand-edited file is left out).
+        waiting = data.get("sound_waiting")
+        state.sound_waiting = {name: value for name, value in (waiting.items() if isinstance(waiting, dict) else ())
+                               if name in choices.SOUND_FILE_VALUES and isinstance(value, int)
+                               and not isinstance(value, bool)}
         return state
 
     def save(self, path=None):
@@ -195,6 +206,7 @@ class LauncherState:
             "server_url": self.server_url,
             "remote": self.remote,
             "lan": self.lan,
+            "sound_waiting": self.sound_waiting,
         }
         fd, tmp = tempfile.mkstemp(dir=folder, prefix=".launcher-")
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -208,14 +220,19 @@ class LauncherState:
         merged = dict(self.values)
         merged[name] = value
         self.values = choices.normalize(merged)
-        # A sound value goes to the file the game reads too (only its line: the game's own changes stay).
+        # A sound value goes to the file the game reads too (only its line: the game's own changes stay), with any
+        # change still waiting from before.
         if name in choices.SOUND_FILE_VALUES:
+            self.sound_waiting[name] = self.values[name]
             try:
-                sound_file.write(self.sound_path or sound_file.path_beside(self.path()), {name: self.values[name]})
-            except OSError:
-                # The file cannot be written now (its lock held past a second, a locked folder): the launcher's own
-                # settings keep it, and the next sync writes it.
-                pass
+                sound_file.write(self.sound_path or sound_file.path_beside(self.path()), dict(self.sound_waiting))
+                self.sound_waiting.clear()
+            except OSError as e:
+                # The file cannot be written now (its lock held past a second, the file read-only or held open by
+                # another program): the change waits in the state, said in the log, and the next sync writes it; until
+                # then no sync takes the file's older value over it.
+                log.warning("the sound file cannot be written now (%s): %s kept, written at the next sync", e,
+                            ", ".join(sorted(self.sound_waiting)))
 
     def options(self):
         """The setup options the choices amount to.

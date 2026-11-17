@@ -243,7 +243,12 @@ is read as late as the frame's own work allows.
   kHz, 4 kHz and 12 kHz, each -12 to 12 dB, flat by default): the in-game sound panel has the same and keeps them with
   the page. The music and the key sounds start where the game's own setting puts them and move while it runs; the master
   and the equalizer act on the whole mix as it goes to Windows, with every **Mixer**, and add no delay: at 100 % and
-  flat nothing is touched.
+  flat nothing is touched. A band raised stands over the others: the equalizer takes its curve's highest point off the
+  whole mix, so it never plays louder than without it. At 22,050 Hz or less the 12 kHz band has no room and is left off.
+  Both keep the values in `sound.ini` beside `launcher.json`: a line is a value's name, `=` and a whole number
+  (`master_volume=80`, `eq_1k=-3`); any other line is left as it is, and one naming a value with anything else is left
+  out (said in the logs). A change that cannot be written there for a moment (the file read-only, or held open by
+  another program) is kept and written at the next chance.
 - **Device** (**Sound**): **Windows' default output** (the default), or one of Windows' output devices by name. When
   the chosen device is not connected, the game plays on Windows' default output, and the page says so.
 - **Mixer** (**Sound**): who mixes the game's sounds. **DirectSound** (the default) is Windows' own, as the game was

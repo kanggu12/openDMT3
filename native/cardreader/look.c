@@ -401,6 +401,16 @@ static void sound_column(Canvas *c, const Card *card, const UiLayout *l, int i, 
     t.x += dx;
     t.y += dy;
     float mid = t.x + t.w / 2;
+    /* A band left off at the sound's sample rate: its column quiet, its rail unlit, no knob; its value says OFF. */
+    int off = i >= SOUND_EQ0 && (card->sound_off & (1u << (i - SOUND_EQ0)));
+    if (off) {
+        text(ctx, c, card_state(card, i), l->px_small, mid, col.y + 7 * u, RGB_QUIET, 0);
+        Paint dim = paint_solid(0xffffff, 0.08f);
+        paint_rect(c, (int)(mid - 1.5f * u), (int)t.y, (int)(3 * u + 0.5f), (int)t.h, &dim);
+        text(ctx, c, card_label(card, i, NULL), card->korean ? l->px_small * look_ko_label : l->px_small, mid,
+             t.y + t.h + 7 * u, RGB_QUIET, 0);
+        return;
+    }
     /* The value, over the column. */
     text(ctx, c, card_state(card, i), l->px_small, mid, col.y + 7 * u, chosen ? 0xffffff : RGB_WORDS,
          chosen ? TEXT_EDGE : 0);

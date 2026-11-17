@@ -78,6 +78,9 @@ typedef struct {
     LONG underruns;
     LONG started_frame;
     LONG game_v;            /* the volume the game last set on it (0, the loudest, until it sets one) */
+    LONG ours_v;            /* the volume it plays at as last set through here (the game's moved: 0 until set) */
+    int applied;            /* the kind (logic.c volume_kind) plus one its volume was last set for (0: not yet) */
+    int said_loop;          /* its first play as a loop said in the log */
     DWORD block;            /* bytes in a 20 ms block */
     DWORD *hash;            /* each block's content hash from the last lap (0: not seen yet) */
     DWORD checked;          /* the next block to read before the play cursor reaches it */
@@ -113,29 +116,34 @@ static Watched *find(IDirectSoundBuffer *b)
     return slot >= 0 ? &g_w[slot] : NULL;
 }
 
-/* Whether a buffer is the music's (1: a loop, the menus', or one of 10 s or more, a song's) or a key sound's (0), for
- * the two volumes: the game sets them from setting.ini's bgm_volume and sfx_volume. */
-static int is_music(const Watched *w)
+/* Which of the two volumes a buffer follows now (logic.c volume_kind: 0 the music's, a loop or 10 s and more; 1 the
+ * key sounds'): the game sets them from setting.ini's bgm_volume and sfx_volume. A loop is known only at its play. */
+static int kind_of_buffer(const Watched *w)
 {
-    return w->looping || (w->bytes_a_second && w->size >= 10 * w->bytes_a_second);
+    return volume_kind(w->looping, w->size, w->bytes_a_second);
 }
 
-/* The volume a buffer plays at for the game's own `v`: moved by its kind's change since the game's start. */
-static LONG moved_volume(IDirectSoundBuffer *b, LONG v)
+/* The volume a buffer plays at for the game's own `v`: moved by its kind's change since the game's start; the kind it
+ * was set for and the volume kept with it (its play sets it again when the kind turned out another: a loop). */
+static LONG moved_for(Watched *w, LONG v)
 {
-    Watched *w = find(b);
-    if (!w)
-        return v;
-    int k = is_music(w) ? 0 : 1;
-    return (LONG)volume_moved(v, g_volume_start[k], g_volume_now[k]);
+    int k = kind_of_buffer(w);
+    w->applied = k + 1;
+    w->ours_v = (LONG)volume_moved(v, g_volume_start[k], g_volume_now[k]);
+    return w->ours_v;
 }
 
 /* Whether a kind's volume is moved from the game's start (a buffer's own volume then needs ours at its play). */
 static int volume_is_moved(const Watched *w)
 {
-    int k = is_music(w) ? 0 : 1;
+    int k = kind_of_buffer(w);
     return g_volume_now[k] != g_volume_start[k];
 }
+
+/* The loudest volume the game has given a sound of each kind as it plays (the measure of its own volume curve against
+ * setting.ini's bgm_volume and sfx_volume: ingame.sh compares two games started at two volumes); below -10000 until a
+ * first one plays. */
+static LONG g_game_top[2] = {-10001, -10001};
 
 /* A slot in the list of the music playing, or out of it, as its entry says now (called wherever its buffer, its playing
  * or its being music changes). The list keeps the order slots came into it; a slot taken out leaves the last one in
@@ -239,9 +247,27 @@ static HRESULT STDMETHODCALLTYPE our_play(IDirectSoundBuffer *b, DWORD r, DWORD 
         /* Music that plays: in the frame's list. */
         music_list(w);
         /* The player's volume for its kind, moved since the game's start: on it before it sounds (the game set its
-         * own, or none, before the play). */
-        if (volume_is_moved(w) && real_set_volume)
-            real_set_volume(b, moved_volume(b, w->game_v));
+         * own, or none, before the play); and on it again when the game set its volume before its first play while it
+         * was taken for a key sound (a loop is known only now): a menu's music never follows the key sounds' volume. */
+        int kind = kind_of_buffer(w);
+        if (volume_reapply(w->applied, kind, volume_is_moved(w)) && real_set_volume)
+            real_set_volume(b, moved_for(w, w->game_v));
+        /* The game's own loudest volume for its kind, said when it rises (its curve against setting.ini's values). */
+        if (w->game_v > g_game_top[kind]) {
+            g_game_top[kind] = w->game_v;
+            int percent = g_volume_start[kind];
+            ingame_log("sound: the game plays its %s as loud as %ld (setting.ini's %s %d, from %d %%)",
+                       kind ? "key sounds" : "music", (long)w->game_v, kind ? "sfx_volume" : "bgm_volume",
+                       percent < 1 ? 1 : (int)lround(percent * 127.0 / 100.0), percent);
+        }
+        /* A loop's first play, at the volume it plays at against the game's own (a menu's music follows the music's
+         * volume: ingame.sh checks the two agree while only the key sounds' moved). */
+        if (w->looping && !w->said_loop) {
+            w->said_loop = 1;
+            ingame_log("sound: a loop plays at volume %ld, the game's %ld (the music at %d %%, the game started it at %d "
+                       "%%; the key sounds at %d %%, from %d %%)", (long)(w->applied ? w->ours_v : 0), (long)w->game_v,
+                       g_volume_now[0], g_volume_start[0], g_volume_now[1], g_volume_start[1]);
+        }
     }
     /* Started while the music fades back in after a hold: at the fade's share, so it comes in with the rest. */
     join_fade_in(b);
@@ -508,11 +534,11 @@ static void set_share(Held *h, double k)
 
 static HRESULT STDMETHODCALLTYPE our_set_volume(IDirectSoundBuffer *b, LONG v)
 {
-    /* The game's own volume kept, the player's move put on it. */
+    /* The game's own volume kept, the player's move put on it (for the kind the buffer is known as now). */
     Watched *w = find(b);
     if (w)
         w->game_v = v;
-    LONG mine = moved_volume(b, v);
+    LONG mine = w ? moved_for(w, v) : v;
     /* During a fade, the game's own volume for a held buffer becomes the fade's goal, and the fade's share of it is what
      * plays: the game sets its sounds' volumes while they play (16 or 17 times over a song's fade in: measured), which
      * would otherwise undo the fade's step. */
@@ -550,7 +576,7 @@ void sound_volumes(int music, int keys)
         for (int k = 0; k < g_nheld; k++)
             if (g_held[k].buf == w->buf)
                 held = k;
-        LONG v = moved_volume(w->buf, w->game_v);
+        LONG v = moved_for(w, w->game_v);
         if (held >= 0)
             g_held[held].volume = v;
         else

@@ -811,6 +811,24 @@ PY
 under=$(grep -c "sound: underrun on stream" "$OUT/ingame.log")
 echo "  the game's streams' underruns with the last stage on: $under"
 [ "$under" = 0 ] || fail "the game's sound ran dry $under times with the last stage on"
+# A menu's music follows the music's volume, never the key sounds' (the review's M3: a loop whose volume the game sets
+# before its first play was taken for a key sound): after the launcher moved only the key sounds' volume (to 50 %, the
+# music left at 100 %), every loop the game started plays at the game's own volume. Judged on the loops started after
+# the move (the screens between the title and the tutorial start theirs); none started is no proof, and fails.
+python3 - "$OUT/ingame.log" <<'PY' || fail "a menu's music followed the key sounds' volume, or no loop started after the move to judge"
+import re, sys
+lines = open(sys.argv[1], errors="replace").read().split("\n")
+moved = next((i for i, l in enumerate(lines) if "sound: the music at 100 %, the key sounds at 50 %" in l), None)
+assert moved is not None, "the key sounds' move is not in the log"
+loops = [re.search(r"a loop plays at volume (-?\d+), the game's (-?\d+) \(the music at 100 %", l) for l in lines[moved:]]
+loops = [m for m in loops if m]
+print("  loops started after only the key sounds' volume moved: %d, at the game's own volume: %d"
+      % (len(loops), sum(1 for m in loops if m.group(1) == m.group(2))))
+sys.exit(0 if loops and all(m.group(1) == m.group(2) for m in loops) else 1)
+PY
+# The game's own volume curve (the review's L7): the loudest volume it gives its key sounds and its music as they play,
+# kept from this game (setting.ini's sfx_volume and bgm_volume at 127) for the next one (both at 64).
+grep "sound: the game plays its" "$OUT/ingame.log" > "$OUT/volumes-127.txt"
 # The launcher took the panel's master back when the game ended (its log of the values PLAY started with next).
 docker exec "$C" sh -c "grep -c '^master_volume=85$' /w/drive_c/users/root/AppData/Roaming/openDMT3/sound.ini" >/dev/null \
   || fail "the sound file lost the panel's master after the game ended"
@@ -831,7 +849,7 @@ rm -f "$OUT/ingame.log"
 # chip on.
 docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' \
   -e 'OPENDMT3_POSTFX_DUMP=Z:\out' -e OPENDMT3_SAFETY=off -e OPENDMT3_LAYER_TIMING=frame "$C" sh -c \
-  "wine '$APP' --mode offline --set upscale=fsr1 --set sharpness=80 --set antialiasing=smaa-high --set show_fps=on --set sound_path=openal --set eq_12k=-2 --play > /out/play-picture.txt 2>&1; echo \"exit \$?\" >> /out/play-picture.txt"
+  "wine '$APP' --mode offline --set upscale=fsr1 --set sharpness=80 --set antialiasing=smaa-high --set show_fps=on --set sound_path=openal --set eq_12k=-2 --set music_volume=50 --play > /out/play-picture.txt 2>&1; echo \"exit \$?\" >> /out/play-picture.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline the second time"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline the second time"
 # The Mixer on OpenAL Soft: PLAY put DSOAL and OpenAL Soft beside the library, and the game's DirectSound is DSOAL's.
@@ -844,7 +862,7 @@ wait_log "mix: a stream written by .* passes the last stage" 20 \
 grep "mix: a stream written by" "$OUT/ingame.log" | sed 's/^[0-9]* /  /'
 grep "mix: a stream written by" "$OUT/ingame.log" | grep -qiv "written by dsound.dll" \
   || fail "the stream that passed the last stage was DirectSound's, not OpenAL Soft's"
-grep -q "sound: master 85 %, music 100 %, key sounds 50 %, equaliser 4 0 3 0 -2 dB" "$OUT/ingame.log" \
+grep -q "sound: master 85 %, music 50 %, key sounds 50 %, equaliser 4 0 3 0 -2 dB" "$OUT/ingame.log" \
   || fail "the second game did not start with the values the first left ($(grep 'sound: master' "$OUT/ingame.log"))"
 grep -q "upscale fsr1, sharpness 80, anti-aliasing smaa-high" "$OUT/ingame.log" \
   || fail "the picture options did not reach the layer ($(grep 'start:' "$OUT/ingame.log"))"
@@ -904,6 +922,29 @@ end=$((SECONDS + 40)); until grep -q "^exit " "$OUT/play-picture.txt" 2>/dev/nul
 cat "$OUT/play-picture.txt"
 grep -q "^exit 0" "$OUT/play-picture.txt" || fail "openDMT3-cmd --play did not return after the second game ended"
 game_alive && fail "the game is still running after the second offline play"
+# The game's own volume curve: its loudest key sound and music at setting.ini's 127 (the first game) and at 64 (this
+# one, both volumes at 50 %). The volumes the panel and the Sound page move are ratios of amplitude (logic.c
+# volume_moved), and the move of a launcher.json's volumes to sound.ini keeps setting.ini as it was: both are right
+# when the game's own curve is too (64 against 127 is -5.95 dB as an amplitude). Said with the numbers, and a curve
+# more than 1.5 dB from it fails (the move's rule is then to be made the game's).
+grep "sound: the game plays its" "$OUT/ingame.log" > "$OUT/volumes-64.txt"
+python3 - "$OUT/volumes-127.txt" "$OUT/volumes-64.txt" <<'PY' || fail "the game's own volume curve is not the amplitude the volumes' move assumes"
+import math, re, sys
+def top(path, kind):
+    found = [int(m.group(1)) for m in (re.search(r"plays its %s as loud as (-?\d+)" % kind, l) for l in open(path)) if m]
+    return max(found) if found else None
+model = round(2000 * math.log10(64 / 127.0))
+ok = True
+for kind in ("key sounds", "music"):
+    at127, at64 = top(sys.argv[1], kind), top(sys.argv[2], kind)
+    if at127 is None or at64 is None:
+        print("  the game's %s: not heard in both games (%s, %s)" % (kind, at127, at64))
+        ok = False
+        continue
+    print("  the game's %s: %d at 127, %d at 64: %+.2f dB (an amplitude's %+.2f dB)" % (kind, at127, at64, (at64 - at127) / 100.0, model / 100.0))
+    ok &= abs((at64 - at127) - model) <= 150
+sys.exit(0 if ok else 1)
+PY
 # Who mixed the run, in the launcher's log once the game closed; the game's own end was its normal one (its exit code
 # 0: OpenAL Soft's libraries end with it quietly).
 docker exec "$C" sh -c "grep -E \"the game's sound was mixed|was chosen and did not open|the game closed after\" $LOG | tail -2" \

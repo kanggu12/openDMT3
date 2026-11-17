@@ -5,14 +5,16 @@
  * Every mixer the launcher offers writes its mix through Windows' audio client in this process: Windows' own
  * DirectSound (dsound.dll mixes the game's buffers into a WASAPI stream of its own), and OpenAL Soft behind DSOAL, in
  * shared or in exclusive mode (its WASAPI backend). Each asks its IAudioRenderClient for room (GetBuffer), writes the
- * mix there and hands it on (ReleaseBuffer). Those two methods, and the audio client's Initialize and GetService that
- * say each stream's format, sit in tables every such object of the process shares: they are turned to ours once,
- * before the game opens its sound (mix_install, from hooks.c's DirectSound open), so the mix is shaped in place
- * between its writing and its hand-over. Nothing is added to the way: no buffer of ours, no frame later; the
- * stage's own time is measured and logged with the caller that wrote the mix (the proof of which mixer it was).
+ * mix there and hands it on (ReleaseBuffer). Those two methods, the audio client's Initialize and GetService that say
+ * each stream's format, and both objects' Release (a stream torn down leaves the table), sit in tables every such
+ * object of the process shares: they are turned to ours once, before the game opens its sound (mix_install, from
+ * hooks.c's DirectSound open), so the mix is shaped in place between its writing and its hand-over. Nothing is added to
+ * the way: no buffer of ours, no frame later; the stage's own time is measured and logged with the caller that wrote
+ * the mix (the proof of which mixer it was).
  *
- * At 100 % and flat nothing is touched. A format it cannot shape (packed 24-bit, more than eight channels) passes as it
- * is, said once in the log.
+ * At 100 % and flat nothing is touched. 32-bit float, 16-bit, packed 24-bit and 32-bit samples are shaped; any other
+ * format, or more than eight channels, passes as it is, said once in the log. The log lines are written from the
+ * game's thread (mix_frame): a mixer's thread never waits for a file.
  */
 #define COBJMACROS
 #include "ingame.h"
@@ -23,27 +25,34 @@
 #include <stdio.h>
 #include <string.h>
 
-/* The tables' places: IAudioClient's Initialize and GetService, IAudioRenderClient's GetBuffer and ReleaseBuffer. */
+/* The tables' places: both objects' Release, IAudioClient's Initialize and GetService, IAudioRenderClient's GetBuffer
+ * and ReleaseBuffer. */
+#define M_RELEASE 2
 #define M_CLIENT_INITIALIZE 3
 #define M_CLIENT_GET_SERVICE 14
 #define M_RENDER_GET_BUFFER 3
 #define M_RENDER_RELEASE_BUFFER 4
 
+typedef ULONG(STDMETHODCALLTYPE *ReleaseFn)(IUnknown *);
 typedef HRESULT(STDMETHODCALLTYPE *InitializeFn)(IAudioClient *, AUDCLNT_SHAREMODE, DWORD, REFERENCE_TIME,
                                                  REFERENCE_TIME, const WAVEFORMATEX *, LPCGUID);
 typedef HRESULT(STDMETHODCALLTYPE *GetServiceFn)(IAudioClient *, REFIID, void **);
 typedef HRESULT(STDMETHODCALLTYPE *GetBufferFn)(IAudioRenderClient *, UINT32, BYTE **);
 typedef HRESULT(STDMETHODCALLTYPE *ReleaseBufferFn)(IAudioRenderClient *, UINT32, DWORD);
-static InitializeFn real_initialize;
-static GetServiceFn real_get_service;
-static GetBufferFn real_get_buffer;
-static ReleaseBufferFn real_release_buffer;
+/* The real methods, each stored before its table's entry is turned to ours (a mixer's thread may call at once). */
+static ReleaseFn volatile real_client_release;
+static ReleaseFn volatile real_render_release;
+static InitializeFn volatile real_initialize;
+static GetServiceFn volatile real_get_service;
+static GetBufferFn volatile real_get_buffer;
+static ReleaseBufferFn volatile real_release_buffer;
 
 /* The sample kinds the stage shapes. */
 enum { KIND_NONE = 0, KIND_FLOAT, KIND_S16, KIND_S24, KIND_S32 };
 
 /* One stream: its audio client and render client, its format, the room GetBuffer handed out, its filters' state. */
 typedef struct {
+    int used;              /* a stream of a live client (0: a free place) */
     IAudioClient *client;
     IAudioRenderClient *render;
     int kind, channels, rate, exclusive;
@@ -51,13 +60,18 @@ typedef struct {
     MixState state;
     int version;           /* the values' version its shape was made for */
     MixShape shape;
+    ULONGLONG last_use;    /* when its mix last passed (a full table gives the longest unused place to a new one) */
     char writer[48];       /* the module that wrote its first mix (dsound.dll, the OpenAL library) */
     int said;              /* its first pass said in the log */
+    unsigned said_dropped; /* the bands said in the log as left off at its rate */
 } Stream;
-#define STREAMS 16
+/* Room for every stream a game opens and opens again (a device change, an OpenAL Soft reopen); a stream torn down
+ * leaves it, and a full table hands the longest unused place to a new stream (said in the log). */
+#define STREAMS 64
 static Stream g_streams[STREAMS];
-static int g_nstreams;
 static SRWLOCK g_lock = SRWLOCK_INIT;
+/* Places taken from a stream still in the table because it was full: said in the log by the game's thread. */
+static volatile LONG g_recycled;
 
 /* The values (set by the game's thread, read by the mixers' threads) and their version. */
 static SoundValues g_values;
@@ -91,13 +105,60 @@ static int kind_of(const WAVEFORMATEX *f)
 
 static const char *const KIND_NAMES[] = {"a format not shaped", "32-bit float", "16-bit", "24-bit", "32-bit"};
 
-/* A stream by its render client (under the lock). */
+/* A stream by its render client (under the lock): a live one only. */
 static Stream *by_render(IAudioRenderClient *r)
 {
-    for (int i = 0; i < g_nstreams; i++)
-        if (g_streams[i].render == r)
+    for (int i = 0; i < STREAMS; i++)
+        if (g_streams[i].used && g_streams[i].render == r)
             return &g_streams[i];
     return NULL;
+}
+
+/* The place for a client's stream (under the lock held alone): its own, a free one, or the longest unused. */
+static Stream *place_for(IAudioClient *c)
+{
+    Stream *free_place = NULL, *oldest = NULL;
+    for (int i = 0; i < STREAMS; i++) {
+        Stream *s = &g_streams[i];
+        if (s->used && s->client == c)
+            return s;
+        if (!s->used && !free_place)
+            free_place = s;
+        if (s->used && (!oldest || s->last_use < oldest->last_use))
+            oldest = s;
+    }
+    if (free_place)
+        return free_place;
+    InterlockedIncrement(&g_recycled);
+    return oldest;
+}
+
+static ULONG STDMETHODCALLTYPE our_client_release(IUnknown *o)
+{
+    ULONG left = real_client_release(o);
+    /* Gone: its stream leaves the table, so a new client at the same address starts as a new stream. */
+    if (!left) {
+        AcquireSRWLockExclusive(&g_lock);
+        for (int i = 0; i < STREAMS; i++)
+            if (g_streams[i].used && g_streams[i].client == (IAudioClient *)o)
+                memset(&g_streams[i], 0, sizeof g_streams[i]);
+        ReleaseSRWLockExclusive(&g_lock);
+    }
+    return left;
+}
+
+static ULONG STDMETHODCALLTYPE our_render_release(IUnknown *o)
+{
+    ULONG left = real_render_release(o);
+    /* Gone: no stream's writes come through that address any more (a new render client there is another stream's). */
+    if (!left) {
+        AcquireSRWLockExclusive(&g_lock);
+        for (int i = 0; i < STREAMS; i++)
+            if (g_streams[i].render == (IAudioRenderClient *)o)
+                g_streams[i].render = NULL;
+        ReleaseSRWLockExclusive(&g_lock);
+    }
+    return left;
 }
 
 static HRESULT STDMETHODCALLTYPE our_initialize(IAudioClient *c, AUDCLNT_SHAREMODE mode, DWORD flags,
@@ -108,22 +169,17 @@ static HRESULT STDMETHODCALLTYPE our_initialize(IAudioClient *c, AUDCLNT_SHAREMO
     if (FAILED(hr) || !f)
         return hr;
     AcquireSRWLockExclusive(&g_lock);
-    /* The client's format kept (a client initialised again replaces its entry; a full table keeps the oldest). */
-    Stream *s = NULL;
-    for (int i = 0; i < g_nstreams && !s; i++)
-        if (g_streams[i].client == c)
-            s = &g_streams[i];
-    if (!s && g_nstreams < STREAMS)
-        s = &g_streams[g_nstreams++];
-    if (s) {
-        memset(s, 0, sizeof *s);
-        s->client = c;
-        s->kind = f->nChannels <= MIX_CHANNELS ? kind_of(f) : KIND_NONE;
-        s->channels = f->nChannels;
-        s->rate = (int)f->nSamplesPerSec;
-        s->exclusive = mode == AUDCLNT_SHAREMODE_EXCLUSIVE;
-        s->version = -1;
-    }
+    /* The client's format kept, a new stream's filters starting from rest. */
+    Stream *s = place_for(c);
+    memset(s, 0, sizeof *s);
+    s->used = 1;
+    s->client = c;
+    s->kind = f->nChannels <= MIX_CHANNELS ? kind_of(f) : KIND_NONE;
+    s->channels = f->nChannels;
+    s->rate = (int)f->nSamplesPerSec;
+    s->exclusive = mode == AUDCLNT_SHAREMODE_EXCLUSIVE;
+    s->version = -1;
+    s->last_use = GetTickCount64();
     ReleaseSRWLockExclusive(&g_lock);
     return hr;
 }
@@ -133,10 +189,14 @@ static HRESULT STDMETHODCALLTYPE our_get_service(IAudioClient *c, REFIID riid, v
     HRESULT hr = real_get_service(c, riid, out);
     if (FAILED(hr) || !out || !*out || !IsEqualIID(riid, &IID_IAudioRenderClient))
         return hr;
-    /* The render client of a client whose format is kept: its writes are that stream's. */
+    /* The render client of a client whose format is kept: its writes are that stream's, and no other stream's (one
+     * whose render client was at that address before, not yet seen gone). */
     AcquireSRWLockExclusive(&g_lock);
-    for (int i = 0; i < g_nstreams; i++)
-        if (g_streams[i].client == c)
+    for (int i = 0; i < STREAMS; i++)
+        if (g_streams[i].render == (IAudioRenderClient *)*out)
+            g_streams[i].render = NULL;
+    for (int i = 0; i < STREAMS; i++)
+        if (g_streams[i].used && g_streams[i].client == c)
             g_streams[i].render = (IAudioRenderClient *)*out;
     ReleaseSRWLockExclusive(&g_lock);
     return hr;
@@ -184,6 +244,7 @@ static HRESULT STDMETHODCALLTYPE our_release_buffer(IAudioRenderClient *r, UINT3
     AcquireSRWLockShared(&g_lock);
     Stream *s = by_render(r);
     if (s && s->data && frames && !(flags & AUDCLNT_BUFFERFLAGS_SILENT)) {
+        s->last_use = GetTickCount64();
         /* Who wrote this stream's mix: the module the call came from, once. */
         if (!s->writer[0]) {
             HMODULE m = NULL;
@@ -196,11 +257,16 @@ static HRESULT STDMETHODCALLTYPE our_release_buffer(IAudioRenderClient *r, UINT3
             }
             memcpy(s->writer, name, sizeof s->writer);
         }
-        /* The shape for the values as they are now (made again when they change). */
+        /* The shape for the values as they are now (made again when they change). A change of which bands run starts
+         * the filters' state again (each band's state would feed another's filter: a click); a change of gains alone
+         * keeps it, so a value drawn along its track glides. */
         LONG version = g_version;
         if (s->version != version && g_have_values) {
             SoundValues v = g_values;
+            unsigned had = s->version < 0 ? ~0u : s->shape.mask;
             mix_shape(&s->shape, &v, s->rate);
+            if (s->shape.mask != had)
+                memset(&s->state, 0, sizeof s->state);
             s->version = version;
         }
         if (s->kind != KIND_NONE && s->shape.on) {
@@ -233,19 +299,21 @@ static HRESULT STDMETHODCALLTYPE our_release_buffer(IAudioRenderClient *r, UINT3
 
 /* ------------------------------------------------------------------------------------------------ the install */
 
-/* Put `ours` in a method table's entry, keeping what was there (NULL when it is ours already). */
-static void *swap(void *object, int index, void *ours)
+/* Turn a method table's entry to `ours`: the real method stored first (into *real, never overwritten once stored: the
+ * tables are shared, so a second object's entry is ours already), then the entry written, so no thread ever finds our
+ * method there without its real one. */
+static void patch(void *object, int index, void *ours, void *volatile *real)
 {
     void **table = *(void ***)object;
     if (table[index] == ours)
-        return NULL;
-    void *was = table[index];
+        return;
+    *real = table[index];
+    MemoryBarrier();
     DWORD old;
     if (!VirtualProtect(&table[index], sizeof(void *), PAGE_READWRITE, &old))
-        return NULL;
+        return;
     table[index] = ours;
     VirtualProtect(&table[index], sizeof(void *), old, &old);
-    return was;
 }
 
 typedef HRESULT(WINAPI *CoInitFn)(LPVOID, DWORD);
@@ -253,11 +321,9 @@ typedef void(WINAPI *CoUninitFn)(void);
 typedef HRESULT(WINAPI *CoCreateFn)(REFCLSID, LPUNKNOWN, DWORD, REFIID, LPVOID *);
 typedef void(WINAPI *CoFreeFn)(LPVOID);
 
-/* What the install found, for the log (said from the game's thread). */
-static char g_install_words[160];
-
 /* On a thread of its own in COM's multithreaded apartment (the game's thread joins none): an audio client and its
- * render client of Windows' default output, made only to reach their tables, turned to ours, then let go. */
+ * render client of Windows' default output, made only to reach their tables, turned to ours, then let go. It says its
+ * own result in the log (the game's thread waits for it a second at most, and may be on its way when it ends). */
 static DWORD WINAPI install_thread(LPVOID unused)
 {
     (void)unused;
@@ -267,7 +333,7 @@ static DWORD WINAPI install_thread(LPVOID unused)
     CoCreateFn co_create = ole ? (CoCreateFn)(void *)GetProcAddress(ole, "CoCreateInstance") : NULL;
     CoFreeFn co_free = ole ? (CoFreeFn)(void *)GetProcAddress(ole, "CoTaskMemFree") : NULL;
     if (!co_init || !co_uninit || !co_create || !co_free || FAILED(co_init(NULL, COINIT_MULTITHREADED))) {
-        snprintf(g_install_words, sizeof g_install_words, "no COM");
+        ingame_log("mix: the last stage of the game's sound (master volume, equaliser): no COM");
         return 0;
     }
     IMMDeviceEnumerator *en = NULL;
@@ -280,13 +346,12 @@ static DWORD WINAPI install_thread(LPVOID unused)
         hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(en, eRender, eConsole, &dev);
     if (SUCCEEDED(hr))
         hr = IMMDevice_Activate(dev, &IID_IAudioClient, CLSCTX_ALL, NULL, (void **)&client);
-    /* Initialize and GetService turned first: the render client below is made through ours too (and dropped). */
+    /* Initialize, GetService and Release turned first: the render client below is made through ours too (and its
+     * stream leaves the table when it is let go). */
     if (SUCCEEDED(hr)) {
-        void *was;
-        if ((was = swap(client, M_CLIENT_INITIALIZE, (void *)our_initialize)))
-            real_initialize = (InitializeFn)was;
-        if ((was = swap(client, M_CLIENT_GET_SERVICE, (void *)our_get_service)))
-            real_get_service = (GetServiceFn)was;
+        patch(client, M_RELEASE, (void *)our_client_release, (void *volatile *)&real_client_release);
+        patch(client, M_CLIENT_INITIALIZE, (void *)our_initialize, (void *volatile *)&real_initialize);
+        patch(client, M_CLIENT_GET_SERVICE, (void *)our_get_service, (void *volatile *)&real_get_service);
         hr = IAudioClient_GetMixFormat(client, &mix);
     }
     /* A shared stream of 100 ms (never started) for its render client's table. */
@@ -295,15 +360,13 @@ static DWORD WINAPI install_thread(LPVOID unused)
     if (SUCCEEDED(hr))
         hr = real_get_service(client, &IID_IAudioRenderClient, (void **)&render);
     if (SUCCEEDED(hr)) {
-        void *was;
-        if ((was = swap(render, M_RENDER_GET_BUFFER, (void *)our_get_buffer)))
-            real_get_buffer = (GetBufferFn)was;
-        if ((was = swap(render, M_RENDER_RELEASE_BUFFER, (void *)our_release_buffer)))
-            real_release_buffer = (ReleaseBufferFn)was;
+        patch(render, M_RELEASE, (void *)our_render_release, (void *volatile *)&real_render_release);
+        patch(render, M_RENDER_GET_BUFFER, (void *)our_get_buffer, (void *volatile *)&real_get_buffer);
+        patch(render, M_RENDER_RELEASE_BUFFER, (void *)our_release_buffer, (void *volatile *)&real_release_buffer);
     }
-    snprintf(g_install_words, sizeof g_install_words, "%s (0x%08lx)",
-             real_release_buffer && real_get_service ? "in place" : "not in place: the mix passes as it is",
-             (unsigned long)hr);
+    ingame_log("mix: the last stage of the game's sound (master volume, equaliser): %s (0x%08lx)",
+               real_release_buffer && real_get_service ? "in place" : "not in place: the mix passes as it is",
+               (unsigned long)hr);
     if (render)
         IAudioRenderClient_Release(render);
     if (mix)
@@ -325,16 +388,16 @@ void mix_install(void)
         return;
     QueryPerformanceFrequency(&g_frequency);
     /* Before the game's sound opens, so its stream's Initialize is seen; waited for a second at most (the audio
-     * service starting), never longer: the game then plays as it is. */
+     * service starting), never longer: the game then opens its sound as it is, and a stream it opens before the
+     * install ends passes as it is. */
     HANDLE t = CreateThread(NULL, 0, install_thread, NULL, 0, NULL);
     if (!t) {
-        snprintf(g_install_words, sizeof g_install_words, "no thread");
-    } else {
-        if (WaitForSingleObject(t, 1000) != WAIT_OBJECT_0)
-            snprintf(g_install_words, sizeof g_install_words, "not ready within a second");
-        CloseHandle(t);
+        ingame_log("mix: the last stage of the game's sound (master volume, equaliser): no thread");
+        return;
     }
-    ingame_log("mix: the last stage of the game's sound (master volume, equaliser): %s", g_install_words);
+    if (WaitForSingleObject(t, 1000) != WAIT_OBJECT_0)
+        ingame_log("mix: the last stage of the game's sound is not ready within a second: the game's sound opens now");
+    CloseHandle(t);
 }
 
 void mix_set(const SoundValues *v)
@@ -347,22 +410,48 @@ void mix_set(const SoundValues *v)
     InterlockedIncrement(&g_version);
 }
 
+unsigned mix_bands_off(void)
+{
+    /* The bands any live stream leaves off at its rate (the in-game panel shows them off). */
+    unsigned off = 0;
+    AcquireSRWLockShared(&g_lock);
+    for (int i = 0; i < STREAMS; i++)
+        if (g_streams[i].used && g_streams[i].version >= 0)
+            off |= g_streams[i].shape.dropped;
+    ReleaseSRWLockShared(&g_lock);
+    return off;
+}
+
 void mix_frame(void)
 {
     static double next;
     double now = (double)GetTickCount64();
-    /* Each stream's first pass, said once (from the game's thread: the log is written from it). */
+    /* Each stream's first pass, and the bands its rate leaves off, said once each (from the game's thread). */
     AcquireSRWLockShared(&g_lock);
-    for (int i = 0; i < g_nstreams; i++) {
+    for (int i = 0; i < STREAMS; i++) {
         Stream *s = &g_streams[i];
+        if (!s->used)
+            continue;
         if (s->writer[0] && !s->said) {
             s->said = 1;
             ingame_log("mix: a stream written by %s passes the last stage: %s, %d Hz, %d channels, %s mode%s",
                        s->writer, KIND_NAMES[s->kind], s->rate, s->channels, s->exclusive ? "exclusive" : "shared",
                        s->kind == KIND_NONE ? " (passed as it is)" : "");
         }
+        unsigned dropped = s->version >= 0 ? s->shape.dropped : 0;
+        if (dropped != s->said_dropped) {
+            s->said_dropped = dropped;
+            for (int b = 0; b < EQ_BANDS; b++)
+                if (dropped & (1u << b))
+                    ingame_log("mix: at %d Hz the equaliser's %d Hz band is at or above half the rate: left off",
+                               s->rate, EQ_HZ[b]);
+        }
     }
     ReleaseSRWLockShared(&g_lock);
+    LONG recycled = InterlockedExchange(&g_recycled, 0);
+    if (recycled)
+        ingame_log("mix: the table of streams was full: %ld new stream%s took the longest unused place", (long)recycled,
+                   recycled == 1 ? "" : "s");
     /* The stage's time, every 10 s while it shapes anything. */
     if (now < next)
         return;

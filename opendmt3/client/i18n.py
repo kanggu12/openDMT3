@@ -221,7 +221,10 @@ TEXT = {
     "sound.eq_4k": ("4 kHz", "4 kHz"),
     "sound.eq_4k.hint": ("The upper middle: the attack of each note.", "높은 중음: 노트 소리의 시작입니다."),
     "sound.eq_12k": ("12 kHz", "12 kHz"),
-    "sound.eq_12k.hint": ("The top: cymbals and air.", "가장 높은 소리: 심벌과 공기감입니다."),
+    "sound.eq_12k.hint": ("The top: cymbals and air. A sound device playing at 22,050 Hz or less has no room for it: "
+                          "the game's panel then shows it off.",
+                          "가장 높은 소리: 심벌과 공기감입니다. 소리 장치가 22,050Hz 이하로 재생하면 이 대역을 담을 수 없어 게임 "
+                          "안 판에 꺼짐으로 보입니다."),
     "sound.output": ("Output", "출력"),
     "sound.device": ("Device", "장치"),
     "sound.device.default": ("Windows' default output", "Windows 기본 출력"),

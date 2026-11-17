@@ -1,0 +1,33 @@
+# One line of sound.ini each, and what both of its readers take from it: the game's (native/cardreader/logic.c
+# sound_line_value, read by test_native.c) and the launcher's (opendmt3/client/sound_file.py, read by
+# tests/client/test_launcher.py). Each line here: the file's line, a tab, then the value read or "-" when the line is
+# none the rule takes (as if it were not there). In the file's line \t is a tab, \r a carriage return and \B a UTF-8
+# byte order mark (the line then stands at the file's start).
+master_volume=40	40
+master_volume = 40	40
+\tmaster_volume\t=\t40\t	40
+master_volume=40\r	40
+master_volume=0	0
+master_volume=100	100
+master_volume=0040	40
+\Bmaster_volume=40	40
+eq_1k=-3	-3
+eq_1k=-12	-12
+eq_12k=12	12
+eq_60=0	0
+master_volume=101	-
+master_volume=-3	-
+master_volume=40abc	-
+master_volume=40.9	-
+master_volume=0x20	-
+master_volume=1_0	-
+master_volume=+40	-
+master_volume=٤٠	-
+master_volume=	-
+master_volume=00040	-
+master_volume=40 # loud	-
+eq_1k=-13	-
+eq_1k=- 3	-
+eq_1k=--3	-
+master_volume 40	-
+other_volume=40	-

@@ -712,6 +712,9 @@ const char *card_label(const Card *c, int i, int *danger)
 const char *card_state(const Card *c, int i)
 {
     /* A sound column's value: a volume in percent, a band's gain signed (0 flat). Room for every column at once. */
+    if (c->open == CARD_SOUND && i >= SOUND_EQ0 && i < 8 && (c->sound_off & (1u << (i - SOUND_EQ0))))
+        /* A band left off at the sound's rate (12 kHz at 22050 Hz or less): said off, whatever its value. */
+        return c->korean ? "끔" : "OFF";
     if (c->open == CARD_SOUND && i >= 0 && i < 8) {
         static char words[8][8];
         snprintf(words[i], sizeof words[i], i < SOUND_EQ0 || !c->sound[i] ? "%d" : "%+d", c->sound[i]);
@@ -1649,22 +1652,70 @@ static int sound_line(const char *line, int len, const char **value)
     return -1;
 }
 
-unsigned sound_values_parse(const char *text, SoundValues *s)
+/* A UTF-8 byte order mark at a text's start (Notepad may save one): its length, or 0. */
+static int bom_at(const char *text)
+{
+    return text && (unsigned char)text[0] == 0xEF && (unsigned char)text[1] == 0xBB && (unsigned char)text[2] == 0xBF
+               ? 3
+               : 0;
+}
+
+int sound_line_value(const char *line, int len, int *value)
+{
+    const char *v = NULL;
+    int i = sound_line(line, len, &v);
+    if (i < 0)
+        return -1;
+    const char *end = line + len;
+    /* Spaces and tabs before the number. */
+    while (v < end && (*v == ' ' || *v == '\t'))
+        v++;
+    /* A minus sign or none (no plus: one way to write a number), then one to four ASCII digits. */
+    int minus = v < end && *v == '-';
+    v += minus;
+    int digits = 0, n = 0;
+    while (v < end && *v >= '0' && *v <= '9' && digits < 5) {
+        n = n * 10 + (*v - '0');
+        digits++;
+        v++;
+    }
+    /* After it only spaces, tabs and the line's own \r. */
+    while (v < end && (*v == ' ' || *v == '\t' || *v == '\r'))
+        v++;
+    if (!digits || digits > 4 || v != end)
+        return i;
+    n = minus ? -n : n;
+    /* Within the value's range, or the line is none the rule takes (a volume below 0, a band past 12 dB). */
+    if (n != sound_value_clamp(i, n))
+        return i;
+    *value = n;
+    return i;
+}
+
+unsigned sound_values_parse(const char *text, SoundValues *s, int *refused, const char **first_refused)
 {
     unsigned named = 0;
+    if (refused)
+        *refused = 0;
+    if (first_refused)
+        *first_refused = NULL;
+    /* A byte order mark at the start is no part of the first line. */
+    text += bom_at(text);
     while (text && *text) {
         const char *end = strchr(text, '\n');
         int len = end ? (int)(end - text) : (int)strlen(text);
-        const char *value = NULL;
-        int i = sound_line(text, len, &value);
-        if (i >= 0) {
-            char *after;
-            long v = strtol(value, &after, 10);
-            /* A whole number within the value's range, else the line is left as if it were not there. */
-            if (after != value && v == sound_value_clamp(i, (int)v)) {
-                s->v[i] = (int)v;
-                named |= 1u << i;
-            }
+        int value = 0x7fffffff;
+        int i = sound_line_value(text, len, &value);
+        if (i >= 0 && value != 0x7fffffff) {
+            /* A value the rule takes: read. */
+            s->v[i] = value;
+            named |= 1u << i;
+        } else if (i >= 0) {
+            /* A line naming a value with anything else: left as if it were not there, counted for the log. */
+            if (refused)
+                (*refused)++;
+            if (first_refused && !*first_refused)
+                *first_refused = text;
         }
         text = end ? end + 1 : text + len;
     }
@@ -1675,6 +1726,8 @@ int sound_values_merge(const char *old, const SoundValues *s, unsigned changed, 
 {
     int at = 0;
     unsigned written = 0;
+    /* A byte order mark at the start is dropped: the file is written as UTF-8 without one, as the launcher writes it. */
+    old += bom_at(old);
     /* Each line of the file as it is now: a changed value's line rewritten, every other line kept as it was. */
     while (old && *old) {
         const char *end = strchr(old, '\n');
@@ -1751,20 +1804,77 @@ static Biquad biquad(int shelf, double hz, double db, double rate)
     return q;
 }
 
+int volume_kind(int looping, unsigned long size, unsigned long bytes_a_second)
+{
+    /* A loop (the menus' music) or a buffer of 10 s or more (a song's music): the music's; the rest the key sounds'. */
+    return looping || (bytes_a_second && size >= 10 * bytes_a_second) ? 0 : 1;
+}
+
+int volume_reapply(int applied, int kind_now, int moved_now)
+{
+    /* Its kind's volume moved, or its volume last set for the other kind. */
+    return moved_now || (applied && applied != kind_now + 1);
+}
+
+/* One biquad's gain in dB at the angle w (radians a sample): |b0 + b1 z^-1 + b2 z^-2| / |1 + a1 z^-1 + a2 z^-2|. */
+static double biquad_db(const Biquad *q, double w)
+{
+    double c1 = cos(w), s1 = sin(w), c2 = cos(2 * w), s2 = sin(2 * w);
+    double nr = q->b0 + q->b1 * c1 + q->b2 * c2, ni = -(q->b1 * s1 + q->b2 * s2);
+    double dr = 1 + q->a1 * c1 + q->a2 * c2, di = -(q->a1 * s1 + q->a2 * s2);
+    return 10.0 * log10((nr * nr + ni * ni) / (dr * dr + di * di));
+}
+
+double mix_curve_db(const MixShape *m, double hz, int rate)
+{
+    const double PI = 3.14159265358979323846;
+    double w = 2.0 * PI * hz / rate, db = 0;
+    /* The bands one after the other: their gains in dB add up. */
+    for (int b = 0; b < m->bands; b++)
+        db += biquad_db(&m->band[b], w);
+    return db;
+}
+
 void mix_shape(MixShape *m, const SoundValues *s, int rate)
 {
     memset(m, 0, sizeof *m);
-    m->gain = (float)(s->v[SOUND_MASTER] / 100.0);
-    /* Only the bands that are not flat run (a flat one changes nothing), and only below the rate's half. */
-    for (int b = 0; b < EQ_BANDS; b++)
-        if (s->v[SOUND_EQ0 + b] && rate > 2 * EQ_HZ[b])
-            m->band[m->bands++] = biquad(b == 0 ? 1 : b == EQ_BANDS - 1 ? 2 : 0, EQ_HZ[b], s->v[SOUND_EQ0 + b], rate);
+    /* Only the bands that are not flat run (a flat one changes nothing), and only below the rate's half: one at or
+     * above it (12 kHz at 22050 Hz or less) is left off, and said so (`dropped`). */
+    for (int b = 0; b < EQ_BANDS; b++) {
+        if (!s->v[SOUND_EQ0 + b])
+            continue;
+        if (rate <= 2 * EQ_HZ[b]) {
+            m->dropped |= 1u << b;
+            continue;
+        }
+        m->band[m->bands++] = biquad(b == 0 ? 1 : b == EQ_BANDS - 1 ? 2 : 0, EQ_HZ[b], s->v[SOUND_EQ0 + b], rate);
+        m->mask |= 1u << b;
+    }
+    /* The automatic preamp: the curve's highest gain over the hearing range (20 Hz to 20 kHz, or to just below half
+     * the rate), read at 96 points a twelfth of an octave or so apart, taken off before the bands, so a boost raises
+     * its band over the others and never takes the mix past where it was (neighbouring peaks add up: every band at
+     * +12 dB reaches +14 dB between them). */
+    double top = 0, high = rate * 0.45 < 20000.0 ? rate * 0.45 : 20000.0;
+    for (int k = 0; k < 96 && m->bands; k++) {
+        double hz = 20.0 * pow(high / 20.0, k / 95.0), db = mix_curve_db(m, hz, rate);
+        if (db > top)
+            top = db;
+    }
+    /* At each band's own middle too: the grid could pass a narrow peak's top by. */
+    for (int b = 0; b < EQ_BANDS && m->bands; b++) {
+        double db = EQ_HZ[b] < high ? mix_curve_db(m, EQ_HZ[b], rate) : 0;
+        if (db > top)
+            top = db;
+    }
+    m->preamp_db = (float)-top;
+    m->gain = (float)(s->v[SOUND_MASTER] / 100.0 * pow(10.0, -top / 20.0));
     m->on = m->bands > 0 || s->v[SOUND_MASTER] != 100;
 }
 
-/* One sample of channel c through every band (transposed direct form II), then the master volume. */
+/* One sample of channel c through every band (transposed direct form II), after the master volume and the preamp. */
 static float mix_sample(const MixShape *m, MixState *st, float x, int c)
 {
+    x *= m->gain;
     for (int b = 0; b < m->bands; b++) {
         const Biquad *q = &m->band[b];
         float y = q->b0 * x + st->z1[b][c];
@@ -1772,7 +1882,32 @@ static float mix_sample(const MixShape *m, MixState *st, float x, int c)
         st->z2[b][c] = q->b2 * x - q->a2 * y;
         x = y;
     }
-    return x * m->gain;
+    return x;
+}
+
+/* After a run: a state value that is not a finite number (a NaN came in) starts the whole state again, so one bad
+ * sample never silences the stream for good; one too small to be heard is taken to 0 (no denormal numbers). */
+static void mix_clean(MixState *st)
+{
+    float *z = &st->z1[0][0];
+    int n = (int)(sizeof *st / sizeof *z), bad = 0;
+    for (int i = 0; i < n; i++) {
+        if (!isfinite(z[i]))
+            bad = 1;
+        else if (fabsf(z[i]) < 1e-20f)
+            z[i] = 0.0f;
+    }
+    if (bad)
+        memset(st, 0, sizeof *st);
+}
+
+/* A sample held within full scale (the last guard: the preamp keeps a steady sound below it). */
+static float within_full_scale(float y)
+{
+    /* A NaN out of a NaN in goes out as silence. */
+    if (!(y == y))
+        return 0.0f;
+    return y > 1.0f ? 1.0f : y < -1.0f ? -1.0f : y;
 }
 
 void mix_run_float(const MixShape *m, MixState *st, float *x, int frames, int channels)
@@ -1780,7 +1915,8 @@ void mix_run_float(const MixShape *m, MixState *st, float *x, int frames, int ch
     if (!m->on || channels < 1 || channels > MIX_CHANNELS)
         return;
     for (int i = 0; i < frames * channels; i++)
-        x[i] = mix_sample(m, st, x[i], i % channels);
+        x[i] = within_full_scale(mix_sample(m, st, x[i], i % channels));
+    mix_clean(st);
 }
 
 void mix_run_s16(const MixShape *m, MixState *st, int16_t *x, int frames, int channels)
@@ -1788,10 +1924,11 @@ void mix_run_s16(const MixShape *m, MixState *st, int16_t *x, int frames, int ch
     if (!m->on || channels < 1 || channels > MIX_CHANNELS)
         return;
     for (int i = 0; i < frames * channels; i++) {
-        float y = mix_sample(m, st, x[i] / 32768.0f, i % channels) * 32768.0f;
-        /* Within the 16 bits: a boost past full scale clips there, never wraps round. */
+        float y = within_full_scale(mix_sample(m, st, x[i] / 32768.0f, i % channels)) * 32768.0f;
+        /* Within the 16 bits: +1.0 is one step past their top, so it is held there, never wrapped round. */
         x[i] = (int16_t)(y > 32767.0f ? 32767 : y < -32768.0f ? -32768 : lrintf(y));
     }
+    mix_clean(st);
 }
 
 void mix_run_s32(const MixShape *m, MixState *st, int32_t *x, int frames, int channels)
@@ -1799,7 +1936,9 @@ void mix_run_s32(const MixShape *m, MixState *st, int32_t *x, int frames, int ch
     if (!m->on || channels < 1 || channels > MIX_CHANNELS)
         return;
     for (int i = 0; i < frames * channels; i++) {
-        double y = (double)mix_sample(m, st, (float)(x[i] / 2147483648.0), i % channels) * 2147483648.0;
+        double y = (double)within_full_scale(mix_sample(m, st, (float)(x[i] / 2147483648.0), i % channels)) *
+                   2147483648.0;
         x[i] = (int32_t)(y > 2147483647.0 ? 2147483647 : y < -2147483648.0 ? -2147483648.0 : llrint(y));
     }
+    mix_clean(st);
 }

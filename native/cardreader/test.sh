@@ -10,11 +10,13 @@ trap 'rm -rf "$OUT"' EXIT
 # The compiler image, as build.sh makes it.
 docker image inspect opendmt3-mingw:local >/dev/null 2>&1 || "$HERE/build.sh" "$OUT/dll" >/dev/null
 docker run --rm --network none -v "$HERE:/src:ro" -v "$OUT:/out" opendmt3-mingw:local \
-  i686-w64-mingw32-gcc -O2 -Wall -o /out/test_native.exe /src/test_native.c /src/look.c /src/logic.c /src/postmath.c /src/paint.c /src/redirect.c /src/passtimes.c /src/contacts.c /src/methods.c -lm \
+  i686-w64-mingw32-gcc -O2 -Wall -o /out/test_native.exe /src/test_native.c /src/look.c /src/logic.c /src/postmath.c /src/paint.c /src/redirect.c /src/passtimes.c /src/contacts.c /src/methods.c /src/soundset.c -lm \
   || { echo "FAIL: the native tests did not build"; exit 1; }
 # Not executable here: only Wine, in its container, runs it. Changed in a container as the compiler's wrote it (as
 # root, which a CI runner's own user may not change).
 docker run --rm --network none -v "$OUT:/out" opendmt3-mingw:local chmod 0644 /out/test_native.exe
+# The table of sound.ini lines both readers' tests read (the launcher's too), beside the program that reads it.
+cp "$HERE/../../tests/fixtures/sound_lines.txt" "$OUT/"
 # The Wine image, as packaging/windows/build.sh makes it (a machine that never built the launcher has none).
 docker image inspect opendmt3-wine:local >/dev/null 2>&1 \
   || docker build -q -t opendmt3-wine:local "$HERE/../../packaging/wine" >/dev/null || { echo "FAIL: the Wine image did not build"; exit 1; }

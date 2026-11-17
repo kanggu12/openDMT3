@@ -42,9 +42,21 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   `openDMT3-cmd.exe --test-server [URL]`: the address and its name, the site and its openDMT3 version, the game's port
   and the sign-in, one step after another, each with its outcome and its time, and for the first that fails what to
   do; **Test again** and **Copy the result**. The command line's exit code says the step that failed.
+- A master volume and a five-band equalizer (60 Hz to 12 kHz, -12 to 12 dB) on the launcher's **Sound** page, and the
+  same in the game: **SOUND** in the in-game menu opens a panel under the overlay bar's X with the three volumes and the
+  five bands, set by a press, a drag, the wheel or the arrow keys (a song is held still while it is open). Both keep
+  the values in `sound.ini` beside the launcher's settings, each writing only what it changed, so a change made in the
+  game is on the page afterwards and one made on the page while the game runs is heard at once. The master and the
+  equalizer act on the whole mix with every **Mixer**, add no delay, and take the curve's highest point off so a raised
+  band never makes the game louder than it was. The music's and the key sounds' volumes a player had set stay as loud.
+- A tap on the overlay's handle at the game's top centre, or a press held on it half a second, brings the overlay bar,
+  as a finger drawn down from the top edge does; while a song plays the press stays the game's.
 
 ### Changed
 
+- Motion clarity is offered from a screen's highest refresh rate at its size: on Windows 11's dynamic refresh rate,
+  which gives programs 60 Hz while the monitor runs faster, the row no longer hides, and its hint says what to change
+  in Windows' display settings. The in-game log names each screen's rate now, its highest and whether it is dynamic.
 - The launcher's menu moves to a column down the window's left, as OpenDMTQ's launcher has it now: openDMT3's mark and
   version at its top, the pages' names one under another (the page on show on a raised slab with a rule in its
   section's colour), and at its foot the status line, **Save a report** and **PLAY** as wide as the column. The

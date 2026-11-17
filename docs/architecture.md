@@ -331,21 +331,41 @@ first points) into the log, read from its memory in the PC build.
   panel under the X, each at most 114 game lines tall so that with its shadow it ends above line 192.
 - **The sound's values** (`soundset.c`): the launcher starts the game with them (`OPENDMT3_SOUND_VALUES`) and names
   the file it keeps them in (`OPENDMT3_SOUND_FILE`, `sound.ini` beside `launcher.json`). Both write it the same way:
-  under its lock (`sound.ini.lock`, held open alone, gone when its writer is), the file read as it is then, only the
-  lines of the values changed rewritten, swapped in through a temporary file; so a change from either side never
-  undoes the other's. The game's side does its reads and writes on a thread of its own, looks at the file twice a
-  second and hears the launcher's change at once; the launcher reads it when it starts, on its Sound page, before
-  PLAY and when the game closes. The music's and the key sounds' volumes move the game's DirectSound buffers from the
+  under its lock (`sound.ini.lock`, held open alone, gone when its writer is), the file read whole as it is then (at
+  most 64 KB: a longer one is neither read nor cut), only the lines of the values changed rewritten, swapped in through
+  a temporary file; so a change from either side never undoes the other's. One rule reads a line on both sides
+  (`logic.c` `sound_line_value`, `sound_file.line_value`, the shared table `tests/fixtures/sound_lines.txt` both sides'
+  tests read): the value's name, `=`, a decimal whole number of at most four ASCII digits, a minus sign only where the
+  range allows one, spaces and tabs round each part, a byte order mark at the file's start skipped; a line naming a value
+  with anything else is left as if absent and said in the log. A change that cannot be written (the lock held past a
+  second, the file read-only or held open by another program) is kept as waiting on its side: the game tries again every
+  half second and once more at its quit (`soundset_flush`), the launcher at its next sync (its waiting changes kept in
+  `launcher.json` across a restart), and neither side's waiting change is ever replaced by the file's older value. The
+  game's side does its reads and writes on a thread of its own, looks at the file twice a second and hears the
+  launcher's change at once; the launcher reads it under the lock (a reader holding the file open would refuse the
+  game's swap) when it starts, on its Sound page, before PLAY and when the game closes. The music's and the key sounds' volumes move the game's DirectSound buffers from the
   volume the game set them to (`setting.ini`'s, written from the same values, never 0: 0 % is the layer's own
   silence), a ratio of amplitudes in DirectSound's hundredths of a dB (`logic.c` `volume_moved`); a buffer that loops
-  or lasts 10 s or more is the music's. The master volume and the equaliser (five biquad filters, RBJ's cookbook: a
-  60 Hz low shelf, peaks at 250 Hz, 1 kHz and 4 kHz, a 12 kHz high shelf) act on the mix itself (`mix.c`): every
-  mixer writes its mix through Windows' audio client in the game's process (Windows' DirectSound, and OpenAL Soft
-  in shared or exclusive mode), so the render client's GetBuffer and ReleaseBuffer, and the audio client's Initialize
-  and GetService that tell each stream's format, are turned to the layer's before the game opens its sound, and the
-  mix is shaped in place between its writing and its hand-over: no buffer and no delay added. The log names each
-  stream's writer (`mix: a stream written by dsound.dll`, or OpenAL Soft's library) and every 10 s the stage's time a
-  buffer; at 100 % and flat it touches nothing.
+  or lasts 10 s or more is the music's (`volume_kind`). A loop is known as one only at its play, so a buffer whose
+  volume the game set before its first play is set again there when its kind turned out another (`volume_reapply`):
+  a menu's music never follows the key sounds' volume. The log says each loop's first play at its volume against the
+  game's, and the game's own loudest volume for each kind (its curve against `setting.ini`'s values, which
+  `ingame.sh` measures in two games started at 127 and at 64). The master volume and the equaliser (five biquad
+  filters, RBJ's cookbook: a 60 Hz low shelf, peaks at 250 Hz, 1 kHz and 4 kHz, a 12 kHz high shelf) act on the mix
+  itself (`mix.c`): every mixer writes its mix through Windows' audio client in the game's process (Windows'
+  DirectSound, and OpenAL Soft in shared or exclusive mode), so the render client's GetBuffer and ReleaseBuffer, the
+  audio client's Initialize and GetService that tell each stream's format, and both objects' Release (a stream torn
+  down leaves the table of streams, so a new one at the same address is never taken for it), are turned to the
+  layer's before the game opens its sound (each real method stored before its table's entry is turned), and the mix
+  is shaped in place between its writing and its hand-over: no buffer and no delay added. The curve's highest gain
+  over 20 Hz to 20 kHz is taken off before the bands (an automatic preamp: every band at +12 dB reaches +14 dB between
+  neighbouring peaks, and all of it comes off), and every sample is held within full scale after them (the last
+  guard, for a float stream too). The filters' state starts again when the bands that run change or a stream's format
+  does; after each buffer a state value that is not a finite number starts it again (one NaN in the stream never
+  silences it) and one too small to be heard is taken to 0 (no denormal numbers). A band at or above half the
+  stream's sample rate (12 kHz at 22,050 Hz or less) is left off, said in the log, and shown off in the panel. The log
+  names each stream's writer (`mix: a stream written by dsound.dll`, or OpenAL Soft's library) and every 10 s the
+  stage's time a buffer; at 100 % and flat it touches nothing.
 - **The toast, the mark and the frame rate chip**, which the menu's Show FPS turns on and off for the run. A toast that
   comes during a song waits for the song's end (`sound.c`'s song music), so nothing of the layer covers the game's
   groove meter while it is played.
