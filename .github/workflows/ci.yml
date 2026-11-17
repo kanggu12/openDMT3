@@ -191,6 +191,18 @@ jobs:
           test "$(docker exec odt3-ci-server id -u)" = 4725
           docker rm -f odt3-ci-server >/dev/null
 
+      # The Helm chart linted and rendered by Helm's own image, at the release's Helm, as the release packages it.
+      - name: The Helm chart
+        run: |
+          docker run --rm --network none -v "$PWD/deploy/helm:/charts:ro" alpine/helm:3.16.4 lint /charts/opendmt3
+          docker run --rm --network none -v "$PWD/deploy/helm:/charts:ro" alpine/helm:3.16.4 template t /charts/opendmt3 \
+            --set ingress.enabled=true --set ingress.host=dmt3.example.org > /dev/null
+
+      # ./dmt3 expose on a copy of the tree with ports of its own: Caddy's local authority, then Pebble as an ACME
+      # authority, then --off (tests/e2e/expose/run.sh), with the image built above.
+      - name: The site over HTTPS with ./dmt3 expose
+        run: tests/e2e/expose/run.sh "$RUNNER_TEMP/expose" opendmt3-server:ci
+
   # The launcher on Windows itself: the unit tests of what runs on a player's PC (the game folder and its setup, the
   # launcher, the server it runs for playing on that PC, the licenses gathered for it) on Windows' own paths, files and
   # processes; then the launcher built with PyInstaller as a release builds it, with the card reader library and 7-Zip

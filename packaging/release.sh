@@ -13,7 +13,13 @@
 #        opendmt3-launcher-<version>-windows-x64-setup.exe   the launcher's installer
 #        opendmt3-server-<version>.zip                       the server alone, for Docker Compose or Python
 #        opendmt3-launcher-<version>-lgpl-sources.zip        the sources of DSOAL and OpenAL Soft, which it brings
+#        opendmt3-server-<version>-windows-x64.zip           the server on Windows, without Docker or Python
+#        opendmt3-server-<version>-linux-installer.sh (-macos-)   the one-line install without Docker
+#        opendmt3-<version>-helm-chart.tgz                   the Helm chart
 #        openDMT3-<version>-full.nupkg (-delta), .sig, releases.win.json   the launcher's update files
+#      (the Windows server package, built first by packaging/windows/server.sh with the installer just built in it,
+#      and the chart, packaged by Helm's own image; the server's image goes to ghcr.io from .github/workflows/
+#      release.yml on the tag, not into the release)
 #   5. with --publish: the GitHub release, titled with the tag itself (v1.2.3), its notes one line on which file is whose
 #      (no table: the files' names say it), then the changelog's section and the compare link.
 # Without --publish it stops after step 3 and shows the release it would make: a rehearsal. With no key named the
@@ -115,8 +121,20 @@ fi
 # The installer, the update files, the server package, the LGPL sources and the checksums, into one folder made again
 # (release_files.py checks every name, each LGPL archive against the build's SHA256SUMS, and every link of the server
 # package's guides); FILES.md beside it lists them for the maintainer, not for the notes.
+V=${TAG#v}
+SERVER="$OUT/server"
+rm -rf "$SERVER" && mkdir -p "$SERVER"
+# The Windows server package, bringing the installer just built for the site's Download page.
+OPENDMT3_SERVER_INSTALLER="$BUILD/releases/opendmt3-launcher-$V-windows-x64-setup.exe" \
+  packaging/windows/server.sh "$OUT/server-windows" > "$OUT/server-windows.log" 2>&1 \
+  || { tail -n 40 "$OUT/server-windows.log"; exit 1; }
+cp "$OUT/server-windows/opendmt3-server-$V-windows-x64.zip" "$SERVER/"
+# The Helm chart at this version, made by Helm's own image (no Helm needed on this machine); release_files.py gives it
+# the release's name.
+docker run --rm --network none -u "$(id -u):$(id -g)" -v "$PWD/deploy/helm:/charts:ro" -v "$SERVER:/out" \
+  alpine/helm:3.16.4 package /charts/opendmt3 --version "$V" --app-version "$V" -d /out > /dev/null
 FILES="$OUT/files"
-python3 packaging/release_files.py "$TAG" "$BUILD" "$FILES" > /dev/null
+python3 packaging/release_files.py "$TAG" "$BUILD" "$FILES" --server "$SERVER" > /dev/null
 # Every file listed in the checksums is there with that hash: what a downloader's sha256sum -c will say.
 (cd "$FILES" && sha256sum -c --quiet "opendmt3-${TAG#v}-checksums.txt")
 ls -l "$FILES"
@@ -126,7 +144,7 @@ ls -l "$FILES"
 compare=$(sed -n "s#^\[${TAG#v}\]: \(https://.*\)#\1#p" CHANGELOG.md)
 [ -n "$compare" ] || { echo "CHANGELOG.md has no link for [${TAG#v}] at its end" >&2; exit 1; }
 v=${TAG#v}
-{ printf 'openDMT3 %s. Players install `opendmt3-launcher-%s-windows-x64-setup.exe`; server owners run `opendmt3-server-%s.zip` ([the server guide](https://github.com/kanggu12/openDMT3/blob/%s/docs/server.md)).\n\n' "$v" "$v" "$v" "$TAG"
+{ printf 'openDMT3 %s. Players install `opendmt3-launcher-%s-windows-x64-setup.exe`; server owners run `opendmt3-server-%s-windows-x64.zip` on Windows, `opendmt3-server-%s.zip` with Docker, the `-linux-installer.sh` or `-macos-installer.sh` without it, or the Helm chart ([the server guide](https://github.com/kanggu12/openDMT3/blob/%s/docs/server.md)).\n\n' "$v" "$v" "$v" "$v" "$TAG"
   cat "$OUT/changelog-section.md"; printf '\n**Full Changelog**: %s\n' "$compare"; } \
   > "$OUT/release-notes.md"
 echo "notes: $OUT/release-notes.md ($(wc -l < "$OUT/release-notes.md") lines)"

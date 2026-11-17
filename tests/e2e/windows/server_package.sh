@@ -109,11 +109,11 @@ PY
   r=$?; step "the run printed its banner with the addresses in a box" $r
   srv repair > /out/repair.txt 2>&1 && grep -q "the package.s files are as they were made" /out/repair.txt
   r=$?; step "repair: the package files, the data folder and the ports as they should be" $r
-  rm -f _internal/python312.dll
-  ! srv repair > /out/repair2.txt 2>&1; grep -q "python312.dll" /out/repair2.txt
+  rm -f _internal/opendmt3/server/web/static/site.css
+  ! srv repair > /out/repair2.txt 2>&1; grep -q "site.css" /out/repair2.txt
   r=$?; step "repair names a file taken out of the package" $r
-  python3 -c "import zipfile; z = zipfile.ZipFile(\"/in/package.zip\"); z.extract(\"$name/_internal/python312.dll\", \"/w/drive_c/srv\")"
-  srv remove --delete-data --yes > /out/remove.txt 2>&1 && [ ! -d data ] && ls /w/drive_c/srv/opendmt3-backup-*.sqlite > /dev/null
+  python3 -c "import zipfile; z = zipfile.ZipFile(\"/in/package.zip\"); z.extract(\"$name/_internal/opendmt3/server/web/static/site.css\", \"/w/drive_c/srv\")"
+  srv remove --delete-data --yes > /out/remove.txt 2>&1 && [ ! -d data ] && ls opendmt3-backup-*.sqlite > /dev/null
   r=$?; step "remove --delete-data: the data deleted, its last backup kept beside the folder" $r
   tail -n 3 /out/run.txt > /out/server-log-tail.txt
   wineserver -k 2>/dev/null

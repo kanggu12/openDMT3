@@ -1,6 +1,6 @@
 """The files of a release, gathered into one folder with their checksums, and the notes' table of them.
 
-    python3 packaging/release_files.py VERSION BUILD_DIR OUT_DIR [--root DIR]
+    python3 packaging/release_files.py VERSION BUILD_DIR OUT_DIR [--root DIR] [--server DIR]
 
 Run by packaging/release.sh after packaging/windows/build.sh has built into BUILD_DIR. Into OUT_DIR it puts, and
 prints the Markdown table of (FILES.md beside them):
@@ -8,6 +8,11 @@ prints the Markdown table of (FILES.md beside them):
   opendmt3-launcher-<version>-windows-x64-setup.exe   the launcher's installer, for players (build.sh names it so)
   opendmt3-server-<version>.zip                       the server, for server owners: what it needs and nothing else
                                                       (docs, the front door, Compose, the package's core and server)
+  opendmt3-server-<version>-windows-x64.zip           the server on Windows without Docker or Python (from --server:
+                                                      packaging/windows/server.sh built it)
+  opendmt3-server-<version>-linux-installer.sh,       the one-line install on Linux and on macOS (one script,
+  opendmt3-server-<version>-macos-installer.sh        packaging/server/install.sh, with the version put in)
+  opendmt3-<version>-helm-chart.tgz                   the Helm chart (from --server: helm package made opendmt3-<version>.tgz)
   opendmt3-launcher-<version>-lgpl-sources.zip        the source archives of the two LGPL libraries the launcher
                                                       brings, as their licence asks of whoever hands them on
   openDMT3-<version>-full.nupkg, -delta.nupkg, .sig,  the launcher's update files, under the names Velopack and the
@@ -22,7 +27,8 @@ launcher installed so far would stop updating.
 
 Nothing goes in that nobody needs: vpk's RELEASES (the feed in the form of Velopack's predecessor, which the Velopack
 the launchers carry never reads: a server's /updates/ hands out none, and its launchers update), its portable zip and
-its assets.win.json stay out, and the server goes as the zip its owner builds the image from, never as an image.
+its assets.win.json stay out. The server's image is no release file: .github/workflows/release.yml publishes it to
+ghcr.io/kanggu12/opendmt3-server for amd64 and arm64 on the tag, which ./dmt3 and the Helm chart run.
 
 The standard library only: it runs on the release machine's own Python, before anything is installed.
 """
@@ -66,6 +72,12 @@ ROLES = [
      "Linux too", "Players"),
     ("opendmt3-server-{v}.zip", "The server (game server and site) for Docker Compose (`./dmt3 setup`) or Python, "
      "with its guides", "Server owners"),
+    ("opendmt3-server-{v}-windows-x64.zip", "The server on a Windows PC of its own, without Docker or Python, with "
+     "the launcher's installer to hand out", "Server owners on Windows"),
+    ("opendmt3-server-{v}-linux-installer.sh", "The one-line install of the server on Linux, without Docker",
+     "Server owners on Linux"),
+    ("opendmt3-server-{v}-macos-installer.sh", "The same install on macOS", "Server owners on macOS"),
+    ("opendmt3-{v}-helm-chart.tgz", "The Helm chart, running the published image", "Server owners on Kubernetes"),
     ("opendmt3-launcher-{v}-lgpl-sources.zip", "The source archives of DSOAL and OpenAL Soft, the two LGPL "
      "libraries the launcher brings for its sound mixer, as their licence asks", "Anyone who wants the source"),
     ("openDMT3-{v}-full.nupkg", "The launcher's update package (Velopack's name for it, read by installed "
@@ -78,6 +90,13 @@ ROLES = [
     ("opendmt3-{v}-checksums.txt", "The SHA-256 of every file above (`sha256sum -c`)", "Anyone checking a "
      "download"),
 ]
+# The server's files built before this script runs (release.sh: packaging/windows/server.sh, helm package), each by
+# the name in the folder --server names and its name in the release; without --server none are taken (a test's run).
+SERVER_BUILT = {"opendmt3-server-{v}-windows-x64.zip": "opendmt3-server-{v}-windows-x64.zip",
+                "opendmt3-{v}.tgz": "opendmt3-{v}-helm-chart.tgz"}
+# The one-line installers, one script with the version put in for each system.
+INSTALLER = "packaging/server/install.sh"
+INSTALLERS = ("opendmt3-server-{v}-linux-installer.sh", "opendmt3-server-{v}-macos-installer.sh")
 # The update files, whose names stay Velopack's (the module's docstring says why).
 UPDATE_FILES = {"openDMT3-{v}-full.nupkg", "openDMT3-{v}-delta.nupkg", "openDMT3-{v}-full.nupkg.sig",
                 "openDMT3-{v}-delta.nupkg.sig", "releases.win.json"}
@@ -221,8 +240,9 @@ def table(version, present):
     return "### Files\n\n" + "\n".join(rows) + "\n" + note
 
 
-def gather(root, version, build, out):
-    """Every file of the release into `out`, with the checksums; returns the names there, in the table's order."""
+def gather(root, version, build, out, server=None):
+    """Every file of the release into `out`, with the checksums; returns the names there, in the table's order.
+    server: the folder holding the server's files built before (SERVER_BUILT); each is then needed."""
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     for old in out.iterdir():
@@ -237,10 +257,23 @@ def gather(root, version, build, out):
             (out / name).write_bytes(source.read_bytes())
     server_zip(root, version, out)
     lgpl_zip(build, version, out)
+    if server is not None:
+        for built, name in SERVER_BUILT.items():
+            source = Path(server) / built.format(v=version)
+            if source.is_file():
+                (out / name.format(v=version)).write_bytes(source.read_bytes())
+    script = (Path(root) / INSTALLER).read_text(encoding="utf-8").replace("@VERSION@", version)
+    for name in INSTALLERS:
+        # Executable as a file too (sh reads it from the pipe either way).
+        path = out / name.format(v=version)
+        path.write_text(script, encoding="utf-8", newline="\n")
+        path.chmod(0o755)
     present = [n for n in names(version) if (out / n).is_file()]
+    # The server's built files are needed when their folder was given, else left out.
+    optional = {p.format(v=version) for p in OPTIONAL} | (
+        set() if server is not None else {n.format(v=version) for n in SERVER_BUILT.values()})
     missing = [n for n in names(version)
-               if n not in present and n != "%s-%s-checksums.txt" % (TOOL, version)
-               and n not in {p.format(v=version) for p in OPTIONAL}]
+               if n not in present and n != "%s-%s-checksums.txt" % (TOOL, version) and n not in optional]
     if missing:
         raise ValueError("missing: " + ", ".join(missing))
     # Over every other file, in sha256sum's own form, so `sha256sum -c` reads it.
@@ -256,10 +289,12 @@ def main(argv=None):
     parser.add_argument("build", type=Path, help="the folder packaging/windows/build.sh built into")
     parser.add_argument("out", type=Path, help="the folder the release's files go into")
     parser.add_argument("--root", type=Path, default=ROOT, help="the tree the server package is made from")
+    parser.add_argument("--server", type=Path, help="the folder of the server's files built before (the Windows "
+                                                    "server package, the packaged Helm chart)")
     args = parser.parse_args(argv)
     version = args.version[1:] if args.version.startswith("v") else args.version
     try:
-        present = gather(args.root, version, args.build, args.out)
+        present = gather(args.root, version, args.build, args.out, args.server)
     except (OSError, ValueError, subprocess.CalledProcessError) as e:
         print("the release's files: %s" % e, file=sys.stderr)
         return 1

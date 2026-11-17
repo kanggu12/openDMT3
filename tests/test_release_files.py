@@ -81,7 +81,9 @@ class ReleaseFilesTest(unittest.TestCase):
             "opendmt3-launcher-%s-windows-x64-setup.exe" % V, "opendmt3-server-%s.zip" % V,
             "opendmt3-launcher-%s-lgpl-sources.zip" % V, "opendmt3-%s-checksums.txt" % V,
             "openDMT3-%s-full.nupkg" % V, "openDMT3-%s-delta.nupkg" % V, "openDMT3-%s-full.nupkg.sig" % V,
-            "openDMT3-%s-delta.nupkg.sig" % V, "releases.win.json"]))
+            "openDMT3-%s-delta.nupkg.sig" % V, "releases.win.json",
+            # The one-line installers are made from the tree each time; the server's built files come with --server.
+            "opendmt3-server-%s-linux-installer.sh" % V, "opendmt3-server-%s-macos-installer.sh" % V]))
         # vpk's own extras and the previous release's package stay out: each is no file of this release.
         for left in ("RELEASES", "assets.win.json", "openDMT3-win-Portable.zip", "openDMT3-9.8.6-full.nupkg"):
             self.assertNotIn(left, got)
@@ -102,6 +104,30 @@ class ReleaseFilesTest(unittest.TestCase):
         self.assertIn("| `openDMT3-%s-full.nupkg` | The launcher's update package" % V, table)
         self.assertIn("| Server owners |", table)
         self.assertEqual((self.out.parent / "FILES.md").read_text(), table)
+
+    @NEEDS_GIT
+    def test_the_servers_built_files_come_from_their_folder_under_the_release_names(self):
+        server = Path(self.tmp) / "server"
+        server.mkdir()
+        (server / ("opendmt3-server-%s-windows-x64.zip" % V)).write_bytes(b"PK windows")
+        (server / ("opendmt3-%s.tgz" % V)).write_bytes(b"chart")
+        code, _, err = run(files, V, str(build(Path(self.tmp) / "build")), str(self.out), "--server", str(server))
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual((self.out / ("opendmt3-%s-helm-chart.tgz" % V)).read_bytes(), b"chart")
+        self.assertTrue((self.out / ("opendmt3-server-%s-windows-x64.zip" % V)).is_file())
+        # The installers carry the version where the script has its mark, and the checksums name them all.
+        script = (self.out / ("opendmt3-server-%s-linux-installer.sh" % V)).read_text()
+        self.assertIn("VERSION=%s\n" % V, script)
+        self.assertNotIn("@VERSION@", script)
+        sums = (self.out / ("opendmt3-%s-checksums.txt" % V)).read_text()
+        for name in ("opendmt3-%s-helm-chart.tgz", "opendmt3-server-%s-windows-x64.zip",
+                     "opendmt3-server-%s-macos-installer.sh"):
+            self.assertIn("  " + name % V + "\n", sums)
+        # A --server folder without them is a release missing them.
+        (server / ("opendmt3-%s.tgz" % V)).unlink()
+        code, _, err = run(files, V, str(build(Path(self.tmp) / "build2")), str(self.out), "--server", str(server))
+        self.assertEqual(code, 1)
+        self.assertIn("helm-chart.tgz", err)
 
     @NEEDS_GIT
     def test_the_lgpl_sources_are_the_archives_the_build_names(self):
