@@ -166,12 +166,33 @@ def read(path):
         with _Lock(path + ".lock"):
             text = _read_text(path)
     except OSError:
-        text = _read_text(path)
+        try:
+            text = _read_text(path)
+        except OSError as e:
+            unreadable(path, e)
+            return {}
     refused = []
     values = parse(text, refused)
     for line in refused:
         log.warning("a line of the sound file is not one its rule takes, left as if absent: %r", line[:60])
     return values
+
+
+def unreadable(path, error):
+    """A sound file that cannot be read (a folder in its place, no right to read it): the launcher's own values serve,
+    said in the log, and the thing is kept beside under another name (core/saving.set_aside, as launcher.json's) so
+    that the next write makes a new file the game reads. One another program holds without sharing it (Windows'
+    sharing and lock violations) is left as it is: it reads again in a moment (review round 2)."""
+    if getattr(error, "winerror", None) in (32, 33):
+        log.warning("the sound file cannot be read now (%s): the launcher's own values serve this time", error)
+        return
+    try:
+        aside = saving.set_aside(path)
+    except OSError as e:
+        aside = None
+        log.warning("the sound file cannot be set aside either (%s)", e)
+    log.warning("the sound file cannot be read (%s): the launcher's own values serve%s", error,
+                ", the file kept as %s" % os.path.basename(aside) if aside else "")
 
 
 def write(path, changes):
@@ -186,14 +207,22 @@ def write(path, changes):
     return parse(text)
 
 
-def sync(state, settings_path, pending=None):
+def sync(state, settings_path, pending=None, write_file=True):
     """The launcher's sound values and the file's made one. `pending` holds the launcher's changes not written yet
     ({name: value}): tried first; what still cannot be written stays in it and stays the state's (the file's older
     value never takes its place). Then the file's values come into the state; with no file yet (the first start of a
     launcher that has it, or a new player), the file is made from the state's, so the music and key sounds a player had
-    set in launcher.json play as loud as before."""
+    set in launcher.json play as loud as before. `write_file` False only reads (the settings' load, which a command
+    that only reads runs too: it leaves no file behind, nor its lock); the window's pages and PLAY write."""
     pending = pending if pending is not None else {}
     path = path_beside(settings_path)
+    if not write_file:
+        # Only the file's values, under its lock only when there is a file (no lock file made for nothing).
+        found = read(path) if os.path.exists(path) else {}
+        merged = dict(state.values)
+        merged.update({name: value for name, value in found.items() if name not in pending})
+        state.values = choices.normalize(merged)
+        return
     if pending:
         try:
             write(path, dict(pending))

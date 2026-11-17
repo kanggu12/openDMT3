@@ -121,6 +121,9 @@ class Dialog:
         # A text field in the panel (a password: its words hidden), whose words the main button takes (value), and what
         # is wrong with what was typed there last, under it (FORMS.md: the problem's lamp, then the words).
         self.field, self.value, self._entry, self.field_error = field, "", None, field_error
+        # Where Tab stops in the dialog's field (its words, then a password's Show key), so that Tab and Shift+Tab go
+        # round inside the dialog: never to the page under it (_trap_field).
+        self._field_stops = []
         # A line under the words that does something when clicked: (words, function), Another folder... and the like.
         self.link = link
         # Work under way that knows how far it is: the share done (None: not known yet, the light sweeps) and a line
@@ -333,6 +336,8 @@ class Dialog:
             self._entry.bind("<KP_Enter>", lambda e: self.choose(len(self.buttons) - 1))
             self._entry.bind("<Escape>", lambda e: self.close(self.cancel_value))
             self._entry.insert(0, self.value)
+            # Tab and Shift+Tab go round inside the dialog: the words, Show, the buttons.
+            self._trap_field(self._entry)
         self._window = self.canvas.create_window(x, y, window=self._entry, anchor="nw", width=width, height=height,
                                                  tags=("card", "field"))
 
@@ -428,7 +433,7 @@ class Dialog:
     def _bind(self):
         c = self.canvas
         # Work under way (a progress dialog) cannot be cancelled from the keyboard.
-        c.bind("<Escape>", lambda e: None if self.progress and not self.buttons else self.close(self.cancel_value))
+        c.bind("<Escape>", lambda e: self.escape())
         for key in ("<Return>", "<KP_Enter>", "<space>"):
             c.bind(key, lambda e: self.choose(self.focus))
         for key, step in (("<Right>", 1), ("<Left>", -1)):
@@ -482,12 +487,48 @@ class Dialog:
 
     def tab(self, step):
         """Tab: the next button, or the previous one; past the last (or before the first), the window's own keys when
-        it has them (minimize and close in its header), from which Tab comes back (window_root)."""
+        it has them (minimize and close in its header), from which Tab comes back (window_root), or the dialog's field
+        (its words, a password's Show key): round and round inside the dialog."""
         count = len(self.buttons)
-        if self.keys and count and ((step > 0 and self.focus == count - 1) or (step < 0 and self.focus == 0)):
+        at_end = count and ((step > 0 and self.focus == count - 1) or (step < 0 and self.focus == 0))
+        if at_end and self.keys:
             (self.keys[0] if step > 0 else self.keys[-1]).focus_set()
             return "break"
+        if at_end and self._field_stops:
+            (self._field_stops[0] if step > 0 else self._field_stops[-1]).focus_set()
+            return "break"
         return self.move(step)
+
+    def escape(self):
+        """Esc: the dialog answered with its cancel value; a dialog of work under way with no button to stop it stays.
+        The same from the dialog's buttons, its field and the window's own keys."""
+        if self.progress and not self.buttons:
+            return "break"
+        self.close(self.cancel_value)
+        return "break"
+
+    def _trap_field(self, field):
+        """Tab from the dialog's field goes on inside the dialog: from its words to a password's Show key, then to the
+        buttons, and Shift+Tab back; the buttons' Tab comes round to the field (tab). Tk's own order would go on to the
+        page under the dialog, whose keys the dialog's grab does not hold (review round 2)."""
+        stops = [field.entry if hasattr(field, "entry") and not callable(field.entry) else field]
+        if getattr(field, "toggle", None) is not None:
+            stops.append(field.toggle)
+        self._field_stops = stops
+        for i, stop in enumerate(stops):
+            stop.bind("<Tab>", lambda e, i=i: self._from_field(i, 1))
+            for back in ("<Shift-Tab>", "<ISO_Left_Tab>"):
+                stop.bind(back, lambda e, i=i: self._from_field(i, -1))
+
+    def _from_field(self, i, step):
+        """Tab from the field's `i`th stop: its next stop, or past its last the buttons (the first; Shift+Tab before
+        its first, the last)."""
+        j = i + step
+        if 0 <= j < len(self._field_stops):
+            self._field_stops[j].focus_set()
+        else:
+            self.come_back(last=step < 0)
+        return "break"
 
     def come_back(self, last):
         """The keyboard back from the window's keys: on the first button, or on the last (Shift+Tab)."""
@@ -723,6 +764,8 @@ def window_root(title="openDMT3", language="en", label="LAUNCHER"):
         key.bind("<Tab>", lambda e, i=i: _tab_from_key(root, keys, i, 1))
         for back in ("<Shift-Tab>", "<ISO_Left_Tab>"):
             key.bind(back, lambda e, i=i: _tab_from_key(root, keys, i, -1))
+        # Esc does what it does elsewhere in the window: the dialog's (review round 2, #7).
+        key.bind("<Escape>", lambda e: _escape_from_key(root))
     for grip in (head, mark):
         grip.bind("<ButtonPress-1>", lambda e: _drag(root))
     root.opendmt3_body, root.opendmt3_keys, root.opendmt3_head = body, keys, head
@@ -761,6 +804,14 @@ def _tab_from_key(root, keys, i, step):
         dialog = getattr(root, "opendmt3_dialog", None)
         if dialog is not None and not dialog.closed:
             dialog.come_back(last=step < 0)
+    return "break"
+
+
+def _escape_from_key(root):
+    """Esc on the header's keys: the dialog's own Esc (its cancel value, or nothing while work it cannot stop runs)."""
+    dialog = getattr(root, "opendmt3_dialog", None)
+    if dialog is not None and not dialog.closed:
+        return dialog.escape()
     return "break"
 
 
@@ -929,7 +980,8 @@ class PathDialog(Dialog):
             self.entry.bind("<Return>", lambda e: self.choose(len(self.buttons) - 1))
             self.entry.bind("<KP_Enter>", lambda e: self.choose(len(self.buttons) - 1))
             self.entry.bind("<Escape>", lambda e: self.close(self.cancel_value))
-            self.entry.bind("<Tab>", lambda e: (self.canvas.focus_set(), "break")[1])
+            # Tab to the buttons and Shift+Tab to the last one; the buttons' Tab comes round to the path.
+            self._trap_field(self.entry)
         c.create_text(px(PAD), top, text=self.label, font=fonts.label, fill=theme.MUTED, anchor="nw",
                       tags=("card", "words"))
         # The box spans the text's width; its window moves with the card as the dialog rises.

@@ -430,7 +430,7 @@ not know is said, with the list of the ones it does.
 | `--folder PATH` | Uses the client data in this folder (or up to four levels below it); an archive is unpacked first (beside it unless `--to FOLDER`) |
 | `--mode this_pc` / `server` / `offline` | Where logins and records are kept, as **Online** chooses |
 | `--server URL` | Connects to another server and plays on it from now on |
-| `--sign-in ID` | Signs in to that server; the password comes from standard input, or is asked for. A banned account is told the ban's reason, as the window tells it |
+| `--sign-in ID [--remember]` | Signs in to that server; the password comes from standard input, or is asked for. A banned account is told the ban's reason, as the window tells it. `--remember` keeps the ID for the next sign-in, as **Remember my ID on this PC** does; without it no ID is kept |
 | `--sign-out` | Signs out: the server ends this launcher's sign-in when it answers, and the launcher forgets it |
 | `--test-server [URL]` | Tests the connection to a server step by step, as **Online**, **Connection test** does (the server in use without URL, the one `--server` connected to when both are given); the sign-in the launcher keeps is tested only on the server it was made on; exit 0 when every step passed, 2 the address, 3 the site, 4 the game's port, 5 the sign-in |
 | `--add-player ID [--dj NAME]` | Makes a player on this PC (the password as for `--sign-in`) |

@@ -8,7 +8,6 @@ import json
 import logging
 import os
 import sys
-import time
 
 from opendmt3.core import game as g
 # The one way the launcher's settings files are written: whole, on the disk before they take the old one's place.
@@ -93,17 +92,7 @@ def set_aside(path, now=None):
     """Keep a settings file that cannot be read beside it as it was (launcher.json.broken-<date>-<time>, a number after
     it when one of that second is there already), so the launcher can start again from its defaults; returns the name
     it is kept under, or None when the file was gone already (another start set it aside a moment ago)."""
-    stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(now))
-    aside, n = "%s.broken-%s" % (path, stamp), 1
-    while os.path.exists(aside):
-        # Two in one second (a command run again at once): neither written over.
-        n += 1
-        aside = "%s.broken-%s-%d" % (path, stamp, n)
-    try:
-        os.replace(path, aside)
-    except FileNotFoundError:
-        return None
-    return aside
+    return saving.set_aside(path, now)
 
 
 class LauncherState:
@@ -149,8 +138,9 @@ class LauncherState:
         state = cls()
         state.sound_path = sound_file.path_beside(path)
         if not os.path.isfile(path):
-            # A first start: the sound file, if the game or an earlier launcher left one, still counts.
-            state.sync_sound()
+            # A first start: the sound file, if the game or an earlier launcher left one, still counts (read only: a
+            # command that only reads leaves no file behind; the window's pages and PLAY make it).
+            state.sync_sound(write_file=False)
             return state
         try:
             with open(path, encoding="utf-8") as f:
@@ -171,14 +161,15 @@ class LauncherState:
         except (TypeError, AttributeError, ValueError) as e:
             # A field of the wrong kind (a hand-edited file): the same as a file that cannot be read.
             raise StateError("cannot read %s: %s" % (path, e), path) from None
-        # The sound values as the sound file has them (the in-game panel may have changed them since).
-        state.sync_sound()
+        # The sound values as the sound file has them (the in-game panel may have changed them since), read only.
+        state.sync_sound(write_file=False)
         return state
 
-    def sync_sound(self):
+    def sync_sound(self, write_file=True):
         """The sound file's values taken in (the in-game panel's changes), or the file made from ours when there is
-        none yet (sound_file.sync)."""
-        sound_file.sync(self, self.sound_path or sound_file.path_beside(self.path()), self.sound_waiting)
+        none yet (sound_file.sync); with `write_file` False, only taken in."""
+        sound_file.sync(self, self.sound_path or sound_file.path_beside(self.path()), self.sound_waiting,
+                        write_file=write_file)
 
     @classmethod
     def _from(cls, data, state):

@@ -150,6 +150,26 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   PLAY), the launcher forgets it, its sign-in card asks for the password again with the ID kept, and PLAY says why it
   cannot start; it went on showing "Signed in" and a lit PLAY.
 - The touch screen's hint on **Controls** says every finger plays, as it has since 0.3.0.
+- **Admin pages** pressed twice (or with **My records** or PLAY) before this PC's server ran started it twice: the
+  second server died and held the game's port until the launcher restarted, and the new admin was said twice. One
+  start at a time now (the others wait for it), the key works one opening at a time, and the admin is made and said
+  once.
+- Tab in the archive's password dialog went on to the menu under it, whose Enter changed the page behind the open
+  dialog: Tab and Shift+Tab go round inside every dialog (its field, a password's Show, its buttons, a window's own
+  keys), and Esc on the header's minimize or close key does what it does in the dialog.
+- A sound file that cannot be read (a folder in its place, no right to read it) stopped the window and every command
+  with a traceback: the launcher's own values serve, the log says so, and the thing is kept beside as
+  `sound.ini.broken-<date>` so a new file can be made. A command that only reads (`--status`) no longer leaves a sound
+  file behind.
+- After the server stopped taking a sign-in, **Remember my ID on this PC** showed ticked although it was never
+  ticked: it shows what the person chose.
+- The cabinet's lamps at the column's foot follow who plays at once: deleting the player who plays on **Online** put
+  out ID CARD only at the next status line.
+- On **Online** (another server, nobody signed in), Tab goes as the screen reads: the sign-in, then **Where you play**,
+  then the connection test. A sign-in refused because the address answers but not as a site does offers the
+  connection test, as the other answers of a server do.
+- `--sign-in ID --remember` keeps the ID for the next sign-in, as **Remember my ID on this PC** does; a sign-in without
+  it keeps none (not another account's the window remembered).
 - `.env` saved by Notepad (with a byte-order mark, CRLF or spaces around `=`) reads the same as any other.
 - `opendmt3-server setup --game-port` alone keeps the site's port it had (it went back to 4730), and `setup` refuses
   two parts on one port, as `./dmt3 ports` does. `./dmt3 ports` refuses the ports the container uses itself (the

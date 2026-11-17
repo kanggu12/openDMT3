@@ -511,6 +511,17 @@ def sign_in_card_whole(inside, label, problems):
                                                          scrolled))
 
 
+def tab_walk(start, count):
+    """The widgets Tab goes through from `start`, as Tk's own Tab does (tk_focusNext), until it comes round."""
+    walk, at = [], start
+    for _ in range(count):
+        at = at.tk_focusNext()
+        if at is None or at in walk or at is start:
+            break
+        walk.append(at)
+    return walk
+
+
 def signin_states_check(app, out, tag, problems):
     """ONLINE's sign-in card as a server answers it (remote.sign_in made up here: no network), in each state a person
     meets: the key busy while the server is asked, a wrong ID or password, a server that does not answer, too many
@@ -528,6 +539,8 @@ def signin_states_check(app, out, tag, problems):
         ("wrong", remote.RemoteError("wrong", code="wrong_sign_in", key="error.api.wrong_sign_in")),
         ("unreachable", remote.RemoteError("unreachable", key="error.remote.unreachable", base=base)),
         ("too-many", remote.RemoteError("too many", code="too_many_tries", key="error.api.too_many_tries")),
+        # Something answers there, but no site: the game's port typed for the site's (review round 2, #9).
+        ("not-a-site", remote.RemoteError("not a site", key="error.remote.not_a_site", base=base)),
         ("banned", remote.RemoteError("banned", code="banned", key="error.api.banned",
                                       reason="Played on another person's card.")))
 
@@ -549,6 +562,18 @@ def signin_states_check(app, out, tag, problems):
             if form is None:
                 problems.append("%s: no sign-in form on ONLINE while connected and not signed in" % label)
                 return
+            if name == "busy":
+                # Tab goes as the screen reads (review round 2, #6): the sign-in's key, then Where you play under it,
+                # then the connection test's key.
+                walk = tab_walk(form.fields["online.id"].entry, 40)
+                seg = [x for x in walk if isinstance(x, widgets.Segmented)]
+                test = [x for x in walk if isinstance(x, widgets.Button) and x.words in (w("server_test.run"),
+                                                                                       w("server_test.again"))]
+                key = form.submit_button
+                if key not in walk or not seg or not test or not (
+                        walk.index(key) < walk.index(seg[0]) < walk.index(test[0])):
+                    problems.append("%s: Tab from the ID does not go as the screen reads: the sign-in's key, Where you "
+                                    "play, the connection test (%s)" % (label, [x.winfo_class() for x in walk]))
             form.fields["online.id"].delete(0, "end")
             form.fields["online.id"].insert(0, "NOVA")
             form.fields["online.password"].delete(0, "end")
@@ -627,9 +652,10 @@ def signin_states_check(app, out, tag, problems):
                 if form.line.winfo_ismapped() and not on_screen(form.line):
                     problems.append("%s: the form's line is under the window's foot, the page not scrolled to it"
                                     % label)
-                if (form.line.link is not None) != (name == "unreachable"):
+                server_trouble = name in ("unreachable", "not-a-site")
+                if (form.line.link is not None) != server_trouble:
                     problems.append("%s: the way to the connection test is %s" % (
-                        label, "missing" if name == "unreachable" else "offered for an account's trouble"))
+                        label, "missing" if server_trouble else "offered for an account's trouble"))
         # Connected with nobody signed in, the server's own card is folded into the sign-in's first line: Change there
         # opens it as it is before connecting, the keyboard on its address chosen whole, and no sign-in until a server
         # answers.
@@ -737,6 +763,10 @@ def server_test_check(app, out, tag, problems):
                                         % (label, forms[0].fields["online.id"].get()))
                     if app.play_lit():
                         problems.append("%s: PLAY is lit after the server refused the sign-in" % label)
+                    # Remember my ID as the person left it: never ticked, it shows unticked (review round 2, #4).
+                    ticks = [x for x in widgets_of(forms[0]) if isinstance(x, widgets.Tick)] if forms else []
+                    if ticks and ticks[0].value:
+                        problems.append("%s: Remember my ID shows ticked though the player never ticked it" % label)
                 if name == "game-closed":
                     copy = [x for x in widgets_of(app.root) if x.winfo_class() == "Label"
                             and x.cget("text") == app.words("server_test.copy")]
@@ -816,6 +846,47 @@ def admin_link_check(app, out, tag, problems):
         app.state.mode, actions.open_link = kept
         # The server the check started goes, as when the launcher closes: the checks after it start their own.
         app.host.stop()
+        app.refresh_checks()
+        settle(app)
+
+
+def lamps_check(app, out, tag, problems):
+    """The cabinet's lamps at the column's foot follow who plays at once (review round 2, #5): the chosen player
+    deleted on ONLINE's Players card, ID CARD goes out with the card, not at the next line of the status."""
+    from opendmt3.client import dialogs
+    w = app.words
+    kept = (app.state.mode, app.state.player, dialogs.ask)
+    store = app.players()
+    try:
+        store.create("LAMPY", "pass1234", "DJ LAMPY", who="launcher")
+    finally:
+        store.db.close()
+    try:
+        app.state.mode, app.state.player = "this_pc", "LAMPY"
+        app.state.save()
+        app.go("online")
+        settle(app)
+        app._paint_status()
+        settle(app)
+        rows = [x.master for x in widgets_of(app.root) if isinstance(x, widgets.tk.Label) and x.winfo_ismapped()
+                and x.cget("text") == "LAMPY"]
+        keys = [x for x in widgets_of(rows[0]) if isinstance(x, widgets.Button) and x.words == w("online.remove")] \
+            if rows else []
+        if not keys:
+            problems.append("%s: no Delete for the player LAMPY on ONLINE" % tag)
+            return
+        # Deleted, the question answered yes.
+        dialogs.ask = lambda *a, **k: True
+        keys[0].press()
+        settle(app)
+        shown = {key: getattr(lamp, "lit", None) for key, lamp in app.cabinet_lamps.items()}
+        if shown != app.cabinet_lamp_states():
+            problems.append("%s: after deleting the player who plays, the lamps show %r where the cabinet has %r"
+                            % (tag, shown, app.cabinet_lamp_states()))
+        shot(app, out, "%s_online-lamps-after-delete" % tag)
+    finally:
+        app.state.mode, app.state.player, dialogs.ask = kept
+        app.state.save()
         app.refresh_checks()
         settle(app)
 
@@ -1801,7 +1872,14 @@ def stopped_check(out, tag, lang, problems):
         holder.root = root
         shot(holder, out, "%s_%s" % (tag, name), root=root)
         problems.extend("%s_%s: %s" % (tag, name, p) for p in dialog.layout_problems())
-        dialog.canvas.event_generate("<Escape>")
+        keys = getattr(root, "opendmt3_keys", None)
+        if name == "installer-stopped" and keys:
+            # Esc with the keyboard on the header's close key does what it does in the dialog (review round 2, #7).
+            keys[-1].focus_force()
+            root.update()
+            keys[-1].event_generate("<Escape>")
+        else:
+            dialog.canvas.event_generate("<Escape>")
         root.update()
         if not dialog.closed:
             problems.append("%s: Esc did not close the %s window" % (tag, name))
@@ -2253,8 +2331,24 @@ def unpack_check(app, out, tag, made, problems):
     settle(app, 10)
     # The password: asked first, said when it does not open the archive, then the room asked as for any archive.
     locked, checking = w.error(intake.said("error.source.password")), w("unpack.checking")
+    def kept_inside(dialog):
+        """Tab and Shift+Tab go round inside the dialog: never to the page under it, whose keys would change it with
+        the dialog still up (review round 2, #2)."""
+        page = app.page
+        dialog.entry().entry.focus_force()
+        app.root.update()
+        for key in ("<Tab>",) * 6 + ("<Shift-Tab>",) * 6:
+            app.root.focus_get().event_generate(key)
+            app.root.update()
+            at = app.root.focus_get()
+            if at is None or not str(at).startswith(str(dialog.canvas)):
+                problems.append("%s: %s took the keyboard out of the password dialog, to %s" % (tag, key, at))
+                break
+        if app.page != page:
+            problems.append("%s: the page under the password dialog changed (%s)" % (tag, app.page))
+
     drive(app, out, tag, button_in(card_of(app, made["locked"]), w("intake.unpack")).press, [
-        ("unpack-password", locked, lambda d: type_in(d, "not-it"), False),
+        ("unpack-password", locked, lambda d: (kept_inside(d), type_in(d, "not-it")), False),
         ("unpack-password-checking", checking, lambda d: None, True),
         ("unpack-password-again", locked, lambda d: type_in(d, "made-up-1"), False),
         ("unpack-password-checking-again", checking, lambda d: None, True),
@@ -2810,6 +2904,8 @@ def main():
     interactions_check(app, args.out, tag, problems)
     # This PC's server's admin pages, opened from ONLINE's Players card.
     admin_link_check(app, args.out, tag, problems)
+    # The cabinet's lamps after the player who plays is deleted.
+    lamps_check(app, args.out, tag, problems)
     game_page_check(app, args.out, tag, problems)
     play_states_check(app, args.out, tag, made, problems)
     # The Launcher page's end: the licence and the two notice lines, as OpenDMTQ words them.

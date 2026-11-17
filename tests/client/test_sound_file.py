@@ -71,6 +71,10 @@ class SoundFileTest(unittest.TestCase):
 
     def test_a_change_the_held_lock_keeps_out_waits_and_is_never_undone_by_a_sync(self):
         state = st.LauncherState.load()
+        # Loading the settings only reads (a command that only reads leaves no file); the window's first sync (its
+        # Sound page, PLAY) makes the file from the launcher's values.
+        self.assertFalse(os.path.exists(self.path))
+        state.sync_sound()
         self.assertEqual(sound_file.read(self.path)["master_volume"], 100)
         fd = self.hold_lock()
         try:
@@ -113,8 +117,11 @@ class SoundFileTest(unittest.TestCase):
             # No temporary left beside the file by the failed swaps.
             self.assertEqual([n for n in os.listdir(self.config) if n.startswith(".sound-")], [])
             state.save()
-        # The launcher closed and opened again: the change still waits, and is written at its first sync.
+        # The launcher closed and opened again: the change still waits (loading only reads), and is written at its
+        # first sync, with the value the state kept all along.
         again = st.LauncherState.load()
+        self.assertEqual((again.sound_waiting, again.values["eq_1k"]), ({"eq_1k": 5}, 5))
+        again.sync_sound()
         self.assertEqual(again.sound_waiting, {})
         self.assertEqual(again.values["eq_1k"], 5)
         self.assertEqual(sound_file.read(self.path)["eq_1k"], 5)

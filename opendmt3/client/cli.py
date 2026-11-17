@@ -43,6 +43,7 @@
   openDMT3.exe --mode this_pc|server|offline   where logins and records are kept
   openDMT3.exe --server URL            connect to another server and play on it from now on
   openDMT3.exe --sign-in ID            sign in to that server (the password from standard input, or asked for)
+  openDMT3.exe --sign-in ID --remember  the same, keeping the ID for the next sign-in (Remember my ID on this PC)
   openDMT3.exe --sign-out              sign out of that server (it ends the sign-in when it answers)
   openDMT3.exe --test-server [URL]     test the connection to a server step by step (the address, the site and its
                                        version, the game's port, the sign-in), as the ONLINE page's Connection test;
@@ -584,6 +585,13 @@ def _settings(args, state):
             raise g.GameError("connect to a server first (--server URL)", "error.cli.no_server")
         me = remote.sign_in(state.server_url, args.sign_in, password("Password for %s: " % args.sign_in))
         actions.signed_in(state, me)
+        # Remember my ID on this PC, as the window's tick: kept with --remember, else none (not another account's the
+        # window remembered either).
+        state.remote = dict(state.remote or {})
+        if args.remember:
+            state.remote["remember_id"] = me["login_id"]
+        else:
+            state.remote.pop("remember_id", None)
         say("Signed in as %s (%s)." % (me["dj_name"], me["login_id"]))
         changed = True
     if args.sign_out:
@@ -711,6 +719,8 @@ def parse(argv):
     p.add_argument("--mode", choices=st.MODES, help="where logins and records are kept: this_pc, server or offline")
     p.add_argument("--server", metavar="URL", help="connect to another server and play on it from now on")
     p.add_argument("--sign-in", metavar="ID", help="sign in to that server (the password from standard input)")
+    p.add_argument("--remember", action="store_true",
+                   help="with --sign-in: keep the ID for the next sign-in on this PC (Remember my ID on this PC)")
     p.add_argument("--sign-out", action="store_true",
                    help="sign out of that server: it ends the sign-in when it answers, and the launcher forgets it")
     p.add_argument("--player", metavar="ID", help="who plays on this PC: a player's ID, or guest")

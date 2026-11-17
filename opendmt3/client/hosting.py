@@ -79,6 +79,11 @@ class BuiltinServer:
         self.admin_task = None
         self.admin_url = None
         self.backup_task = None
+        # One start at a time: a second caller (Admin pages pressed twice, My records with PLAY) waits for the first
+        # and finds it running, instead of starting a second server thread over the first's loop.
+        self._start_lock = threading.Lock()
+        # The admin pages' first opening makes this PC's server's admin once, whoever asks at the same moment.
+        self._admin_lock = threading.Lock()
         # The song list read apart from the window before PLAY needs it (import_catalog_soon), once at a time.
         self._catalog_lock = threading.Lock()
         self._catalog_thread = None
@@ -97,18 +102,21 @@ class BuiltinServer:
         return "%s:%d" % (ADDRESS, self.port)
 
     def start(self, timeout=10):
-        """Start on a thread and wait until it listens; HostingError when it cannot."""
-        if self.running:
-            return
-        self.ready.clear()
-        self.error = None
-        self.thread = threading.Thread(target=self._run, daemon=True, name="game-server")
-        self.thread.start()
-        if not self.ready.wait(timeout):
-            raise HostingError("the built-in server did not start within %d seconds" % timeout, "error.host.timeout",
-                               seconds=timeout)
-        if self.error is not None:
-            raise self.error
+        """Start on a thread and wait until it listens, its site and admin site too; HostingError when it cannot. One
+        start at a time: a caller that comes while another starts it waits for that start, and finds it running (or
+        gets its error) instead of starting a second server over the first."""
+        with self._start_lock:
+            if self.running and self.ready.is_set():
+                return
+            self.ready.clear()
+            self.error = None
+            self.thread = threading.Thread(target=self._run, daemon=True, name="game-server")
+            self.thread.start()
+            if not self.ready.wait(timeout):
+                raise HostingError("the built-in server did not start within %d seconds" % timeout,
+                                   "error.host.timeout", seconds=timeout)
+            if self.error is not None:
+                raise self.error
 
     def _run(self):
         self.loop = asyncio.new_event_loop()
@@ -260,6 +268,11 @@ class BuiltinServer:
         an enabled player."""
         if self.site is None or self.admin_url is None:
             return None, None
+        # The look for an admin and the making of one as one step: two openings at once make one admin, said once.
+        with self._admin_lock:
+            return self._admin_link(language)
+
+    def _admin_link(self, language):
         made = None
         store = self.accounts()
         try:

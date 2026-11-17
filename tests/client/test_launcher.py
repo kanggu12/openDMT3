@@ -6,6 +6,7 @@ supported). The game is never started: PLAY gets a stand-in process.
 """
 
 import gc
+import contextlib
 import importlib.util
 import io
 import json
@@ -1116,6 +1117,46 @@ class LauncherTest(FolderCase):
             self.assertEqual(cli._admin(self.state, no_browser=True), 0)
         self.assertEqual([line for line in said if "admin." in line], ["NOVA is now this server's admin."])
 
+    @unittest.skipUnless(all(importlib.util.find_spec(m) for m in ("uvicorn", "starlette", "jinja2", "multipart")),
+                         "needs the web libraries")
+    def test_two_presses_before_this_pcs_server_runs_start_it_once(self):
+        # Admin pages pressed twice (or with My records, PLAY) before this PC's server runs: one start, the other
+        # waits for it; one game server; both links work; the first player made the admin once (review round 2, #1).
+        from opendmt3.client import hosting
+        host = hosting.BuiltinServer(path=os.path.join(self.config, "server", "openDMT3.sqlite"), port=0, web_port=0)
+        store = host.accounts()
+        store.create("NOVA", "pass1234", "DJ NOVA")
+        store.create("ORION", "pass1234", "DJ ORION")
+        store.db.close()
+        real = hosting.BuiltinServer._start_site
+
+        def slow(this, game_server):
+            # The second press comes while the first start is under way, as a double-click's does.
+            time.sleep(0.5)
+            return real(this, game_server)
+
+        results, errors = [], []
+
+        def press():
+            try:
+                results.append(actions.admin_link(self.state, host)[1])
+            except Exception as e:  # noqa: BLE001
+                errors.append(e)
+
+        try:
+            with mock.patch.object(hosting.BuiltinServer, "_start_site", slow):
+                presses = [threading.Thread(target=press) for _ in range(2)]
+                for t in presses:
+                    t.start()
+                for t in presses:
+                    t.join(30)
+            self.assertEqual(errors, [])
+            self.assertEqual(sorted(results, key=lambda made: made or ""), [None, "NOVA"])
+            self.assertTrue(host.running)
+            self.assertEqual(len([t for t in threading.enumerate() if t.name == "game-server"]), 1)
+        finally:
+            host.stop()
+
     def test_the_records_page_reads_this_pcs_database_or_says_why_not(self):
         from opendmt3.client import hosting, i18n, remote
         host = hosting.BuiltinServer(path=os.path.join(self.config, "server", "openDMT3.sqlite"), port=0, web_port=0)
@@ -1809,6 +1850,10 @@ class LauncherTest(FolderCase):
         with open(settings, "w", encoding="utf-8") as f:
             json.dump({"version": 1, "values": {"music_volume": 40, "key_volume": 65}}, f)
         state = st.LauncherState.load()
+        # Loading only reads (a command that only reads leaves no file); the window's first sync (its Sound page,
+        # PLAY) makes the file.
+        self.assertFalse(os.path.exists(sound_file.path_beside(settings)))
+        state.sync_sound()
         found = sound_file.read(sound_file.path_beside(settings))
         self.assertEqual((found["music_volume"], found["key_volume"], found["master_volume"], found["eq_60"]),
                          (40, 65, 100, 0))
@@ -1988,6 +2033,19 @@ class LauncherTest(FolderCase):
         # The card, the token and the ID go (the window's Remember my ID keeps an ID; the command line keeps none).
         self.assertEqual(st.LauncherState.load().remote, {"game": "192.0.2.1:4725", "version": "0.11.0",
                                                           "updates": False})
+        # Remember my ID's twin: --remember with --sign-in keeps the ID for the window's next sign-in; a sign-in without
+        # it keeps none (not another account's the window remembered either).
+        for flags, kept in ((["--remember"], "ORION"), ([], None)):
+            with mock.patch.object(remote, "sign_in", return_value={"login_id": "ORION", "dj_name": "DJ ORION",
+                                                                    "card": "2" * 20, "token": "t2"}), \
+                    mock.patch("sys.stdin", io.StringIO("secret\n")):
+                state = st.LauncherState.load()
+                state.remote = dict(state.remote, remember_id="NOVA")
+                state.save()
+                self.assertEqual(main.main(["--sign-in", "ORION"] + flags), 0)
+            self.assertEqual(st.LauncherState.load().remote.get("remember_id"), kept, flags)
+            with mock.patch.object(remote, "sign_out", return_value=True):
+                self.assertEqual(main.main(["--sign-out"]), 0)
         # The status: exit 1 while PLAY cannot go (here: no game folder known on another server, not signed in).
         self.assertEqual(main.main(["--status"]), 1)
         # A report where it is asked for; the log folder's path.
@@ -2200,6 +2258,34 @@ class StartupAndUpdateTest(unittest.TestCase):
             self.write(data)
             with self.assertRaises(st.StateError, msg=data):
                 st.LauncherState.load()
+
+    def test_a_read_only_job_makes_no_sound_file(self):
+        # --status reads; on a first start it leaves no sound.ini (nor its lock) behind (review round 2, #10).
+        from opendmt3.client import main
+        with contextlib.redirect_stdout(io.StringIO()):
+            main.main(["--status"])
+        self.assertEqual(sorted(n for n in os.listdir(self.config) if n.startswith("sound.ini")), [])
+
+    def test_a_sound_file_that_cannot_be_read_stops_nothing(self):
+        # A folder where sound.ini goes (as a file this user may not read, or one held without sharing): every job and
+        # the window go on from the launcher's own values, said in the log, the thing kept beside under another name
+        # so that a new file can be made (review round 2, #3).
+        from opendmt3.client import main
+        from opendmt3.client import state as st
+        from opendmt3.core.cabinet import values as choices
+        os.makedirs(os.path.join(self.config, "sound.ini", "inside"))
+        with self.assertLogs("opendmt3.launcher", "WARNING") as logged:
+            state = st.LauncherState.load()
+        self.assertEqual({name: state.values[name] for name in choices.SOUND_FILE_VALUES},
+                         {name: choices.normalize({})[name] for name in choices.SOUND_FILE_VALUES})
+        self.assertTrue(any("sound file cannot be read" in line for line in logged.output), logged.output)
+        kept = [n for n in os.listdir(self.config) if n.startswith("sound.ini.broken-")]
+        self.assertEqual(len(kept), 1, os.listdir(self.config))
+        self.assertTrue(os.path.isdir(os.path.join(self.config, kept[0], "inside")))
+        # The command line too, again with a folder in its place.
+        os.makedirs(os.path.join(self.config, "sound.ini"), exist_ok=True)
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            self.assertIn(main.main(["--status"]), (0, 1))
 
     def test_versions_in_semantic_order(self):
         from opendmt3.client import installer

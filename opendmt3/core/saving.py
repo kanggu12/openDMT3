@@ -8,6 +8,7 @@ Only the standard library: the launcher, the installer and the tests all use it.
 
 import os
 import tempfile
+import time
 
 
 def write_whole(path, data, prefix=".opendmt3-"):
@@ -31,3 +32,20 @@ def write_whole(path, data, prefix=".opendmt3-"):
         except OSError:
             pass
         raise
+
+
+def set_aside(path, now=None):
+    """Keep a file that cannot be read beside it as it was (<name>.broken-<date>-<time>, a number after it when one of
+    that second is there already), so that a new one can take its place; returns the name it is kept under, or None
+    when it was gone already (another start set it aside a moment ago)."""
+    stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(now))
+    aside, n = "%s.broken-%s" % (path, stamp), 1
+    while os.path.exists(aside):
+        # Two in one second (a command run again at once): neither written over.
+        n += 1
+        aside = "%s.broken-%s-%d" % (path, stamp, n)
+    try:
+        os.replace(path, aside)
+    except FileNotFoundError:
+        return None
+    return aside

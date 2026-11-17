@@ -107,6 +107,7 @@ class LauncherApp:
         self.removing = False                 # the game's files are going back to remove openDMT3
         self.guide = None                     # the first-start guide, while it is on show
         self.server_open = None               # the server whose folded card Change opened (ONLINE's sign-in line)
+        self.admin_opening = False            # ONLINE's Admin pages under way (one opening at a time)
         self.main_buttons = []                # the page's main buttons (pages.main_button), lit while PLAY is not
         self.folder_look = None               # what the folder in use is (client/intake.py), for the Game page
         self.game_list = None                 # the Game page's list of folders to change to, while it is open
@@ -511,9 +512,21 @@ class LauncherApp:
 
         threading.Thread(target=work, daemon=True, name="records").start()
 
-    def open_admin(self):
-        """ONLINE's Admin pages: this PC's server's admin site, signed in as its admin, in the browser."""
+    def open_admin(self, key=None):
+        """ONLINE's Admin pages: this PC's server's admin site, signed in as its admin, in the browser. One opening at a
+        time: a press while one is under way does nothing, and the key (`key`) shows it works meanwhile."""
+        if self.admin_opening:
+            return
+        self.admin_opening = True
+        if key is not None:
+            key.busy(True)
         self.set_status(self.words("online.admin.opening"), "normal")
+
+        def done(said, tone):
+            self.admin_opening = False
+            if key is not None and key.winfo_exists():
+                key.busy(False)
+            self.set_status(said, tone)
 
         def work():
             try:
@@ -522,13 +535,19 @@ class LauncherApp:
                 actions.open_link(link)
             except Exception as e:  # noqa: BLE001  (shown, never swallowed)
                 log.exception("opening the admin pages failed")
-                self.post(lambda e=e: self.set_status(self.words("status.error", error=self.words.error(e)), "bad"))
+                self.post(lambda e=e: done(self.words("status.error", error=self.words.error(e)), "bad"))
                 return
             # A player made the server's admin just now is said, once (it happens once): never a silent change.
             said = self.words("online.admin.made", login_id=made) if made else self.words("online.admin.opened")
-            self.post(lambda: self.set_status(said, "ok"))
+            self.post(lambda: done(said, "ok"))
 
         threading.Thread(target=work, daemon=True, name="admin").start()
+
+    def player_changed(self):
+        """Who plays changed on ONLINE's Players card (picked, added, deleted): the cabinet's lamps and the ready
+        check follow at once, not at the next line of the status."""
+        self._paint_cabinet_lamps()
+        self.refresh_checks()
 
     def _failed(self, error):
         self._ready_shown()

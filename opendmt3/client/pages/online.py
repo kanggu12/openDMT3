@@ -143,8 +143,10 @@ def server_panel(app, parent, rerender, lead=None):
     else:
         sign = _sign_in_card(app, parent, remote_state, rerender, test_link, None if not folded else change)
         if lead is not None and lead.winfo_exists():
-            # First on the page: the next thing to do, whole on the screen.
+            # First on the page: the next thing to do, whole on the screen; and first for Tab too (Tk's Tab follows
+            # the stacking order, which was the making order: Where you play's card first).
             sign.pack_configure(before=lead)
+            sign.lower(lead)
     return _test_card_for(app, parent, typed, tester, rerender)
 
 
@@ -242,11 +244,15 @@ def _sign_in_card(app, parent, remote_state, rerender, test_link, change=None):
     # in with, so that only the password is to type again.
     remembered = remote_state.get("remember_id") or (remote_state.get("login_id") if remote_state.get("game") else "")
     remembered = remembered or ""
+    # Remember my ID shows what the person chose: ticked only when they kept an ID, not because the server's refusal
+    # left the ID they signed in with in the field (review round 2, #4).
+    ticked = bool(remote_state.get("remember_id"))
 
     def form_again(keep_id=True):
         for child in holder.winfo_children():
             child.destroy()
-        _sign_in_form(app, holder, remembered if keep_id else "", rerender, test_link, banned, change)
+        _sign_in_form(app, holder, remembered if keep_id else "", rerender, test_link, banned, change,
+                      ticked=ticked and keep_id)
 
     def banned(reason, login_id):
         """The account is banned: a plate in place of the form, and the way to sign in with another ID."""
@@ -282,9 +288,10 @@ def _server_line(app, parent, change=None):
         made.pack(side="left", padx=(ui.px(12), 0))
 
 
-def _sign_in_form(app, parent, remembered, rerender, test_link, banned, change=None):
+def _sign_in_form(app, parent, remembered, rerender, test_link, banned, change=None, ticked=False):
     """The sign-in's form, in `parent` (see _sign_in_card); banned(reason, login_id) when the server says the account
-    is banned; `change` opens the server's folded card again (Change on the server's line)."""
+    is banned; `change` opens the server's folded card again (Change on the server's line); `ticked`: Remember my ID
+    as the person left it."""
     from opendmt3.client import remote
     from opendmt3.server.services import accounts as acc
     ui, w = app.ui, app.words
@@ -295,8 +302,9 @@ def _sign_in_form(app, parent, remembered, rerender, test_link, banned, change=N
     form.field("online.id", w("online.id"), width=ID_CHARS, size="lg", mark="person")
     form.field("online.password", w("online.password"), width=PASSWORD_CHARS, secret=True, size="lg", mark="lock")
     form.fields["online.id"].insert(0, remembered)
-    # Remember my ID: unticked at first; ticked, the ID stays for the next sign-in on this PC (never the password).
-    remember = widgets.Tick(form, ui, w("online.remember"), value=bool(remembered))
+    # Remember my ID as the person left it (unticked until they tick it); ticked, the ID stays for the next sign-in on
+    # this PC (never the password).
+    remember = widgets.Tick(form, ui, w("online.remember"), value=ticked)
     remember.pack(anchor="w", pady=(ui.px(12), 0))
     # One sign-in at a time: Enter pressed twice sends one request (the server counts every try).
     asking = {"now": False}
@@ -361,7 +369,7 @@ def _sign_in_form(app, parent, remembered, rerender, test_link, banned, change=N
             form.into_view()
             return
         if key in ("error.remote.unreachable", "error.remote.not_an_answer", "error.remote.answered",
-                   "error.remote.unknown_host", "error.remote.not_opendmt3"):
+                   "error.remote.unknown_host", "error.remote.not_opendmt3", "error.remote.not_a_site"):
             # The server, not the account: right above the key, with the way to the test that finds the step that
             # fails.
             form.tell(w.error(error), "bad", (w("server_test.run"), test_link))
@@ -668,7 +676,9 @@ def build_online(app, parent):
         else:
             # This PC's server's admin pages (its own site on this PC's address), opened signed in as its admin: at the
             # card's head, as a card's action is.
-            players.action(w("online.admin"), app.open_admin)
+            # One opening at a time, the key busy while it is under way.
+            opener = {}
+            opener["key"] = players.action(w("online.admin"), lambda: app.open_admin(opener["key"]))
         for i, r in enumerate(rows):
             if i:
                 # One line a player, parted by the card's faint lines.
@@ -683,9 +693,10 @@ def build_online(app, parent):
             if not app.state.player:
                 app.state.player = login_id
                 app.state.save()
-            # The list with the new player, and the form empty again for the next one.
+            # The list with the new player, and the form empty again for the next one; the cabinet's lamps at once.
             sections.redo("players")
             sections.redo("add")
+            app.player_changed()
 
         player_form(app, add.body, added)
 
@@ -711,6 +722,7 @@ def _player_line(app, parent, r, changed):
         app.state.player = login_id
         app.state.save()
         changed()
+        app.player_changed()
 
     def remove(login_id=r["login_id"], name=r["dj_name"]):
         if not dialogs.ask(app, "danger", w("online.remove.title"), w("online.remove.ask", name=name),
@@ -729,6 +741,8 @@ def _player_line(app, parent, r, changed):
             app.state.player = None
             app.state.save()
         changed()
+        # The ID CARD lamp goes out with the card at once (review round 2, #5).
+        app.player_changed()
 
     widgets.Button(line, ui, w("online.remove"), remove, kind="danger").pack(side="right")
     if not on:
