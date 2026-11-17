@@ -420,7 +420,9 @@ class AdminPagesTest(ApiBase):
         self.admin()
         token = self.form_token(self.client, "/admin/server")
         boss = self.token("BOSS")
-        # A server the page cannot ask (started some other way): the tab says where to stop it, nothing stops.
+        # A server the page cannot ask (started some other way): the tab says where to stop it, nothing stops. Set
+        # here, as a Site made in a container (CI's) takes Docker Compose's by default.
+        self.site.runner = runner.default(False)
         page = self.client.get("/admin/server").text
         self.assertIn("Stop it where it was started", page)
         self.assertNotIn("Stop the server</button>", page)
