@@ -19,21 +19,21 @@
 set -u
 OUT=$(realpath -m "${1:?usage: run.sh OUT_DIR}")
 REPO=${OPENDMT3_REPO:-$(cd "$(dirname "$0")/../../.." && pwd)}
-# 25 pages (the sign-in page, 17 signed in, the players page with a message to send, the Status page with a line to
+# 27 pages (the sign-in page, 19 signed in, the players page with a message to send, the Status page with a line to
 # look at, the songs page filtered, the account page with a token just made, the backups page after an upload, the
 # Song list tab after a song list's upload, the Status page with maintenance off) x 2 widths x 2 languages; five
 # questions (a player deleted, a player's plays reset, a new password, every play reset, a backup deleted, a token
 # revoked), one message, one list to look at, one songs filter, one token, one upload of each kind and one maintenance
 # off and on each round.
-EXPECTED_PAGES=100
+EXPECTED_PAGES=108
 EXPECTED_DIALOGS=24
 EXPECTED_ROUNDS=4
 # The empty server (empty.js): the first-run page in 2 languages x 2 widths and once refused in each language, the
-# sign-in page after the owner was made, a wrong password in each language, 18 pages x 2 widths x 2 languages, the
+# sign-in page after the owner was made, a wrong password in each language, 20 pages x 2 widths x 2 languages, the
 # players page with an account made x 2 x 2, and a plain player's 4 pages x 2 x 2; its states that must hold: the
 # first run (4) and refused (2), the owner made (1), a wrong password (2), the Download page and the Status page of
 # the empty server (4 each), the message (4), a plain player (4).
-EXPECTED_EMPTY_PAGES=101
+EXPECTED_EMPTY_PAGES=109
 EXPECTED_EMPTY_STATES=25
 # Names of this run's own (odt3-*, with its process number), so two runs at once (the self-test's and another's, or
 # CI's) never stop each other's server or use each other's image; each goes when its run ends.
@@ -121,7 +121,10 @@ if e["states"] != empty_states or e["state_faults"]:
 # have it (the kinds' words are what docs/test-cases.md and selftest.sh look for).
 for what, key in (("pages stick out", "sticking"), ("pages cut words off", "cut"),
                   ("pages have a cell with no label", "unlabelled"), ("pages cut the phone menu", "menu_cut"),
-                  ("pages have a button's words out of its middle", "askew")):
+                  ("pages have a button's words out of its middle", "askew"),
+                  ("pages have boxes touching, words nearer than their padding, a gap off the scale or words on the "
+                   "bare page", "spacing"), ("pages have a floating layer off the screen or under something",
+                                             "layer_faults")):
     if s[key] + e[key]:
         problems.append("%s: %d" % (what, s[key] + e[key]))
 if empty_status:
@@ -142,12 +145,16 @@ for what, done, faults in (("the token shown once", "tokens", "token_faults"), (
                            ("maintenance off and on", "maintenances", "maintenance_faults")):
     if s[done] != rounds or s[faults]:
         problems.append("%s: %d of %d runs misbehaved" % (what, s[faults], s[done]))
+# The floating layers: the full server's pages have the charts and the DJ's weeks, so some were opened.
+if not s["layers"]:
+    problems.append("no floating layer was opened")
 if status:
     problems.append("the browser exited %d" % status)
 print("FAIL: " + "; ".join(problems) if problems else "PASS: %d pages and %d of an empty server, nothing sticks out, "
-      "no words cut off, no cell without a label, the phone menu whole, every button's words in its middle; %d "
+      "no words cut off, no cell without a label, the phone menu whole, every button's words in its middle, boxes "
+      "apart and on the scale, %d floating layers whole and on top; %d "
       "questions fine; %d upload fields fine; the songs filter, the message to send, the list to look at, the token "
       "shown once, both uploads and maintenance off and on fine in %d runs; the empty server's %d states hold" % (
-          s["pages"], e["pages"], s["dialogs"], s["drops"], rounds, e["states"]))
+          s["pages"], e["pages"], s["layers"], s["dialogs"], s["drops"], rounds, e["states"]))
 sys.exit(1 if problems else 0)
 PY

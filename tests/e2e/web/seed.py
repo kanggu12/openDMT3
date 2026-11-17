@@ -127,7 +127,65 @@ def main(data):
     notice.write(data, (line * 4)[:notice.MOST], who="BOSS")
     # Maintenance on, so every page shows its line beside the notice (the run turns it off and on again once a round).
     maintenance.write(data, True, who="BOSS")
+    machine_day(data, rng, now)
+    requests_day(data, rng, now)
     print("seeded %d accounts, %d songs" % (len(ids), len(songs)))
+
+
+def machine_day(data, rng, now):
+    """A made-up last day of the machine, as the server's sampler keeps it (services/machine.py): a point every five
+    minutes, the processors busier in the evening when people play, memory a little up with them, the disk filling
+    slowly, cabinets online in the evening, and an hour with no point (the server was stopped then), so the Status tab
+    shows its charts with a gap."""
+    from opendmt3.server.services import machine
+    points = []
+    for n in range(machine.KEEP):
+        at = now - (machine.KEEP - 1 - n) * machine.POINT
+        hour = time.localtime(at).tm_hour
+        if 140 <= n < 152:
+            # The hour the server was stopped: nothing kept.
+            continue
+        evening = 1.0 if 18 <= hour <= 23 else (0.4 if 12 <= hour < 18 else 0.1)
+        cpu = round(4 + 30 * evening + rng.random() * 6, 1)
+        points.append({"at": at, "cpu": cpu, "peak": round(min(100, cpu * (1.6 + rng.random())), 1),
+                       "memory": round(34 + 8 * evening + rng.random() * 2, 1),
+                       "disk": round(61.0 + n * 0.004, 1), "cabinets": int(round(6 * evening))})
+    with open(os.path.join(data, machine.FILE), "w", encoding="utf-8") as f:
+        json.dump({"points": points}, f)
+
+
+def requests_day(data, rng, now):
+    """A made-up last day of the site's requests log (services/requestlog.py): the players' pages through the day,
+    busier in the evening, the launcher's API calls, a few pages that are not there and a few sign-ins held back, from
+    documentation addresses."""
+    from opendmt3.server.services import requestlog
+    pages = ["/", "/rankings", "/rankings?by=month", "/songs", "/songs/1", "/songs/4", "/dj/2", "/download", "/account"]
+    who = ["NOVA", "RIO", "HANA", "WWWWWWWW", None]
+    lines = []
+    for slot in range(requestlog.SLOTS):
+        start = now - (requestlog.SLOTS - slot) * requestlog.SLOT
+        hour = time.localtime(start).tm_hour
+        busy = 40 if 18 <= hour <= 23 else (12 if 9 <= hour < 18 else 2)
+        for _ in range(rng.randint(busy // 2, busy)):
+            at = start + rng.random() * requestlog.SLOT
+            n = rng.random()
+            # A page that is not there, a sign-in held back, the launcher's sign-in, or a player's page.
+            if n < 0.06:
+                method, path, status = "GET", "/old-page-%d" % rng.randint(1, 3), 404
+            elif n < 0.09:
+                method, path, status = "POST", "/signin", 429
+            elif n < 0.3:
+                method, path, status = "POST", "/api/v1/session", 200
+            else:
+                method, path, status = "GET", rng.choice(pages), 200
+            lines.append({"at": round(at, 3), "method": method, "path": path, "status": status,
+                          "ms": round(3 + rng.random() * 40, 1), "address": "198.51.100.%d" % rng.randint(2, 30),
+                          "who": rng.choice(who) if status == 200 else None})
+    lines.sort(key=lambda line: line["at"])
+    os.makedirs(os.path.join(data, requestlog.FOLDER), exist_ok=True)
+    with open(os.path.join(data, requestlog.FOLDER, requestlog.NAME), "w", encoding="utf-8") as f:
+        for line in lines:
+            f.write(json.dumps(line) + "\n")
 
 
 if __name__ == "__main__":

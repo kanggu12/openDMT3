@@ -297,7 +297,7 @@ class AdminPagesTest(ApiBase):
         for n in range(3):
             self.play(nova, 1, 1, 500 + n, at=int(now) - 60 * n)
         page = self.client.get("/admin/status").text
-        for words in ("Resources", "What takes the disk", "When players play", "The server"):
+        for words in ("Resources", "What takes the disk", "When players play"):
             self.assertIn(words, page)
         # The grid: 7 days of 24 hours, each with its tip; three plays this hour on today's row.
         self.assertEqual(page.count('<i class="h'), 7 * 24 + 6)
@@ -395,34 +395,60 @@ class AdminPagesTest(ApiBase):
         self.assertNotIn('data-job="', page)
         self.assertIn("Imported the song list: 12 songs.", page)
 
-    def test_stop_asks_whoever_started_the_server(self):
+    def test_the_server_tab_asks_whoever_started_the_server(self):
         from opendmt3.server.web import runner
         self.admin()
-        token = self.form_token(self.client, "/admin/status")
+        token = self.form_token(self.client, "/admin/server")
         boss = self.token("BOSS")
-        # A server the page cannot ask (started some other way): the page says where to stop it, nothing stops.
-        page = self.client.get("/admin/status").text
+        # A server the page cannot ask (started some other way): the tab says where to stop it, nothing stops.
+        page = self.client.get("/admin/server").text
         self.assertIn("Stop it where it was started", page)
         self.assertNotIn("Stop the server</button>", page)
-        self.refused(self.call("POST", "/api/v1/server/stop", boss), 409, "not_here")
-        # Docker Compose: the command that stops it on the server PC.
+        for action in ("stop", "restart", "remove"):
+            self.refused(self.call("POST", "/api/v1/server/" + action, boss), 409, "not_here")
+        # Docker Compose: the commands, on the server PC, and no button.
         self.site.runner = runner.default(True)
-        self.assertIn("./dmt3 down", self.client.get("/admin/status").text)
-        self.assertEqual(self.call("POST", "/api/v1/server/stop", boss).json()["runner"]["command"], "./dmt3 down")
-        # The server's own command: asked first in the site's dialog, then asked to stop, once.
+        page = self.client.get("/admin/server").text
+        for command in ("./dmt3 down", "./dmt3 restart", "./dmt3 remove --delete-data"):
+            self.assertIn("<code>%s</code>" % command, page)
+        self.assertNotIn("Restart the server</button>", page)
+        r = self.call("POST", "/api/v1/server/remove", boss, json={"delete_data": True})
+        self.assertEqual(r.json()["runner"]["commands"]["remove_data"], "./dmt3 remove --delete-data")
+        self.assertIn("./dmt3 remove --delete-data", r.json()["error"]["message"])
+        # The launcher: its own window does it.
+        self.site.runner = runner.Runner("launcher")
+        self.assertIn("Help, Uninstall", self.client.get("/admin/server").text)
+        # The server's own command: each asked first in the site's dialog, then asked once.
         asked = []
-        self.site.runner = runner.Runner("python", stop=lambda: asked.append(True))
-        page = self.client.get("/admin/status").text
-        self.assertIn('data-ask="Stop the server now?"', page)
-        r = self.client.post("/admin/status", data={"csrf": token, "action": "stop"})
-        self.assertIn("The server is stopping.", r.text)
+        self.site.runner = runner.Runner("python", stop=lambda: asked.append("stop"),
+                                         restart=lambda: asked.append("restart"),
+                                         remove=lambda data: asked.append(("remove", data)))
+        page = self.client.get("/admin/server").text
+        for question in ("Stop the server now?", "Restart the server now?", "Delete the server&#39;s data?"):
+            self.assertIn('data-ask="%s"' % question, page)
+        r = self.client.post("/admin/server", data={"csrf": token, "action": "restart"})
+        self.assertIn("The server is starting again.", r.text)
+        self.assertIn('data-back="/admin/server"', r.text)
         time.sleep(runner.GRACE + 0.3)
-        self.assertEqual(asked, [True])
-        self.assertEqual(self.call("POST", "/api/v1/server/stop", boss).status_code, 202)
+        self.assertEqual(asked, ["restart"])
+        # Asked once: a second press, on the page or the API, changes nothing.
+        r = self.client.post("/admin/server", data={"csrf": token, "action": "stop"})
+        self.assertIn("asked already", r.text)
+        self.refused(self.call("POST", "/api/v1/server/stop", boss), 409, "asked_already")
         time.sleep(runner.GRACE + 0.3)
-        # Asked once: a second press changes nothing.
-        self.assertEqual(asked, [True])
-        self.assertIn("stopped the server", self.changes())
+        self.assertEqual(asked, ["restart"])
+        # Remove with its data, through the API: asked with the data.
+        self.site.runner = runner.Runner("python", remove=lambda data: asked.append(("remove", data)))
+        self.refused(self.call("POST", "/api/v1/server/remove", boss, json={"delete_data": "yes"}), 400,
+                     "bad_request")
+        r = self.call("POST", "/api/v1/server/remove", boss, json={"delete_data": True})
+        self.assertEqual((r.status_code, r.json()["asked"], r.json()["delete_data"]), (202, "remove", True))
+        time.sleep(runner.GRACE + 0.3)
+        self.assertEqual(asked[-1], ("remove", True))
+        self.assertTrue({"restarted the server", "removed the server and its data"} <= set(self.changes()))
+        # Korean too.
+        self.client.cookies.set("opendmt3_lang", "ko")
+        self.assertIn("서버 제거", self.client.get("/admin/server").text)
 
 
 def free_port():
@@ -434,45 +460,74 @@ def free_port():
 
 @unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
 class StopTheRealServerTest(unittest.TestCase):
-    """The server's own command (python -m opendmt3.server), stopped from its admin pages' API: the command that
-    started it ends, as Ctrl+C would end it, and says why."""
+    """The server's own command (python -m opendmt3.server), asked from its admin pages' API: it runs itself again in
+    the same process, and it stops, keeps a last copy of its database beside its data folder and deletes the folder
+    (a folder of the test's own)."""
 
-    def test_the_command_ends_when_its_admin_asks(self):
+    def test_the_command_restarts_and_removes_its_data_when_its_admin_asks(self):
         import httpx
-        tmp = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, tmp, True)
-        env = dict(os.environ, PYTHONPATH=ROOT)
-        # Not in a container, whatever runs the test: the command is its own runner.
-        env.pop("OPENDMT3_IN_CONTAINER", None)
         if os.path.exists("/.dockerenv"):
             self.skipTest("inside a container the server's runner is Docker Compose")
-        made = subprocess.run([sys.executable, "-m", "opendmt3.server", "--data", tmp, "--add-player", "BOSS",
+        # A data folder of the test's own, inside a folder of its own: the last copy lands beside it, in there too.
+        parent = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, parent, True)
+        data = os.path.join(parent, "data")
+        env = dict(os.environ, PYTHONPATH=ROOT)
+        env.pop("OPENDMT3_IN_CONTAINER", None)
+        made = subprocess.run([sys.executable, "-m", "opendmt3.server", "--data", data, "--add-player", "BOSS",
                                "--password", "pass1234", "--admin"], env=env, capture_output=True, timeout=60)
         self.assertEqual(made.returncode, 0, made.stderr)
         game, web = free_port(), free_port()
-        server = subprocess.Popen([sys.executable, "-m", "opendmt3.server", "--data", tmp, "--port", str(game),
+        server = subprocess.Popen([sys.executable, "-m", "opendmt3.server", "--data", data, "--port", str(game),
                                    "--web-port", str(web)], env=env, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT)
-        try:
-            base = "http://127.0.0.1:%d" % web
-            for _ in range(200):
+        base = "http://127.0.0.1:%d" % web
+
+        def up(seconds=20):
+            # The site answers its health check (within `seconds`).
+            for _ in range(int(seconds / 0.05)):
                 try:
                     if httpx.get(base + "/health", timeout=1).status_code == 200:
-                        break
+                        return True
                 except httpx.HTTPError:
                     pass
                 time.sleep(0.05)
+            return False
+
+        def signed():
             token = httpx.post(base + "/api/v1/session", json={"login_id": "BOSS", "password": "pass1234"}).json()
-            r = httpx.post(base + "/api/v1/server/stop", headers={"Authorization": "Bearer " + token["token"]})
-            self.assertEqual((r.status_code, r.json()["runner"]["kind"]), (202, "python"))
-            self.assertEqual(server.wait(timeout=20), 0)
+            return {"Authorization": "Bearer " + token["token"]}
+        try:
+            self.assertTrue(up())
+            # Restart: the same process (the window that started it keeps it) ends its server and runs it again.
+            r = httpx.post(base + "/api/v1/server/restart", headers=signed())
+            self.assertEqual((r.status_code, r.json()["runner"]["kind"], r.json()["runner"]["can"]),
+                             (202, "python", ["stop", "restart", "remove"]))
+            time.sleep(1.5)
+            self.assertTrue(up())
+            self.assertIsNone(server.poll())
+            # Remove with its data: it stops, keeps the last copy beside the folder, and the folder goes.
+            r = httpx.post(base + "/api/v1/server/remove", headers=signed(), json={"delete_data": True})
+            self.assertEqual(r.status_code, 202, r.text)
+            self.assertEqual(server.wait(timeout=30), 0)
         finally:
             if server.poll() is None:
                 server.kill()
                 server.wait()
             output = server.stdout.read().decode("utf-8", "replace")
             server.stdout.close()
-        self.assertIn("stopping: asked on the admin page", output)
+        self.assertIn("stopping: asked on the admin page (restart)", output)
+        self.assertIn("starting again: asked on the admin page", output)
+        self.assertFalse(os.path.exists(data), output)
+        kept = [n for n in os.listdir(parent) if n.startswith("data-last-") and n.endswith(".sqlite")]
+        self.assertEqual(len(kept), 1, os.listdir(parent))
+        # The copy is the database, its accounts in it.
+        import sqlite3
+        connection = sqlite3.connect(os.path.join(parent, kept[0]))
+        try:
+            self.assertEqual(connection.execute("SELECT login_id FROM accounts").fetchall(), [("BOSS",)])
+        finally:
+            connection.close()
 
 
 if __name__ == "__main__":

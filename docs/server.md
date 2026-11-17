@@ -328,7 +328,7 @@ listed with when it was made and last used, and revoked there ([api.md](api.md#n
 | **Download** | The installer (its size, when it was put there, its version), named after the server's address, with the address and the steps |
 | **Licenses** | openDMT3's license, the parts the server and the launcher it hands out are made with, and the fonts the site serves, with their licenses |
 
-**Admin** has a tab for each of its jobs:
+**Admin** has a tab for each of its jobs (each in full, with what it keeps on disk: [admin.md](admin.md)):
 
 | Tab | Does |
 | :--- | :--- |

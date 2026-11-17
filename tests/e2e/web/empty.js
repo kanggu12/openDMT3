@@ -17,24 +17,29 @@
 // Screenshots go to /out as LANG-empty-NAME-WIDTH.png. The last line is the summary the runner reads:
 // {"pages", "sticking", "cut", "unlabelled", "menu_cut", "askew", "states", "state_faults"}.
 const puppeteer = require('puppeteer');
-const {layout, record} = require('/w/measure.js');
+const {layout, layers, record} = require('/w/measure.js');
 
 const base = 'http://127.0.0.1:4730';
 const sizes = [[1280, 860], [390, 844]];
 // Every page a signed-in owner can open, and three that are not there (a page, a DJ, a song).
 const pages = ['/', '/rankings', '/rankings?by=best30', '/rankings?by=month', '/songs', '/download', '/account',
-               '/admin/players', '/admin/cabinets', '/admin/status', '/admin/song_list', '/admin/log',
-               '/admin/log/plays', '/admin/backups', '/licenses', '/nothing-here', '/dj/999', '/songs/9999'];
+               '/admin/players', '/admin/cabinets', '/admin/status', '/admin/server', '/admin/song_list', '/admin/log',
+               '/admin/log/plays', '/admin/log/requests', '/admin/backups', '/licenses', '/nothing-here', '/dj/999', '/songs/9999'];
 
 (async () => {
   const browser = await puppeteer.launch({args: ['--no-sandbox']});
   const page = await browser.newPage();
-  const summary = {pages: 0, sticking: 0, cut: 0, unlabelled: 0, menu_cut: 0, askew: 0, states: 0, state_faults: 0};
+  const summary = {pages: 0, sticking: 0, cut: 0, unlabelled: 0, menu_cut: 0, askew: 0, spacing: 0, layer_faults: 0,
+                   layers: 0, states: 0, state_faults: 0};
   const go = path => page.goto(base + path, {waitUntil: 'networkidle0'});
   const shot = (lang, name, width) => page.screenshot({path: `/out/${lang}-empty-${name}-${width}.png`, fullPage: true});
   // A page looked at: measured, shot, and one of the run's lines.
   const look = async (lang, width, name, shown) => {
-    record(summary, lang, width, 'empty ' + shown, await layout(page));
+    // The layout's measure, then the page's floating layers opened one by one (measure.js: layers).
+    const over = await layout(page);
+    const opened = await layers(page);
+    summary.layers += opened.opened;
+    record(summary, lang, width, 'empty ' + shown, Object.assign(over, {layers: opened.faults}));
     await shot(lang, name, width);
   };
   // A state that must hold, said as one of the run's lines.

@@ -21,14 +21,14 @@
 const fs = require('fs');
 const puppeteer = require('puppeteer');
 // The layout's measure, shared with the empty server's run (empty.js).
-const {layout, record: recorded} = require('/w/measure.js');
+const {layout, layers, record: recorded} = require('/w/measure.js');
 
 const base = process.env.SITE || 'http://site:4730';
 // The upload field's words in both languages, from the site's own table (run.sh reads strings.py): {key: [en, ko]}.
 const words = JSON.parse(process.env.WORDS || '{}');
 const pages = ['/', '/rankings', '/rankings?by=best30', '/rankings?by=month', '/songs', '/songs/4', '/dj/4', '/download',
-               '/account', '/admin/players', '/admin/cabinets', '/admin/status', '/admin/song_list', '/admin/log',
-               '/admin/log/plays', '/admin/backups', '/licenses'];
+               '/account', '/admin/players', '/admin/cabinets', '/admin/status', '/admin/server', '/admin/song_list', '/admin/log',
+               '/admin/log/plays', '/admin/log/requests', '/admin/backups', '/licenses'];
 // The questions asked first: what each is, where, and the button of the form that asks it.
 const asking = action => `form[data-ask]:has(input[name=action][value=${action}]) button.danger`;
 const questions = [['player delete', '/admin/players', asking('delete')],
@@ -42,13 +42,20 @@ const questions = [['player delete', '/admin/players', asking('delete')],
 (async () => {
   const browser = await puppeteer.launch({args: ['--no-sandbox']});
   const page = await browser.newPage();
-  const summary = {pages: 0, sticking: 0, cut: 0, unlabelled: 0, menu_cut: 0, askew: 0, dialogs: 0, dialog_faults: 0,
+  const summary = {pages: 0, sticking: 0, cut: 0, unlabelled: 0, menu_cut: 0, askew: 0, spacing: 0, layer_faults: 0,
+                   layers: 0, dialogs: 0, dialog_faults: 0,
                    filters: 0, filter_faults: 0, messages: 0,
                    message_faults: 0, looks: 0, look_faults: 0, tokens: 0, token_faults: 0, uploads: 0,
                    upload_faults: 0, song_lists: 0, song_list_faults: 0, drops: 0, drop_faults: 0, maintenances: 0,
                    maintenance_faults: 0};
   // What the layout's measure finds on the page showing (measure.js), and its line and place in the summary.
-  const measure = () => layout(page);
+  // The layout's measure, then the page's floating layers opened one by one (measure.js: layers), together.
+  const measure = async () => {
+    const over = await layout(page);
+    const opened = await layers(page);
+    summary.layers += opened.opened;
+    return Object.assign(over, {layers: opened.faults});
+  };
   const record = (lang, width, path, over) => recorded(summary, lang, width, path, over);
   // An upload field on the page as a person meets it, before the round's upload: what it says and that the browser's own
   // words never show, the keyboard reaching it (Tab) and opening it (Space) with its ring showing, the file chosen
@@ -60,7 +67,7 @@ const questions = [['player delete', '/admin/players', asking('delete')],
       const box = document.querySelector('form.upload .drop'), input = box.querySelector('input[type=file]');
       const b = box.getBoundingClientRect(), i = input.getBoundingClientRect(), style = getComputedStyle(box);
       return {pick: box.querySelector('.drop-pick').textContent, hint: box.querySelector('.drop-hint').textContent,
-              text: box.innerText, sends: !box.closest('form').querySelector('button.primary').disabled,
+              text: box.innerText, sends: !box.closest('form').querySelector('button.send').disabled,
               hidden: getComputedStyle(input).opacity === '0',
               covers: Math.abs(b.left - i.left) < 1 && Math.abs(b.right - i.right) < 1 && Math.abs(b.top - i.top) < 1 &&
                       Math.abs(b.bottom - i.bottom) < 1,
@@ -253,14 +260,14 @@ const questions = [['player delete', '/admin/players', asking('delete')],
       let posted = 0;
       const posting = r => { if (r.method() === 'POST') posted += 1; };
       page.on('request', posting);
-      await page.click('form.upload button.primary');
+      await page.click('form.upload button.send');
       await new Promise(r => setTimeout(r, 400));
       page.off('request', posting);
       const told = await page.evaluate(() => {
         const said = document.querySelector('.upload-too-large'), box = document.querySelector('.drop');
         return {shown: !said.hidden && said.offsetHeight > 0, where: location.pathname,
                 box: box.classList.contains('too-big') && getComputedStyle(box).borderTopColor === 'rgb(255, 79, 160)',
-                sends: !box.closest('form').querySelector('button.primary').disabled};
+                sends: !box.closest('form').querySelector('button.send').disabled};
       });
       const name = await page.evaluate(() => document.querySelector('a.btn[download]').getAttribute('href').split('/').pop());
       const bytes = await page.evaluate(async name => {
@@ -272,7 +279,7 @@ const questions = [['player delete', '/admin/players', asking('delete')],
       fs.writeFileSync('/tmp/backup.sqlite', Buffer.from(bytes, 'base64'));
       await page.goto(base + '/admin/backups', {waitUntil: 'networkidle0'});
       await (await page.$('form.upload input[type=file]')).uploadFile('/tmp/backup.sqlite');
-      await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('form.upload button.primary')]);
+      await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('form.upload button.send')]);
       const uploaded = await page.evaluate(() => ({ok: (document.querySelector('p.alert.ok') || {}).textContent || '',
                                                    rows: document.querySelectorAll('table.table tbody tr').length}));
       record(lang, width, '/admin/backups (uploaded)', await measure());
@@ -293,19 +300,19 @@ const questions = [['player delete', '/admin/players', asking('delete')],
       let listPosted = 0;
       const listPosting = r => { if (r.method() === 'POST') listPosted += 1; };
       page.on('request', listPosting);
-      await page.click('form.upload button.primary');
+      await page.click('form.upload button.send');
       await new Promise(r => setTimeout(r, 400));
       page.off('request', listPosting);
       const listTold = await page.evaluate(() => {
         const said = document.querySelector('.upload-too-large'), box = document.querySelector('.drop');
         return {shown: !said.hidden && said.offsetHeight > 0, where: location.pathname,
                 box: box.classList.contains('too-big') && getComputedStyle(box).borderTopColor === 'rgb(255, 79, 160)',
-                sends: !box.closest('form').querySelector('button.primary').disabled};
+                sends: !box.closest('form').querySelector('button.send').disabled};
       });
       await (await page.$('.card:has(form.upload)')).screenshot({path: `/out/${lang}-upload-song-list-too-big-${width}.png`});
       await page.goto(base + '/admin/song_list', {waitUntil: 'networkidle0'});
       await (await page.$('form.upload input[type=file]')).uploadFile('/out/openDMT3-song-list.zip');
-      await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('form.upload button.primary')]);
+      await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('form.upload button.send')]);
       const taken = await page.evaluate(() => ({ok: (document.querySelector('p.alert.ok') || {}).textContent || '',
                                                  bad: (document.querySelector('p.alert.bad:not([hidden])') || {}).textContent || ''}));
       record(lang, width, '/admin/song_list (uploaded)', await measure());

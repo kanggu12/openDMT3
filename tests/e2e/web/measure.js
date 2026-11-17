@@ -10,7 +10,12 @@
 //   menu          at a phone's width, a word of the top menu that does not fit the screen (cut mid-word at its edge),
 //                 and a menu whose words would not fit the narrowest phone looked after (360 px wide);
 //   askew         a button whose words are not in its middle or are larger than it (a link made to look like a button
-//                 lost the box that centres its words, and they rose to its top edge beside two buttons that kept it).
+//                 lost the box that centres its words, and they rose to its top edge beside two buttons that kept it);
+//   spacing       boxes (a card, a button, a field, a tag, an alert: anything with a fill, a border or a shadow) that
+//                 touch or overlap a box beside them in the same parent; words nearer a box's edge than its padding;
+//                 a gap between two boxes beside each other that is off the site's scale (whole steps of 2 px up to
+//                 32, then 36, 40, 48, 56, 64); and words with no box under them, straight on the page's background
+//                 (the bar, the hero, the notice and the foot are boxes of their own).
 //
 // Each is a short list of what was found (empty: nothing), so a line of the run names it.
 const layout = page => page.evaluate(() => {
@@ -95,9 +100,110 @@ const layout = page => page.evaluate(() => {
       askew.push(name(button) + ' "' + said(button) + '" (its words are larger than it)');
     }
   }
+  // ---- spacing: boxes apart, words inside their box's padding, gaps on the scale, no words on the bare page
+  const spacing = [];
+  const clear = c => !c || c === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(c);
+  // A box: something drawn, so its edge shows (a fill, an image, a border, a shadow), and shown.
+  const isBox = e => {
+    const s = getComputedStyle(e);
+    return !clear(s.backgroundColor) || s.backgroundImage !== 'none' || s.boxShadow !== 'none' ||
+      ['Top', 'Right', 'Bottom', 'Left'].some(side => parseFloat(s['border' + side + 'Width']) > 0 && !clear(s['border' + side + 'Color']));
+  };
+  const outside = 'dialog, dialog *, .shards, .shards *, .tip, svg, svg *, script, style, option, .visually-hidden';
+  const boxes = [...document.querySelectorAll('body *')].filter(e => !e.matches(outside) && shown(e) && isBox(e) &&
+    getComputedStyle(e).position !== 'fixed');
+  const steps = new Set([0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 36, 40, 48, 56, 64]);
+  const boxed = new Set(boxes);
+  for (const box of boxes) {
+    const r = box.getBoundingClientRect();
+    // Its next box in the same parent, on the same row or in the same column.
+    for (let next = box.nextElementSibling; next; next = next.nextElementSibling) {
+      if (!boxed.has(next)) continue;
+      const n = next.getBoundingClientRect();
+      const sideBySide = n.top < r.bottom - 1 && n.bottom > r.top + 1;
+      const stacked = n.left < r.right - 1 && n.right > r.left + 1;
+      if (!sideBySide && !stacked) continue;
+      const gap = sideBySide ? Math.max(n.left - r.right, r.left - n.right) : Math.max(n.top - r.bottom, r.top - n.bottom);
+      if (gap < 1.5 && !(sideBySide && stacked && gap < -1 && box.closest('.partbar, .heat, .slots, .daycells'))) {
+        spacing.push(name(box) + ' and ' + name(next) + ' touch (' + Math.round(gap) + ' px)');
+      } else if (gap < 70 && !steps.has(Math.round(gap)) && Math.abs(gap - Math.round(gap)) < 0.3) {
+        spacing.push(name(box) + ' to ' + name(next) + ': ' + Math.round(gap) + ' px is off the scale');
+      }
+      break;
+    }
+  }
+  // Words: each line of text, against the nearest box around it.
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const parent = node.parentElement;
+    if (!node.textContent.trim() || !parent || parent.closest(outside) || !shown(parent)) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const t = range.getBoundingClientRect();
+    if (!t.width || !t.height) continue;
+    let box = parent;
+    while (box && box !== document.body && !boxed.has(box)) box = box.parentElement;
+    if (!box || box === document.body) {
+      spacing.push(name(parent) + ' "' + said(parent) + '" sits on the bare page');
+      continue;
+    }
+    // A field's or a button's own words are placed by the browser and the button's check (askew).
+    if (box.matches('input, select, textarea, .btn, button')) continue;
+    const b = box.getBoundingClientRect(), s = getComputedStyle(box);
+    const near = [['left', t.left - b.left, s.paddingLeft], ['right', b.right - t.right, s.paddingRight],
+                  ['top', t.top - b.top, s.paddingTop], ['bottom', b.bottom - t.bottom, s.paddingBottom]]
+      .filter(([, room, pad]) => room < parseFloat(pad) - 1.5);
+    if (near.length) {
+      spacing.push(name(parent) + ' "' + said(parent) + '" nearer the ' + near[0][0] + ' edge of ' + name(box) +
+                   ' than its padding (' + Math.round(near[0][1]) + ' of ' + parseFloat(near[0][2]) + ' px)');
+    }
+  }
   return {page: document.documentElement.scrollWidth - width, els, cut: cut.slice(0, 6),
-          unlabelled: unlabelled.slice(0, 6), menu, askew: askew.slice(0, 6)};
+          unlabelled: unlabelled.slice(0, 6), menu, askew: askew.slice(0, 6), spacing: [...new Set(spacing)].slice(0, 8)};
 });
+
+// The page's floating layers (the charts' and the DJ's weeks' tips), each opened as a person opens it, by pointing at
+// it: the first, the middle and the last of each kind, scrolled into the middle of the screen first. Each must lie
+// wholly inside the screen and on top of everything at its corners and its middle (nothing drawn over it). Returns
+// the list of those that do not (empty: all fine) and how many were opened.
+const LAYERS = ['.wk', '.trend-hours .hr', '.slot', '.heat i'];
+const layers = async page => {
+  const faults = [];
+  let opened = 0;
+  for (const kind of LAYERS) {
+    const all = await page.$$(kind);
+    const picked = [...new Set([0, Math.floor(all.length / 2), all.length - 1])].filter(i => i >= 0 && i < all.length);
+    for (const i of picked) {
+      const handle = all[i];
+      await handle.evaluate(e => e.scrollIntoView({block: 'center', inline: 'center'}));
+      await handle.hover();
+      opened += 1;
+      const fault = await handle.evaluate(e => {
+        const tip = e.querySelector('.tip');
+        if (!tip) return 'no tip';
+        const r = tip.getBoundingClientRect();
+        if (!r.width || !r.height || getComputedStyle(tip).display === 'none') return 'its tip does not open';
+        const w = document.documentElement.clientWidth, h = window.innerHeight;
+        if (r.left < 0 || r.top < 0 || r.right > w || r.bottom > h) return 'its tip leaves the screen';
+        // The tip lets the pointer through (pointer-events: none): for the look only, it takes it.
+        tip.style.pointerEvents = 'auto';
+        const points = [[r.left + 2, r.top + 2], [r.right - 2, r.top + 2], [r.left + 2, r.bottom - 2],
+                        [r.right - 2, r.bottom - 2], [(r.left + r.right) / 2, (r.top + r.bottom) / 2]];
+        for (const [x, y] of points) {
+          const top = document.elementFromPoint(x, y);
+          if (!top || !(top === tip || tip.contains(top))) tip.style.pointerEvents = '';
+          if (!top || !(top === tip || tip.contains(top))) return 'something lies over its tip at ' + Math.round(x) + ',' + Math.round(y) + ' (' + (top ? top.tagName + '.' + top.className : 'nothing') + ')';
+        }
+        tip.style.pointerEvents = '';
+        return '';
+      });
+      if (fault) faults.push(kind + ' #' + i + ': ' + fault);
+    }
+  }
+  // The pointer moved off, so no tip stays open in the page's screenshot.
+  await page.mouse.move(0, 0);
+  return {faults, opened};
+};
 
 // A page's measure as one of the run's lines, and its place in the run's summary: `summary` counts the pages looked
 // at and those with each kind of fault ({pages, sticking, cut, unlabelled, menu_cut, askew}).
@@ -109,7 +215,9 @@ const record = (summary, lang, width, path, over) => {
   if (over.unlabelled.length > 0) { summary.unlabelled += 1; faults.push('NO LABEL'); }
   if (over.menu.length > 0) { summary.menu_cut += 1; faults.push('MENU CUT'); }
   if (over.askew.length > 0) { summary.askew += 1; faults.push('BUTTON ASKEW'); }
+  if (over.spacing.length > 0) { summary.spacing = (summary.spacing || 0) + 1; faults.push('SPACING'); }
+  if (over.layers && over.layers.length > 0) { summary.layer_faults = (summary.layer_faults || 0) + 1; faults.push('LAYER'); }
   console.log(lang, width, path, faults.length ? faults.join(', ') : 'ok', JSON.stringify(over));
 };
 
-module.exports = {layout, record};
+module.exports = {layout, layers, record};

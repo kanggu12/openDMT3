@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ w("admin.server") }} · {{ w("admin.title") }} · {% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
+</section>
+<section class="page">
+  {% set tab = "server" %}{% include "_admin_tabs.html" %}
+  {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
+  {# What started the server, and what these pages can ask it: each asks first in the site's own dialog, then the one
+     that started the server does it (runner.py). What it cannot be asked here is named as the command that does it. #}
+  <div class="card">
+    <h3>{{ w("server.title") }}</h3>
+    <div class="stats">
+      <div class="stat"><span class="value small-value">{{ server.version }}</span><span class="label">{{ w("status.version") }}</span></div>
+      <div class="stat"><span class="value small-value">{{ server.started|when if server.started else "-" }}</span><span class="label">{{ w("status.started") }}</span></div>
+      <div class="stat"><span class="value">{{ server.connected }}</span><span class="label">{{ w("status.connected") }}</span></div>
+      <div class="stat"><span class="value small-value">{{ w("server.kind." + runner.kind) }}</span><span class="label">{{ w("server.runs") }}</span></div>
+    </div>
+    <p class="server-runner">{{ w("server.runner." + runner.kind) }}</p>
+    <p class="muted small">{{ w("server.data", folder=data_dir) }}</p>
+    {% if runner.can("restart") or runner.can("stop") %}
+    <div class="server-actions">
+      {% if runner.can("restart") %}
+      <form method="post" action="/admin/server" data-ask="{{ w('server.restart.ask') }}" data-ask-title="{{ w('server.restart') }}" data-ask-detail="{{ w('server.restart.detail', n=server.connected) }}" data-ask-yes="{{ w('server.restart.yes') }}" data-ask-tone="warn">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="restart">
+        <button class="btn"{% if runner.asked %} disabled{% endif %}>{{ w("server.restart") }}</button>
+      </form>
+      {% endif %}
+      {% if runner.can("stop") %}
+      <form method="post" action="/admin/server" data-ask="{{ w('server.stop.ask') }}" data-ask-title="{{ w('server.stop') }}" data-ask-detail="{{ w('server.stop.detail', n=server.connected) }}" data-ask-yes="{{ w('server.stop.yes') }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="stop">
+        <button class="btn danger"{% if runner.asked %} disabled{% endif %}>{{ w("server.stop") }}</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
+    {# The commands of what these pages cannot ask, on the server PC. #}
+    {% set named = [] %}{% for key in ("start", "stop", "restart") %}{% if runner.commands.get(key) and not runner.can(key) %}{% set _ = named.append(key) %}{% endif %}{% endfor %}
+    {% if named %}
+    <table class="table commands">
+      <thead><tr><th>{{ w("server.to") }}</th><th>{{ w("server.command") }}</th></tr></thead>
+      <tbody>{% for key in named %}<tr><td>{{ w("server.do." + key) }}</td><td data-label="{{ w('server.command') }}"><code>{{ runner.commands[key] }}</code></td></tr>{% endfor %}</tbody>
+    </table>
+    {% endif %}
+  </div>
+  {# Removing the server: its data deleted here when the one that started it can be asked (a last copy of the database
+     kept beside the folder), else the commands, or where to do it. #}
+  <div class="card">
+    <h3>{{ w("server.remove.title") }}</h3>
+    {% if runner.can("remove") %}
+    <p>{{ w("server.remove.here", folder=data_dir) }}</p>
+    <form method="post" action="/admin/server" class="server-actions" data-ask="{{ w('server.remove.ask') }}" data-ask-title="{{ w('server.remove.title') }}" data-ask-detail="{{ w('server.remove.detail', folder=data_dir, kept=kept) }}" data-ask-yes="{{ w('server.remove.yes') }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="remove_data">
+      <button class="btn danger"{% if runner.asked %} disabled{% endif %}>{{ w("server.remove.data") }}</button>
+    </form>
+    {% elif runner.commands.get("remove") %}
+    <p>{{ w("server.remove.commands") }}</p>
+    <table class="table commands">
+      <thead><tr><th>{{ w("server.to") }}</th><th>{{ w("server.command") }}</th></tr></thead>
+      <tbody>{% for key in ("remove", "remove_data") %}<tr><td>{{ w("server.do." + key) }}</td><td data-label="{{ w('server.command') }}"><code>{{ runner.commands[key] }}</code></td></tr>{% endfor %}</tbody>
+    </table>
+    {% else %}
+    <p>{{ w("server.remove." + runner.kind) }}</p>
+    {% endif %}
+    <p class="muted small">{{ w("server.remove.backup") }} <a href="/admin/backups">{{ w("admin.backups") }}</a></p>
+  </div>
+</section>
+{% endblock %}

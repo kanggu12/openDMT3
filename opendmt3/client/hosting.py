@@ -170,7 +170,10 @@ class BuiltinServer:
             # Another program (a server, another launcher's site) has the usual port: any free one will do.
             listener.bind((self.listen_address, 0))
         # The site keeps its files beside the database: the song list, the sign-in secret.
-        site = Site(os.path.dirname(self.path), game_server=game_server, game_port=self.port)
+        # The launcher started this server, so the admin page's Stop names the launcher (web/runner.py).
+        from opendmt3.server.web.runner import Runner
+        site = Site(os.path.dirname(self.path), game_server=game_server, game_port=self.port,
+                    runner=Runner("launcher"))
         # log_config=None: uvicorn's loggers go to the launcher's own log instead of a setup of their own.
         config = uvicorn.Config(create_app(site), log_level="warning", log_config=None, access_log=False,
                                 proxy_headers=False, lifespan="off", loop="none", http="h11", ws="none")

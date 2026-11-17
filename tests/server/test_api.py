@@ -889,12 +889,21 @@ class RouteDocsTest(ApiBase):
             ("POST", "/api/v1/backups/{name}/restore", "/api/v1/backups/%s/restore" % kept, {}),
             ("DELETE", "/api/v1/plays", "/api/v1/plays", {}),
             ("DELETE", "/api/v1/session", "/api/v1/session", {"token": self.token()}),
-            # Last: the server's runner asked to stop it (one made up here, which only notes it was asked).
+            # Last: the server's runner asked to restart, remove and stop it (one made up here, which only notes what
+            # it was asked, and takes each).
+            ("POST", "/api/v1/server/restart", "/api/v1/server/restart", {}),
+            ("POST", "/api/v1/server/remove", "/api/v1/server/remove", {"json": {"delete_data": False}}),
             ("POST", "/api/v1/server/stop", "/api/v1/server/stop", {}),
         ]
         from opendmt3.server.web import runner
+
+        class Noted(runner.Runner):
+            # Each request noted and taken, never done: the plan asks one after another.
+            def ask(self, action, *args):
+                asked.append(action)
+                return True
         asked = []
-        self.site.runner = runner.Runner("python", stop=lambda: asked.append(True))
+        self.site.runner = Noted("python", stop=print, restart=print, remove=print)
         table = {(c.method, c.path): c for c in calls.CALLS}
         # The song list read again: a game folder given, and its reading made up (the reading itself is
         # tests/server/test_sources.py's); the server PC's look through its folders made up too.

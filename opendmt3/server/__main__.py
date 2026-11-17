@@ -112,8 +112,8 @@ async def serve(args, data, until=None, notes=(), runner=None):
     coroutine function, when given) returns: the server's own command line for a PC of its own (standalone.py) stops
     it that way when asked to from another window. Either way the site finishes the requests it has, and the game
     server and the database are closed. Once the site answers, the banner (banner.py) says where it is, with `notes`
-    under it (the caller's own lines). runner: who started the server, which the admin's Status tab asks to stop it
-    (web/runner.py); without one, Docker Compose's in a container, else one it cannot tell."""
+    under it (the caller's own lines). runner: who started the server, which the admin's Server tab asks to stop,
+    restart or remove it (web/runner.py); without one, Docker Compose's in a container, else one it cannot tell."""
     # The folder the Download page hands the installer out from, there to put the file in.
     os.makedirs(os.path.join(data, "downloads"), exist_ok=True)
     connection = db.connect(os.path.join(data, "openDMT3.sqlite"))
@@ -280,26 +280,62 @@ def main(argv=None):
         # An account made from the command line ends the run, like --setup-only: the server is started on its own.
         return 0
 
-    # What the admin's Status tab asked this command (web/runner.py): it started the server, so it stops it. In a
-    # container Docker Compose runs this command and starts it again when it ends: the tab names the command there.
+    # What the admin's Server tab asked this command (web/runner.py): it started the server, so it stops it, runs it
+    # again, or removes its data, as asked. In a container Docker Compose runs this command and starts it again when
+    # it ends: the tab names the commands that do those there instead.
+    asked = {"action": None, "delete_data": False}
     holder = {}
 
-    def ask():
+    def ask(action, delete_data=False):
         # From the site's timer thread: the loop ends the server as after Ctrl+C.
+        asked.update(action=action, delete_data=delete_data)
         holder["loop"].call_soon_threadsafe(holder["event"].set)
 
     async def until():
         holder["loop"], holder["event"] = asyncio.get_running_loop(), asyncio.Event()
         await holder["event"].wait()
-        logging.getLogger("opendmt3.server").info("stopping: asked on the admin page")
+        logging.getLogger("opendmt3.server").info("stopping: asked on the admin page (%s)", asked["action"])
 
     from opendmt3.server.web import runner as runners
-    run_by = runners.default(True) if sources.in_container() else runners.Runner("python", stop=ask)
+    run_by = runners.default(True) if sources.in_container() else runners.Runner(
+        "python", stop=lambda: ask("stop"), restart=lambda: ask("restart"),
+        remove=lambda delete_data: ask("remove", delete_data))
     try:
         asyncio.run(serve(args, data, until=None if sources.in_container() else until, runner=run_by))
     except KeyboardInterrupt:
         pass
+    if asked["action"] == "restart":
+        # The same command again, in this same process: the window (or service) that started it keeps it.
+        logging.getLogger("opendmt3.server").info("starting again: asked on the admin page")
+        os.execv(sys.executable, [sys.executable, "-m", "opendmt3.server"] + list(sys.argv[1:] if argv is None
+                                                                                 else argv))
+    if asked["action"] == "remove" and asked["delete_data"]:
+        kept = remove_data(data)
+        print("removed the server's data in %s; its last backup is %s" % (data, kept))
     return 0
+
+
+def remove_data(data):
+    """The data folder deleted, as the admin's Server tab asks once the server has stopped: its database copied first
+    beside the folder (the folder's name, then the time: a last backup outside what goes). Returns that copy's path."""
+    import shutil
+    import time
+    database = os.path.join(data, "openDMT3.sqlite")
+    kept = os.path.join(os.path.dirname(data), "%s-last-%s.sqlite" % (os.path.basename(data) or "data",
+                                                                     time.strftime("%Y%m%d-%H%M%S")))
+    if os.path.isfile(database):
+        import sqlite3
+        # SQLite's own copy (as every backup is made), the server closed: whole, with its log folded in.
+        source, copy = sqlite3.connect(database), sqlite3.connect(kept)
+        try:
+            source.backup(copy)
+        finally:
+            copy.close()
+            source.close()
+        # The card numbers in it: its owner's alone, like the database.
+        os.chmod(kept, 0o600)
+    shutil.rmtree(data)
+    return kept
 
 
 if __name__ == "__main__":

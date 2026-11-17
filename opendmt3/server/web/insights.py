@@ -292,9 +292,10 @@ def _players_csv(site):
     out.write("﻿")
     writer.writerow(PLAYER_COLUMNS)
     for r in rows:
+        # A time never reached is an empty cell; the DJ name is the player's own text (never a formula).
         writer.writerow((r["login_id"], _csv_cell(r["dj_name"]), int(bool(r["is_admin"])), int(bool(r["disabled"])),
-                         _iso(r["last_login"]) if r["last_login"] else "", _iso(r["last_play"]) if r["last_play"] else "",
-                         r["plays"], r["plays_days"]))
+                         _iso(r["last_login"]) if r["last_login"] else "",
+                         _iso(r["last_play"]) if r["last_play"] else "", r["plays"], r["plays_days"]))
     yield out.getvalue()
 
 
@@ -307,13 +308,31 @@ def players_file(site):
 
 # ------------------------------------------------------------------------------------------- stopping the server
 
-def stop_server(site, who):
-    """Ask the server's runner to stop it (runner.Runner.stop), with a line in the change log first: True when it was
-    asked now, False when it cannot be asked (the page names how instead) or was asked already."""
-    if not site.runner.can_stop or site.runner.stopping:
+# The change log's line for each thing the server's runner is asked (strings.py: log.change.server.*).
+ASKED = {"stop": "stopped the server", "restart": "restarted the server", "remove": "removed the server",
+         "remove_data": "removed the server and its data"}
+
+
+def ask_runner(site, who, action, delete_data=False):
+    """Ask the server's runner to stop, restart or remove it (runner.Runner.ask; remove with its data or not), with a
+    line in the change log first: True when it was asked now, False when it cannot be asked this (the page names how
+    instead) or was asked something already."""
+    if not site.runner.can(action) or site.runner.asked is not None:
         return False
-    _log_change(site, who, "stopped the server")
-    return site.runner.stop()
+    _log_change(site, who, ASKED["remove_data" if action == "remove" and delete_data else action])
+    return site.runner.ask(action, *((bool(delete_data),) if action == "remove" else ()))
+
+
+def stop_server(site, who):
+    """Ask the server's runner to stop it (ask_runner)."""
+    return ask_runner(site, who, "stop")
+
+
+def last_copy(site):
+    """Where removing the server's data keeps the database's last copy, beside the data folder (__main__.remove_data:
+    its name and the time it goes)."""
+    data = os.path.abspath(site.data_dir)
+    return os.path.join(os.path.dirname(data), "%s-last-YYYYMMDD-HHMMSS.sqlite" % (os.path.basename(data) or "data"))
 
 
 # ------------------------------------------------------------------------------------------------- the jobs
@@ -343,8 +362,9 @@ def job_words(w, job):
     # Done of total within the step when the work counts (the jackets saved, the pages copied).
     view["count_text"] = w("job.count", done=job.done or 0, total=job.total) if job.total else ""
     # Every step a job of its kind may go through, in order: the card lists them all and shows those of this job.
+    routes = [jobs.STEPS.get(job.kind, ())] + list(jobs.ROUTES.get(job.kind, {}).values())
     view["all_steps"] = [s for s in ("unpack", "check", "songs", "jackets", "cards", "swap", "backup", "copy", "upgrade")
-                         if s in jobs.STEPS.get(job.kind, ()) or any(s in r for r in jobs.ROUTES.get(job.kind, {}).values())]
+                         if any(s in steps for steps in routes)]
     if job.state == "done":
         view["text"] = w("job.done." + job.kind, **_done_values(job))
     elif job.state == "failed":

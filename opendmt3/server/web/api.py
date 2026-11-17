@@ -749,20 +749,45 @@ def routes(site):
             return refused
         return JSONResponse(insights.machine_figures(site))
 
-    def api_stop(request):
-        """The Status tab's Stop: the server's runner asked to stop it (202), or 409 with how to stop it when the
-        server cannot ask the one that started it (Docker Compose, or a way it cannot tell)."""
+    def _asked(request, action, delete_data=False):
+        """The Server tab's Stop, Restart and Remove: the server's runner asked (202), or 409 not_here with the command
+        that does it when the server cannot ask the one that started it (Docker Compose, or a way it cannot tell),
+        409 asked_already while it does what it was asked."""
         row, refused = _caller(request, admin=True)
         if refused:
             return refused
-        if not site.runner.can_stop:
+        if not site.runner.can(action):
+            key = "remove_data" if action == "remove" and delete_data else action
+            command = site.runner.commands.get(key)
             return JSONResponse({"error": {"code": "not_here",
-                                           "message": "this server is stopped by what started it (%s)%s" % (
-                                               site.runner.kind,
-                                               ": " + site.runner.command if site.runner.command else "")},
+                                           "message": "this server is %s by what started it (%s)%s" % (
+                                               {"stop": "stopped", "restart": "restarted",
+                                                "remove": "removed"}[action], site.runner.kind,
+                                               ": " + command if command else "")},
                                  "runner": site.runner.view()}, status_code=409)
-        insights.stop_server(site, row["who"])
-        return JSONResponse({"stopping": True, "runner": site.runner.view()}, status_code=202)
+        if not insights.ask_runner(site, row["who"], action, delete_data):
+            return _error(409, "asked_already", "the server was asked to %s already" % site.runner.asked)
+        return JSONResponse({"asked": action, "delete_data": bool(delete_data), "stopping": True,
+                             "runner": site.runner.view()}, status_code=202)
+
+    def api_stop(request):
+        """Stop the server (_asked)."""
+        return _asked(request, "stop")
+
+    def api_restart(request):
+        """Restart the server (_asked)."""
+        return _asked(request, "restart")
+
+    async def api_remove(request):
+        """Remove the server, its data too with {"delete_data": true} (_asked). The body is read only for an admin's
+        token."""
+        _, refused = await threaded(_caller, request, True)
+        if refused:
+            return refused
+        body = await _small_json(request) if _has_body(request) else {}
+        if body is None or not isinstance(body.get("delete_data", False), bool):
+            return _error(400, "bad_request", 'send JSON: {"delete_data": true or false}, or no body')
+        return await threaded(_asked, request, "remove", body.get("delete_data", False))
 
     def _wait_asked(request):
         """False when a program asks not to wait for a long job (?wait=0): it is answered 202 with the job instead."""
@@ -1113,6 +1138,8 @@ def routes(site):
         Route("/api/v1/cabinets/{id:int}/name", api_cabinet_name, methods=["POST"]),
         Route("/api/v1/server", api_server),
         Route("/api/v1/server/stop", api_stop, methods=["POST"]),
+        Route("/api/v1/server/restart", api_restart, methods=["POST"]),
+        Route("/api/v1/server/remove", api_remove, methods=["POST"]),
         Route("/api/v1/status/machine", api_machine),
         Route("/api/v1/jobs", api_jobs),
         Route("/api/v1/jobs/{id}", api_job),

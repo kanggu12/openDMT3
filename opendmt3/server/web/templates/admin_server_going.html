@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ w("admin.server") }} · {{ w("admin.title") }} · {% endblock %}
+{% block main %}
+{# What the page says once the server was asked to stop, restart or remove itself: what happens now and how it comes
+   back. After a restart site.js asks /health every second and comes back to the Server tab once it answers. #}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
+</section>
+<section class="page">
+  <div class="card server-going"{% if action == "restart" %} data-back="/admin/server"{% endif %}>
+    <h3>{{ w("server.going." + action + ".title") }}</h3>
+    <p class="alert ok" role="status">{{ w("server.going." + action, folder=data_dir, kept=kept) }}</p>
+    {% if action == "restart" %}
+    <p class="muted small going-wait" aria-live="polite">{{ w("server.going.wait") }}</p>
+    <noscript><p><a class="btn small" href="/admin/server">{{ w("job.again") }}</a></p></noscript>
+    {% else %}
+    <p>{{ w("server.going.start." + runner.kind, command=runner.commands.get("start") or "") }}</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

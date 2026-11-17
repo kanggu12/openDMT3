@@ -26,7 +26,7 @@
     <form method="post" action="/admin/backups/upload" enctype="multipart/form-data" class="form row upload" data-upload-most="{{ upload_most }}">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       {{ drop("backup-file", w("backups.upload.file")) }}
-      <button class="btn primary">{{ w("backups.upload.button") }}</button>
+      <button class="btn send">{{ w("backups.upload.button") }}</button>
     </form>
     <p class="alert bad upload-too-large" role="alert" hidden>{{ too_large }}</p>
     <p class="muted small">{{ w("backups.upload.hint", mb=upload_mb) }}</p>

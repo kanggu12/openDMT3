@@ -148,7 +148,7 @@
       {% if maintenance %}
       <input type="hidden" name="action" value="maintenance_off">
       <p class="grow"><span class="tag bad">{{ w("maintenance.bar") }}</span> {{ w("maintenance.since", when=(maintenance.at|when), who=maintenance.by) }}</p>
-      <button class="btn primary">{{ w("maintenance.end") }}</button>
+      <button class="btn">{{ w("maintenance.end") }}</button>
       {% else %}
       <input type="hidden" name="action" value="maintenance_on">
       <p class="grow muted">{{ w("maintenance.off") }}</p>
@@ -156,16 +156,6 @@
       {% endif %}
     </form>
     <p class="muted small">{{ w("maintenance.hint") }}</p>
-  </div>
-  {# The server itself: what started it, and Stop, which asks that one to stop it (asked first in the site's own
-     dialog); a runner these pages cannot ask is named with how to stop it instead. #}
-  <div class="card">
-    <h3>{{ w("server.title") }}</h3>
-    <form method="post" action="/admin/status" class="form row server-stop"{% if runner.can_stop %} data-ask="{{ w('server.stop.ask') }}" data-ask-title="{{ w('server.stop') }}" data-ask-detail="{{ w('server.stop.detail', n=server.connected) }}" data-ask-yes="{{ w('server.stop.yes') }}"{% endif %}>
-      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="stop">
-      <p class="grow">{{ w("server.runner." + runner.kind, command=runner.command or "") }}</p>
-      {% if runner.can_stop %}<button class="btn danger"{% if runner.stopping %} disabled{% endif %}>{{ w("server.stop") }}</button>{% endif %}
-    </form>
   </div>
 </section>
 {% endblock %}

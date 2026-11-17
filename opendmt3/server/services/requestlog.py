@@ -97,17 +97,20 @@ class RequestLog:
     # ------------------------------------------------------------------------------------------- adding
 
     def add(self, method, path, status, ms, address, who=None, at=None):
-        """One request answered (on the event loop: cheap)."""
-        line = {"at": round(self.clock() if at is None else at, 3), "method": method, "path": kept_path(path),
-                "status": int(status), "ms": round(ms, 1), "address": address, "who": who}
-        self._waiting.append(line)
+        """One request answered (on the event loop: cheap). Kept as a tuple in FIELDS' order: a third of a dict's
+        memory, for the RECENT kept."""
+        line = (round(self.clock() if at is None else at, 3), method, kept_path(path), int(status), round(ms, 1),
+                address, who)
+        # The file's line made here, once (a few microseconds), so the writer only joins and writes strings.
+        self._waiting.append(json.dumps(dict(zip(FIELDS, line)), ensure_ascii=False, separators=(",", ":")) + "\n")
         self._recent.append(line)
         self._count(line)
 
     def _count(self, line):
         """The request in its half hour of the chart, the slots older than a day forgotten."""
-        slot = int(line["at"] // SLOT)
-        bad = 1 if line["status"] >= 400 else 0
+        # A line's moment and status, by their places in FIELDS.
+        slot = int(line[0] // SLOT)
+        bad = 1 if line[3] >= 400 else 0
         with self._lock:
             counts = self._slots.get(slot)
             if counts is None:
@@ -151,7 +154,7 @@ class RequestLog:
             lines.append(self._waiting.popleft())
         if not lines:
             return 0
-        text = "".join(json.dumps(line, ensure_ascii=False, separators=(",", ":")) + "\n" for line in lines)
+        text = "".join(lines)
         with self._lock:
             # The log's own folder, in a data folder that is there (write() looked).
             if not os.path.isdir(self.folder):
@@ -202,13 +205,16 @@ class RequestLog:
         since = self.clock() - SLOTS * SLOT
         # Only what this process has not counted itself: its own requests are in memory already. The newest RECENT
         # go to the list, and those of the last day to the chart.
-        first = self._recent[0]["at"] if self._recent else None
+        first = self._recent[0][0] if self._recent else None
         earlier = collections.deque(maxlen=RECENT)
         for line in self._lines():
-            if isinstance(line.get("at"), (int, float)) and (first is None or line["at"] < first):
-                earlier.append(line)
-                if line["at"] >= since:
-                    self._count(line)
+            at, status = line.get("at"), line.get("status")
+            if isinstance(at, (int, float)) and isinstance(status, int) and (first is None or at < first):
+                # As this process keeps its own: a tuple in FIELDS' order.
+                kept = tuple(line.get(name) for name in FIELDS)
+                earlier.append(kept)
+                if at >= since:
+                    self._count(kept)
         # Under the newer ones in the list (recent() reads _recent first, then these).
         self._earlier.extend(earlier)
 
@@ -238,11 +244,12 @@ class RequestLog:
         found, shown = 0, []
         # This process's own, then those from before it started, newest first: RECENT in all at most.
         lines = list(self._recent)[::-1] + list(self._earlier)[::-1]
-        for line in lines[:RECENT]:
+        for kept in lines[:RECENT]:
+            line = dict(zip(FIELDS, kept))
             if matches(line):
                 found += 1
                 if len(shown) < most:
-                    shown.append(dict(line))
+                    shown.append(line)
         return shown, found
 
     def all(self, q="", kind=""):

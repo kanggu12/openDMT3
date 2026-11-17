@@ -680,3 +680,9 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
   .slots { height: 96px; gap: 1px; }
   .daycells i { width: 8px; }
 }
+/* The Server tab: its buttons side by side, and the commands it names in a table of their own. */
+.server-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 0; }
+.server-actions form { margin: 0; }
+.server-runner { margin: 16px 0 4px; }
+.table.commands { margin-top: 16px; }
+.table.commands code { overflow-wrap: anywhere; }

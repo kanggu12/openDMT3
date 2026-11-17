@@ -178,13 +178,6 @@ def routes(site):
         if form is not None:
             if not hmac.compare_digest(form.get("csrf", ""), site.csrf(request)):
                 error = w("form.expired")
-            elif form.get("action") == "stop":
-                # The server's runner asked to stop it (runner.py), the page saying so first; a runner the page cannot
-                # ask leaves the page as it was, with how to stop it.
-                if insights.stop_server(site, user["login_id"]):
-                    done = w("server.stopping")
-                else:
-                    error = w("server.stop.not_here." + site.runner.kind, command=site.runner.command or "")
             elif form.get("action") in ("maintenance_on", "maintenance_off"):
                 # Maintenance on or off: the game server refuses card logins while it is on. Written and logged as the
                 # API's twin does it.
@@ -209,7 +202,37 @@ def routes(site):
                            look=look, notice=done, error=error, data=_song_list_state(site, w),
                            kept=notice.read(site.data_dir), notice_max=notice.MOST,
                            maintenance=maintenance.read(site.data_dir), machine=insights.machine_view(site),
-                           hours=insights.play_hours(site), runner=site.runner, here="/admin/status")
+                           hours=insights.play_hours(site), here="/admin/status")
+
+    async def admin_server(request):
+        """The server itself: what started it, and Restart, Stop and Remove, each asking that one (runner.py), with the
+        commands for what it cannot be asked here. After a stop or a restart the page that answers says what happens
+        next (the restart's page comes back here once the server answers again)."""
+        form = await request.form() if request.method == "POST" else None
+        return await threaded(_server_page, request, form)
+
+    def _server_page(request, form):
+        """admin_server on a worker thread: a request posted, then the page (or the page of a server going)."""
+        user = site.account(request)
+        if not user["is_admin"]:
+            return _not_found(site, request)
+        w = strings.words(site.language(request))
+        error = None
+        if form is not None:
+            action = form.get("action", "")
+            if not hmac.compare_digest(form.get("csrf", ""), site.csrf(request)):
+                error = w("form.expired")
+            elif action in ("stop", "restart", "remove", "remove_data"):
+                # Asked of the one that started the server; the page says what happens next before it does.
+                if insights.ask_runner(site, user["login_id"], "remove" if action == "remove_data" else action,
+                                       delete_data=action == "remove_data"):
+                    return site.render(request, "admin_server_going.html", user=user, action=action,
+                                       runner=site.runner, data_dir=os.path.abspath(site.data_dir),
+                                       kept=insights.last_copy(site))
+                error = w("server.not_asked")
+        return site.render(request, "admin_server.html", user=user, error=error, runner=site.runner,
+                           server=_status(site), data_dir=os.path.abspath(site.data_dir),
+                           kept=insights.last_copy(site))
 
     async def admin_song_list(request):
         """The song list, in the shape of OpenDMTQ's setup page: what the server takes (the song list, with its jackets
@@ -492,6 +515,7 @@ def routes(site):
         Route("/admin/players/download", admin_players_file),
         Route("/admin/cabinets", admin_cabinets, methods=["GET", "POST"]),
         Route("/admin/status", admin_status, methods=["GET", "POST"]),
+        Route("/admin/server", admin_server, methods=["GET", "POST"]),
         Route("/admin/song_list", admin_song_list, methods=["GET", "POST"]),
         Route("/admin/song_list/upload", admin_song_list_upload, methods=["POST"]),
         Route("/admin/log", admin_log),

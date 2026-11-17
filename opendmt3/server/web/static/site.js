@@ -120,7 +120,8 @@
     var input = box.querySelector("input[type=file]");
     var hint = box.querySelector(".drop-hint");
     var pick = box.querySelector(".drop-pick");
-    var send = form.querySelector("button.primary");
+    // The form's sending button (an upload's is a plain one: each page keeps one main button, its own action).
+    var send = form.querySelector("button.send, button.primary");
     // The page's line for a file past the limit, under the form (shown when the form is sent with one).
     var said = form.parentNode.querySelector(".upload-too-large");
     // The box's own words as the page wrote them, its drop-only part included (the page's markup, no file's name).
@@ -212,6 +213,29 @@
         if (job) { show(job); }
         window.setTimeout(ask, 1000);
       }, function () { window.setTimeout(ask, 1000); });
+  }
+  window.setTimeout(ask, 1000);
+}());
+
+// After the Server tab's Restart (templates/admin_server_going.html): the health check asked every second; once the
+// old server has gone (an ask failed) and the new one answers, the page goes back to the Server tab. A server that
+// was quicker than the first ask (no failure seen in 15 seconds) goes back too.
+(function () {
+  "use strict";
+  var card = document.querySelector(".server-going[data-back]");
+  if (!card || typeof window.fetch !== "function") { return; }
+  var gone = false, started = Date.now();
+  function ask() {
+    fetch("/health", {cache: "no-store"})
+      .then(function (answer) { return answer.ok; }, function () { return false; })
+      .then(function (up) {
+        if (!up) { gone = true; }
+        if (up && (gone || Date.now() - started > 15000)) {
+          window.location.replace(card.dataset.back);
+          return;
+        }
+        window.setTimeout(ask, 1000);
+      });
   }
   window.setTimeout(ask, 1000);
 }());
