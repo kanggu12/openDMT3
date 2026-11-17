@@ -105,9 +105,9 @@ checks each step in turn and says the first one that fails with what to do:
 | Step | Checks | When it fails |
 | --- | --- | --- |
 | Address | The address is one, and its name resolves | Check the name for typos, and that this PC is on the network |
-| Site and version | The site answers, and runs this launcher's openDMT3 (same major and minor) | Nothing answers: the server is off, the port is wrong (4730 unless its owner gave another) or a firewall stops it. Another version: update this launcher on **Launcher**, or ask the owner to update the server |
-| The game's port | The port the site tells (4725 unless its owner set another) takes a TCP connection | Ask the owner to open that TCP port in the server PC's firewall and router |
-| Sign-in | The sign-in the launcher keeps is still taken | Sign in again |
+| Site and version | The site answers as an openDMT3 server's does (as **Connect** checks it), and runs this launcher's openDMT3 (same major and minor) | Nothing answers: the server is off, the port is wrong (4730 unless its owner gave another) or a firewall stops it. Something answers that is no site: it may be the game's port (4725) typed for the site's. Another version: update this launcher on **Launcher** (`--update`), or ask the owner to update the server |
+| The game's port | The port the site tells (4725 unless its owner set another) takes a TCP connection at one of the name's addresses, IPv4 first (the one the game is given) | Ask the owner to open that TCP port in the server PC's firewall and router |
+| Sign-in | The sign-in the launcher keeps is still taken (it is sent only to the server it was made on) | Sign in again (`--sign-in ID` on the command line) |
 
 **Copy the result** copies the steps as text for a message to the server's owner. On the command line the exit code
 says the step: 0 every step passed, 2 the address, 3 the site, 4 the game's port, 5 the sign-in.

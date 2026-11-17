@@ -6,6 +6,7 @@ the answer. The server's own address for the game (host and game port) comes fro
 ever types the address of the site the owner gave them.
 """
 
+import http.client
 import json
 import logging
 import re
@@ -127,7 +128,8 @@ def _call(url, method="GET", body=None, token=None, timeout=TIMEOUT, raw=None, k
                 raise TypeError(code)
             # A banned account's sign-in carries the ban's reason, which the player is told (errors.py's words).
             params = {"reason": str(error.get("reason") or "-")[:200]} if code == "banned" else {}
-        except (ValueError, KeyError, TypeError, AttributeError, OSError):
+        except (ValueError, KeyError, TypeError, AttributeError, OSError, http.client.HTTPException):
+            # No error of the API's (not JSON, or a body cut short: http.client's IncompleteRead): its status alone.
             raise RemoteError("the server answered %d" % e.code, key="error.remote.answered", status=e.code) from None
         raise RemoteError(message, code, **params) from None
     except (urllib.error.URLError, OSError, ValueError) as e:
@@ -137,6 +139,14 @@ def _call(url, method="GET", body=None, token=None, timeout=TIMEOUT, raw=None, k
         log.info("cannot reach %s: %s", base, reason)
         raise RemoteError("Cannot reach %s. Check the address and the network." % base, key="error.remote.unreachable",
                           base=base) from None
+    except http.client.HTTPException as e:
+        # Something answers there, but with bytes that are no HTTP (the game's port typed for the site's: the game
+        # server sends its seed first). A connection closed before any answer is an OSError above, as before. Said in
+        # words, never with the bytes that came; their kind goes to the log.
+        base = url.split("/api/")[0].split("/health")[0]
+        log.info("%s answers, but not as a site does: %s", base, type(e).__name__)
+        raise RemoteError("%s answers, but not as a site does (it may be the game's port, not the site's)" % base,
+                          key="error.remote.not_a_site", base=base) from None
     # Every answer the launcher asks for is one JSON object of moderate size.
     try:
         answer = json.loads(raw.decode("utf-8")) if len(raw) <= ANSWER_LIMIT else None
@@ -156,11 +166,24 @@ def _player(url, answer):
     return answer
 
 
-def status(base):
-    """The server's status; RemoteError unless it is an openDMT3 server. Adds 'game' (host:port for the game)."""
-    answer = _call(base + "/api/v1/status")
+def site_status(base, timeout=TIMEOUT):
+    """The site's status (GET /api/v1/status) as Connect takes it: an openDMT3 server's, with a game port that is a
+    port; RemoteError otherwise. The connection test checks a site with this too (server_test.py), so a site it passes
+    is one Connect takes."""
+    answer = _call(base + "/api/v1/status", timeout=timeout)
     if answer.get("server") != "openDMT3":
         raise RemoteError("%s is not an openDMT3 server" % base, key="error.remote.not_opendmt3", base=base)
+    port = answer.get("game_port", 4725)
+    # The game reads a plain number there; anything else is not this server's answer.
+    if not isinstance(port, int) or isinstance(port, bool) or not 0 < port < 65536:
+        raise _not_an_answer(base + "/api/v1/status")
+    return answer
+
+
+def status(base):
+    """The server's status; RemoteError unless it is an openDMT3 server (site_status). Adds 'game' (host:port for the
+    game)."""
+    answer = site_status(base)
     host = urllib.parse.urlsplit(base).hostname
     try:
         # The game reads an address, not a name (its networksetting.ini always held one): resolve it here, where
@@ -171,11 +194,8 @@ def status(base):
         log.info("cannot find %s: %s", host, e)
         raise RemoteError("Cannot find %s. Check the address." % host, key="error.remote.unknown_host",
                           host=host) from None
-    port = answer.get("game_port", 4725)
-    # The game reads a plain number there; anything else is not this server's answer.
-    if not isinstance(port, int) or isinstance(port, bool) or not 0 < port < 65536:
-        raise _not_an_answer(base + "/api/v1/status")
-    answer["game"] = "%s:%d" % (address, port)
+    # The game's port as site_status checked it.
+    answer["game"] = "%s:%d" % (address, answer.get("game_port", 4725))
     return answer
 
 

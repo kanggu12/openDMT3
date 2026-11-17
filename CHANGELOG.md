@@ -120,6 +120,13 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - The launcher's settings, the sound file and the server an installer leaves are on the disk before they take the old
   file's place, and the command line does its job from a first start's settings past a `launcher.json` it cannot read
   (empty after a power cut), keeping that file beside.
+- The connection test sends the sign-in the launcher keeps only to the server it was made on (in the window it went to
+  whatever address was typed), checks the site as Connect does, so a site that is no openDMT3 server stops there, and
+  tries the game's port at each of the name's addresses, IPv4 first as the game connects. An address that answers with
+  no HTTP (the game's port typed for the site's) is said in words at Connect and at the test's site step, where
+  `--test-server` ended with a traceback and the window's card said every step passed.
+- On the command line, `--sign-in` of a banned account says the ban's reason, `--server URL --test-server` tests the
+  server it connected to, and the test's fixes name its own flags (`--sign-in ID`, `--update`).
 
 ## [0.3.1] - 2026-11-17
 

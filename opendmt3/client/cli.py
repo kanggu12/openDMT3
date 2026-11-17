@@ -98,23 +98,32 @@ def say(text, error=False):
     (log.error if error else log.info)(text)
 
 
+def _said(error):
+    """A setting's failure as the command line says it: its own sentence, but a banned account's sign-in in the
+    launcher's words, as the window says it, with the ban's reason (the server's own sentence has none)."""
+    from opendmt3.client import i18n, remote
+    if isinstance(error, remote.RemoteError) and error.code == "banned":
+        return i18n.Words("en").error(error)
+    return str(error)
+
+
 def _test_server(state, url):
     """--test-server [URL]: the ONLINE page's Connection test in the terminal, a line a step as each ends, then the
-    outcome; the sign-in the launcher keeps is tested when the URL is the server in use (or none is given)."""
-    from opendmt3.client import i18n, remote, server_test
-    w = i18n.Words("en")
+    outcome; the sign-in the launcher keeps is tested when the URL is the server in use (or none is given), by the one
+    rule the window keeps too (server_test.kept_token). A fix that points at one of the window's pages says the flag
+    that does it here (its words' key with .cli)."""
+    from opendmt3.client import i18n, server_test
+    english = i18n.Words("en")
+
+    def w(key, **values):
+        # The command line's own words where there are some, the window's otherwise.
+        return english(key + ".cli", **values) if key + ".cli" in i18n.TEXT else english(key, **values)
+
     address = url or state.server_url
     if not address:
         say("No server to test: give its address (--test-server URL), or connect to one with --server URL.",
             error=True)
         return 2
-    token = None
-    try:
-        same = state.server_url and remote.normalize(address) == remote.normalize(state.server_url)
-    except remote.RemoteError:
-        same = False
-    if same:
-        token = (state.remote or {}).get("token")
     said = set()
 
     def report(steps):
@@ -126,7 +135,7 @@ def _test_server(state, url):
                 for line in one[:-1]:
                     say(line, error=step.state == server_test.FAILED)
 
-    steps = server_test.run(address, token, report)
+    steps = server_test.run(address, state, report)
     for step in steps:
         if step.state == server_test.NOT_RUN and step.said:
             # A step not run for want of something (no sign-in yet) says so too.
@@ -726,8 +735,6 @@ def run_jobs(args, state, play_failed):
     """Do what the command line asks, in the order main.py's description gives; returns the exit code, or None when
     nothing asked for one (then the window opens). play_failed(state, key, blocked=(), error=None) tells a failed
     --play in the launcher's own window when there is no console (main.py)."""
-    if args.test_server is not None:
-        return _test_server(state, args.test_server)
     if args.find:
         # The guide's search (DISC CHECK): every game folder and archive found, each with what its card says.
         from opendmt3.client import find, i18n, intake
@@ -768,8 +775,11 @@ def run_jobs(args, state, play_failed):
         return 2
     except Exception as e:  # noqa: BLE001  (a folder, a value, a server, a sign-in, a player: said, never swallowed)
         log.exception("a setting from the command line failed")
-        say(str(e), error=True)
+        say(_said(e), error=True)
         return 2
+    if args.test_server is not None:
+        # After the settings, as the help orders them: --server URL --test-server tests the server just connected to.
+        return _test_server(state, args.test_server)
     if args.status and not _status(state):
         return 1
     if args.report is not None:

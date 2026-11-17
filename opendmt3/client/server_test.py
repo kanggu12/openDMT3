@@ -5,18 +5,26 @@ to do. No Tk here: the window and the command line show the same steps (test_ser
 The steps, in the order a game's login needs them:
 
   address   the site's address is one, and its name resolves to an address on the network
-  site      the site answers (GET /health, its time), and its openDMT3 is this launcher's (same major and minor)
-  game      the game's port the site tells (/api/v1/status, 4725 by default) takes a TCP connection
-  sign_in   the sign-in the launcher keeps is still taken (GET /api/v1/me with its token); not run without one
+  site      the site answers (GET /health, its time) as an openDMT3 server's does (its status, checked as Connect
+            checks it: remote.site_status), and its openDMT3 is this launcher's (same major and minor)
+  game      the game's port the site tells (/api/v1/status, 4725 by default) takes a TCP connection at one of the
+            name's addresses, IPv4 first (the game's own: remote.status gives it the name's IPv4 address)
+  sign_in   the sign-in the launcher keeps is still taken (GET /api/v1/me with its token); not run without one, and
+            the token goes only to the server it was made on (kept_token)
 
-The first step that fails stops the test: the ones after it are not run (they need it).
+The first step that fails stops the test: the ones after it are not run (they need it). A step that breaks (an error
+nobody foresaw) fails where it was, and the test still ends: no step is left running, none said to have passed.
 """
 
+import logging
 import socket
 import time
 import urllib.parse
 
 from opendmt3 import __version__
+
+# The launcher's own log: what broke a step goes there, the card says where it stopped.
+log = logging.getLogger("opendmt3.launcher")
 
 # The steps' keys, in order; each one's words are server_test.<key> in i18n.
 STEPS = ("address", "site", "game", "sign_in")
@@ -53,14 +61,76 @@ def _get(url, timeout):
     return remote._call(url, timeout=timeout)
 
 
-def run(address, token=None, report=None, timeout=TIMEOUT, resolve=socket.getaddrinfo,
-        connect=socket.create_connection, clock=time.perf_counter):
-    """Run the steps against `address` (as the player typed it, or the state's server_url), with the sign-in's
-    `token` when there is one; `report(steps)` after each change (a worker thread's way to the window). Returns the
-    steps (Step), every one with its final state."""
+def kept_token(address, kept):
+    """The sign-in token the launcher keeps, for a test of `address`: only when `address` is the server it was made on
+    (`kept`: the launcher's state, its server_url and remote), both read as remote.normalize writes a server's address
+    (the scheme, the host in lower case, the port); else None. A token is one server's own and is never sent to
+    another: the window and the command line test with this one rule."""
     from opendmt3.client import remote
+    token = (getattr(kept, "remote", None) or {}).get("token")
+    server_url = getattr(kept, "server_url", None)
+    if not token or not server_url:
+        return None
+    try:
+        same = remote.normalize(address) == remote.normalize(server_url)
+    except remote.RemoteError:
+        # Not an address (the address step says so): nothing is sent anywhere.
+        return None
+    return token if same else None
+
+
+def _shown(ip):
+    """An address as it is written before a port: an IPv6 one in brackets ([::1]:4725), as a browser writes it."""
+    return "[%s]" % ip if ":" in ip else ip
+
+
+def _addresses(found):
+    """The addresses getaddrinfo found, each once, IPv4 first (the game's: it is given the name's IPv4 address), the
+    rest in the order found."""
+    ips = []
+    for family in (socket.AF_INET, None):
+        for entry in found:
+            ip = entry[4][0]
+            if (family is None or entry[0] == family) and ip not in ips:
+                ips.append(ip)
+    return ips
+
+
+def _site_failed(error, base):
+    """The site step's (said, fix) for a call that failed (remote.RemoteError): nothing answers, something answers
+    that is no site (the game's port typed for the site's), or something that is no openDMT3 server."""
+    key = getattr(error, "key", None)
+    if key == "error.remote.unreachable":
+        return ("server_test.site.none", {"base": base}), ("server_test.site.none.fix", {})
+    if key == "error.remote.not_a_site":
+        return ("server_test.site.not_a_site", {"base": base}), ("server_test.site.not_a_site.fix", {})
+    return ("server_test.site.other", {"base": base}), ("server_test.site.other.fix", {})
+
+
+def run(address, kept=None, report=None, timeout=TIMEOUT, resolve=socket.getaddrinfo,
+        connect=socket.create_connection, clock=time.perf_counter):
+    """Run the steps against `address` (as the player typed it, or the state's server_url), with the sign-in the
+    launcher keeps (`kept`, its state) when `address` is the server it was made on (kept_token); `report(steps)` after
+    each change (a worker thread's way to the window). Returns the steps (Step), every one with its final state, and
+    never raises: a step that breaks fails where it was."""
     steps = [Step(key) for key in STEPS]
     tell = report or (lambda steps: None)
+    try:
+        _run(steps, tell, address, kept_token(address, kept), timeout, resolve, connect, clock)
+    except Exception:  # noqa: BLE001  (logged; the step it broke in fails, so the test still ends in words)
+        log.exception("the connection test broke")
+        broken = [s for s in steps if s.state == RUNNING] or [s for s in steps if s.state == WAITING][:1]
+        if broken:
+            broken[0].state, broken[0].said, broken[0].fix = FAILED, ("server_test.broke", {}), None
+            for later in steps[steps.index(broken[0]) + 1:]:
+                later.state = NOT_RUN
+        tell(steps)
+    return steps
+
+
+def _run(steps, tell, address, token, timeout, resolve, connect, clock):
+    """run()'s steps, one after another, until one fails."""
+    from opendmt3.client import remote
     by_key = {s.key: s for s in steps}
 
     def begin(step):
@@ -90,30 +160,35 @@ def run(address, token=None, report=None, timeout=TIMEOUT, resolve=socket.getadd
     parts = urllib.parse.urlsplit(base)
     host = parts.hostname
     try:
-        found = resolve(host, parts.port, type=socket.SOCK_STREAM)
-        ip = found[0][4][0]
+        # Every address the name has, IPv4 first: the one the game will be given leads.
+        ips = _addresses(resolve(host, parts.port, type=socket.SOCK_STREAM))
+        ip = ips[0]
     except (OSError, IndexError, UnicodeError):
         end(step, started, FAILED, ("server_test.address.unknown", {"host": host}),
             ("server_test.address.unknown.fix", {}))
         return steps
     if not end(step, started, OK, ("server_test.address.ok", {"base": base, "ip": ip})):
         return steps
-    # ---- the site: it answers, and its openDMT3 is this launcher's
+    # ---- the site: it answers as an openDMT3 server's does, and its openDMT3 is this launcher's
     step = by_key["site"]
     started = begin(step)
     try:
         health = _get(base + "/health", timeout)
     except remote.RemoteError as e:
-        if getattr(e, "key", None) == "error.remote.unreachable":
-            end(step, started, FAILED, ("server_test.site.none", {"base": base}), ("server_test.site.none.fix", {}))
-        else:
-            end(step, started, FAILED, ("server_test.site.other", {"base": base}), ("server_test.site.other.fix", {}))
+        end(step, started, FAILED, *_site_failed(e, base))
         return steps
     version = health.get("version") if isinstance(health, dict) else None
     if not isinstance(health, dict) or not health.get("ok") or not isinstance(version, str):
         end(step, started, FAILED, ("server_test.site.other", {"base": base}), ("server_test.site.other.fix", {}))
         return steps
     ms = int(round((clock() - started) * 1000))
+    try:
+        # Its status, checked as Connect checks it (an openDMT3 server's, with a game port that is one): a site that
+        # passes here is one Connect takes.
+        status = remote.site_status(base, timeout)
+    except remote.RemoteError as e:
+        end(step, started, FAILED, *_site_failed(e, base))
+        return steps
     if _version_line(version) != _version_line(__version__):
         end(step, started, FAILED, ("server_test.site.version", {"server": version, "launcher": __version__}),
             ("server_test.site.version.fix" + (".newer" if _version_line(version) > _version_line(__version__)
@@ -121,25 +196,23 @@ def run(address, token=None, report=None, timeout=TIMEOUT, resolve=socket.getadd
         return steps
     if not end(step, started, OK, ("server_test.site.ok", {"version": version, "ms": ms})):
         return steps
-    # ---- the game's port, as the site tells it
+    # ---- the game's port, as the site tells it, at each of the name's addresses until one takes it
     step = by_key["game"]
     started = begin(step)
-    try:
-        status = _get(base + "/api/v1/status", timeout)
-        port = status.get("game_port", 4725)
-        if not isinstance(port, int) or isinstance(port, bool) or not 0 < port < 65536:
-            raise ValueError(port)
-    except (remote.RemoteError, ValueError, AttributeError):
-        end(step, started, FAILED, ("server_test.site.other", {"base": base}), ("server_test.site.other.fix", {}))
-        return steps
-    try:
-        connection = connect((ip, port), timeout)
+    port = status.get("game_port", 4725)
+    for each in ips:
+        try:
+            connection = connect((each, port), timeout)
+        except OSError:
+            # Not at this address: the next (IPv6 after IPv4, as a name with both kinds may be reached).
+            continue
         connection.close()
-    except OSError:
-        end(step, started, FAILED, ("server_test.game.closed", {"ip": ip, "port": port}),
+        end(step, started, OK, ("server_test.game.ok", {"ip": _shown(each), "port": port}))
+        break
+    else:
+        # At none: said for the first, the address the game is given.
+        end(step, started, FAILED, ("server_test.game.closed", {"ip": _shown(ip), "port": port}),
             ("server_test.game.closed.fix", {"port": port}))
-        return steps
-    if not end(step, started, OK, ("server_test.game.ok", {"ip": ip, "port": port})):
         return steps
     # ---- the sign-in the launcher keeps
     step = by_key["sign_in"]

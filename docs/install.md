@@ -401,7 +401,8 @@ flag. The launcher's own folder is `%LocalAppData%\openDMT3\current`, so in Wind
 ```
 
 Several flags in one command run in a fixed order, not the order typed: what it looks at (`--find`, `--inspect`,
-`--unpack`, `--sound-devices`), the settings, `--status`, `--report`, the song list, `--open-log`, and last one job
+`--unpack`, `--sound-devices`), the settings, `--test-server` (which ends the command with its own exit code),
+`--status`, `--report`, the song list, `--open-log`, and last one job
 (`--play`, `--check`, `--put-back`, `--update`, `--repair`, `--uninstall`, `--records`, `--serve` or `--shortcut`:
 one of these a command), as in `--server URL --sign-in ID --play`. While the launcher's window is open, the flags that
 change what it keeps are refused, since the window would write its own copy over them; close it first. A flag it does
@@ -418,9 +419,9 @@ not know is said, with the list of the ones it does.
 | `--folder PATH` | Uses the client data in this folder (or up to four levels below it); an archive is unpacked first (beside it unless `--to FOLDER`) |
 | `--mode this_pc` / `server` / `offline` | Where logins and records are kept, as **Online** chooses |
 | `--server URL` | Connects to another server and plays on it from now on |
-| `--sign-in ID` | Signs in to that server; the password comes from standard input, or is asked for |
+| `--sign-in ID` | Signs in to that server; the password comes from standard input, or is asked for. A banned account is told the ban's reason, as the window tells it |
 | `--sign-out` | Signs out: the server ends this launcher's sign-in when it answers, and the launcher forgets it |
-| `--test-server [URL]` | Tests the connection to a server step by step, as **Online**, **Connection test** does (the server in use without URL); exit 0 when every step passed, 2 the address, 3 the site, 4 the game's port, 5 the sign-in |
+| `--test-server [URL]` | Tests the connection to a server step by step, as **Online**, **Connection test** does (the server in use without URL, the one `--server` connected to when both are given); the sign-in the launcher keeps is tested only on the server it was made on; exit 0 when every step passed, 2 the address, 3 the site, 4 the game's port, 5 the sign-in |
 | `--add-player ID [--dj NAME]` | Makes a player on this PC (the password as for `--sign-in`) |
 | `--delete-player ID [--yes]` | Deletes a player on this PC, and their cleared stages (`--remove-player` is the same) |
 | `--player ID` / `--player guest` | Who plays on this PC: whose card goes in at PLAY |

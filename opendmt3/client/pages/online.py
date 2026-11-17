@@ -290,7 +290,6 @@ def test_card(app, parent, typed):
         if kept is not None and kept["running"]:
             return
         address_typed = typed()
-        token = (app.state.remote or {}).get("token") if address_typed.strip() and app.state.server_url else None
         app.server_test = {"steps": [server_test.Step(key) for key in server_test.STEPS], "running": True}
         button.enable(False)
         draw()
@@ -302,7 +301,7 @@ def test_card(app, parent, typed):
 
         def work():
             try:
-                steps = server_test.run(address_typed, token, report)
+                steps = server_test.run(address_typed, app.state, report)
             except Exception:  # noqa: BLE001  (logged; the card says where it stopped)
                 log.exception("the connection test failed")
                 steps = app.server_test["steps"]

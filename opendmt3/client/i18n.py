@@ -408,10 +408,20 @@ TEXT = {
                                "{base}는 openDMT3 서버처럼 응답하지 않습니다."),
     "server_test.site.other.fix": ("Check the address: it is the site's, the one the server's owner gave you.",
                                    "주소를 확인하세요. 서버 운영자가 알려 준 사이트 주소여야 합니다."),
+    # Something answers with bytes that are no HTTP: the game's port typed for the site's.
+    "server_test.site.not_a_site": ("{base} answers, but not as a site does.",
+                                    "{base}에서 응답이 오지만 사이트의 응답이 아닙니다."),
+    "server_test.site.not_a_site.fix": ("It may be the game's port: type the site's address, the one the server's owner "
+                                        "gave you (4730 unless they gave another).",
+                                        "게임 포트일 수 있습니다. 서버 운영자가 알려 준 사이트 주소를 입력하세요(따로 "
+                                        "알려 주지 않았다면 포트는 4730)."),
     "server_test.site.version": ("The server runs openDMT3 {server}; this launcher is {launcher}.",
                                  "서버는 openDMT3 {server}, 이 런처는 {launcher}입니다."),
     "server_test.site.version.fix.newer": ("Update this launcher on the LAUNCHER page.",
                                            "LAUNCHER 페이지에서 런처를 업데이트하세요."),
+    # The command line's own fix where the window's points at one of its pages (cli.py, --test-server).
+    "server_test.site.version.fix.newer.cli": ("Update this launcher: openDMT3-cmd.exe --update.",
+                                               "런처를 업데이트하세요: openDMT3-cmd.exe --update."),
     "server_test.site.version.fix.older": ("Ask the server's owner to update the server.",
                                            "서버 운영자에게 서버 업데이트를 요청하세요."),
     "server_test.game.ok": ("{ip}:{port} takes the game's connection.", "{ip}:{port}가 게임 연결을 받습니다."),
@@ -423,6 +433,11 @@ TEXT = {
     "server_test.sign_in.ok": ("Signed in as {dj} ({login_id}).", "{dj}({login_id})로 로그인돼 있습니다."),
     "server_test.sign_in.gone": ("The server no longer takes your sign-in.", "서버가 이 로그인을 더 이상 받지 않습니다."),
     "server_test.sign_in.gone.fix": ("Sign in again on the Sign in card.", "로그인 카드에서 다시 로그인하세요."),
+    "server_test.sign_in.gone.fix.cli": ("Sign in again: openDMT3-cmd.exe --sign-in ID.",
+                                         "다시 로그인하세요: openDMT3-cmd.exe --sign-in ID."),
+    # A step that broke on something nobody foresaw: it fails there, and the log has the details.
+    "server_test.broke": ("The test stopped here; the launcher's log says why.",
+                          "테스트가 여기서 멈췄습니다. 이유는 런처 로그에 있습니다."),
     "server_test.passed": ("Every step passed: the game can play on this server.",
                            "모든 단계를 통과했습니다. 이 서버에서 게임을 할 수 있습니다."),
     "server_test.failed": ("Stopped at {step}.", "{step} 단계에서 멈췄습니다."),

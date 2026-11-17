@@ -206,6 +206,10 @@ TEXT = {
     "error.remote.unreachable": ("Cannot reach {base}. Check the address and the network.",
                                  "{base}에 연결할 수 없습니다. 주소와 네트워크를 확인하세요."),
     "error.remote.not_opendmt3": ("{base} is not an openDMT3 server", "openDMT3 서버가 아닙니다: {base}"),
+    # Something answers at the address, but with no HTTP (the game's port typed for the site's).
+    "error.remote.not_a_site": ("{base} answers, but not as a site does (it may be the game's port, not the site's)",
+                                "{base}에서 응답이 오지만 사이트의 응답이 아닙니다(사이트 포트가 아니라 게임 포트일 수 "
+                                "있습니다)"),
     "error.remote.unknown_host": ("Cannot find {host}. Check the address.", "{host} 서버를 찾을 수 없습니다. 주소를 확인하세요."),
     "error.remote.answered": ("the server answered {status}", "서버가 {status} 오류로 답했습니다."),
     "error.remote.not_an_answer": ("{base} did not answer as an openDMT3 server does",
