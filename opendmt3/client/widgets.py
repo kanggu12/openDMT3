@@ -689,10 +689,11 @@ class Button(tk.Canvas):
     """
 
     LOOKS = {"secondary": "neutral", "danger": "danger_quiet"}
-    # Its height (logical pixels): a page's buttons, the smaller ones a card has at its title's right end (Check
-    # again), which stand in the title tab's row as the site's small buttons stand in a table's, and a form's keys, as
-    # tall as its fields (FORMS.md: "md" beside a page's field, "lg" the sign-in's).
-    HEIGHTS = {"normal": 34, "small": 26, "md": 42, "lg": 48}
+    # Its height (logical pixels): a page's buttons (as tall as a page's fields, Field "md"), the smaller ones a card
+    # has at its title's right end (Check again), which stand in the title tab's row as the site's small buttons stand
+    # in a table's, and the sign-in's key, as tall as the sign-in's fields (Field "lg": the site's 48 px door at the
+    # launcher's scale, as its 42 px page controls are the launcher's 34).
+    HEIGHTS = {"normal": 34, "small": 26, "lg": 40}
 
     def __init__(self, parent, ui, text, command, kind="secondary", size="normal", fill=False):
         self.ui, self.bg, self.size = ui, parent.cget("bg"), size
@@ -750,7 +751,7 @@ class Button(tk.Canvas):
         height = px(self.HEIGHTS[self.size])
         font = fonts.button_lg if self.size == "lg" else fonts.body_bold
         # The ends lean, so the words keep their distance from the slope, not from the box: half the lean more.
-        side = px(14 if self.size in ("normal", "md", "lg") else 10) + int(height * art.LEAN) // 2
+        side = px(14 if self.size in ("normal", "lg") else 10) + int(height * art.LEAN) // 2
         need = font.measure(text) + 2 * side
         if width is None and self.fill and self._drawn_width:
             width = self._drawn_width
@@ -1605,10 +1606,9 @@ class Field(tk.Canvas):
     keyboard's cyan two pixels wide while it is typed in, the problem's pink while what was typed there is refused
     (set_error), quieter while it cannot be used (enable). Three heights (`size`, FORMS.md's launcher mapping): "md" a
     page's (34 logical pixels, a page's buttons' height, so a row of fields and keys has one height), "sm" a table
-    row's (26, the small buttons'), "lg" the sign-in's (40: Button size "lg", the site's 48 door at the launcher's
-    scale). The
-    typing goes to a plain Tk entry in the slot's flat middle (`entry`: Windows' own typing, Korean input included); a
-    click anywhere on the face puts the caret there.
+    row's (26, the small buttons'), "lg" the sign-in's (40, as its key: Button size "lg", the site's 48 px door at the
+    launcher's scale). The typing goes to a plain Tk entry in the slot's flat middle (`entry`: Windows' own typing,
+    Korean input included); a click anywhere on the face puts the caret there.
 
     `secret`: a password's dots, and Show inside the slot's right end (a small quiet key, two corners cut), which shows
     what was typed until it is pressed again (Hide, the key lit); Tab reaches it right after the field (its cyan
@@ -2015,6 +2015,22 @@ class Form(tk.Frame):
                     self.line.pack(**options)
         elif self.line.winfo_manager():
             self.line.pack_forget()
+
+    def into_view(self):
+        """Scroll the page the least that shows what the form just said about a try (its line above the keys, or the
+        lowest field's error), with a little air: in a small window the form's foot may be under the page's. Called
+        after a try a person made, never while a page is built (it would open the page scrolled)."""
+        said = [self.line] if self.line.winfo_manager() and self.line.tone == "bad" else []
+        said += [e for e in self.errors.values() if e.winfo_manager() and e.tone == "bad"]
+        area = self.master
+        while area is not None and not isinstance(area, ScrollArea):
+            area = area.master
+        if not said or area is None:
+            return
+        # Laid out first: the line or the error may have been packed just now.
+        self.update_idletasks()
+        # The lowest of them (the line stands under every field's error), which brings the others with it.
+        area.show(max(said, key=lambda x: x.winfo_rooty() + x.winfo_height()), self.ui.px(14))
 
     def clear(self):
         """Every field's error said no more (their hints again)."""

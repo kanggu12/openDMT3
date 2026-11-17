@@ -904,6 +904,19 @@ class LauncherTest(FolderCase):
             with self.assertRaises(remote.RemoteError):
                 actions.card_for(self.state)
 
+    def test_a_sign_in_the_server_no_longer_takes_keeps_the_id_for_the_form(self):
+        # Review L5: the token, the card and the admin's rights go; the ID (remembered, or signed in with) stays, so
+        # the sign-in card's form asks for the password alone.
+        self.state.remote = {"game": "203.0.113.7:4725", "version": "0.4.0", "login_id": "NOVA",
+                             "dj_name": "DJ NOVA", "remember_id": "NOVA", "token": "t", "card": "1" * 20,
+                             "is_admin": True}
+        actions.forget_sign_in(self.state)
+        self.assertEqual(self.state.remote, {"game": "203.0.113.7:4725", "version": "0.4.0", "login_id": "NOVA",
+                                             "dj_name": "DJ NOVA", "remember_id": "NOVA"})
+        # Signing out keeps the ID only when the player ticked Remember my ID on this PC.
+        actions.signed_out(self.state)
+        self.assertEqual(self.state.remote, {"game": "203.0.113.7:4725", "version": "0.4.0", "remember_id": "NOVA"})
+
     def test_signing_out_ends_the_token_on_the_server_first_then_forgets_it_whatever_it_says(self):
         from opendmt3.client import remote
         self.state.mode, self.state.server_url = "server", "http://203.0.113.7:4730"

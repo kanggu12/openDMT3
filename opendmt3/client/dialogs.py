@@ -698,9 +698,9 @@ class PathDialog(Dialog):
     the shape of every other one, instead of Windows' file box. The path starts as given and is chosen whole when the
     dialog opens, so typing replaces it; Enter in it presses the main button, Esc cancels, Tab goes to the buttons."""
 
-    # The room the path takes above the buttons, at 100 %: its label, its box, and the gap under it.
-    FIELD = 70
-    BOX = 36
+    # The gap from the path's slot to the buttons (logical pixels): the base dialog's, as under the archive password's
+    # slot.
+    UNDER = 28
 
     def __init__(self, root, ui, kind, title, message, detail, label, path, buttons, **kwargs):
         self.label, self.path = label, path
@@ -714,11 +714,16 @@ class PathDialog(Dialog):
         """The base dialog's layout with the path's label and box where the buttons were, and the buttons under it."""
         lay = super()._layout(width, height)
         from opendmt3.client import widgets
-        px, c = self.ui.px, self.canvas
+        px, c, fonts = self.ui.px, self.canvas, self.ui.fonts
         panel_w, panel_h = lay["panel"]
         top = lay["buttons"][0][1]
-        lay["buttons"] = [(x, y + px(self.FIELD), w) for x, y, w in lay["buttons"]]
-        lay["panel"] = (panel_w, panel_h + px(self.FIELD))
+        # FORMS.md's stacked field: its name in the forms' small semibold ash, 6 px over a page's slot (34 px), and the
+        # dialog's gap under it to the buttons.
+        name_h = fonts.label.metrics("linespace")
+        box = px(widgets.Field.HEIGHTS["md"])
+        room = name_h + px(widgets.Form.NAME_GAP) + box + px(self.UNDER)
+        lay["buttons"] = [(x, y + room, w) for x, y, w in lay["buttons"]]
+        lay["panel"] = (panel_w, panel_h + room)
         if self.entry is None:
             # In the launcher's own field look (widgets.entry), inside the dialog's canvas, so the dialog's grab takes it.
             self.entry = widgets.entry(c, self.ui, width=1)
@@ -728,11 +733,11 @@ class PathDialog(Dialog):
             self.entry.bind("<KP_Enter>", lambda e: self.choose(len(self.buttons) - 1))
             self.entry.bind("<Escape>", lambda e: self.close(self.cancel_value))
             self.entry.bind("<Tab>", lambda e: (self.canvas.focus_set(), "break")[1])
-        c.create_text(px(PAD), top, text=self.label, font=self.ui.fonts.small, fill=theme.MUTED, anchor="nw",
+        c.create_text(px(PAD), top, text=self.label, font=fonts.label, fill=theme.MUTED, anchor="nw",
                       tags=("card", "words"))
         # The box spans the text's width; its window moves with the card as the dialog rises.
-        c.create_window(px(PAD), top + px(self.FIELD - self.BOX - 14), window=self.entry, anchor="nw",
-                        width=panel_w - 2 * px(PAD), height=px(self.BOX), tags=("card", "field"))
+        c.create_window(px(PAD), top + name_h + px(widgets.Form.NAME_GAP), window=self.entry, anchor="nw",
+                        width=panel_w - 2 * px(PAD), height=box, tags=("card", "field"))
         return lay
 
     def _take_input(self):

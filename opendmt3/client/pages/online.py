@@ -78,12 +78,15 @@ def player_form(app, parent, on_added, bg=None):
         except hosting.HostingError as e:
             # The database cannot be opened: no one field's fault, said in the form's own line.
             form.tell(w.error(e), "bad")
+            form.into_view()
             return
         try:
             store.create(login_id.upper(), password, dj_name, who="launcher")
         except acc.AccountError as e:
-            # Under the field it is about (an ID taken or not allowed, a password too short, a DJ name too long).
+            # Under the field it is about (an ID taken or not allowed, a password too short, a DJ name too long), on
+            # the screen.
             said(form, e, w, ACCOUNT_FIELDS)
+            form.into_view()
             return
         finally:
             store.db.close()
@@ -268,8 +271,9 @@ def _sign_in_form(app, parent, remembered, rerender, test_link, banned):
             form.say("online.password", w("error.signin.no_password"))
         wrong = [key for key in ("online.id", "online.password") if form.fields[key].error]
         if wrong:
-            # The first wrong field takes the keyboard.
+            # The first wrong field takes the keyboard, and what is wrong is on the screen.
             form.fields[wrong[0]].focus_set()
+            form.into_view()
             return
         asking["now"] = True
         form.busy(True)
@@ -305,6 +309,7 @@ def _sign_in_form(app, parent, remembered, rerender, test_link, banned):
             form.say("online.password", w("online.signin.wrong"))
             password.delete(0, "end")
             password.focus_set()
+            form.into_view()
             return
         if key in ("error.remote.unreachable", "error.remote.not_an_answer", "error.remote.answered",
                    "error.remote.unknown_host", "error.remote.not_opendmt3"):
@@ -316,6 +321,8 @@ def _sign_in_form(app, parent, remembered, rerender, test_link, banned):
             form.tell(w.error(error), "bad")
         password.focus_set()
         password.select_range(0, "end")
+        # The line above the key on the screen, in a window too small to show the whole card.
+        form.into_view()
 
     def signed_in(me, login_id):
         asking["now"] = False
@@ -351,10 +358,17 @@ def _banned_plate(app, parent, reason, again):
     another ID, which brings the form back with the ID empty."""
     ui, w = app.ui, app.words
     _server_line(app, parent)
-    edge = tk.Frame(parent, bg=theme.BAN_EDGE, padx=1, pady=1, width=ui.px(SIGN_IN_WIDTH))
-    edge.pack(anchor="w", fill="x")
+    # As wide as the sign-in form it stands in place of: a column held to that width by a pixel-high rule of the
+    # card's colour, the plate and its key across it, the words wrapped inside it.
+    column = tk.Frame(parent, bg=theme.PANEL)
+    column.pack(anchor="w")
+    tk.Frame(column, bg=theme.PANEL, width=ui.px(SIGN_IN_WIDTH), height=1).pack(anchor="w")
+    edge = tk.Frame(column, bg=theme.BAN_EDGE, padx=1, pady=1)
+    edge.pack(fill="x")
     plate = tk.Frame(edge, bg=theme.FIELD, padx=ui.px(16), pady=ui.px(14))
     plate.pack(fill="both", expand=True)
+    # The room for words inside the plate: the column less the edge and the plate's sides.
+    room = ui.px(SIGN_IN_WIDTH) - 2 - 2 * ui.px(16)
     head = tk.Frame(plate, bg=theme.FIELD)
     head.pack(fill="x")
     lamp = widgets.Lamp(head, ui, theme.PINK, bg=theme.FIELD)
@@ -363,14 +377,17 @@ def _banned_plate(app, parent, reason, again):
              pady=0).pack(side="left", padx=(ui.px(8), 0))
     why = tk.Frame(plate, bg=theme.FIELD)
     why.pack(fill="x", pady=(ui.px(8), 0))
-    tk.Label(why, text=w("online.banned.reason"), font=ui.fonts.label, fg=theme.MUTED, bg=theme.FIELD, padx=0,
+    named = w("online.banned.reason")
+    tk.Label(why, text=named, font=ui.fonts.label, fg=theme.MUTED, bg=theme.FIELD, padx=0,
              pady=0).pack(side="left", anchor="n")
-    widgets.label(why, ui, reason, bg=theme.FIELD, wrap_margin=0).pack(side="left", fill="x", expand=True,
-                                                                        padx=(ui.px(8), 0))
-    widgets.label(plate, ui, w("online.banned.lift"), font=ui.fonts.small, fg=theme.HINT, bg=theme.FIELD,
-                  wrap_margin=0).pack(fill="x", pady=(ui.px(6), 0))
-    keys = tk.Frame(parent, bg=theme.PANEL)
-    keys.pack(anchor="w", fill="x", pady=(ui.px(16), 0))
+    # The owner's reason, as written, beside its name; wrapped within the plate however long it is.
+    widgets.label(why, ui, reason, bg=theme.FIELD, padx=0, pady=0,
+                  wraplength=room - ui.fonts.label.measure(named) - ui.px(8)).pack(side="left", fill="x", expand=True,
+                                                                                     padx=(ui.px(8), 0))
+    widgets.label(plate, ui, w("online.banned.lift"), font=ui.fonts.small, fg=theme.HINT, bg=theme.FIELD, padx=0,
+                  pady=0, wraplength=room).pack(fill="x", pady=(ui.px(6), 0))
+    keys = tk.Frame(column, bg=theme.PANEL)
+    keys.pack(fill="x", pady=(ui.px(16), 0))
     other = widgets.Button(keys, ui, w("online.banned.other"), again, size="lg", fill=True)
     other.pack(fill="x")
     other.after_idle(other.focus_set)
@@ -446,7 +463,9 @@ def test_card(app, parent, typed, rerender=None):
             child.destroy()
         kept = getattr(app, "server_test", None)
         if kept is None:
-            widgets.label(inside, ui, w("server_test.idle"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
+            # What the test does, said as every card's hint is (small, the hint's ink) until it runs.
+            widgets.label(inside, ui, w("server_test.idle"), font=ui.fonts.small, fg=theme.HINT,
+                          wrap_margin=0).pack(fill="x")
             return
         steps, running = kept["steps"], kept["running"]
         for i, step in enumerate(steps):

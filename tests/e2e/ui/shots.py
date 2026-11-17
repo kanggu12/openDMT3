@@ -479,6 +479,139 @@ def screen_reader():
     return lambda x, y: picture.getpixel((x, y)) if 0 <= x < picture.width and 0 <= y < picture.height else None
 
 
+def signin_states_check(app, out, tag, problems):
+    """ONLINE's sign-in card as a server answers it (remote.sign_in made up here: no network), in each state a person
+    meets: the key busy while the server is asked, a wrong ID or password, a server that does not answer, too many
+    tries and a banned account. Each is shot and measured, and must say what FORMS.md says where it says it: a wrong ID
+    or password in one sentence under the password (emptied, the ID kept), the server's trouble and too many tries in
+    the form's line above the key (the former with the way to the connection test), a ban on its plate with the
+    owner's reason and Sign in with another ID, which brings the form back."""
+    import threading
+    from opendmt3.client import remote
+    w = app.words
+    kept = (app.state.mode, app.state.server_url, app.state.remote)
+    real = remote.sign_in
+    base = "http://192.168.0.10:4730"
+    answers = (
+        ("wrong", remote.RemoteError("wrong", code="wrong_sign_in", key="error.api.wrong_sign_in")),
+        ("unreachable", remote.RemoteError("unreachable", key="error.remote.unreachable", base=base)),
+        ("too-many", remote.RemoteError("too many", code="too_many_tries", key="error.api.too_many_tries")),
+        ("banned", remote.RemoteError("banned", code="banned", key="error.api.banned",
+                                      reason="Played on another person's card.")))
+
+    def sign_in_form():
+        made = [x for x in widgets_of(app.root) if isinstance(x, widgets.Form) and "online.id" in x.fields
+                and "online.dj" not in x.fields and x.winfo_ismapped()]
+        return made[0] if made else None
+
+    def on_screen(widget):
+        """Whether `widget` stands whole inside its page's visible area (a small window's page scrolled to it)."""
+        area = widget
+        while area is not None and not isinstance(area, widgets.ScrollArea):
+            area = area.master
+        if area is None:
+            return True
+        top = area.canvas.winfo_rooty()
+        return top <= widget.winfo_rooty() and widget.winfo_rooty() + widget.winfo_height() <= (
+            top + area.canvas.winfo_height())
+
+    try:
+        app.state.mode, app.state.server_url = "server", base
+        app.state.remote = {"game": "192.168.0.10:4725", "version": "0.3.0"}
+        app.state.save()
+        app.refresh_checks()
+        for name, error in (("busy", None),) + answers:
+            app.go("online")
+            settle(app)
+            form = sign_in_form()
+            label = "%s_online-signin-%s" % (tag, name)
+            if form is None:
+                problems.append("%s: no sign-in form on ONLINE while connected and not signed in" % label)
+                return
+            form.fields["online.id"].delete(0, "end")
+            form.fields["online.id"].insert(0, "NOVA")
+            form.fields["online.password"].delete(0, "end")
+            form.fields["online.password"].insert(0, "pass1234")
+            asked = threading.Event()
+            release = threading.Event()
+
+            def made_up(url, login_id, password, error=error):
+                asked.set()
+                if error is None:
+                    # Held while the shot is taken: the key's stripes, the fields waiting.
+                    release.wait(10)
+                    raise remote.RemoteError("wrong", code="wrong_sign_in", key="error.api.wrong_sign_in")
+                raise error
+
+            remote.sign_in = made_up
+            # Enter in the password, as a person signs in.
+            form.fields["online.password"].entry.focus_force()
+            form.fields["online.password"].entry.event_generate("<Return>")
+            end = time.time() + 5
+            while time.time() < end and not asked.is_set():
+                app.root.update()
+                time.sleep(0.02)
+            if error is None:
+                wait_out(app, 0.4)
+                shot(app, out, label)
+                measure(app, label, problems)
+                if not form.submit_button.busy_now or form.fields["online.id"].enabled:
+                    problems.append("%s: while the server is asked, the key does not show it works or the fields "
+                                    "can be typed in" % label)
+                release.set()
+            wait_out(app, 0.6)
+            if error is None:
+                continue
+            shot(app, out, label)
+            measure(app, label, problems)
+            form = sign_in_form()
+            if name == "banned":
+                texts = [x.cget("text") for x in widgets_of(app.root) if isinstance(x, widgets.tk.Label) and x.winfo_ismapped()]
+                keys = [x for x in widgets_of(app.root) if isinstance(x, widgets.Button) and x.winfo_ismapped()
+                        and x.words == w("online.banned.other")]
+                if form is not None or "Played on another person's card." not in texts or not keys:
+                    problems.append("%s: a banned account's plate with the owner's reason and Sign in with another ID "
+                                    "does not stand in place of the form" % label)
+                else:
+                    keys[0].press()
+                    wait_out(app, 0.4)
+                    again = sign_in_form()
+                    if again is None or again.fields["online.id"].get():
+                        problems.append("%s: Sign in with another ID does not bring the form back with the ID empty"
+                                        % label)
+                continue
+            if form is None:
+                problems.append("%s: the sign-in form went after the server refused" % label)
+                continue
+            said = {k: e.text for k, e in form.errors.items() if e.winfo_ismapped() and e.tone == "bad"}
+            if name == "wrong":
+                if said != {"online.password": w("online.signin.wrong")} or form.line.winfo_ismapped():
+                    problems.append("%s: a wrong ID or password is not said in one sentence under the password (%r)"
+                                    % (label, said))
+                if form.fields["online.password"].get() or form.fields["online.id"].get() != "NOVA":
+                    problems.append("%s: the password is not emptied, or the ID not kept" % label)
+                if not on_screen(form.errors["online.password"]):
+                    problems.append("%s: what is wrong is under the window's foot, the page not scrolled to it"
+                                    % label)
+            else:
+                wanted = w.error(error)
+                if said or not form.line.winfo_ismapped() or form.line.text != wanted or form.line.tone != "bad":
+                    problems.append("%s: the form's line above the key does not say %r (%r, fields %r)"
+                                    % (label, wanted, form.line.text, said))
+                if form.line.winfo_ismapped() and not on_screen(form.line):
+                    problems.append("%s: the form's line is under the window's foot, the page not scrolled to it"
+                                    % label)
+                if (form.line.link is not None) != (name == "unreachable"):
+                    problems.append("%s: the way to the connection test is %s" % (
+                        label, "missing" if name == "unreachable" else "offered for an account's trouble"))
+    finally:
+        remote.sign_in = real
+        app.state.mode, app.state.server_url, app.state.remote = kept
+        app.state.save()
+        app.refresh_checks()
+        settle(app)
+
+
 def server_test_check(app, out, tag, problems):
     """ONLINE's Connection test card (client/server_test.py) in each state a player meets, against made-up servers
     on this machine (tests/client/test_server_test.py's): not run yet, under way, every step passed, nothing
@@ -2592,6 +2725,8 @@ def main():
             settle(app)
             shot(app, args.out, "%s_%s-%s" % (tag, page, name))
             measure(app, "%s_%s-%s" % (tag, page, name), problems)
+    # ---- the sign-in on another server in each state a person meets (the server made up: no network)
+    signin_states_check(app, args.out, tag, problems)
     # ---- the connection test on ONLINE, against made-up servers on this machine: each outcome's card
     server_test_check(app, args.out, tag, problems)
     # ---- TS-LAUNCHER-21: PLAY on another server that does not answer (no network here) stops, saying why

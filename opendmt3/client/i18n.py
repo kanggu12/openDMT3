@@ -342,11 +342,11 @@ TEXT = {
     "online.address.example": ("192.168.0.10:4730", "192.168.0.10:4730"),
     "online.id.hint": ("Up to {max} letters and digits.", "영문과 숫자 {max}자까지."),
     "online.password.hint": ("{min} to {max} letters and digits.", "영문과 숫자 {min}~{max}자."),
-    "online.dj.hint": ("Up to {max} characters, shown in the game.", "{max}자까지, 게임에 나옵니다."),
+    "online.dj.hint": ("Up to {max} characters, shown in the game.", "{max}자까지. 게임에 표시됩니다."),
     # The sign-in (FORMS.md's door): the server it signs in to, Remember my ID, a wrong ID or password in one sentence
     # (as the site says it), the way back when the password is gone, a banned account's plate, signed in.
     "online.signin.to": ("Signing in to", "로그인할 서버"),
-    "online.remember": ("Remember my ID on this PC", "이 PC에 ID 기억하기"),
+    "online.remember": ("Remember my ID on this PC", "이 PC에 ID 저장"),
     "online.signin.wrong": ("ID or password does not match.", "ID 또는 비밀번호가 맞지 않습니다."),
     "online.forgot": ("Forgot your password? The server's owner can give you a new one.",
                       "비밀번호를 잊었다면 서버 운영자에게 새 비밀번호를 받으세요."),
@@ -358,7 +358,7 @@ TEXT = {
     "online.signed.title": ("Signed in", "로그인됨"),
     "online.signed.on": ("On {base}. The game logs in with this card.", "{base}에 로그인했습니다. 게임은 이 카드로 로그인합니다."),
     "error.signin.no_id": ("Type your ID.", "ID를 입력하세요."),
-    "unpack.password.none": ("Type the archive's password.", "압축 파일의 비밀번호를 입력하세요."),
+    "unpack.password.none": ("Type the archive's password.", "압축 파일의 암호를 입력하세요."),
     "error.signin.no_password": ("Type your password.", "비밀번호를 입력하세요."),
     # The connection test (client/server_test.py): the card, its steps and what each says.
     "server_test": ("Connection test", "연결 테스트"),
