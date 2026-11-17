@@ -307,7 +307,7 @@ allow it. To keep a server running without a launcher, see [Running a server](se
 A server takes one thing from the game: the song list, which holds the jackets and the DJ cards too
 ([what a server takes](client-data.md#what-a-server-takes)). **Game**, **Save the song list...** saves it from your
 client data into one file, `openDMT3-song-list.zip` (about 13 MB), in the launcher's own Save dialog (on the desktop
-unless you type another path); the server's admin uploads it on the site's **Admin**, **Song list**. Signed in to
+unless you type another path); the server's admin uploads it on the admin pages' **Song list**. Signed in to
 another server as its admin (**Online**, **Another server**), **Send the song list to this server** sends it there at
 once, asked first. The client data is only read; the file is checked as a server takes it before it is saved.
 

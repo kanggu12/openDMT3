@@ -72,7 +72,7 @@ a `{name}` in a path is part of the address. **Errors** are the call's own. Besi
 answers `401 sign_in` without one that works, an admin's call answers `403 admin_only` to another account's token,
 and a read-only named token gets `403 read_only` for anything but a `GET` and for an admin's call
 ([Errors](#errors)). Words meant for people in an answer (a message to send, a line to look at, a font's faces) are in
-English, or in Korean with `?lang=ko`. What a call changes goes into the change log (**Admin**, **Logs**) under the
+English, or in Korean with `?lang=ko`. What a call changes goes into the change log (the admin pages' **Logs**) under the
 caller's ID, as the same change on the site does.
 
 ### The server, signing in and out
