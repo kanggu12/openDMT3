@@ -120,8 +120,9 @@
     var input = box.querySelector("input[type=file]");
     var hint = box.querySelector(".drop-hint");
     var pick = box.querySelector(".drop-pick");
-    // The form's sending button (an upload's is a plain one: each page keeps one main button, its own action).
-    var send = form.querySelector("button.send, button.primary");
+    // The form's sending button: its main one, a plain one marked as the upload's (each page keeps one main button,
+    // its own action), or one marked as the button that sends the file (a page with another main).
+    var send = form.querySelector("button.send, button.primary, button[data-send]");
     // The page's line for a file past the limit, under the form (shown when the form is sent with one).
     var said = form.parentNode.querySelector(".upload-too-large");
     // The box's own words as the page wrote them, its drop-only part included (the page's markup, no file's name).

@@ -276,10 +276,12 @@ class Accounts:
             raise _last_admin(login_id)
         # The guard again in the change itself, as in set_admin: two admins disabling each other at once cannot both
         # win. Enabling, or disabling an account that is not an enabled admin, always goes through.
+        # Enabling lifts a ban too: its reason goes with it (services/players.py).
         cursor = self.db.execute(
-            "UPDATE accounts SET disabled = ? WHERE login_id = ? AND (? = 0 OR is_admin = 0 OR disabled = 1 OR EXISTS ("
+            "UPDATE accounts SET disabled = ?, ban_reason = CASE WHEN ? = 0 THEN NULL ELSE ban_reason END"
+            " WHERE login_id = ? AND (? = 0 OR is_admin = 0 OR disabled = 1 OR EXISTS ("
             " SELECT 1 FROM accounts AS other WHERE other.is_admin = 1 AND other.disabled = 0"
-            " AND other.id != accounts.id))", (int(bool(disabled)), login_id, int(bool(disabled))))
+            " AND other.id != accounts.id))", (int(bool(disabled)), int(bool(disabled)), login_id, int(bool(disabled))))
         if not cursor.rowcount:
             if self.by_login(login_id) is not None:
                 # The account is there: it became the last enabled admin in the meantime.

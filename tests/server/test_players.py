@@ -121,6 +121,10 @@ class RulesTest(unittest.TestCase):
                 self.players.ban("RIO", reason)
         self.players.unban("NOVA")
         self.assertEqual((self.row()["disabled"], self.row()["ban_reason"]), (0, None))
+        # Enabled from the Players list (or its API twin), a ban's reason goes too.
+        self.players.ban("NOVA", "Made-up reason")
+        self.accounts.set_disabled("NOVA", False)
+        self.assertIsNone(self.row()["ban_reason"])
         boss = self.accounts.create("BOSS", "pass1234", "BOSS", is_admin=True)
         with self.assertRaises(accounts.AccountError):
             self.players.ban("BOSS", "Made-up reason")
@@ -129,6 +133,7 @@ class RulesTest(unittest.TestCase):
         said = [r["what"] for r in self.players.history(self.nova["id"])]
         self.assertEqual(said[:3], ["enabled the account NOVA", "banned NOVA: Made-up reason",
                                     "disabled the account NOVA"])
+        self.assertEqual(said.count("banned NOVA: Made-up reason"), 2)
         self.assertEqual(self.players.history(boss["id"])[0]["what"], "made the account BOSS")
 
     @unittest.skipUnless(WEB, "needs Pillow (with the web libraries)")

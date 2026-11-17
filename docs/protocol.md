@@ -91,15 +91,21 @@ them yet.
 | 82 | 4 | MAX points, beside the name on the song select |
 | 86 | 4 | The crew, from the client's code (0: none; the crew's name, emblem and points follow it) |
 
-openDMT3 sends the experience of the stages cleared, the player's icon, plate, pattern and comment (chosen on the
-site, from the numbers the game's tables have pictures for), and zero for the rest. Each value was checked on the
+openDMT3 sends the experience of the stages cleared (with an admin's change of the level on top), the player's icon,
+plate, pattern and comment (chosen on the site, from the numbers the game's tables have pictures for), the MAX points
+the server keeps for the player (the game's currency; 999999 while an admin made them unlimited), and zero for the
+rest. Each value was checked on the
 client's screen; Hangul shows in the name, the comment and a first place's DJ name.
 After a login the client asks the server nothing until it plays: songs and patterns come from its own song lists.
 
 ## Results
 
 When a session ends the client sends 0x78 (120), 0x79 (16), 0x7A (16), 0x7B (20) and 0x6E (155) together and
-expects no answer. openDMT3 keeps 0x6E:
+expects no answer. 0x79 carries the player's number (u32 at 8) and the MAX points the session earned (u32 at 12, the
+client's own count from its table of points per chart level and rank): openDMT3 adds them to the balance of the player
+logged in on that link, when the number is theirs and a card login's points stay within 4,000 (eight stages of the
+table's most, doubled). 0x7A carries the experience the session earned and 0x7B the crew's points; their values in
+the captures are not understood yet, so openDMT3 counts experience from the stages kept. It keeps 0x6E:
 
 | Offset | Size | What |
 |---|---|---|

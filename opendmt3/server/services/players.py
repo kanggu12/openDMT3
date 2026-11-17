@@ -209,7 +209,7 @@ class Players:
     def unban(self, login_id, who="system"):
         """The ban lifted: the account enabled again, its reason gone."""
         self._row(login_id)
-        self.db.execute("UPDATE accounts SET ban_reason = NULL WHERE login_id = ?", (login_id,))
+        # Enabling takes the reason away with it (accounts.set_disabled).
         self.accounts.set_disabled(login_id, False, who=who)
 
     # ------------------------------------------------------------------------------ the change log of one player

@@ -4,7 +4,7 @@
 // label at the phone width, a word of the phone menu that does not fit, a button's words out of its middle), saves a
 // full-page screenshot, then opens the
 // questions asked before something goes (a player deleted, a player's plays reset, a new password, every play reset,
-// a backup deleted, a token revoked) and checks each fits the screen, makes an
+// a backup deleted, a token revoked, a player banned, one's own account deleted) and checks each fits the screen, makes an
 // account and measures the page with its message to send, shows the Status page's list of what to look at, types in
 // the songs filter (rows hide with no request, the count follows), makes an API token and measures it shown once,
 // uploads a file too large for the page's limit (told before sending) and a real backup, does the same on the Song
@@ -28,7 +28,9 @@ const base = process.env.SITE || 'http://site:4730';
 const words = JSON.parse(process.env.WORDS || '{}');
 const pages = ['/', '/rankings', '/rankings?by=best30', '/rankings?by=month', '/songs', '/songs/4', '/dj/4', '/download',
                '/account', '/admin/players', '/admin/cabinets', '/admin/status', '/admin/server', '/admin/song_list', '/admin/log',
-               '/admin/log/plays', '/admin/log/requests', '/admin/backups', '/licenses'];
+               '/admin/log/plays', '/admin/log/requests', '/admin/backups', '/licenses',
+               // The admin's page of a player: one decorated (a picture, MAX points, a level set), one banned.
+               '/admin/players/HANA', '/admin/players/RIO'];
 // The questions asked first: what each is, where, and the button of the form that asks it.
 const asking = action => `form[data-ask]:has(input[name=action][value=${action}]) button.danger`;
 const questions = [['player delete', '/admin/players', asking('delete')],
@@ -37,7 +39,10 @@ const questions = [['player delete', '/admin/players', asking('delete')],
                    ['player new password', '/admin/players', 'form[data-ask]:has(input[name=action][value=password]) button'],
                    ['every play reset', '/admin/players', asking('reset_all')],
                    ['backup delete', '/admin/backups', asking('delete')],
-                   ['token revoke', '/account', asking('token_revoke')]];
+                   ['token revoke', '/account', asking('token_revoke')],
+                   // A form whose field is needed asks only once it is filled (the browser's own check comes first).
+                   ['player ban', '/admin/players/HANA', asking('ban'), ['input[name=reason]', 'Made-up reason']],
+                   ['account delete', '/account', asking('delete_me'), ['#delete-current', 'pass1234']]];
 
 (async () => {
   const browser = await puppeteer.launch({args: ['--no-sandbox']});
@@ -143,9 +148,10 @@ const questions = [['player delete', '/admin/players', asking('delete')],
         await page.screenshot({path: `/out/${lang}-${path.replace(/[\/?=&]/g, '_') || '_'}-${width}.png`, fullPage: true});
       }
       // Each question: open, inside the screen, its question filled in; Esc closes it and nothing goes.
-      for (const [what, path, button] of questions) {
+      for (const [what, path, button, fill] of questions) {
         await page.goto(base + path, {waitUntil: 'networkidle0'});
         const before = await page.evaluate(() => document.querySelectorAll('form[data-ask]').length);
+        if (fill) await page.type(fill[0], fill[1]);
         await page.click(button);
         await new Promise(r => setTimeout(r, 400));
         const ask = await page.evaluate(() => {
@@ -235,7 +241,7 @@ const questions = [['player delete', '/admin/players', asking('delete')],
       await page.type('form:has(input[name=action][value=token_make]) input[name=name]', 'Layout check ' + round);
       await page.select('form:has(input[name=action][value=token_make]) select[name=scope]', 'write');
       await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}),
-                         page.click('form:has(input[name=action][value=token_make]) button.primary')]);
+                         page.click('form:has(input[name=action][value=token_make]) button')]);
       const token = await page.evaluate(() => {
         const box = document.getElementById('made-token');
         return box ? {shape: /^odt3_[0-9a-f]{12}_[A-Za-z0-9_-]{43}$/.test(box.value),

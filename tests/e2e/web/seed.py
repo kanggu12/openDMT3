@@ -9,6 +9,7 @@ Korean DJ name, eight W's, a song title that wraps over lines, one in Korean, on
 from the game.
 """
 
+import io
 import json
 import os
 import random
@@ -96,6 +97,23 @@ def main(data):
                                   {"song": song, "pattern": pattern, "score": rng.randint(300000, 1000000),
                                    "counts": [0] * 7, "raw": bytes(47)}, at=at, session_id=session)
                         act.end(session, host, at=at + 30)
+    # What an admin controls of a player and what a player decorates (services/players.py): HANA with a picture of
+    # their own (drawn here), MAX points and a level an admin set; RIO banned with a long made-up reason in Korean.
+    from opendmt3.server.services import players
+    control = players.Players(connection)
+    face = Image.new("RGB", (320, 240), (40, 90, 200))
+    ImageDraw.Draw(face).ellipse((100, 60, 220, 180), fill=(255, 179, 61))
+    out = io.BytesIO()
+    face.save(out, "JPEG")
+    players.save_picture(data, ids["HANA"], players.make_picture(out.getvalue()))
+    control.set_picture("HANA", who="HANA")
+    control.set_points("HANA", 432098, who="BOSS")
+    # The level from the plays' own experience (web/control.py, as the admin's page counts it), so the page says 7.
+    from opendmt3.server.web import control as web_control
+    control.set_level("HANA", 7, cards.load(data), earned=web_control.earned(connection, data, store.by_login("HANA")),
+                      who="BOSS")
+    control.ban("RIO", "가상의 사유입니다. 같은 카드로 여러 사람이 번갈아 기록을 올린 것으로 보여 이용을 잠시 멈춥니다.",
+                who="BOSS")
     connection.close()
     # The admin's named API tokens: a name of the longest length and a Korean one, one of them used, so the Account
     # page lists them with their revoke questions.

@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{# The upload field, the site's own (_upload.html), with the page's words. #}
+{% from "_upload.html" import drop with context %}
 {% block title %}{{ w("me.title") }} · {% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/players.css?v={{ version }}">{% endblock %}
 {% block main %}
@@ -33,12 +35,13 @@
         <div class="picture-forms">
           <h3>{{ w("me.picture") }}</h3>
           {% if pictures_taken %}
-          <form method="post" action="/account/picture" enctype="multipart/form-data" class="form">
+          <form method="post" action="/account/picture" enctype="multipart/form-data" class="form upload" data-upload-most="{{ picture_mb * 1048576 }}">
             <input type="hidden" name="csrf" value="{{ csrf }}">
-            <label>{{ w("me.picture.file") }}<input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif" required aria-describedby="picture-rules"></label>
-            <p class="muted small" id="picture-rules">{{ w("me.picture.rules", mb=picture_mb, size=picture_size) }}</p>
-            <div class="buttons"><button class="btn">{{ w("me.picture.upload") }}</button></div>
+            {{ drop("picture-file", w("me.picture.file"), "image/png,image/jpeg,image/webp,image/gif") }}
+            <div class="buttons"><button class="btn" data-send>{{ w("me.picture.upload") }}</button></div>
           </form>
+          <p class="alert bad upload-too-large" role="alert" hidden>{{ w("me.picture.size", mb=picture_mb) }}</p>
+          <p class="muted small" id="picture-rules">{{ w("me.picture.rules", mb=picture_mb, size=picture_size) }}</p>
           {% if me.picture %}
           <form method="post" action="/account/picture" data-ask="{{ w('me.picture.clear.ask') }}" data-ask-title="{{ w('me.picture') }}" data-ask-yes="{{ w('me.picture.clear') }}">
             <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="clear">
