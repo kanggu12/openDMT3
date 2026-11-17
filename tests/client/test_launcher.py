@@ -1205,6 +1205,42 @@ class LauncherTest(FolderCase):
         with mock.patch("os.remove", in_use), mock.patch("os.chmod"):
             self.assertEqual(leaving.delete_data(folder), ["launcher.json", "server"])
 
+    def test_delete_all_takes_openDMT3s_own_folder_for_playing_and_counts_it(self):
+        from opendmt3.client import leaving
+        folder = os.path.join(self.config, "openDMT3")
+        with mock.patch.dict(os.environ, {"OPENDMT3_CONFIG_DIR": folder}):
+            self.state.save()
+            own = st.own_folder()
+            # What PLAY leaves there (steps.Own): the client copy, the card reader's files and card, the settings, the
+            # operator data, a changed archive's copy, the list, the fingerprints, a crash dump.
+            made = {"Client_fixed.exe": 4000, "CRT_R1.dll": 3000, "openDMT3-card.txt": 20, "setting.ini": 300,
+                    "file/game": 200, "pack/DiscInfo.pak": 5000, "openDMT3-files.txt": 100, "openDMT3-made.json": 80,
+                    "openDMT3-hashes.json": 90, "Dump/crash-1.dmp": 700}
+            for name, size in made.items():
+                path = own.path(*name.split("/"))
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "wb") as f:
+                    f.write(b"x" * size)
+            # The question's size counts all of it, beside the settings file.
+            settings = os.path.getsize(os.path.join(folder, "launcher.json"))
+            self.assertEqual(leaving.data_size(folder), sum(made.values()) + settings)
+            # A link in it (openDMT3 makes none there) is never followed: what it leads to stays, and so does the link.
+            outside = os.path.join(self.config, "outside")
+            os.makedirs(outside)
+            with open(os.path.join(outside, "mine.txt"), "w") as f:
+                f.write("mine")
+            if hasattr(os, "symlink") and os.name != "nt":
+                os.symlink(outside, own.path("link"))
+                self.assertEqual(leaving.data_size(folder), sum(made.values()) + settings)
+                self.assertEqual(leaving.delete_data(folder), ["game"])
+                self.assertEqual(os.listdir(own.folder), ["link"])
+                self.assertEqual(os.listdir(outside), ["mine.txt"])
+                os.remove(own.path("link"))
+            # Without it, the whole folder goes with the rest, and the settings folder with it.
+            self.assertEqual(leaving.delete_data(folder), [])
+            self.assertFalse(os.path.exists(folder))
+            self.assertEqual(os.listdir(outside), ["mine.txt"])
+
     def test_delete_all_knows_every_file_the_server_makes(self):
         # Each name the server's code gives a file in its data folder (a *FILE constant) is one Delete all takes: a new
         # one is never left behind, as catalog-read.json and catalog.log once were.

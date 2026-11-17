@@ -45,7 +45,8 @@ EVERYTHING = "OPENDMT3_REMOVE_DATA"
 TOKEN = "remove-everything"
 
 # What the launcher writes in its own folder (state.config_dir()), and nothing else, is what delete_data() takes,
-# file by file and by the names the launcher gives them. Anything else stays, and the folders holding it.
+# file by file and by the names the launcher gives them (and everything PLAY made in its own folder for playing, OWN).
+# Anything else stays, and the folders holding it.
 # The sound file both the launcher and the game write (sound_file.py, native/cardreader/soundset.c), with its lock and
 # their temporary files.
 DATA_FILES = ("launcher.json", "update-pending.json", TOKEN, "sound.ini", "sound.ini.lock", "sound.ini.tmp-ingame")
@@ -71,6 +72,11 @@ PICTURE_NAME = re.compile(r"^\d+\.png(\.new)?$")
 REQUESTS_NAME = re.compile(r"^requests\.log(\.\d+)?$")
 # Folders the server makes for files people put there (installers to hand out, updates): only taken when empty.
 SERVER_EMPTY = ("downloads", "updates")
+# openDMT3's own folder for playing (state.own_folder(), steps.Own): all of it is PLAY's (the client copy, the card
+# reader's files and its card, the settings, the operator data, the changed archives' copies, the list, the
+# fingerprints, the game's crash dumps), so Delete all takes every file in it, and counts them. Never through a link
+# or a junction (PLAY makes none there): one stays, with what it leads to.
+OWN = "game"
 
 WORDS = {
     "en": ("openDMT3 was removed while these files of the client data were still as openDMT3 left them.",
@@ -319,10 +325,41 @@ def _named_in(folder, named):
             yield path
 
 
+def _is_link(path):
+    """True for a link or a junction (Windows' link to a folder): never followed, and never taken."""
+    isjunction = getattr(os.path, "isjunction", None)
+    return os.path.islink(path) or bool(isjunction and isjunction(path))
+
+
+def _own_walk(top):
+    """openDMT3's own folder for playing (OWN) walked without going through a link or a junction: (its folders, each
+    after every folder inside it, and its files). Nothing when the folder itself is a link or is not there."""
+    folders, files = [], []
+    if _is_link(top) or not os.path.isdir(top):
+        return folders, files
+    pending = [top]
+    while pending:
+        here = pending.pop()
+        # Each folder before what is inside it: the list turned round, every folder comes after its own.
+        folders.append(here)
+        for name in _names(here):
+            path = os.path.join(here, name)
+            if _is_link(path):
+                # Never followed: it stays, with what it leads to.
+                continue
+            if os.path.isdir(path):
+                pending.append(path)
+            elif os.path.isfile(path):
+                files.append(path)
+    return folders[::-1], files
+
+
 def _launchers_files(folder):
-    """Every file delete_data() takes from `folder`: the launcher's own names in its own places, nothing else."""
+    """Every file delete_data() takes from `folder`: the launcher's own names in its own places, and every file of
+    its own folder for playing (OWN), nothing else."""
     from opendmt3.server.services import cards, catalog, players
     yield from _named_in(folder, lambda name: name in DATA_FILES or name.startswith(DATA_PREFIXES))
+    yield from _own_walk(os.path.join(folder, OWN))[1]
     yield from _named_in(os.path.join(folder, "logs"), LOG_NAME.match)
     server = os.path.join(folder, "server")
     yield from _named_in(os.path.join(server, "backups"), BACKUP_NAME.match)
@@ -372,9 +409,10 @@ def megabytes(size):
 
 
 def delete_data(folder):
-    """Delete the launcher's settings, its log and this PC's server data (players, records, the backups of them)
-    from `folder`, file by file and only by the names the launcher gives them, then each folder once it is empty.
-    A file or folder of any other name stays, and the folders holding it. Returns the names left in `folder`."""
+    """Delete the launcher's settings, its log, this PC's server data (players, records, the backups of them) and
+    openDMT3's own folder for playing (OWN) from `folder`, file by file and only by the names the launcher gives them
+    (every file of OWN, PLAY's own), then each folder once it is empty. A file or folder of any other name stays, and
+    the folders holding it. Returns the names left in `folder`."""
     from opendmt3.server.services import cards, catalog, players
     for path in list(_launchers_files(folder)):
         _delete(path)
@@ -389,6 +427,9 @@ def delete_data(folder):
             _remove_if_empty(inside)
     for name in (cards.FOLDER, catalog.JACKETS, players.PICTURES, "backups", "logs") + SERVER_EMPTY:
         _remove_if_empty(os.path.join(server, name))
+    # openDMT3's own folder for playing: each of its folders once it is empty, the deepest first, itself last.
+    for path in _own_walk(os.path.join(folder, OWN))[0]:
+        _remove_if_empty(path)
     for path in (server, os.path.join(folder, "logs"), folder):
         _remove_if_empty(path)
     return sorted(_names(folder))

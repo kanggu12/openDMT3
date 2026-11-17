@@ -371,7 +371,8 @@ then says to open it again. Settings, players, records and the client data are n
 **Help**, **Uninstall** asks first, with two ways on:
 
 - **Keep data**: settings, players and records stay on this PC, so a later install picks up where you left off;
-- **Delete all**: they go too (the question says how much).
+- **Delete all**: they go too, with openDMT3's own folder for playing (`%AppData%\openDMT3\game`: the client copy
+  PLAY made, its card and settings); the question says how much.
 
 Either way it:
 

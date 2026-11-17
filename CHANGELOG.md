@@ -115,6 +115,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - Wrong passwords hold back the ID at the address they came from, so the other players behind one address (a game
   centre's) go on signing in; the address itself waits after 30 for any IDs. A banned player's right password is no
   longer counted as a wrong one, and is checked once.
+- Delete all takes openDMT3's own folder for playing too (the client copy PLAY made, its card and settings), and the
+  question's size counts it.
 
 ## [0.3.1] - 2026-11-17
 
