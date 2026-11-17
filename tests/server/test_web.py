@@ -467,9 +467,9 @@ class WebTest(WebBase):
         token = page.split('name="csrf" value="', 1)[1].split('"', 1)[0]
         r = self.client.post("/admin/players", data={"csrf": token, "action": "make", "login_id": "minho",
                                                      "dj_name": "MINHO", "password": ""})
-        # A password is made when none is typed, and shown once.
+        # A password is made when none is typed, and shown once (the toast says so; the message to send holds it).
         self.assertIn("MINHO", r.text)
-        self.assertIn("shown once", r.text)
+        self.assertIn("shown this once", r.text)
         self.client.post("/admin/players", data={"csrf": token, "action": "disable", "login_id": "MINHO"})
         store = self.site.accounts()
         self.assertTrue(store.by_login("MINHO")["disabled"])
@@ -613,7 +613,8 @@ class WebTest(WebBase):
         self.make("BOSS", admin=True)
         self.make()
         self.sign_in(self.client, "BOSS")
-        page = self.client.get("/admin/players").text
+        # A player's changes are on their own page (the Players list leads there).
+        page = self.client.get("/admin/players/NOVA").text
         found = []
 
         class Forms(html.parser.HTMLParser):

@@ -1,0 +1,14 @@
+{# The admin pages' frame, opened: a low head (the console's amber kicker and the page's name in chrome, nothing else),
+   then the area with its menu down the left on a wide screen (as the launcher's), a strip of one row under the head on
+   a narrow one. `tab` names the page showing; a page of one player, `heading`, its own name in the head. Closed by
+   _admin_close.html. #}
+<section class="page-head">
+  <div class="page-head-text"><p class="kicker">{{ w("nav.admin") }}</p><h1 class="word">{{ heading or w("admin." + tab) }}</h1></div>
+</section>
+<div class="side-area">
+  <nav class="side-nav" aria-label="{{ w('admin.title') }}">
+    {% for key in ("status", "players", "cabinets", "song_list", "backups", "log", "server") %}
+    <a href="/admin/{{ key }}" class="{{ 'on' if tab == key }}"{% if tab == key %} aria-current="{{ 'page' if not heading else 'true' }}"{% endif %}>{{ w("admin." + key) }}</a>
+    {% endfor %}
+  </nav>
+  <div class="side-main">

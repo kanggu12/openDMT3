@@ -3,11 +3,7 @@
 {% from "_upload.html" import drop with context %}
 {% block title %}{{ w("admin.song_list") }} · {{ w("admin.title") }} · {% endblock %}
 {% block main %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
-</section>
-<section class="page">
-  {% set tab = "song_list" %}{% include "_admin_tabs.html" %}
+{% set tab = "song_list" %}{% include "_admin_open.html" %}
   {% include "_job.html" %}
   {# What the server takes from the game, as OpenDMTQ's setup page shows each thing: what it is, the forms it may come
      in, whether it is needed; then whether the server has it, part by part. #}
@@ -117,5 +113,5 @@
     <p class="field-error upload-too-large" role="alert" hidden>{{ too_large }}</p>
     <p class="muted small">{{ w("songlist.upload.hint", mb=upload_mb) }}</p>
   </div>
-</section>
+{% include "_admin_close.html" %}
 {% endblock %}

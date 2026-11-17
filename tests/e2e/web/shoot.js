@@ -33,10 +33,11 @@ const pages = ['/', '/rankings', '/rankings?by=best30', '/rankings?by=month', '/
                '/admin/players/HANA', '/admin/players/RIO'];
 // The questions asked first: what each is, where, and the button of the form that asks it.
 const asking = action => `form[data-ask]:has(input[name=action][value=${action}]) button.danger`;
-const questions = [['player delete', '/admin/players', asking('delete')],
-                   ['player reset', '/admin/players', asking('reset_plays')],
+// A player's own changes are on their page (the Players list leads there).
+const questions = [['player delete', '/admin/players/NOVA', asking('delete')],
+                   ['player reset', '/admin/players/NOVA', asking('reset_plays')],
                    // A new password ends the account's sign-ins: asked first too (its button is a plain one).
-                   ['player new password', '/admin/players', 'form[data-ask]:has(input[name=action][value=password]) button'],
+                   ['player new password', '/admin/players/NOVA', 'form[data-ask]:has(input[name=action][value=password]) button'],
                    ['every play reset', '/admin/players', asking('reset_all')],
                    ['backup delete', '/admin/backups', asking('delete')],
                    ['token revoke', '/account', asking('token_revoke')],

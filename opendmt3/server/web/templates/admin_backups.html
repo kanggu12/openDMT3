@@ -3,11 +3,7 @@
 {% from "_upload.html" import drop with context %}
 {% block title %}{{ w("admin.backups") }} · {{ w("admin.title") }} · {% endblock %}
 {% block main %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
-</section>
-<section class="page">
-  {% set tab = "backups" %}{% include "_admin_tabs.html" %}
+{% set tab = "backups" %}{% include "_admin_open.html" %}
   {% include "_job.html" %}
   {# Every form names this page: the page also shows at the upload's own address, after an upload. #}
   <div class="card">
@@ -51,5 +47,5 @@
     </table>
     {% endif %}
   </div>
-</section>
+{% include "_admin_close.html" %}
 {% endblock %}

@@ -3,13 +3,8 @@
    something (amber for the console, pink for a refusal and a ban, lime for what went well). */
 
 /* -------------------------------------------------------------------------------------- the account area */
-/* A rail of the three sections beside them on a wide screen, a row above them on a phone. */
-.account-area { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; max-width: 1180px; margin: 0 auto;
-                padding: 24px 32px 40px; }
-.subnav { position: sticky; top: 84px; align-self: start; display: grid; gap: 4px; }
-.subnav a { display: block; padding: 10px 14px; color: var(--ash); background: var(--deck); border-left: 3px solid transparent; }
-.subnav a:hover { color: var(--chalk); background: var(--deck-top); text-decoration: none; }
-.subnav a.on { color: var(--chalk); border-left-color: var(--accent); background: var(--deck-top); }
+/* The three sections' rail is the site's side menu (site.css, .side-area); it opens at the section of what was just
+   done (profile.js). */
 .sections { min-width: 0; }
 .area-section { scroll-margin-top: 84px; margin-bottom: 30px; }
 /* Each section's name on a glass strip of its own, as every word of a page sits on something (the layout check's rule). */
@@ -98,14 +93,7 @@ body.lang-ko .facts dt { font: 600 12px/1.4 var(--text-face); letter-spacing: 0;
   .player-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 760px) {
-  .account-area { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 14px; }
-  /* The rail becomes a row of three that stays at the top while the page scrolls under it. */
-  .subnav { top: 96px; z-index: 5; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; background: var(--field); }
-  /* The row is the one box; its names are no boxes of their own but the one on show, so none touches another. */
-  .subnav a { text-align: center; padding: 10px 4px; border-left: 0; border-bottom: 3px solid transparent; font-size: 13px;
-              background: transparent; }
-  .subnav a.on { border-bottom-color: var(--accent); }
-  .area-section { scroll-margin-top: 150px; }
+  .area-section { scroll-margin-top: calc(var(--bar-h, 56px) + 16px); }
   .profile-head, .player-head { grid-template-columns: minmax(0, 1fr); }
   .avatar.big { width: 96px; height: 96px; }
   .cp-icon { width: 104px; height: 64px; }

@@ -4,16 +4,15 @@
 {% block title %}{{ w("me.title") }} · {% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/players.css?v={{ version }}">{% endblock %}
 {% block main %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("me.title") }}</h1><p class="sub">{{ w("me.sub") }}</p></div>
-</section>
+{# A page that works rather than shows: the low head (the page's name, no sentence under it). #}
+<section class="page-head"><div class="page-head-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("me.title") }}</h1></div></section>
 {# One account area in three sections: the profile and its decoration, the account, its security. The rail beside them
    (above them on a phone) leads to each; the page opens at the section of what was just done (static/profile.js). #}
-<div class="account-area" data-open="{{ opened }}">
-  <nav class="subnav" aria-label="{{ w('me.sections') }}">
+<div class="account-area side-area" data-open="{{ opened }}">
+  <nav class="subnav side-nav" aria-label="{{ w('me.sections') }}">
     {% for key in ("profile", "account", "security") %}<a href="#{{ key }}" class="{{ 'on' if opened == key }}"{% if opened == key %} aria-current="true"{% endif %}>{{ w("me.section." + key) }}</a>{% endfor %}
   </nav>
-  <div class="sections">
+  <div class="sections side-main">
 
     {# ------------------------------------------------------------------ the profile and its decoration #}
     <section id="profile" class="area-section" aria-labelledby="profile-title">

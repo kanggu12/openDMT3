@@ -69,19 +69,22 @@ class ResetPlaysTest(ApiBase):
 
     def test_the_players_tab_asks_first_in_the_sites_own_dialog(self):
         self.three_players()
+        # Every player's on the Players tab; one player's on that player's own page (the admin's own too).
         page = self.client.get("/admin/players").text
         resets = [form for form in asking_forms(page) if form["data-ask-yes"] == "Reset plays"]
-        # One for each player (the admin's own too) and one for every play.
-        self.assertEqual(sorted(form["data-ask"] for form in resets),
-                         ["Reset BOSS's plays?", "Reset NOVA's plays?", "Reset RIO's plays?",
-                          "Reset every player's plays?"])
+        self.assertEqual([form["data-ask"] for form in resets], ["Reset every player's plays?"])
+        for login_id in ("BOSS", "NOVA", "RIO"):
+            own = [form for form in asking_forms(self.client.get("/admin/players/" + login_id).text)
+                   if form["data-ask-yes"] == "Reset plays"]
+            self.assertEqual([form["data-ask"] for form in own], ["Reset %s's plays?" % login_id])
+            resets += own
         for form in resets:
             # Each question has its title and what goes and stays, in the site's own dialog: no browser box.
             self.assertTrue(form["data-ask-title"] and "backed up first" in form["data-ask-detail"], form)
         self.assertNotIn("confirm(", page)
         # Korean says the same, with 초기화.
         self.client.cookies.set("opendmt3_lang", "ko")
-        page = self.client.get("/admin/players").text
+        page = self.client.get("/admin/players/NOVA").text
         self.assertIn("NOVA의 플레이 기록을 초기화할까요?", [form["data-ask"] for form in asking_forms(page)])
 
     def test_one_players_plays_go_after_a_backup_and_the_rest_stays(self):

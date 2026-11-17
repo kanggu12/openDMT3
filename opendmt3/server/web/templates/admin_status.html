@@ -1,11 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ w("admin.status") }} · {{ w("admin.title") }} · {% endblock %}
 {% block main %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
-</section>
-<section class="page">
-  {% set tab = "status" %}{% include "_admin_tabs.html" %}
+{% set tab = "status" %}{% include "_admin_open.html" %}
   {# What may want a look, each line only when it is so, with where to fix it (amber: the site's colour for "look"). #}
   {% if look %}
   <div class="card">
@@ -159,5 +155,5 @@
     </form>
     <p class="muted small">{{ w("maintenance.hint") }}</p>
   </div>
-</section>
+{% include "_admin_close.html" %}
 {% endblock %}

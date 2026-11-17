@@ -535,7 +535,8 @@ def routes(site):
 
     # The admin pages' run of the route table, in its order: after the public site's, before the API's.
     return [
-        Route("/admin", lambda r: _redirect("/admin/players")),
+        # The admin pages open at Status, what the server is doing and what may want a look (as OpenDMTQ's do).
+        Route("/admin", lambda r: _redirect("/admin/status")),
         Route("/admin/players", admin_players, methods=["GET", "POST"]),
         # Beside the list, not under it: an ID is letters and digits, so no player's page is the file's.
         Route("/admin/players.csv", admin_players_file),

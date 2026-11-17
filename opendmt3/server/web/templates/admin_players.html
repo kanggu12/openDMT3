@@ -1,11 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ w("admin.players") }} · {{ w("admin.title") }} · {% endblock %}
 {% block main %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
-</section>
-<section class="page">
-  {% set tab = "players" %}{% include "_admin_tabs.html" %}
+{% set tab = "players" %}{% include "_admin_open.html" %}
   {# After a new account or password: what the player needs, as text to copy (selected whole on focus, site.js). #}
   {% if message %}
   <div class="card">
@@ -59,38 +55,19 @@
   <div class="card">
     <p class="players-file"><a class="btn small" href="/admin/players.csv" download>{{ w("players.download") }}</a></p>
     <table class="table players">
-      <thead><tr>{{ sorted("id", "ID") }}{{ sorted("dj", w("account.dj")) }}<th></th>{{ sorted("days", w("players.days")) }}{{ sorted("played", w("players.played")) }}{{ sorted("last", w("admin.last")) }}<th></th></tr></thead>
+      <thead><tr>{{ sorted("id", "ID") }}{{ sorted("dj", w("account.dj")) }}{{ sorted("days", w("players.days")) }}{{ sorted("played", w("players.played")) }}{{ sorted("last", w("admin.last")) }}</tr></thead>
       <tbody>
       {% for r in rows %}
+        {# A row says who and how much they play; everything one can do to a player is on their own page (the ID and the
+           name lead there): a list for looking, a page for changing (player_pages.py). #}
         <tr class="{{ 'off' if r.disabled }}">
-          {# The ID opens the player's own page: their state in the game and every control (player_pages.py). #}
           <td><a href="/admin/players/{{ r.login_id }}"><code>{{ r.login_id }}</code></a></td>
-          {# The DJ name, changed in its row by the account page's rules. #}
-          <td>
-            <form method="post" class="inline-name">
-              <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="rename"><input type="hidden" name="login_id" value="{{ r.login_id }}">
-              <input name="dj_name" value="{{ r.dj_name }}" maxlength="{{ dj_max }}" required aria-label="{{ w('account.dj') }} ({{ r.login_id }})">
-              <button class="btn small">{{ w("admin.rename") }}</button>
-            </form>
-          </td>
-          <td>{% if r.is_admin %}<span class="tag">{{ w("admin.role") }}</span>{% endif %}{% if r.disabled %}<span class="tag bad">{{ w("admin.disabled") }}</span>{% endif %}</td>
+          <td data-label="{{ w('account.dj') }}"><a href="/admin/players/{{ r.login_id }}">{{ r.dj_name }}</a>{% if r.is_admin %} <span class="tag">{{ w("admin.role") }}</span>{% endif %}{% if r.disabled %} <span class="tag bad">{{ w("admin.disabled") }}</span>{% endif %}</td>
           {# On a phone the row is a block and the headers are gone: a cell that is not its own name says what it is. #}
           {# The last two weeks, a cell a day on one scale for every row, and its sum beside it. #}
           <td class="days" data-label="{{ w('players.days') }}">{{ cells(r.days, days, most, w) }} <span class="muted small">{{ r.plays_days }}</span></td>
           <td class="muted time" data-label="{{ w('players.played') }}">{{ r.last_play|when if r.last_play else w("admin.never") }}</td>
           <td class="muted time" data-label="{{ w('admin.last') }}">{{ r.last_login|when if r.last_login else w("admin.never") }}</td>
-          <td class="actions">
-            {# A new password ends the account's sign-ins and shows once: asked first, as a reset and a delete are. #}
-            <form method="post" data-ask="{{ w('admin.newpass.ask', login_id=r.login_id) }}" data-ask-title="{{ w('admin.newpass') }}" data-ask-detail="{{ w('admin.newpass.detail') }}" data-ask-yes="{{ w('admin.newpass') }}" data-ask-tone="warn"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="password"><input type="hidden" name="login_id" value="{{ r.login_id }}"><button class="btn small">{{ w("admin.newpass") }}</button></form>
-            {% for action, label in [("enable" if r.disabled else "disable", w("admin.enable") if r.disabled else w("admin.disable")), ("admin_off" if r.is_admin else "admin_on", w("admin.rights.take") if r.is_admin else w("admin.rights.give"))] %}
-            <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ action }}"><input type="hidden" name="login_id" value="{{ r.login_id }}"><button class="btn small">{{ label }}</button></form>
-            {% endfor %}
-            {# The player's plays reset (the database backed up first), asked first in the site's own dialog. #}
-            <form method="post" data-ask="{{ w('admin.reset.ask', login_id=r.login_id) }}" data-ask-title="{{ w('admin.reset.title') }}" data-ask-detail="{{ w('admin.reset.detail') }}" data-ask-yes="{{ w('admin.reset') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="reset_plays"><input type="hidden" name="login_id" value="{{ r.login_id }}"><button class="btn small danger">{{ w("admin.reset") }}</button></form>
-            {% if r.login_id != user.login_id %}
-            <form method="post" data-ask="{{ w('admin.delete.ask', login_id=r.login_id) }}" data-ask-title="{{ w('admin.delete.title') }}" data-ask-detail="{{ w('admin.delete.detail') }}" data-ask-yes="{{ w('admin.delete') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="delete"><input type="hidden" name="login_id" value="{{ r.login_id }}"><button class="btn small danger">{{ w("admin.delete") }}</button></form>
-            {% endif %}
-          </td>
         </tr>
       {% endfor %}
       </tbody>
@@ -105,5 +82,5 @@
       <button class="btn danger">{{ w("admin.reset.all") }}</button>
     </form>
   </div>
-</section>
+{% include "_admin_close.html" %}
 {% endblock %}

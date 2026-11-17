@@ -215,6 +215,58 @@ body.lang-ko .hero h1.word { font: 700 38px/1.15 var(--text-face); letter-spacin
 .shards i:nth-child(4) { right: 34%; top: 30%; width: 160px; height: 110%; clip-path: polygon(80% 0, 100% 5%, 20% 100%); background: var(--accent-deep); opacity: 0.8; }
 .shards i:nth-child(5) { right: 14%; top: 55%; width: 340px; height: 60%; clip-path: polygon(100% 0, 95% 30%, 0 100%); background: var(--accent); opacity: 0.35; }
 
+/* ------------------------------------------------------------------------------------------ page head */
+/* A page that works rather than shows (the admin pages, one's own account, the download): a low head, the kicker and
+   the page's name in chrome, no sentence under it, the section's colour only in the kicker and a faint wash at the end. */
+.page-head { border-bottom: 1px solid var(--seam);
+             background: linear-gradient(90deg, var(--field) 45%, color-mix(in srgb, var(--accent-deep) 40%, var(--field)) 100%); }
+.page-head-text { max-width: 1180px; margin: 0 auto; padding: 24px 32px 20px; }
+.page-head .kicker { margin-bottom: 6px; }
+.page-head h1 { margin: 0; padding-bottom: 2px; font: 400 30px/1.05 var(--wide); letter-spacing: -0.01em; overflow-wrap: anywhere;
+                background: var(--chrome); -webkit-background-clip: text; background-clip: text; color: transparent;
+                filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7)); }
+body.lang-ko .page-head h1 { font: 700 28px/1.2 var(--text-face); letter-spacing: -0.02em; }
+/* A name that is a player's (their page): the text face, as names are everywhere. */
+.page-head h1:not(.word) { font: 700 28px/1.2 var(--text-face); }
+
+/* An area of several pages (the admin pages, one's own account): their menu down the left on a wide screen, as the
+   launcher's own menu column (the one showing on a slab with a rule of the section's colour beside its name), the page
+   beside it; on a narrow screen the menu is a strip of one row under the head. */
+.side-area { display: grid; grid-template-columns: 188px minmax(0, 1fr); gap: 24px; max-width: 1180px; margin: 0 auto;
+             padding: 24px 32px 40px; }
+/* The column on a glass plate of its own, as the launcher's darker column is (its names never sit on the bare page). */
+.side-nav { position: sticky; top: calc(var(--bar-h, 62px) + 16px); align-self: start; display: grid; gap: 2px; padding: 6px;
+            background: var(--glass); box-shadow: var(--glass-rim); }
+.side-nav a { position: relative; display: flex; align-items: center; min-height: 40px; padding: 0 14px 0 18px; color: var(--ash);
+              font: 400 11px/1.2 var(--wide); letter-spacing: 0.08em; text-transform: uppercase; }
+body.lang-ko .side-nav a { font: 600 14px/1.2 var(--text-face); letter-spacing: 0; text-transform: none; }
+.side-nav a:hover { color: var(--chalk); background: var(--deck); text-decoration: none; }
+.side-nav a.on { color: var(--chalk); background: var(--deck-top); }
+.side-nav a.on::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; background: var(--accent); }
+.side-nav a:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+.side-main { min-width: 0; }
+.side-main > .card:last-child { margin-bottom: 0; }
+@media (max-width: 1000px) {
+  /* The menu as a band under the head, every name on it (none slides out of sight): a row on a tablet, a grid of four
+     on a phone; the one showing has the rule of its colour under its name. */
+  .side-area { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 0 16px 32px; }
+  .side-nav { position: static; display: flex; flex-wrap: wrap; gap: 0; margin: 0 -16px; padding: 0 8px;
+              border-bottom: 1px solid var(--seam); background: var(--field); box-shadow: none; }
+  .side-nav a { flex: none; min-height: 46px; padding: 0 12px; white-space: nowrap; }
+  .side-nav a:hover, .side-nav a.on { background: transparent; }
+  .side-nav a.on::before { left: 12px; right: 12px; top: auto; bottom: 0; width: auto; height: 2px; }
+}
+@media (max-width: 760px) {
+  .side-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0 4px; }
+  .side-nav a { justify-content: center; min-height: 44px; padding: 0 4px; text-align: center; white-space: normal; }
+  .side-nav a.on::before { left: 8px; right: 8px; }
+}
+@media (max-width: 760px) {
+  .page-head-text { padding: 18px 16px 14px; }
+  .page-head h1 { font-size: 24px; }
+  body.lang-ko .page-head h1, .page-head h1:not(.word) { font-size: 22px; }
+}
+
 /* ---------------------------------------------------------------------------------------------- pages */
 main { flex: 1; }
 .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; padding: 24px 32px 40px; max-width: 1180px; margin: 0 auto; }
@@ -726,7 +778,10 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
   .sheet-tools .who-name { display: block; }
   .grid { grid-template-columns: minmax(0, 1fr); padding: 16px; }
   .page { padding: 16px; }
-  .hero-text { padding: 30px 16px 0; max-width: 100%; }
+  /* A phone's hero is low: its words, then the page (a 220 px band pushed every page's first card off the screen). */
+  .hero { height: auto; min-height: 128px; }
+  .hero.small { min-height: 120px; }
+  .hero-text { padding: 26px 16px 22px; max-width: 100%; }
   .hero h1 { font-size: 30px; }
   .shards { opacity: 0.45; }
   .foot { padding: 16px; }

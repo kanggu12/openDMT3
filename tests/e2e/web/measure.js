@@ -68,17 +68,18 @@ const layout = page => page.evaluate(() => {
       });
     }
   }
-  // ---- the top menu's words on a phone
-  const menu = width <= 760 ? [...document.querySelectorAll('.menu a')].filter(a => {
+  // ---- the top menu's words on a phone: the bar's one row (the mark, where one is, MENU) whole on the screen, and a
+  // menu still in the bar (a page without the sheet) no wider than the narrowest phone looked after.
+  const menu = width <= 760 ? [...document.querySelectorAll('.bar a, .bar button, .menu a')].filter(a => {
     const r = a.getBoundingClientRect();
-    return r.left < -1 || r.right > width + 1;
+    return r.width > 0 && (r.left < -1 || r.right > width + 1);
   }).map(a => a.textContent.trim()) : [];
   // The room its words take, against the narrowest phone looked after (the page is measured at one phone width; the
   // menu is the one row that must not wrap, so its fit is worked out for the narrower one too): its words from the
   // first to the last with the row's own padding, against the row's width on a 360 px screen (this screen's, less
-  // what this screen is wider).
+  // what this screen is wider). A menu the phone shows in MENU's sheet instead has no row to fit.
   const bar = document.querySelector('.menu');
-  const links = bar ? [...bar.querySelectorAll('a')] : [];
+  const links = bar && bar.offsetWidth ? [...bar.querySelectorAll('a')] : [];
   if (width <= 760 && links.length) {
     const pad = getComputedStyle(bar);
     const needs = links[links.length - 1].getBoundingClientRect().right - links[0].getBoundingClientRect().left +

@@ -1,11 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ w("log.view.changes") }} · {{ w("admin.log") }} · {% endblock %}
 {% block main %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
-</section>
-<section class="page">
-  {% set tab = "log" %}{% include "_admin_tabs.html" %}
+{% set tab = "log" %}{% include "_admin_open.html" %}
   {% set view = "changes" %}{% include "_log_views.html" %}
   <div class="card">
     <h3>{{ w("log.changes") }}</h3>
@@ -30,5 +26,5 @@
     {% if counts.messages > log.messages|length %}<p class="muted small cut">{{ w("list.latest", n=log.messages|length, of="{:,}".format(counts.messages)) }}</p>{% endif %}
     {% endif %}
   </div>
-</section>
+{% include "_admin_close.html" %}
 {% endblock %}

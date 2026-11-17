@@ -2,11 +2,7 @@
 {% block title %}{{ w("log.view.requests") }} · {{ w("admin.log") }} · {% endblock %}
 {% block main %}
 {% from "_charts.html" import requests_chart %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
-</section>
-<section class="page">
-  {% set tab = "log" %}{% include "_admin_tabs.html" %}
+{% set tab = "log" %}{% include "_admin_open.html" %}
   {% set view = "requests" %}{% include "_log_views.html" %}
   {# The last day by half hours: what was answered, and what was refused or failed. #}
   <div class="card">
@@ -44,5 +40,5 @@
     </table>
     {% endif %}
   </div>
-</section>
+{% include "_admin_close.html" %}
 {% endblock %}

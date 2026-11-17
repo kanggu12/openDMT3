@@ -1633,14 +1633,15 @@ class StatesTest(SiteBase):
     def test_a_new_password_is_asked_first_as_a_reset_and_a_delete_are(self):
         self.admin()
         self.make()
-        page = self.client.get("/admin/players").text
+        # On the player's own page, where every change to a player is.
+        page = self.client.get("/admin/players/NOVA").text
         form = re.search(r'<form method="post" data-ask="Give NOVA a new password\?"[^>]*>', page)
         self.assertIsNotNone(form)
         self.assertIn('data-ask-detail="Their sign-ins end. The new password is shown once."', form.group(0))
         self.assertIn('data-ask-yes="New password"', form.group(0))
         # Every form that changes an account's sign-in or takes plays away asks (enable and admin rights do not).
         self.assertEqual(len(re.findall(r'<form method="post" data-ask="[^"]*"[^>]*><input type="hidden" name="csrf" '
-                                        r'value="[^"]*"><input type="hidden" name="action" value="password">', page)), 2)
+                                        r'value="[^"]*"><input type="hidden" name="action" value="password">', page)), 1)
 
     def test_the_installers_line_names_the_command_where_the_folder_is_out_of_reach(self):
         from unittest import mock
