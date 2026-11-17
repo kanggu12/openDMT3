@@ -41,6 +41,8 @@ SLANT = 14          # how far the tab's sides lean in
 BUTTON = 40         # a button's height
 BUTTON_MIN = 132    # a button's least width
 GAP = 12            # between two buttons
+HEAD = 52           # a window of its own: its header (the lockup, minimize and close) over the dialog
+HEAD_MARK = 112     # the lockup's width in that header (its label, no version: too small a DMT3 for one)
 RISE = 14           # how far the panel rises as it appears
 FRAMES = 8          # the rise, one frame every 16 ms
 
@@ -136,7 +138,16 @@ class Dialog:
         self._jobs = set()
         self._resize_job = None
         self._before = root.focus_get()
-        self.canvas = tk.Canvas(root, highlightthickness=0, bd=0, bg=theme.BG, takefocus=1)
+        # In a window of its own (window_root), the dialog fills the room under the window's header; in the
+        # launcher's window, the whole window.
+        self.area = getattr(root, "opendmt3_body", None) or root
+        # The keys of that header (minimize, close), which Tab reaches past the dialog's last button, and the ring on
+        # the dialog's buttons only while the keyboard is in the dialog.
+        self.keys = getattr(root, "opendmt3_keys", None) or []
+        self.ring = True
+        if self.keys:
+            root.opendmt3_dialog = self
+        self.canvas = tk.Canvas(self.area, highlightthickness=0, bd=0, bg=theme.BG, takefocus=1)
         # Left out of the window's picture: the dialog never draws itself behind itself.
         self.canvas.opendmt3_skip = True
         self.canvas.place(x=0, y=0, relwidth=1, relheight=1)
@@ -250,7 +261,7 @@ class Dialog:
     def _draw(self, rise=False):
         """Draw the whole dialog for the canvas's present size (again after the window is resized)."""
         c, px, scale = self.canvas, self.ui.px, self.ui.scale
-        width, height = max(1, self.root.winfo_width()), max(1, self.root.winfo_height())
+        width, height = max(1, self.area.winfo_width()), max(1, self.area.winfo_height())
         self.size = (width, height)
         # A rise still running belongs to the old drawing: it stops moving anything.
         self.generation += 1
@@ -410,7 +421,7 @@ class Dialog:
 
     def _paint(self, i):
         look = "pressed" if self.pressed == i else ("hover" if self.hover == i else "normal")
-        self.canvas.itemconfigure(self._items[i], image=self._images[i][(look, self.focus == i)])
+        self.canvas.itemconfigure(self._items[i], image=self._images[i][(look, self.focus == i and self.ring)])
 
     # ------------------------------------------------------------------------------------------- input
 
@@ -420,8 +431,14 @@ class Dialog:
         c.bind("<Escape>", lambda e: None if self.progress and not self.buttons else self.close(self.cancel_value))
         for key in ("<Return>", "<KP_Enter>", "<space>"):
             c.bind(key, lambda e: self.choose(self.focus))
-        for key, step in (("<Tab>", 1), ("<Right>", 1), ("<Shift-Tab>", -1), ("<ISO_Left_Tab>", -1), ("<Left>", -1)):
+        for key, step in (("<Right>", 1), ("<Left>", -1)):
             c.bind(key, lambda e, s=step: self.move(s))
+        for key, step in (("<Tab>", 1), ("<Shift-Tab>", -1), ("<ISO_Left_Tab>", -1)):
+            c.bind(key, lambda e, s=step: self.tab(s))
+        if self.keys:
+            # The ring shows where the keyboard is: off the buttons while it is on the window's own keys.
+            c.bind("<FocusIn>", lambda e: self._show_ring(True), add="+")
+            c.bind("<FocusOut>", lambda e: self._show_ring(False), add="+")
         # The page underneath must not scroll while the dialog is up.
         for wheel in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             c.bind(wheel, lambda e: "break")
@@ -435,11 +452,14 @@ class Dialog:
         if not self.canvas.winfo_viewable():
             self._later(20, self._take_input)
             return
-        try:
-            self.canvas.grab_set()
-        except tk.TclError:
-            # Another program holds the grab for a moment; try again shortly.
-            self._later(50, self._take_input)
+        if self.area is self.root:
+            # Over the launcher's page: nothing under the dialog takes the pointer. A window of its own has only its
+            # dialog and its header, whose keys must stay usable.
+            try:
+                self.canvas.grab_set()
+            except tk.TclError:
+                # Another program holds the grab for a moment; try again shortly.
+                self._later(50, self._take_input)
         if self._entry is not None and self._entry.winfo_exists():
             # A dialog that asks for words takes them at once.
             self._entry.focus_set()
@@ -459,6 +479,29 @@ class Dialog:
             except tk.TclError:
                 pass
         self._jobs.clear()
+
+    def tab(self, step):
+        """Tab: the next button, or the previous one; past the last (or before the first), the window's own keys when
+        it has them (minimize and close in its header), from which Tab comes back (window_root)."""
+        count = len(self.buttons)
+        if self.keys and count and ((step > 0 and self.focus == count - 1) or (step < 0 and self.focus == 0)):
+            (self.keys[0] if step > 0 else self.keys[-1]).focus_set()
+            return "break"
+        return self.move(step)
+
+    def come_back(self, last):
+        """The keyboard back from the window's keys: on the first button, or on the last (Shift+Tab)."""
+        if self.buttons:
+            old, self.focus = self.focus, (len(self.buttons) - 1 if last else 0)
+            self._paint(old)
+        self.canvas.focus_set()
+
+    def _show_ring(self, on):
+        if self.closed or on == self.ring:
+            return
+        self.ring = on
+        if self.buttons and getattr(self, "_items", None):
+            self._paint(self.focus)
 
     def move(self, step):
         """Move the ring to the next or the previous button."""
@@ -635,35 +678,189 @@ def tell(app, kind, title, message, detail=None, ok=None):
         app.dialog = None
 
 
-def window_root(title="openDMT3", language="en"):
-    """A window of its own for dialogs, when there is no launcher window to draw over: (root, ui)."""
+def window_root(title="openDMT3", language="en", label="LAUNCHER"):
+    """A window of its own for dialogs, when there is no launcher window to draw over: (root, ui).
+
+    It wears the product's own header, not the system's caption: openDMT3's lockup with `label` at DMT3's foot (SETUP
+    for the installer, LAUNCHER for the launcher's own windows; no version, which a DMT3 this small has no room over,
+    and which the installer's question says) and a minimize and a close key drawn as the product's keys, which Tab reaches past the dialog's buttons; the window is dragged by the header, and a pixel of edge keeps it
+    off the desktop. On Windows the system's caption and frame are taken away (frameless) while the taskbar button,
+    Alt+Tab, the system menu and minimizing from the taskbar stay; elsewhere the system's frame stays over it. The
+    window's title stays set for the taskbar (and for the tests that find the window by it)."""
     safety.refuse_windows_in_tests("a dialog window")
     from opendmt3.client import i18n, widgets
     theme.register_fonts()
     root = tk.Tk()
     root.title(title)
-    root.configure(bg=theme.BG)
+    # The edge: the window's own colour shows a pixel round its inside.
+    root.configure(bg=theme.SLOT_EDGE)
     set_icon(root)
     scale = theme.scale_of(root)
     ui = widgets.Ui(root, theme.Fonts(root, language), scale, i18n.Words(language))
     px = ui.px
-    width, height = px(WIDTH) + 2 * px(MARGIN) + px(40), px(400)
-    sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
-    root.geometry("%dx%d+%d+%d" % (width, height, (sw - width) // 2, (sh - height) // 3))
+    inside = tk.Frame(root, bg=theme.BG)
+    inside.place(x=1, y=1, relwidth=1, relheight=1, width=-2, height=-2)
+    head = tk.Frame(inside, bg=theme.BAR, height=px(HEAD))
+    head.pack(side="top", fill="x")
+    head.pack_propagate(False)
+    # The header's seam, as the menu column's along the page.
+    tk.Frame(inside, bg=theme.LINE, height=1).pack(side="top", fill="x")
+    body = tk.Frame(inside, bg=theme.BG)
+    body.pack(side="top", fill="both", expand=True)
+    lockup = art.brand(scale, "", label=label, width=HEAD_MARK)
+    image = ImageTk.PhotoImage(lockup, master=head)
+    mark = tk.Label(head, image=image, bg=theme.BAR, bd=0, padx=0, pady=0)
+    # Kept on the label: Tk shows a picture only while Python holds it.
+    mark.image, mark.opendmt3_picture = image, lockup
+    mark.pack(side="left", padx=(px(16), 0))
+    close = widgets.Button(head, ui, "\u00d7", lambda: close_window(root), size="small")
+    close.pack(side="right", padx=(px(8), px(12)))
+    minimize = widgets.Button(head, ui, "\u2212", root.iconify, size="small")
+    minimize.pack(side="right")
+    keys = [minimize, close]
+    for i, key in enumerate(keys):
+        # Tab goes on to the next key, and past the last back to the dialog's first button (Shift+Tab the other way).
+        key.bind("<Tab>", lambda e, i=i: _tab_from_key(root, keys, i, 1))
+        for back in ("<Shift-Tab>", "<ISO_Left_Tab>"):
+            key.bind(back, lambda e, i=i: _tab_from_key(root, keys, i, -1))
+    for grip in (head, mark):
+        grip.bind("<ButtonPress-1>", lambda e: _drag(root))
+    root.opendmt3_body, root.opendmt3_keys, root.opendmt3_head = body, keys, head
+    # The room the header, its seam and the edge take over the dialog's own.
+    root.opendmt3_chrome = px(HEAD) + 1 + 2
+    width, height = px(WIDTH) + 2 * px(MARGIN) + px(40) + 2, px(400) + root.opendmt3_chrome
+    x, y = _centre(root, width, height)
+    root.geometry("%dx%d+%d+%d" % (width, height, x, y))
     root.resizable(False, False)
     # Shown once before a dialog is drawn, so the window has its real size to draw for.
     root.update()
+    root.opendmt3_frameless = frameless(root)
+    if root.opendmt3_frameless:
+        set_size(root, width, height)
     # The person just started it: it takes the keyboard, so Enter and Esc answer it at once.
     root.focus_force()
     return root, ui
 
 
+def close_window(root):
+    """The header's close key: what closing the window from the system does (its WM_DELETE_WINDOW handler: the
+    installer waits while files are being written, PLAY goes on), or the window goes."""
+    handler = root.protocol("WM_DELETE_WINDOW")
+    if handler:
+        root.tk.call(handler)
+    else:
+        root.destroy()
+
+
+def _tab_from_key(root, keys, i, step):
+    """Tab from one of the header's keys: the next key, or back to the dialog's buttons past the ends."""
+    j = i + step
+    if 0 <= j < len(keys):
+        keys[j].focus_set()
+    else:
+        dialog = getattr(root, "opendmt3_dialog", None)
+        if dialog is not None and not dialog.closed:
+            dialog.come_back(last=step < 0)
+    return "break"
+
+
+def _drag(root):
+    """A press on the header moves the window as a press on a caption does (Windows: the system's own move)."""
+    if not getattr(root, "opendmt3_frameless", False):
+        return
+    try:
+        import ctypes
+        hwnd = int(root.wm_frame(), 16)
+        ctypes.windll.user32.ReleaseCapture()
+        # WM_NCLBUTTONDOWN on HTCAPTION: as if the caption had been pressed.
+        ctypes.windll.user32.SendMessageW(hwnd, 0x00A1, 2, 0)
+    except Exception:  # noqa: BLE001  (the window stays where it is)
+        log.exception("could not move the window")
+
+
+def frameless(root):
+    """On Windows, the window's caption and frame taken away (its header is the product's: window_root), keeping what
+    the frame gave: the taskbar button with the icon and the title, Alt+Tab, the system menu (Alt+Space), minimizing
+    and restoring from the taskbar; Windows 11's rounded corners where it offers them. True when done; elsewhere the
+    system's frame stays (False)."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        hwnd = int(root.wm_frame(), 16)
+        gwl_style, gwl_exstyle = -16, -20
+        ws_caption, ws_thickframe, ws_minimizebox, ws_sysmenu = 0x00C00000, 0x00040000, 0x00020000, 0x00080000
+        ws_ex_appwindow = 0x00040000
+        style = user32.GetWindowLongW(hwnd, gwl_style)
+        style = (style & ~(ws_caption | ws_thickframe)) | ws_minimizebox | ws_sysmenu
+        user32.SetWindowLongW(hwnd, gwl_style, ctypes.c_int32(style & 0xFFFFFFFF).value)
+        extended = user32.GetWindowLongW(hwnd, gwl_exstyle) | ws_ex_appwindow
+        user32.SetWindowLongW(hwnd, gwl_exstyle, ctypes.c_int32(extended & 0xFFFFFFFF).value)
+        # The frame drawn again for the new style, in place: SWP_NOSIZE, NOMOVE, NOZORDER, NOACTIVATE, FRAMECHANGED.
+        user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020)
+    except Exception:  # noqa: BLE001  (the system's frame stays: the window still works)
+        log.exception("could not take the window's frame away")
+        return False
+    try:
+        # DWMWA_WINDOW_CORNER_PREFERENCE (33) = DWMWCP_ROUND (2): Windows 11 rounds the window's corners.
+        preference = ctypes.c_int(2)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 33, ctypes.byref(preference), ctypes.sizeof(preference))
+    except Exception:  # noqa: BLE001  (an older Windows: square corners)
+        pass
+    return True
+
+
+def set_size(root, width, height):
+    """The window's inside `width` x `height`. Tk still counts the caption and frame a frameless window had (they were
+    taken away behind its back) and makes its inside larger by them: what it adds is asked away again until the
+    inside is the size asked."""
+    asked_w, asked_h = width, height
+    root.geometry("%dx%d" % (asked_w, asked_h))
+    if not getattr(root, "opendmt3_frameless", False):
+        return
+    for _ in range(4):
+        root.update_idletasks()
+        extra_w, extra_h = root.winfo_width() - width, root.winfo_height() - height
+        if not extra_w and not extra_h:
+            return
+        asked_w, asked_h = asked_w - extra_w, asked_h - extra_h
+        root.geometry("%dx%d" % (asked_w, asked_h))
+
+
+def _centre(root, width, height):
+    """Where a window of `width` x `height` goes: across the middle of the work area of the monitor under the
+    pointer (Windows; the taskbar left out), a third of the way down, else of the whole screen."""
+    x0, y0, w, h = 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class MonitorInfo(ctypes.Structure):
+                _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT), ("rcWork", wintypes.RECT),
+                            ("dwFlags", wintypes.DWORD)]
+
+            point = wintypes.POINT()
+            ctypes.windll.user32.GetCursorPos(ctypes.byref(point))
+            # MONITOR_DEFAULTTONEAREST: the monitor nearest the pointer.
+            monitor = ctypes.windll.user32.MonitorFromPoint(point, 2)
+            info = MonitorInfo()
+            info.cbSize = ctypes.sizeof(MonitorInfo)
+            if ctypes.windll.user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+                work = info.rcWork
+                x0, y0, w, h = work.left, work.top, work.right - work.left, work.bottom - work.top
+        except Exception:  # noqa: BLE001  (the whole screen, as before)
+            pass
+    return x0 + (w - width) // 2, y0 + max(0, (h - height) // 3)
+
+
 def fit(root, ui, dialog):
-    """Make a window of its own as tall as its dialog's panel, with the same room above and below."""
+    """Make a window of its own as tall as its dialog's panel, with the same room above and below (and its header)."""
     px = ui.px
-    height = dialog.panel_size[1] + 2 * px(MARGIN) + px(16)
+    height = dialog.panel_size[1] + 2 * px(MARGIN) + px(16) + getattr(root, "opendmt3_chrome", 0)
     if height != root.winfo_height():
-        root.geometry("%dx%d" % (root.winfo_width(), height))
+        set_size(root, root.winfo_width(), height)
 
 
 def set_icon(root):

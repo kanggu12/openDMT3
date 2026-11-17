@@ -193,7 +193,9 @@ class Installer:
         path = setup_file()
         self.preset = preset.read(path) if path else None
         self.words = i18n.Words(self.language)
-        self.root, self.ui = dialogs.window_root(title=self.words("setup.window"), language=self.language)
+        # Its header says what this window is: openDMT3's lockup with SETUP under the version it installs.
+        self.root, self.ui = dialogs.window_root(title=self.words("setup.window"), language=self.language,
+                                                 label="SETUP")
         self.dialog = None
         self.process = None
         self.started_at = None
