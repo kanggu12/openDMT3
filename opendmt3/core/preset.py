@@ -16,7 +16,8 @@ Plain Python, no window and no network: the site, the installer and the launcher
 import json
 import os
 import struct
-import tempfile
+
+from opendmt3.core import saving
 
 MAGIC = b"OPENDMT3-PRESET1"
 FORMAT = 1
@@ -69,11 +70,10 @@ def read(path):
 
 def hand_over(details, folder):
     """Leave the server for the launcher to take at its next start (the installer, once it has installed)."""
-    os.makedirs(folder, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=folder, prefix=".preset-")
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        json.dump({"version": FORMAT, "url": details["url"], "name": details["name"]}, f, ensure_ascii=False)
-    os.replace(tmp, os.path.join(folder, FILE_NAME))
+    # Whole and on the disk before it takes the old file's place (core/saving.py).
+    saving.write_whole(os.path.join(folder, FILE_NAME), json.dumps(
+        {"version": FORMAT, "url": details["url"], "name": details["name"]}, ensure_ascii=False).encode("utf-8"),
+        prefix=".preset-")
 
 
 def take(folder):

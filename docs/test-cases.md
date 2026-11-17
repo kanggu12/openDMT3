@@ -76,6 +76,8 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 |:---|:---|:---|:---|:---:|
 | LAUNCHER-01 | The settings saved and read again | The same, with defaults filled | `tests/client/test_launcher.py#test_state_round_trip_and_defaults` | unit |
 | LAUNCHER-02 | A settings file from a newer launcher, or with a bad value | Refused; the bad value falls back | `tests/client/test_launcher.py#test_a_newer_file_is_refused_and_a_bad_value_falls_back` | unit |
+| LAUNCHER-108 | A command-line job with `launcher.json` empty, then not JSON (twice in one second), then from a newer launcher | The job done from a first start's settings, each file it could not read kept beside as it was, none written over another; the newer one left alone and the command refused (exit 2) | `tests/client/test_launcher.py#test_the_command_line_goes_on_from_the_defaults_past_settings_it_cannot_read` | unit |
+| LAUNCHER-109 | The launcher's settings, the sound file and the server an installer leaves, written | Each on the disk before it takes the old file's place | `tests/client/test_launcher.py#test_the_settings_are_on_the_disk_before_they_take_the_old_files_place` | unit |
 | LAUNCHER-03 | The ready check | Lists what PLAY makes | `tests/client/test_launcher.py#test_ready_check_lists_what_play_will_change` | unit |
 | LAUNCHER-04 | PLAY | openDMT3's folder made, nothing in the client data changed, then the client copy started with the client data's folder as its current folder | `tests/client/test_launcher.py#test_play_makes_openDMT3s_folder_then_starts_the_game` | unit |
 | LAUNCHER-05 | PLAY while the game runs | Refused | `tests/client/test_launcher.py#test_play_refuses_while_the_game_runs` | unit |

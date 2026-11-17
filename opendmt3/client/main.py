@@ -151,14 +151,12 @@ def _cannot_start(error):
                                 default=1, cancel="close", language=language)
     if answer != "reset":
         return False
-    import time
-    aside = "%s.broken-%s" % (error.path, time.strftime("%Y%m%d-%H%M%S"))
-    try:
-        os.replace(error.path, aside)
-        log.info("set the unreadable settings aside as %s", aside)
-    except FileNotFoundError:
+    aside = st.set_aside(error.path)
+    if aside is None:
         # Another start of the launcher set it aside a moment ago.
         log.info("the unreadable settings were already set aside")
+    else:
+        log.info("set the unreadable settings aside as %s", aside)
     return True
 
 
@@ -218,6 +216,13 @@ def main(argv=None):
         if args.uninstall:
             # Removing goes on without them, as Windows' app list does: no game folder is known, so its files stay.
             state = st.LauncherState()
+        elif jobs and not e.newer:
+            # The command line (no window to ask in): the file kept beside as it was, the job done from the defaults,
+            # as the window's start over does it. An empty file (a power cut right after a save) is one of these.
+            aside = st.set_aside(e.path)
+            _say("Kept the settings it could not read as %s; going on from the first start's settings." % aside
+                 if aside else "Going on from the first start's settings.", error=True)
+            state = st.LauncherState.load()
         elif not (_windowed() and not jobs and _cannot_start(e)):
             return 2
         else:

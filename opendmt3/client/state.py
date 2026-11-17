@@ -8,9 +8,11 @@ import json
 import logging
 import os
 import sys
-import tempfile
+import time
 
 from opendmt3.core import game as g
+# The one way the launcher's settings files are written: whole, on the disk before they take the old one's place.
+from opendmt3.core import saving
 from opendmt3.client import sound_file
 from opendmt3.core.cabinet import steps, values as choices
 
@@ -85,6 +87,23 @@ class StateError(Exception):
     def __init__(self, message, path, newer=False):
         super().__init__(message)
         self.path, self.newer = path, newer
+
+
+def set_aside(path, now=None):
+    """Keep a settings file that cannot be read beside it as it was (launcher.json.broken-<date>-<time>, a number after
+    it when one of that second is there already), so the launcher can start again from its defaults; returns the name
+    it is kept under, or None when the file was gone already (another start set it aside a moment ago)."""
+    stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(now))
+    aside, n = "%s.broken-%s" % (path, stamp), 1
+    while os.path.exists(aside):
+        # Two in one second (a command run again at once): neither written over.
+        n += 1
+        aside = "%s.broken-%s-%d" % (path, stamp, n)
+    try:
+        os.replace(path, aside)
+    except FileNotFoundError:
+        return None
+    return aside
 
 
 class LauncherState:
@@ -189,10 +208,9 @@ class LauncherState:
         return state
 
     def save(self, path=None):
-        """Write the state through a temporary file in the same folder, then swap it in."""
+        """Write the state through a temporary file in the same folder, on the disk before it is swapped in
+        (core/saving.py)."""
         path = path or self.path()
-        folder = os.path.dirname(path)
-        os.makedirs(folder, exist_ok=True)
         data = {
             "version": VERSION,
             "game_folder": self.game_folder,
@@ -208,10 +226,8 @@ class LauncherState:
             "lan": self.lan,
             "sound_waiting": self.sound_waiting,
         }
-        fd, tmp = tempfile.mkstemp(dir=folder, prefix=".launcher-")
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        os.replace(tmp, path)
+        # The temporary file's name is one Delete all knows (client/leaving.py DATA_PREFIXES).
+        saving.write_whole(path, json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8"), prefix=".launcher-")
 
     # -------------------------------------------------------------------------------------------- views
 

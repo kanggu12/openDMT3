@@ -39,7 +39,7 @@ other way.
 | `core/cabinet/` | What PLAY makes in openDMT3's own folder from the client data it only reads, as steps that each check their part and make it when asked; the display fix of the client; starting the game (through a short path when its folder's cannot be given to it) and following it |
 | `core/game.py`, `core/backup.py`, `core/formats/pe.py` | The client data (what its client is, where the files are, each family of the game's files read as the client reads it: the newest of its base and numbered patches that has a file); the originals an earlier openDMT3 kept in it; the libraries a program imports |
 | `core/errors.py` | Every error a person reads, with its words in English and Korean |
-| `core/signing.py`, `core/preset.py`, `core/safety.py` | The update packages' signature; the server a build is made for; the guard that keeps windows shut under the tests |
+| `core/signing.py`, `core/preset.py`, `core/safety.py`, `core/saving.py` | The update packages' signature; the server a build is made for; the guard that keeps windows shut under the tests; the launcher's settings files written whole, on the disk before they take the old one's place |
 | `core/cli.py` | `python -m opendmt3 check, setup, restore` on the client data |
 | `server/` (its own modules) | The game server: the connection (handshake, cipher, keep-alive), every message's size, the handlers, and `__main__.py`, which runs it with the site |
 | `server/services/` | What the server does without knowing about messages or HTTP: accounts, records, activity, the song list (`catalog.py`, `cards.py`; any form it comes in, `sources.py`; saved into one file and taken in, `songlist.py`; its pictures in one form, `pictures.py`), backups, the chat webhook, a DJ's profile |

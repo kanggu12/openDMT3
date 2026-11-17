@@ -326,6 +326,54 @@ class LauncherTest(FolderCase):
         # A hand-edited value out of range does not stop the launcher; the defaults come back.
         self.assertEqual((loaded.values["music_volume"], loaded.language), (100, "en"))
 
+    def test_the_command_line_goes_on_from_the_defaults_past_settings_it_cannot_read(self):
+        from opendmt3.client import main
+        path = st.LauncherState.path()
+        folder = os.path.dirname(path)
+        os.makedirs(folder, exist_ok=True)
+        # An empty file (a power cut right after a save left it) and one that is not JSON, twice in the same second.
+        for text in ("", "{ broken", "{ broken"):
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+            # The command's job is done, from the defaults.
+            self.assertEqual(main.main(["--language", "ko"]), 0, repr(text))
+            self.assertEqual(st.LauncherState.load().picked_language, "ko")
+        # Each file it could not read is kept beside the settings as it was, none written over another.
+        kept = sorted(n for n in os.listdir(folder) if n.startswith(st.FILE_NAME + ".broken-"))
+        self.assertEqual(len(kept), 3, kept)
+        texts = []
+        for name in kept:
+            with open(os.path.join(folder, name), encoding="utf-8") as f:
+                texts.append(f.read())
+        self.assertEqual(sorted(texts), ["", "{ broken", "{ broken"])
+        # A newer launcher's file is still left alone, and the command refused: only that launcher reads it right.
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"version": st.VERSION + 1}, f)
+        self.assertEqual(main.main(["--language", "en"]), 2)
+        with open(path, encoding="utf-8") as f:
+            self.assertEqual(json.load(f), {"version": st.VERSION + 1})
+
+    def test_the_settings_are_on_the_disk_before_they_take_the_old_files_place(self):
+        from opendmt3.client import sound_file
+        from opendmt3.core import preset
+        calls, real_fsync, real_replace = [], os.fsync, os.replace
+
+        def fsync(fd):
+            calls.append("fsync")
+            return real_fsync(fd)
+
+        def replace(source, target):
+            calls.append("replace %s" % os.path.basename(target))
+            return real_replace(source, target)
+
+        # The launcher's settings, the sound file both it and the game write, and the server an installer leaves.
+        with mock.patch("os.fsync", fsync), mock.patch("os.replace", replace):
+            self.state.save()
+            sound_file.write(os.path.join(self.config, "sound.ini"), {"master_volume": 80})
+            preset.hand_over({"url": "http://192.168.0.10:4730", "name": "Made-up server"}, self.config)
+        self.assertEqual(calls, ["fsync", "replace launcher.json", "fsync", "replace sound.ini", "fsync",
+                                 "replace " + preset.FILE_NAME])
+
     # --------------------------------------------------------------------------------- ready check
 
     def test_ready_check_lists_what_play_will_change(self):

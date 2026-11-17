@@ -49,6 +49,10 @@ desktop for an issue, with your Windows user name, your sign-in and your card nu
   `openDMT3.sqlite-wal` and `openDMT3.sqlite-shm`, if they are there) to keep them aside, copy the newest
   `openDMT3-…-daily.sqlite` from `backups` next to them, and name the copy `openDMT3.sqlite`.
 - **The server's database is from a newer openDMT3**: install the newer launcher again; the file itself is whole.
+- **The launcher's settings cannot be read** (`launcher.json` damaged, or empty after a power cut): the window offers
+  **Start over**, which keeps the file under another name (`launcher.json.broken-<date>-<time>`) and opens the
+  first-start guide; `openDMT3-cmd.exe` keeps it the same way by itself and does its job from a first start's
+  settings. A file from a newer launcher is left as it is: install the newer launcher again.
 
 ## The game closes by itself
 

@@ -117,6 +117,9 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   longer counted as a wrong one, and is checked once.
 - Delete all takes openDMT3's own folder for playing too (the client copy PLAY made, its card and settings), and the
   question's size counts it.
+- The launcher's settings, the sound file and the server an installer leaves are on the disk before they take the old
+  file's place, and the command line does its job from a first start's settings past a `launcher.json` it cannot read
+  (empty after a power cut), keeping that file beside.
 
 ## [0.3.1] - 2026-11-17
 

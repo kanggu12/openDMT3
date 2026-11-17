@@ -20,9 +20,9 @@ import logging
 import os
 import re
 import sys
-import tempfile
 import time
 
+from opendmt3.core import saving
 from opendmt3.core.cabinet import values as choices
 
 log = logging.getLogger("opendmt3.launcher")
@@ -181,18 +181,8 @@ def write(path, changes):
     with _Lock(path + ".lock"):
         old = _read_text(path) or HEADER
         text = merge(old, changes)
-        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".sound-")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
-                f.write(text)
-            os.replace(tmp, path)
-        except OSError:
-            # The temporary goes when the swap fails (a read-only file, one held open by another program).
-            try:
-                os.unlink(tmp)
-            except OSError:
-                pass
-            raise
+        # Whole and on the disk before it takes the old file's place (core/saving.py), its lines ending in \n alone.
+        saving.write_whole(path, text.encode("utf-8"), prefix=".sound-")
     return parse(text)
 
 
