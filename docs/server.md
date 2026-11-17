@@ -8,7 +8,7 @@ launchers on port 4730, and the admin pages answer on port 4731, on the server P
 
 To the server, each game that connects is a cabinet, the arcade's name for the machine: a PC playing through the
 launcher is one. The server knows each by the address it connects from, and the site's **Home** page and the admin
-pages' **Cabinets** list them.
+pages' **Connected** list them.
 
 You do not need a server to play alone: the launcher has one inside for that ([Playing on your PC](install.md), the
 player's guide). Run one when others play from their own PCs, in one of these ways, each the same server:
@@ -118,7 +118,8 @@ Enter on to the next:
 
 1. **Welcome**: what will happen, and what you need: Docker, and your own client data (a folder or an archive), or a
    song list the launcher saved.
-2. **Docker and ports**: Docker, Compose and the ports 4725 and 4730, each problem with its fix (`r` checks again).
+2. **Docker and ports**: Docker, Compose and the ports 4725, 4730 and 4731, each problem with its fix (`r` checks
+   again).
 3. **This server's address**: the addresses this PC has, and the site and game addresses the other PCs use at the one
    you choose.
 4. **Who may open the admin pages**: this PC only (the usual), or the other PCs on its network too (a server PC with
@@ -334,7 +335,8 @@ listed with when it was made and last used, and revoked there ([api.md](api.md#n
 
 - **A new password** (6 to 16 letters and digits) also gives the account a new card number and ends its old
   sign-ins; the launcher fetches the new card at the next PLAY, or asks its player to sign in again.
-- **Sign out** on the site ends the account's sign-ins on the site, in every browser; the launcher stays signed in.
+- **Sign out** on either site, the players' or the admin pages, ends the account's sign-ins on both, in every
+  browser; the launcher stays signed in.
   The launcher's own **Sign out** ends its sign-in on the server too, and only its own: a launcher signed in on
   another PC stays signed in.
 - **A disabled account** cannot log in at the cabinet or on the site, and its plays leave the rankings.
@@ -364,43 +366,51 @@ The admin pages are a site of their own, with their own sign-in (an account with
   --admin-public` for the server's own program): `https://NAME:4731/` through Caddy, over HTTPS
   ([Playing from outside your home](internet.md#the-admin-pages)). Without it nothing of the admin pages is on the
   internet.
-- **On Kubernetes**, inside the cluster: `kubectl port-forward` ([On Kubernetes](kubernetes.md#the-admin-pages)).
-- **In the launcher**: the launcher's own server has them on this PC too.
+- **On Kubernetes**, inside the cluster: `kubectl port-forward` ([On Kubernetes](kubernetes.md#the-admin-pages)), or
+  the site's port too with `admin.onPublicPort`.
+- **In the launcher**: the launcher's own server keeps them on its site's own port, at `/admin/`.
 
 Their port is `ADMIN_PORT` in `.env` (`./dmt3 ports --admin N`), `opendmt3-server setup --admin-port N`, or
-`--admin-port` ([Ports](#ports)). The players' site and the admin pages keep their sign-ins apart: signing in to one
-never signs in to the other. The API stays on the site's port for every program, an admin's calls with an admin's
-token; the admin port answers it too.
+`--admin-port` ([Ports](#ports)); `--admin-port 0` turns them off, and `--admin-on-site-port` serves them on the site's
+port too, at `/admin/`, for a setup with one port for everything. Their old addresses on the site's port
+(`http://<server>:4730/admin/...`) go on to them from the server PC, and are a page that is not there anywhere else.
 
-They have a page for each job (each in full, with what it keeps on disk: [admin.md](admin.md)):
+The players' site and the admin pages keep their sign-ins apart: signing in to one never signs in to the other. For a
+signed-in admin, the players' site's footer has **Admin pages** wherever they are within that browser's reach. The API
+answers on both ports with the same tokens.
 
-| Tab | Does |
+Their frame is the server's control room: the pages across the band, and under it on every page the rail with the
+game server's state (its port, the cabinets connected, the launchers heard, maintenance, how long it has run, the
+players' address). The pages, each in full with what it keeps on disk in [admin.md](admin.md):
+
+| Page | Does |
 | :--- | :--- |
-| **Players** | Makes an account, with a message to send the player; a new password, the DJ name, admin rights, disable, reset plays, delete; reset every play |
-| **Cabinets** | Names each one |
-| **Status** | What to look at, the song list's card, cabinets connected, plays and time today, this week and this month, the last backup, the notice, maintenance |
+| **Status** | What to look at, who is here and the numbers, the machine's resources, what takes the disk, when players play, the song list's card, the notice, maintenance |
+| **Players** | Makes an account, with a message to send the player; a new password, the DJ name, admin rights, disable, reset plays, delete; reset every play; every account as CSV |
+| **Connected** | Every cabinet seen (named here) and who plays on it now, and every launcher heard since the server started |
 | **Song list** | Found on the server PC, another folder, upload a song list |
-| **Logs** | Changes and the game's recent messages; every play, filtered by player, days and title, 50 a page, as CSV |
 | **Backups** | Make, upload, download, restore, delete |
+| **Logs** | Changes and the game's recent messages; every play, filtered by player, days and title, 50 a page, as CSV; every request the site answered |
+| **Server** | The server itself, and a restart, a stop or its removal, asked of what started it (its commands where the pages cannot ask) |
 
 - **Sign-in and language.** Every page of both sites asks for a sign-in, in English or Korean (the visitor picks),
   except the sign-in pages and **Licenses**; the admin pages let in an account with admin rights alone.
 - **Long lists** show their first rows and say how many there are: a board or a ranking its first 100, a DJ's best
   scores their first 20.
-- **The notice** set on **Status** (one line, up to 200 characters) shows at the top of every page; it is kept in
-  `data/notice.json`.
+- **The notice** set on **Status** (one line, up to 200 characters) shows at the top of every page of the players'
+  site; it is kept in `data/notice.json`.
 - **Start maintenance** on **Status** makes the game server refuse every card login (the game shows a failed
   membership authentication and goes back to its card screen) until **End maintenance**: cabinets online stay
-  connected, a game being played keeps its results, and every page of the site says so beside the notice. It is kept
-  in `data/maintenance.json`.
+  connected, a game being played keeps its results, every page of the players' site says so beside the notice, and
+  the admin pages' rail shows it in pink. It is kept in `data/maintenance.json`.
 - **The last enabled admin** keeps the rights and stays enabled: no admin can take them away.
 - **Reset plays** on **Players** clears one player's cleared stages, or every player's: the rankings, the songs'
   boards and the DJ pages start again, while accounts, DJ cards and settings stay. It asks first, backs the database
   up before anything goes (a backup of the kind "Before a reset"), and the change log says how many plays went.
 - **`/health`** answers 503 with a reason while the database cannot be opened or written, which is what Docker's
   health check reads.
-- **The API.** Every page and every action of the site has its twin in the API ([api.md](api.md)): what the site
-  shows can be read, and what it does can be done, by a program. The owner's first account, made on the server PC's
+- **The API.** Every page and every action of both sites has its twin in the API ([api.md](api.md)): what they
+  show can be read, and what they do can be done, by a program. The owner's first account, made on the server PC's
   own page, has its twin on the command line: `--add-player ID --admin`.
 
 ## DJ cards and the song select
@@ -422,7 +432,7 @@ The server backs its database up once a day into `data/backups/` and keeps a wee
 **Backups** backs up now, downloads a backup, and puts the database back to one; the current database is backed up
 first, so a restore can be undone. From the command line: `--backup`, `--backups` and `--restore NAME`.
 
-**Upload a backup** on the same tab brings a database file from elsewhere (a backup downloaded from another server,
+**Upload a backup** on the same page brings a database file from elsewhere (a backup downloaded from another server,
 or the `openDMT3.sqlite` of a server that is stopped), up to 256 MB. It is written into `data/backups/` as it comes and
 checked before it is kept: an SQLite file whose integrity check passes, with this project's tables, at a version this
 server opens. It then joins the list as **Uploaded**, to restore as any other; a file that is none of these is refused
@@ -542,7 +552,7 @@ The cabinets' links never wait for the site's work:
 - **A database held by another program.** A write waits up to 15 seconds for it, and the game server's own writes (a
   player's results, a session) are tried again until they go through: a player is never told the database is busy,
   and their link stays while it waits.
-- **A restore or a reset of plays** from the **Backups** tab or the API holds the game server's writes and reads
+- **A restore or a reset of plays** from the admin pages or the API holds the game server's writes and reads
   while it works, so no play is lost between the backup it makes first and the copy (or the deletion). The command
   line's `--restore` cannot hold them, so stop the server first for that one.
 - **Pictures.** Reading a song list from the client data converts its pictures on up to 8 of the server's cores at
@@ -569,7 +579,7 @@ authority or yours.
   The Windows package put nothing anywhere but its own folder: deleting that folder removes it. The one-line
   install's own `--uninstall` removes the program and keeps the data.
 - **On Kubernetes**: `helm uninstall`, then the data volume with `kubectl delete pvc` ([On Kubernetes](kubernetes.md));
-  the admin's **Server** tab names both with the release's own names.
+  the admin pages' **Server** names both with the release's own names.
 - **In the launcher**: the launcher's own removal ([Playing on your PC](install.md)).
 
 `./dmt3 repair` and `opendmt3-server repair` come first when something is broken: the image again and the
@@ -601,11 +611,11 @@ openDMT3 makes these files readable by their owner only (on Linux and macOS).
 | `--admin-on-site-port` | The admin pages on the site's port too, at `/admin/` (one port for both, as behind one Ingress; `OPENDMT3_ADMIN_ON_SITE_PORT`) |
 | `--catalog PATH` | Imports the song list (with its jackets and the DJ cards) from the client data in a folder or in an archive (`OPENDMT3_ARCHIVE_PASSWORD` for its password), or from a song list, each part one line, then starts. Run as root on a data folder someone else owns, root only reads: the data folder is written as its owner |
 | `--catalog PATH --save FILE` | Saves the song list from `PATH` into `FILE` (a folder: `openDMT3-song-list.zip` in it) instead, checked as a server takes it, and exits; the server's data is not touched |
-| `--game FOLDER` | The folder holding the client data, which the admin's **Song list** tab finds and imports again (`OPENDMT3_GAME`; in Docker, `GAME_DIR`) |
-| `--site-address URL` | The site's address as the players reach it, for the message to send a player (`OPENDMT3_SITE_ADDRESS`; in Docker, `SITE_ADDRESS`); without it, the address the admin's browser used |
+| `--game FOLDER` | The folder holding the client data, which the admin pages' **Song list** finds and imports again (`OPENDMT3_GAME`; in Docker, `GAME_DIR`) |
+| `--site-address URL` | The site's address as the players reach it, for the message to send a player, the invite and the admin pages' links to the players' site (`OPENDMT3_SITE_ADDRESS`; in Docker, `SITE_ADDRESS`); without it, the host the admin's browser used, on the site's port |
 | `--add-player ID [--password P] [--dj NAME] [--admin]` | Makes an account, prints it, and exits |
 | `--backup`, `--backups`, `--restore NAME` | Backs up now, lists the backups, puts the database back to one |
-| `--proxy ADDRESS` | The reverse proxy in front of the site, by the address its connections come from (several with commas) |
+| `--proxy ADDRESS` | The reverse proxy in front of the site and the admin pages, by the address its connections come from (several with commas): its forwarded headers are believed from there alone |
 | `--webhook URL` | The chat webhook for new first places |
 | `--setup-only` | Does `--catalog` and `--add-player`, then exits without serving |
 | `--verbose` | Logs every message of the game with its first bytes |

@@ -70,7 +70,7 @@ forward.
 
 [Removing a server](server.md#removing-a-server): `./dmt3 remove` or `opendmt3-server remove`, with
 `--delete-data` to delete the data too (with Docker, Caddy's certificates too), after a last backup kept beside it,
-readable by its owner alone. On a cluster, the admin's **Server** tab names the helm and kubectl commands
+readable by its owner alone. On a cluster, the admin pages' **Server** names the helm and kubectl commands
 ([On Kubernetes](kubernetes.md#the-admins-server-tab)).
 
 ## Something is broken. What do I run first?
