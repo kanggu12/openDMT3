@@ -175,6 +175,8 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 | LAUNCHER-101 | RECORDS' week chart by a click, a tap or the arrow keys | Each week's number said; no words asking for a pointer | `tests/e2e/ui/shots.py#a click and Left on the week chart did not say each week` | ui |
 | LAUNCHER-102 | The installer over the same version | Uninstall beside Repair and Open openDMT3 (Open lit); Uninstall asks Cancel, Keep data or Delete all, uninstalls and says what stayed | `tests/e2e/ui/shots.py#the installer's Uninstall did not end uninstalled` | ui |
 | LAUNCHER-103 | Every screen | One lit main action at most: PLAY, or a page's main button, or the guide's Next once the step can go on | `tests/e2e/ui/shots.py#main actions lit at once` | ui |
+| LAUNCHER-104 | The connection test against made-up servers: one that works, nothing answering, a name that does not resolve, another version, the game's port closed, a token no longer taken | Each step's state and time; the first failure stops the rest and says what to do; --test-server's lines and exit codes 0, 2, 3, 4, 5 | `tests/client/test_server_test.py#test_a_closed_game_port_names_the_port_to_open` | unit |
+| LAUNCHER-105 | ONLINE's Connection test card, in both languages: not run, under way, passed, nothing answering, another version, the game's port closed, a sign-in no longer taken | The card shows the outcome the steps came to; Copy the result copies the steps | `tests/e2e/ui/shots.py#Copy the result did not copy the steps` | ui |
 
 ## TS-INSTALL: the installer and updates
 

@@ -91,7 +91,7 @@ finds your client data. Everything in it can be changed later:
 | Way | Logins and records | What you need |
 | :--- | :--- | :--- |
 | **On this PC** | A server inside the launcher keeps them in one file on this PC | Nothing else |
-| **Another server** | The server someone runs keeps them | Its address, and an ID and password from its owner |
+| **Another server** | The server someone runs keeps them | Its address, and an ID and password from its owner; **Connection test** checks the address, the site, the game's port and the sign-in step by step ([troubleshooting](troubleshooting.md#the-game-does-not-log-in)) |
 | **Offline** | None: everyone plays with **NO ID CARD** | Nothing else |
 
 The **Online** page switches between them. On this PC, it also adds and removes players; the **Play** page chooses who
@@ -396,6 +396,7 @@ not know is said, with the list of the ones it does.
 | `--server URL` | Connects to another server and plays on it from now on |
 | `--sign-in ID` | Signs in to that server; the password comes from standard input, or is asked for |
 | `--sign-out` | Signs out: the server ends this launcher's sign-in when it answers, and the launcher forgets it |
+| `--test-server [URL]` | Tests the connection to a server step by step, as **Online**, **Connection test** does (the server in use without URL); exit 0 when every step passed, 2 the address, 3 the site, 4 the game's port, 5 the sign-in |
 | `--add-player ID [--dj NAME]` | Makes a player on this PC (the password as for `--sign-in`) |
 | `--delete-player ID [--yes]` | Deletes a player on this PC, and their cleared stages (`--remove-player` is the same) |
 | `--player ID` / `--player guest` | Who plays on this PC: whose card goes in at PLAY |

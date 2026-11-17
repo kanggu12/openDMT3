@@ -38,7 +38,10 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   keeps the MAX points a session earns.
 - The account page is one area in three parts: the profile (a picture of the player's own and the DJ card with a
   preview drawn as the game draws it), the account, and its security. Each control has its API call.
-
+- A connection test of another server, on **Online** (and the first-start guide's LOG IN on another server) and as
+  `openDMT3-cmd.exe --test-server [URL]`: the address and its name, the site and its openDMT3 version, the game's port
+  and the sign-in, one step after another, each with its outcome and its time, and for the first that fails what to
+  do; **Test again** and **Copy the result**. The command line's exit code says the step that failed.
 
 ### Changed
 
@@ -63,12 +66,10 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - Words never lie on a page's field outside a card: the guide's line on what **Next** waits for, its last step's way
   out of the game and DISC CHECK's "nothing found" stand on cards.
 
-
 ### Fixed
 
 - `.env` saved by Notepad (with a byte-order mark, CRLF or spaces around `=`) reads the same as any other.
 - The launcher connects to an `https://` address without a port on 443, as a browser does.
-
 
 ## [0.3.1] - 2026-11-17
 

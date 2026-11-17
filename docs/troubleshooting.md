@@ -95,6 +95,19 @@ after the game.
 
 ## The game does not log in
 
+On another server, **Online**, **Connection test**, **Test the connection** (or `openDMT3-cmd.exe --test-server`)
+checks each step in turn and says the first one that fails with what to do:
+
+| Step | Checks | When it fails |
+| --- | --- | --- |
+| Address | The address is one, and its name resolves | Check the name for typos, and that this PC is on the network |
+| Site and version | The site answers, and runs this launcher's openDMT3 (same major and minor) | Nothing answers: the server is off, the port is wrong (4730 unless its owner gave another) or a firewall stops it. Another version: update this launcher on **Launcher**, or ask the owner to update the server |
+| The game's port | The port the site tells (4725 unless its owner set another) takes a TCP connection | Ask the owner to open that TCP port in the server PC's firewall and router |
+| Sign-in | The sign-in the launcher keeps is still taken | Sign in again |
+
+**Copy the result** copies the steps as text for a message to the server's owner. On the command line the exit code
+says the step: 0 every step passed, 2 the address, 3 the site, 4 the game's port, 5 the sign-in.
+
 - **NET** stays red in the game: the game does not reach the server. Playing on this PC, the launcher's server runs
   while the launcher does. On another server, its game port (TCP 4725) must be open on that PC and on the way to it.
 - The game shows **NO ID CARD**: offline, or a guest was chosen on **Play**.
