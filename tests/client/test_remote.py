@@ -32,6 +32,10 @@ class RemoteTest(unittest.TestCase):
         cls.row = store.create("NOVA", "pass1234", "DJ NOVA")
         # The server's admin, who may send it a song list.
         store.create("BOSS", "pass1234", "BOSS", is_admin=True)
+        # A player an admin banned, with the reason they are told.
+        from opendmt3.server.services import players
+        store.create("BANNED", "pass1234", "BANNED")
+        players.Players(store.db).ban("BANNED", "Made-up reason for the test")
         store.db.close()
         cls.port = free_port()
         cls.server = uvicorn.Server(uvicorn.Config(create_app(cls.site), host="127.0.0.1", port=cls.port,
@@ -78,6 +82,20 @@ class RemoteTest(unittest.TestCase):
         self.assertEqual(str(e.exception), "Cannot reach http://127.0.0.1:%d. Check the address and the network."
                          % int(str(e.exception).split(":")[2].split(".")[0]))
         self.assertNotIn("Errno", str(e.exception))
+
+    def test_a_banned_player_is_told_the_reason_in_their_language(self):
+        from opendmt3.core import errors
+        with self.assertRaises(remote.RemoteError) as e:
+            remote.sign_in("http://127.0.0.1:%d" % self.port, "BANNED", "pass1234")
+        self.assertEqual(e.exception.code, "banned")
+        self.assertEqual(errors.say(e.exception, "en"),
+                         "This account is banned on this server. The reason: Made-up reason for the test")
+        self.assertEqual(errors.say(e.exception, "ko"),
+                         "이 서버에서 이용이 정지된 계정입니다. 사유: Made-up reason for the test")
+        # A wrong password tells nothing of the ban.
+        with self.assertRaises(remote.RemoteError) as e:
+            remote.sign_in("http://127.0.0.1:%d" % self.port, "BANNED", "wrong123")
+        self.assertEqual(e.exception.code, "wrong_sign_in")
 
     def test_signing_out_ends_that_launchers_token_only(self):
         base = "http://127.0.0.1:%d" % self.port

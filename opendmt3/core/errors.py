@@ -218,6 +218,9 @@ TEXT = {
     "error.api.sign_in": ("The server no longer takes your sign-in. Sign in again.",
                           "서버가 로그인을 더 받지 않습니다. 다시 로그인해 주세요."),
     "error.api.unknown_player": ("This server has no such player.", "이 서버에 그런 플레이어가 없습니다."),
+    # A banned account's right password (the server's 403 banned): the ban's reason, as the admin wrote it.
+    "error.api.banned": ("This account is banned on this server. The reason: {reason}",
+                         "이 서버에서 이용이 정지된 계정입니다. 사유: {reason}"),
     "error.api.admin_only": ("Only an admin of this server can send it a song list.",
                              "이 서버의 관리자만 곡 목록을 보낼 수 있습니다."),
     "error.api.too_large": ("The song list is larger than this server takes.", "곡 목록이 이 서버가 받는 크기보다 큽니다."),

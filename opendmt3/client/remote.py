@@ -125,9 +125,11 @@ def _call(url, method="GET", body=None, token=None, timeout=TIMEOUT, raw=None, k
             message, code = str(error["message"])[:500], error.get("code")
             if code is not None and not isinstance(code, str):
                 raise TypeError(code)
+            # A banned account's sign-in carries the ban's reason, which the player is told (errors.py's words).
+            params = {"reason": str(error.get("reason") or "-")[:200]} if code == "banned" else {}
         except (ValueError, KeyError, TypeError, AttributeError, OSError):
             raise RemoteError("the server answered %d" % e.code, key="error.remote.answered", status=e.code) from None
-        raise RemoteError(message, code) from None
+        raise RemoteError(message, code, **params) from None
     except (urllib.error.URLError, OSError, ValueError) as e:
         reason = getattr(e, "reason", e)
         base = url.split("/api/")[0]
