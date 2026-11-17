@@ -434,6 +434,29 @@ python3 -c "import sys; s = int('${style:-0}', 16); sys.exit(0 if s & 0xC00000 =
   || fail "the window has not its title bar and borders only (style ${style:-none})"
 wait_log "bar shown by itself for 3 s \(a switch between a window and full screen\)" 3 \
   || fail "the bar did not show by itself after the switch"
+# The window dragged by its bottom right corner (Windows' own sizing, its border's), larger and then smaller than the
+# game's picture: each time the layer's log says the picture's new size in the client and what draws it, and a frame
+# dumped then is the game's frame at that size in the picture's place, enlarged or shrunk by the chain to it, never the
+# old size's picture (ingame/resize.py).
+drags=0
+for move in "240 120" "-560 -336"; do
+  drags=$((drags + 1))
+  geo=$(x "xdotool search --name '^ClientApp$' getwindowgeometry" | tr '\n' ' ')
+  wx=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\1/' <<<"$geo"); wy=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\2/' <<<"$geo")
+  ww=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\1/' <<<"$geo"); wh=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\2/' <<<"$geo")
+  cx=$((wx + ww - 3)); cy=$((wy + wh - 3)); dx=${move% *}; dy=${move#* }
+  sized=$(seen "post: the picture [0-9]+x[0-9]+ in the window's client")
+  x "xdotool mousemove $cx $cy sleep 0.3 mousedown 1 sleep 0.3 mousemove $((cx + dx / 2)) $((cy + dy / 2)) sleep 0.3 mousemove $((cx + dx)) $((cy + dy)) sleep 0.3 mouseup 1 sleep 0.3 mousemove 960 700"
+  wait_more "post: the picture [0-9]+x[0-9]+ in the window's client" "$sized" 5 \
+    || fail "the window's corner dragged by ($dx, $dy) did not change the picture's size"
+  line=$(grep -oE "post: the picture [0-9]+x[0-9]+ in the window's client [0-9]+x[0-9]+, drawn at [0-9]+x[0-9]+, upscale [a-z0-9-]+" "$OUT/ingame.log" | tail -1)
+  echo "  dragged by ($dx, $dy): ${line#post: }"
+  client=$(grep -oE "client [0-9]+x[0-9]+" <<<"$line" | cut -d' ' -f2)
+  wait_s 1.5
+  ask_dump "drag$drags" || fail "the chain did not write the frame after the drag"
+  python3 "$HERE/ingame/resize.py" "$OUT" "drag$drags" "${client%x*}" "${client#*x}" \
+    || fail "after the drag by ($dx, $dy) the picture is not the game's frame at the window's new size"
+done
 # The window's place, then the bar from its top edge and its full screen chip (the window's own pixels: the unit is
 # its height over 768).
 geo=$(x "xdotool search --name '^ClientApp$' getwindowgeometry" | tr '\n' ' ')
@@ -913,5 +936,5 @@ dumps=$(x "find /root/Desktop /w/drive_c/users/root/AppData/Roaming/openDMT3 -na
 textures "the game with NVIDIA NIS and SMAA Ultra"
 # Every other step held; the pacing not judged in its time is a failure all the same.
 [ -n "$unjudged" ] && fail "$unjudged"
-echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click, from a click and a press held on the handle; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only and back to full screen; minimise and back; offline the chip in the corner beside FREE PLAY, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top or on the handle; minimised in a song held and going on; the picture options run by the chain and shown, $added, $stepped"
+echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click, from a click and a press held on the handle; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only, dragged larger and smaller with the picture following, and back to full screen; minimise and back; offline the chip in the corner beside FREE PLAY, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top or on the handle; minimised in a song held and going on; the picture options run by the chain and shown, $added, $stepped"
 docker rm -f "$C" >/dev/null

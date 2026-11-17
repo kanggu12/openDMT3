@@ -368,7 +368,11 @@ in-game layer is drawn in it:
   surface, with no samples; resolved from a multisampled target when the game asks for samples); the anti-aliasing
   chosen runs on it at 1280x768; the upscale filter draws it into the real back buffer at the picture's place in the
   window's client; the game's target, depth surface and state are put back; the frame is presented one to one through
-  a source rectangle of the client's size, so a window that changes size needs no device reset.
+  a source rectangle of the client's size, so a window that changes size needs no device reset. A window dragged by its
+  border to a new size is followed at the next present: the log says the picture's new size in the client, the size
+  the game is drawn at and the filter enlarging it (`post: the picture`), and `ingame.sh` drags the game's window
+  larger and smaller than its picture and compares a frame dumped then with the game's frame resized there
+  (`ingame/resize.py`).
 - **The picture's place**: its own 5:3 shape kept, centred, with bars of the launcher's darkest neutral on the two
   other sides (logic.c `picture_rect`; the passes that draw there take its origin, constant c8, off their pixel's
   position), or the whole client with **Fill**.

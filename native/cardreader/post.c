@@ -2453,6 +2453,15 @@ const RECT *post_present(IDirect3DDevice9 *dev)
     g_client_h = ch;
     g_pic = picture_rect(cw, ch, g_settings.fill);
     int w = g_pic.w, h = g_pic.h;
+    /* A window sized anew (dragged by its border, or a switch): the picture's new size said once, with what draws it
+     * there (the game's size it is drawn at, the filter enlarging it), so a resize is seen to be followed. */
+    static int said_w, said_h;
+    if (w != said_w || h != said_h) {
+        said_w = w;
+        said_h = h;
+        ingame_log("post: the picture %dx%d in the window's client %dx%d, drawn at %dx%d, upscale %s", w, h, cw, ch,
+                   g_src_w, g_src_h, UPSCALE_NAMES[g_upscale]);
+    }
     /* The oldest frame's timestamps (read already when the game's own frame was timed from the last present). */
     if (!g_slot_read)
         read_gpu_time();
