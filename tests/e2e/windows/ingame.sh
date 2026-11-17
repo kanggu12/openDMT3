@@ -344,7 +344,8 @@ wait_s 1.5
 x "xdotool mousemove 960 10 click 1"
 wait_log "layer: bar shown \(a click on the handle\)" 3 || fail "a click on the handle did not bring the bar"
 grep -q "layer: a press on the handle" "$OUT/ingame.log" || fail "the click on the handle was not the overlay's"
-away; wait_s 1.5
+# The bar gone (0.6 s after the pointer left it, then its slide) and the game quiet again before the next press.
+away; end=$((SECONDS + 6)); while bar_up && [ $SECONDS -lt $end ]; do wait_s 0.3; done; wait_s 1.6
 x "xdotool mousemove 960 10 mousedown 1"; wait_s 0.3
 grep -q "layer: bar shown (a press held on the handle)" "$OUT/ingame.log" && fail "the held handle brought the bar before 0.5 s"
 wait_s 0.6

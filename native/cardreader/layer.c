@@ -266,15 +266,19 @@ static void ask_bar_by_finger(void)
     bar_clock_touch(&g_bar_clock, now_ms());
 }
 
-/* The handle's press brought the bar (a tap, a long press, a draw down): whole for 4 s, as a finger's, since a finger
- * or a click has no rest on the bar to keep it (a pointer that comes onto it keeps it longer, as always). */
+/* The handle's press brought the bar (a tap, a long press, a draw down): a finger's whole for 4 s, as a finger drawn
+ * down from the top edge brings it (a finger leaves nothing on the bar to keep it); the mouse's as a rest does, 600 ms
+ * and longer while the pointer stays on it. */
 static void handle_brings_bar(const char *why)
 {
     if (g_quitting)
         return;
     if (!bar_shown())
         ingame_log("layer: bar shown (%s)", why);
-    bar_clock_touch(&g_bar_clock, now_ms());
+    if (g_mark_by_finger)
+        bar_clock_touch(&g_bar_clock, now_ms());
+    else
+        bar_clock_rest(&g_bar_clock, now_ms());
 }
 
 /* A press begins at (x, y) of the target: 1 when it lands on the handle while it shows, after the game's quiet and
