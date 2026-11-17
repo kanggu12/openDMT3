@@ -482,7 +482,7 @@ caller (a sign-in on the site, or an API token):
 | Sign-ins | 20 a minute from one address; in 10 minutes, 5 wrong passwords for one ID from one address (its other IDs go on), 30 from one address for any IDs, 10 for one ID from anywhere (never for the server PC itself); a banned account's right password is no wrong one; 2 password checks at once | 429 with Retry-After |
 | Requests at once | 1 per caller, 8 per address; up to 32 more of each wait their turn | 429 with Retry-After |
 | The server's work | 30 seconds of processor time a minute per caller, 90 per address (a page takes a few milliseconds; a file of every play on a long history a few seconds) | 429 with Retry-After until enough of the minute has passed |
-| A request's body | 64 KB, but an admin's uploads: a backup up to 256 MB, a song list up to 64 MB | 413 |
+| A request's body | 64 KB, but the uploads: an admin's backup up to 256 MB and song list up to 64 MB, a player's picture up to 2 MB; beside an upload form's file, 64 KB of fields and boundaries, 8 KB of headers a part; each counted as it comes, a body sent in chunks too | 413, or the form's page says it |
 
 The site's files (its styles, fonts, pictures and the launcher's updates) are not counted. Retry-After says in seconds
 when to ask again; the site shows the same in a page of its own.
