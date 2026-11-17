@@ -13,8 +13,9 @@ on disk, whatever the traffic.
 The event loop the game server shares only appends a request to a list (add(): no file, no lock held long); once
 WRITE_EVERY seconds have passed since the last write, the site writes the lines waiting on a worker thread right after
 a request is answered (app.Logged: due(), then write()), so the log writes only while the site answers, never into a
-data folder that has gone. The newest RECENT requests also stay in memory for the Logs tab's list and filters, and the
-last day is counted by half hours for its chart, so neither reads the files.
+data folder that has gone. The Logs tab's list and filter read the newest RECENT lines from the files when asked
+(nothing of them is kept in memory), and the last day is counted by half hours for its chart, so the chart reads no
+file.
 Only the standard library.
 """
 
@@ -75,11 +76,6 @@ class RequestLog:
         self.clock, self.most_bytes, self.files, self.days = clock, most_bytes, files, days
         # The lines waiting for the writer, as the loop added them: a deque's append is safe from any thread.
         self._waiting = collections.deque(maxlen=WAITING_MOST)
-        # The newest requests, oldest first, for the Logs tab's list (RECENT of them at most).
-        self._recent = collections.deque(maxlen=RECENT)
-        # The newest lines the files held from before this process started (load()), oldest first: a list of their
-        # own, so the loop's appends to _recent never race with the writer's reading.
-        self._earlier = collections.deque(maxlen=RECENT)
         # The last day by half hours: slot number -> [ok and moved, refused and failed].
         self._slots = {}
         # Guards _slots and the files (the writer turns a file over while the tab's download reads them).
@@ -103,7 +99,6 @@ class RequestLog:
                 address, who)
         # The file's line made here, once (a few microseconds), so the writer only joins and writes strings.
         self._waiting.append(json.dumps(dict(zip(FIELDS, line)), ensure_ascii=False, separators=(",", ":")) + "\n")
-        self._recent.append(line)
         self._count(line)
 
     def _count(self, line):
@@ -197,26 +192,38 @@ class RequestLog:
     # ------------------------------------------------------------------------------------------- reading
 
     def load(self):
-        """Once, at the writer's start: the files' last day counted into the chart, their newest lines into memory
-        (from before a restart), under what this process added since."""
+        """Once, at the first write (before this process's own lines go in): the last day of the files (from before a
+        restart) counted into the chart."""
         if self._loaded:
             return
         self._loaded = True
         since = self.clock() - SLOTS * SLOT
-        # Only what this process has not counted itself: its own requests are in memory already. The newest RECENT
-        # go to the list, and those of the last day to the chart.
-        first = self._recent[0][0] if self._recent else None
-        earlier = collections.deque(maxlen=RECENT)
         for line in self._lines():
             at, status = line.get("at"), line.get("status")
-            if isinstance(at, (int, float)) and isinstance(status, int) and (first is None or at < first):
-                # As this process keeps its own: a tuple in FIELDS' order.
-                kept = tuple(line.get(name) for name in FIELDS)
-                earlier.append(kept)
-                if at >= since:
-                    self._count(kept)
-        # Under the newer ones in the list (recent() reads _recent first, then these).
-        self._earlier.extend(earlier)
+            if isinstance(at, (int, float)) and isinstance(status, int) and at >= since:
+                self._count(tuple(line.get(name) for name in FIELDS))
+
+    def _newest(self, most):
+        """The newest `most` lines of the files, newest first, as dicts (the newest file read first, from its end)."""
+        with self._lock:
+            paths = self.paths()[::-1]
+        taken = 0
+        for path in paths:
+            try:
+                with open(path, encoding="utf-8", errors="replace") as f:
+                    texts = f.read().splitlines()
+            except OSError:
+                continue
+            for text in reversed(texts):
+                try:
+                    line = json.loads(text)
+                except ValueError:
+                    continue
+                if isinstance(line, dict):
+                    yield line
+                    taken += 1
+                    if taken >= most:
+                        return
 
     def _lines(self):
         """Every line of the files, oldest first, as dicts; a line cut short (a server stopped mid-write) left out."""
@@ -237,15 +244,15 @@ class RequestLog:
                 continue
 
     def recent(self, q="", kind="", most=200):
-        """The newest requests (of the RECENT kept in memory) the filter leaves, newest first, at most `most`, and how
-        many of them it left in all. q: text in the path, the address or the account (in any case); kind: ok, moved,
-        refused or failed, or a status itself ("404")."""
+        """The newest requests (of the newest RECENT the files hold: the lines waiting written first) the filter leaves,
+        newest first, at most `most`, and how many of them it left in all. q: text in the path, the address or the
+        account (in any case); kind: ok, moved, refused or failed, or a status itself ("404"). Read from the files
+        when asked (a few milliseconds for the Logs tab), never kept in memory: thousands of small lines kept for long
+        among each request's own short-lived ones held far more of the server's memory than their size."""
+        self.write()
         matches = self._matcher(q, kind)
         found, shown = 0, []
-        # This process's own, then those from before it started, newest first: RECENT in all at most.
-        lines = list(self._recent)[::-1] + list(self._earlier)[::-1]
-        for kept in lines[:RECENT]:
-            line = dict(zip(FIELDS, kept))
+        for line in self._newest(RECENT):
             if matches(line):
                 found += 1
                 if len(shown) < most:

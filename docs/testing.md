@@ -78,7 +78,11 @@ launcher opens at, and a page's scroll bar must leave the page its whole width. 
 minutes prints its stack and ends, failing: a window that never finishes drawing would hold it silent otherwise. The
 site's check (`tests/e2e/web/shoot.js`, measuring with `measure.js`) fails on anything past a page's right edge, words
 cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone width, a word of the phone
-menu that does not fit, a button whose words are out of its middle, and a question asked first that does not fit. Both
+menu that does not fit, a button whose words are out of its middle, boxes that touch or overlap, words nearer a box's
+edge than its padding, a gap between two boxes off the site's scale (steps of 2 px up to 32, then 36, 40, 48, 56, 64),
+words straight on the page's background, a floating layer (the charts' tips, opened by pointing at the first, the
+middle and the last of each kind) not wholly on the screen or with something over it, and a question asked first that
+does not fit. Both
 also count what they looked at, so a page that silently stops being visited fails the run.
 
 Each check is tested itself: `OPENDMT3_REPO` points it at a copy of the tree, and `tests/e2e/web/selftest.sh OUT_DIR`

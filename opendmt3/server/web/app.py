@@ -621,6 +621,20 @@ def create_app(site):
                                  Middleware(SignInWall)])
 
 
+# The requests log's writer: one thread for the process, made at its first write (_writer).
+_writers = []
+_writers_lock = threading.Lock()
+
+
+def _writer():
+    """The thread the requests log is written on: one, kept for the process."""
+    with _writers_lock:
+        if not _writers:
+            import concurrent.futures
+            _writers.append(concurrent.futures.ThreadPoolExecutor(1, thread_name_prefix="opendmt3-requests"))
+        return _writers[0]
+
+
 # What the requests log leaves out besides the files (free()): the progress card's own asks, one a second while a job
 # runs (they would fill the log and say nothing of who used the site).
 UNLOGGED = ("/admin/jobs/",)
@@ -667,9 +681,10 @@ class Logged:
                                    1000 * (time.monotonic() - started), client[0] if client else "?",
                                    scope.get(WHO_KEY))
         if self.site.requests.due():
-            # The lines waiting written once a second at most, after the answer and on a thread of the long work's
-            # own: never on the loop, never on the site's two threads.
-            await long(self.site.requests.write)
+            # The lines waiting written once a second at most, after the answer, on the log's own thread (one that
+            # stays: a worker thread made and let go each second churned the process's memory): never on the loop,
+            # never on the site's two threads.
+            await asyncio.get_running_loop().run_in_executor(_writer(), self.site.requests.write)
 
 
 class Work:

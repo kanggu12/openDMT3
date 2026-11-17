@@ -125,10 +125,10 @@ What the log keeps:
   (they travel in a header), and `who` is only the ID signed in on the site.
 - At 2 MB the file becomes `requests.log.1` (the one before `.2`, and so on), four files in all: 8 MB at most, whatever
   the traffic. A file whose newest line is older than 14 days goes too.
-- The newest 5,000 requests stay in memory for the list and its filter, and the day is counted by half hours for the
-  chart; after a restart both are read back from the files.
-- The site writes the lines at most once a second, on a worker thread after an answer, never on the loop the game
-  server shares: the cabinets never wait for the log.
+- The list and its filter read the newest 5,000 lines from the files when the tab is opened; the day is counted by
+  half hours in memory for the chart, and read back from the files after a restart.
+- The site writes the lines at most once a second, on a thread of the log's own after an answer, never on the loop the
+  game server shares: the cabinets never wait for the log.
 
 API: `GET /api/v1/log` (changes and messages), `GET /api/v1/log/plays` and `.csv`, `GET /api/v1/log/requests` and
 `.csv` (with `?q=` and `?kind=`).
