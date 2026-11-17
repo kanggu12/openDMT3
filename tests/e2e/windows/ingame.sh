@@ -540,12 +540,13 @@ grep "sound: the engine's period on " "$OUT/ingame.log" | sed 's/^/  /'
 grep -qE "sound: the engine's period on [^(]*\($GUID\): (held|unchanged|none-shorter|locked|refused|no-answer)" \
   "$OUT/ingame.log" || fail "the sound engine's period was not asked for on the chosen device $GUID"
 # The player's sound (the Sound page's master 80 % and two bands raised, from --set): the game started with them, and
-# the last stage of its sound is on the mix Windows' DirectSound writes (the stream's writer named in the log).
+# the last stage of its sound is on the mix Windows' DirectSound writes (the stream's writer named in the log, in the
+# case its file has: Wine's is DSOUND.dll).
 grep -q "sound: master 80 %, music 100 %, key sounds 100 %, equaliser 4 0 3 0 0 dB" "$OUT/ingame.log" \
   || fail "the game did not start with the Sound page's values ($(grep 'sound: master' "$OUT/ingame.log"))"
 grep -q "mix: the last stage of the game's sound (master volume, equaliser): in place" "$OUT/ingame.log" \
   || fail "the last stage of the sound is not in place ($(grep 'mix:' "$OUT/ingame.log" | head -2))"
-wait_log "mix: a stream written by dsound.dll passes the last stage" 20 \
+wait_log "mix: a stream written by (dsound|DSOUND)\.(dll|DLL) passes the last stage" 20 \
   || fail "DirectSound's mix did not pass the last stage ($(grep 'mix:' "$OUT/ingame.log" | head -3))"
 grep "mix: a stream written by" "$OUT/ingame.log" | sed 's/^[0-9]* /  /'
 # The in-game sound panel: the menu's Sound (its third row), the master a step up with the Up key, then the key sounds
@@ -841,7 +842,7 @@ wait_log "sound: the game's sound goes through DSOAL and OpenAL Soft" 30 \
 wait_log "mix: a stream written by .* passes the last stage" 20 \
   || fail "OpenAL Soft's mix did not pass the last stage ($(grep 'mix:' "$OUT/ingame.log" | head -3))"
 grep "mix: a stream written by" "$OUT/ingame.log" | sed 's/^[0-9]* /  /'
-grep "mix: a stream written by" "$OUT/ingame.log" | grep -qv "written by dsound.dll" \
+grep "mix: a stream written by" "$OUT/ingame.log" | grep -qiv "written by dsound.dll" \
   || fail "the stream that passed the last stage was DirectSound's, not OpenAL Soft's"
 grep -q "sound: master 85 %, music 100 %, key sounds 50 %, equaliser 4 0 3 0 -2 dB" "$OUT/ingame.log" \
   || fail "the second game did not start with the values the first left ($(grep 'sound: master' "$OUT/ingame.log"))"
