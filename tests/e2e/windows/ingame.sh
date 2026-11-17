@@ -435,28 +435,26 @@ python3 -c "import sys; s = int('${style:-0}', 16); sys.exit(0 if s & 0xC00000 =
   || fail "the window has not its title bar and borders only (style ${style:-none})"
 wait_log "bar shown by itself for 3 s \(a switch between a window and full screen\)" 3 \
   || fail "the bar did not show by itself after the switch"
-# The window dragged by its bottom right corner (Windows' own sizing, its border's), larger and then smaller than the
-# game's picture: each time the layer's log says the picture's new size in the client and what draws it, and a frame
-# dumped then is the game's frame at that size in the picture's place, enlarged or shrunk by the chain to it, never the
-# old size's picture (ingame/resize.py).
+# The window sized anew as a drag of its border sizes it (with no window manager Wine draws no border to drag:
+# ingame/restore.c --size, Windows' own SetWindowPos), larger and then smaller than the game's picture: each time the
+# layer's log says the picture's new size in the client and what draws it, and a frame dumped then is the game's frame
+# at that size in the picture's place, enlarged or shrunk by the chain to it, never the old size's picture
+# (ingame/resize.py).
 drags=0
-for move in "240 120" "-560 -336"; do
+for size in "1500 900" "960 576"; do
   drags=$((drags + 1))
-  geo=$(x "xdotool search --name '^ClientApp$' getwindowgeometry" | tr '\n' ' ')
-  wx=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\1/' <<<"$geo"); wy=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\2/' <<<"$geo")
-  ww=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\1/' <<<"$geo"); wh=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\2/' <<<"$geo")
-  cx=$((wx + ww - 3)); cy=$((wy + wh - 3)); dx=${move% *}; dy=${move#* }
   sized=$(seen "post: the picture [0-9]+x[0-9]+ in the window's client")
-  x "xdotool mousemove $cx $cy sleep 0.3 mousedown 1 sleep 0.3 mousemove $((cx + dx / 2)) $((cy + dy / 2)) sleep 0.3 mousemove $((cx + dx)) $((cy + dy)) sleep 0.3 mouseup 1 sleep 0.3 mousemove 960 700"
+  docker exec -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 "$C" sh -c "wine /out/restore.exe --size $size ClientApp" \
+    2>/dev/null | sed 's/^/  sized: /'
   wait_more "post: the picture [0-9]+x[0-9]+ in the window's client" "$sized" 5 \
-    || fail "the window's corner dragged by ($dx, $dy) did not change the picture's size"
+    || fail "the window sized to a client of $size did not change the picture's size"
   line=$(grep -oE "post: the picture [0-9]+x[0-9]+ in the window's client [0-9]+x[0-9]+, drawn at [0-9]+x[0-9]+, upscale [a-z0-9-]+" "$OUT/ingame.log" | tail -1)
-  echo "  dragged by ($dx, $dy): ${line#post: }"
+  echo "  ${line#post: }"
   client=$(grep -oE "client [0-9]+x[0-9]+" <<<"$line" | cut -d' ' -f2)
   wait_s 1.5
-  ask_dump "drag$drags" || fail "the chain did not write the frame after the drag"
+  ask_dump "drag$drags" || fail "the chain did not write the frame after the new size"
   python3 "$HERE/ingame/resize.py" "$OUT" "drag$drags" "${client%x*}" "${client#*x}" \
-    || fail "after the drag by ($dx, $dy) the picture is not the game's frame at the window's new size"
+    || fail "at a client of $size the picture is not the game's frame at the window's new size"
 done
 # The window's place, then the bar from its top edge and its full screen chip (the window's own pixels: the unit is
 # its height over 768).
