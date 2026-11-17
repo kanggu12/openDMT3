@@ -271,7 +271,7 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 .plate .name .tag { vertical-align: 3px; margin: 0 0 0 6px; }
 .search { display: flex; gap: 8px; margin-bottom: 18px; max-width: 520px; }
 /* How many songs the filter shows, right under the box. */
-.song-count { margin: -10px 0 14px; }
+.song-count { margin: 0 0 12px; }
 /* A row the filter hides stays hidden whatever else sets its display. */
 .table tr[hidden] { display: none; }
 /* The installer's size, date and version under its button. */
@@ -382,7 +382,7 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
                background: var(--well); color: var(--ash); font: 12px/1.5 ui-monospace, Consolas, monospace; }
 
 /* ---------------------------------------------------------------------------------------------- foot */
-.foot { border-top: 1px solid var(--seam); padding: 18px 32px; color: var(--faint); font-size: 12px; display: flex; gap: 24px; flex-wrap: wrap; }
+.foot { border-top: 1px solid var(--seam); background: var(--bar); padding: 18px 32px; color: var(--faint); font-size: 12px; display: flex; gap: 24px; flex-wrap: wrap; }
 .foot p { margin: 0; max-width: 820px; }
 /* The notice's two lines stacked, as OpenDMTQ's footer has them. */
 .foot .notice-lines { display: grid; gap: 4px; max-width: 820px; }
@@ -629,15 +629,19 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 .trend-hours .hr:hover .tip, .trend-hours .hr:focus-visible .tip, .slot:hover .tip, .slot:focus-visible .tip,
 .heat i:hover .tip, .heat i:focus-visible .tip { display: block; }
 /* When players play: a row a day, a cell an hour, five steps of the section's colour (h0, nothing, to h4). */
-.heat-wrap { overflow-x: auto; padding-top: 30px; margin-top: -24px; }
-.heat { display: grid; grid-template-columns: 34px repeat(24, minmax(14px, 1fr)); gap: 2px; min-width: 420px; }
+.heat-wrap { padding-top: 30px; margin-top: -24px; }
+/* Twenty-four hours fit a phone too: on its width a cell is 10 px or so wide, the hours' labels every third. */
+.heat { display: grid; grid-template-columns: 30px repeat(24, minmax(0, 1fr)); gap: 2px; }
 .heat-hour { font-size: 11px; color: var(--faint); line-height: 1.6; }
 .heat-day { font-size: 12px; color: var(--ash); line-height: 18px; }
 .heat i, .heat-key i, .daycells i { position: relative; display: block; height: 18px; border-radius: 2px; background: var(--rail); outline: none; }
 .heat i:focus-visible { box-shadow: 0 0 0 2px var(--cyan); }
-.h1 { --step: 0.3; } .h2 { --step: 0.5; } .h3 { --step: 0.72; } .h4 { --step: 1; }
-.heat i[class^="h"]:not(.h0), .heat-key i:not(.h0), .daycells i:not(.h0) {
-  background: color-mix(in srgb, var(--accent) calc(var(--step) * 100%), var(--rail)); }
+/* Each step the section's colour over the rail, by a share written out (a share made with calc() inside color-mix() is
+   dropped by some browsers, and the cell then shows nothing). */
+.heat i.h1, .heat-key i.h1, .daycells i.h1 { background: color-mix(in srgb, var(--accent) 30%, var(--rail)); }
+.heat i.h2, .heat-key i.h2, .daycells i.h2 { background: color-mix(in srgb, var(--accent) 50%, var(--rail)); }
+.heat i.h3, .heat-key i.h3, .daycells i.h3 { background: color-mix(in srgb, var(--accent) 72%, var(--rail)); }
+.heat i.h4, .heat-key i.h4, .daycells i.h4 { background: var(--accent); }
 .heat i:nth-child(25n+2) .tip, .heat i:nth-child(25n+3) .tip, .heat i:nth-child(25n+4) .tip { left: 0; transform: none; }
 .heat i:nth-child(25n+24) .tip, .heat i:nth-child(25n+25) .tip, .heat i:nth-child(25n) .tip { left: auto; right: 0; transform: none; }
 .heat-key { display: flex; align-items: center; gap: 4px; justify-content: flex-end; margin-top: 8px; font-size: 12px; color: var(--faint); }
@@ -686,3 +690,6 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 .server-runner { margin: 16px 0 4px; }
 .table.commands { margin-top: 16px; }
 .table.commands code { overflow-wrap: anywhere; }
+.table.commands td:first-child { white-space: nowrap; }
+/* The Players tab's times and sorting headers stay on one line each (a date broken after its month read as two). */
+.table.players td.time, .table.players th a.sort { white-space: nowrap; }

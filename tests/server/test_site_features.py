@@ -1293,7 +1293,8 @@ class QualityTest(SiteBase):
         patch.start()
         self.addCleanup(patch.stop)
         self.make()
-        self.assertEqual(self.client.get("/health").json(), {"ok": True, "version": __version__})
+        # With this run's mark (a restart's page waits for another).
+        self.assertEqual(self.client.get("/health").json(), {"ok": True, "version": __version__, "run": self.site.run})
         real = db.connect
 
         class NoWrites:

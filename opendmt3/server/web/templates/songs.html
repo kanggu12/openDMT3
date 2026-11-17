@@ -10,8 +10,9 @@
     <input id="song-filter" type="search" name="q" value="{{ query }}" placeholder="{{ w('songs.search') }}" aria-label="{{ w('songs.search') }}" autocomplete="off">
     <button class="btn">{{ w("songs.find") }}</button>
   </form>
-  {% if total %}<p class="muted small song-count" id="song-count" aria-live="polite" data-words="{{ w('songs.count', n='{n}', of='{of}') }}" data-total="{{ total }}">{{ w("songs.count", n=rows|length, of=total) }}</p>{% endif %}
   <div class="card">
+    {# How many songs the filter shows, at the head of the list's card. #}
+    {% if total %}<p class="muted small song-count" id="song-count" aria-live="polite" data-words="{{ w('songs.count', n='{n}', of='{of}') }}" data-total="{{ total }}">{{ w("songs.count", n=rows|length, of=total) }}</p>{% endif %}
     <p class="muted" id="song-none" data-words="{{ w('songs.nomatch', query='{query}') }}"{% if rows or not total %} hidden{% endif %}>{{ w("songs.nomatch", query=query) }}</p>
     {% if not total %}
     <p class="muted">{{ w("songs.none") }}</p>

@@ -167,7 +167,8 @@ def _health(site):
         return 503, {"ok": False, "version": __version__, "reason": "the database cannot be written"}
     finally:
         connection.close()
-    return 200, {"ok": True, "version": __version__}
+    # run: a mark of this run of the server, new at each start, so a page waiting for a restart knows the new one.
+    return 200, {"ok": True, "version": __version__, "run": site.run}
 
 
 async def _check_password(site, request, login_id, password):

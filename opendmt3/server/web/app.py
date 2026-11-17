@@ -148,6 +148,8 @@ class Site:
     def __init__(self, data_dir, game_server=None, game_port=4725, downloads=None, game_folder=None, address=None,
                  runner=None):
         self.data_dir = data_dir
+        # A mark of this run of the server (GET /health gives it): a restart's page waits for a new one.
+        self.run = secrets.token_hex(4)
         # Who started this server, which the Status tab's Stop asks (runner.py): given by whoever made the Site (the
         # command line, the launcher), else Docker Compose's in a container or one the server cannot tell.
         self.runner = runner or runner_mod.default(sources.in_container())

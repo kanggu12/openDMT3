@@ -72,7 +72,7 @@ caller's ID, as the same change on the site does.
 
 | Call | Who | Takes | Answers | Errors | The page |
 |---|---|---|---|---|---|
-| `GET /health` | anyone | | `{"ok": true, "version"}`, or `503` with `{"ok": false, "version", "reason"}` while the database cannot be opened or written (what the Docker image's health check reads) | | (none) |
+| `GET /health` | anyone | | `{"ok": true, "version", "run"}` (`run` a mark of this run of the server, new at each start), or `503` with `{"ok": false, "version", "reason"}` while the database cannot be opened or written (what the Docker image's health check reads) | | (none) |
 | `GET /api/v1/status` | anyone | | `{"server": "openDMT3", "version", "game_port", "updates"}`; `updates` is whether `/updates/` hands out the launcher's update packages | | (the launcher's server check) |
 | `GET /api/v1/openapi.json` | anyone | | the OpenAPI 3.1 document of every call under `/api/v1/` (below) | | (programs that read OpenAPI) |
 | `GET /updates/{name}` | anyone | | one file of the launcher's update feed in `data/updates/`: `releases.win.json`, a `.nupkg` or its `.sig` | `404` (as text) for any other name | (the launcher's updates) |

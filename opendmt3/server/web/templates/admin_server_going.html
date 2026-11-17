@@ -7,7 +7,7 @@
   <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1 class="word">{{ w("nav.admin") }}</h1><p class="sub">{{ w("admin.sub") }}</p></div>
 </section>
 <section class="page">
-  <div class="card server-going"{% if action == "restart" %} data-back="/admin/server"{% endif %}>
+  <div class="card server-going"{% if action == "restart" %} data-back="/admin/server" data-run="{{ run }}"{% endif %}>
     <h3>{{ w("server.going." + action + ".title") }}</h3>
     <p class="alert ok" role="status">{{ w("server.going." + action, folder=data_dir, kept=kept) }}</p>
     {% if action == "restart" %}

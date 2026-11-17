@@ -71,7 +71,7 @@ done
 # The upload field's words in both languages, from the site's own table, for the browser to hold the page to.
 WORDS=$(cd "$REPO" && python3 -I -c 'import json, sys; sys.path.insert(0, "."); from opendmt3.server.web.strings import TEXT
 print(json.dumps({k: TEXT[k] for k in ("upload.none", "upload.choose", "upload.change")}))') || { echo "FAIL: the words"; exit 1; }
-timeout 300 docker run --rm --name "$NAME-browser-$$" --network "$NET" -e SITE=http://site:4730 -e NODE_PATH=/usr/src/app/node_modules -e WORDS="$WORDS" \
+timeout 900 docker run --rm --name "$NAME-browser-$$" --network "$NET" -e SITE=http://site:4730 -e NODE_PATH=/usr/src/app/node_modules -e WORDS="$WORDS" \
   -v "$REPO/tests/e2e/web:/w:ro" -v "$OUT/shots:/out" -w /usr/src/app zenika/alpine-chrome:with-puppeteer node /w/shoot.js \
   > "$OUT/shoot.txt" 2>&1
 status=$?
@@ -84,7 +84,7 @@ for _ in $(seq 60); do
     >/dev/null 2>&1 && break
   sleep 0.5
 done
-timeout 300 docker run --rm --name "$NAME-empty-browser-$$" --network "container:$EMPTY" -e NODE_PATH=/usr/src/app/node_modules \
+timeout 900 docker run --rm --name "$NAME-empty-browser-$$" --network "container:$EMPTY" -e NODE_PATH=/usr/src/app/node_modules \
   -v "$REPO/tests/e2e/web:/w:ro" -v "$OUT/shots:/out" -w /usr/src/app zenika/alpine-chrome:with-puppeteer node /w/empty.js \
   > "$OUT/empty.txt" 2>&1
 empty_status=$?

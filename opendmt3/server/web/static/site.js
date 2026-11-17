@@ -217,25 +217,23 @@
   window.setTimeout(ask, 1000);
 }());
 
-// After the Server tab's Restart (templates/admin_server_going.html): the health check asked every second; once the
-// old server has gone (an ask failed) and the new one answers, the page goes back to the Server tab. A server that
-// was quicker than the first ask (no failure seen in 15 seconds) goes back too.
+// After the Server tab's Restart (templates/admin_server_going.html): the health check asked every half second; once
+// it answers with another run's mark than the page's (the server that was asked has gone and a new one answers), the
+// page goes back to the Server tab.
 (function () {
   "use strict";
   var card = document.querySelector(".server-going[data-back]");
   if (!card || typeof window.fetch !== "function") { return; }
-  var gone = false, started = Date.now();
   function ask() {
     fetch("/health", {cache: "no-store"})
-      .then(function (answer) { return answer.ok; }, function () { return false; })
-      .then(function (up) {
-        if (!up) { gone = true; }
-        if (up && (gone || Date.now() - started > 15000)) {
+      .then(function (answer) { return answer.ok ? answer.json() : null; }, function () { return null; })
+      .then(function (health) {
+        if (health && health.run && health.run !== card.dataset.run) {
           window.location.replace(card.dataset.back);
           return;
         }
-        window.setTimeout(ask, 1000);
-      });
+        window.setTimeout(ask, 500);
+      }, function () { window.setTimeout(ask, 500); });
   }
-  window.setTimeout(ask, 1000);
+  window.setTimeout(ask, 500);
 }());

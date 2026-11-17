@@ -103,11 +103,22 @@ const layout = page => page.evaluate(() => {
   // ---- spacing: boxes apart, words inside their box's padding, gaps on the scale, no words on the bare page
   const spacing = [];
   const clear = c => !c || c === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(c);
-  // A box: something drawn, so its edge shows (a fill, an image, a border, a shadow), and shown.
+  // A box: something drawn, so its edge shows (a fill, an image, a border on more than one side, a shadow), seen (not
+  // a control laid see-through over another, as the upload's file field is), and not a part of a table (its cells and
+  // rows meet by design, a seam between them). A line along one side alone is a seam between rows, not a box's edge.
   const isBox = e => {
     const s = getComputedStyle(e);
-    return !clear(s.backgroundColor) || s.backgroundImage !== 'none' || s.boxShadow !== 'none' ||
-      ['Top', 'Right', 'Bottom', 'Left'].some(side => parseFloat(s['border' + side + 'Width']) > 0 && !clear(s['border' + side + 'Color']));
+    if (parseFloat(s.opacity) === 0 || ['TR', 'TD', 'TH', 'THEAD', 'TBODY', 'TABLE'].includes(e.tagName)) return false;
+    const sides = ['Top', 'Right', 'Bottom', 'Left'].filter(side => parseFloat(s['border' + side + 'Width']) > 0 &&
+      !clear(s['border' + side + 'Color'])).length;
+    return !clear(s.backgroundColor) || s.backgroundImage !== 'none' || s.boxShadow !== 'none' || sides > 1;
+  };
+  // A band: a box as wide as the page (the bar, the notice's line, the foot), which meets the next band by design.
+  const band = r => r.width >= width - 2;
+  // Where words are framed: a box, or a row that scrolls sideways (the phone menu), whose own padding frames them.
+  const frames = e => {
+    const s = getComputedStyle(e);
+    return ['auto', 'scroll'].includes(s.overflowX);
   };
   const outside = 'dialog, dialog *, .shards, .shards *, .tip, svg, svg *, script, style, option, .visually-hidden';
   const boxes = [...document.querySelectorAll('body *')].filter(e => !e.matches(outside) && shown(e) && isBox(e) &&
@@ -122,12 +133,15 @@ const layout = page => page.evaluate(() => {
       const n = next.getBoundingClientRect();
       const sideBySide = n.top < r.bottom - 1 && n.bottom > r.top + 1;
       const stacked = n.left < r.right - 1 && n.right > r.left + 1;
-      if (!sideBySide && !stacked) continue;
+      // The next box neither beside it nor under it (the first of the next row of a grid): nothing to measure.
+      if (!sideBySide && !stacked) break;
       const gap = sideBySide ? Math.max(n.left - r.right, r.left - n.right) : Math.max(n.top - r.bottom, r.top - n.bottom);
-      if (gap < 1.5 && !(sideBySide && stacked && gap < -1 && box.closest('.partbar, .heat, .slots, .daycells'))) {
+      if (gap < 1.5 && band(r) && band(n)) break;
+      if (gap < 1.5) {
         spacing.push(name(box) + ' and ' + name(next) + ' touch (' + Math.round(gap) + ' px)');
       } else if (gap < 70 && !steps.has(Math.round(gap)) && Math.abs(gap - Math.round(gap)) < 0.3) {
-        spacing.push(name(box) + ' to ' + name(next) + ': ' + Math.round(gap) + ' px is off the scale');
+        spacing.push(name(box) + ' to ' + name(next) + ': ' + Math.round(gap) + ' px is off the scale (in ' + name(box.parentElement) + ' at ' +
+                     Math.round(r.left) + ',' + Math.round(r.top + window.scrollY) + ')');
       }
       break;
     }
@@ -142,16 +156,20 @@ const layout = page => page.evaluate(() => {
     const t = range.getBoundingClientRect();
     if (!t.width || !t.height) continue;
     let box = parent;
-    while (box && box !== document.body && !boxed.has(box)) box = box.parentElement;
+    while (box && box !== document.body && !boxed.has(box) && !frames(box)) box = box.parentElement;
     if (!box || box === document.body) {
       spacing.push(name(parent) + ' "' + said(parent) + '" sits on the bare page');
       continue;
     }
-    // A field's or a button's own words are placed by the browser and the button's check (askew).
-    if (box.matches('input, select, textarea, .btn, button')) continue;
+    // A field's or a button's own words are placed by the browser and the button's check (askew); words of an inline
+    // box (a tag in a line) sit on their line.
+    if (box.matches('input, select, textarea, .btn, button') || getComputedStyle(box).display === 'inline') continue;
+    // Text kept as written (a licence's) hangs its spaces at a line's end past the padding: its lines are its own.
+    if (['pre', 'pre-wrap'].includes(getComputedStyle(parent).whiteSpace)) continue;
     const b = box.getBoundingClientRect(), s = getComputedStyle(box);
-    const near = [['left', t.left - b.left, s.paddingLeft], ['right', b.right - t.right, s.paddingRight],
-                  ['top', t.top - b.top, s.paddingTop], ['bottom', b.bottom - t.bottom, s.paddingBottom]]
+    // Sideways only: a line's glyphs reach above and below its line box by the face's own measure, so the padding
+    // over and under words is the box's line height's to keep, not theirs (words cut at a box's edge are "cut").
+    const near = [['left', t.left - b.left, s.paddingLeft], ['right', b.right - t.right, s.paddingRight]]
       .filter(([, room, pad]) => room < parseFloat(pad) - 1.5);
     if (near.length) {
       spacing.push(name(parent) + ' "' + said(parent) + '" nearer the ' + near[0][0] + ' edge of ' + name(box) +

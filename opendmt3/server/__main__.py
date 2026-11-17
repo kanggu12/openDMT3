@@ -297,9 +297,13 @@ def main(argv=None):
         logging.getLogger("opendmt3.server").info("stopping: asked on the admin page (%s)", asked["action"])
 
     from opendmt3.server.web import runner as runners
+    import shlex
+    # The command as it was given, which the tab shows as the way to start the server again.
+    given = list(sys.argv[1:] if argv is None else argv)
     run_by = runners.default(True) if sources.in_container() else runners.Runner(
         "python", stop=lambda: ask("stop"), restart=lambda: ask("restart"),
-        remove=lambda delete_data: ask("remove", delete_data))
+        remove=lambda delete_data: ask("remove", delete_data),
+        commands={"start": " ".join(["python", "-m", "opendmt3.server"] + [shlex.quote(a) for a in given])})
     try:
         asyncio.run(serve(args, data, until=None if sources.in_container() else until, runner=run_by))
     except KeyboardInterrupt:

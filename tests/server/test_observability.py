@@ -300,7 +300,7 @@ class AdminPagesTest(ApiBase):
         for words in ("Resources", "What takes the disk", "When players play"):
             self.assertIn(words, page)
         # The grid: 7 days of 24 hours, each with its tip; three plays this hour on today's row.
-        self.assertEqual(page.count('<i class="h'), 7 * 24 + 6)
+        self.assertEqual(page.count("<i class=\"h"), 7 * 24 + 5)
         hours = self.call("GET", "/api/v1/server", self.token("BOSS")).json()["hours"]
         today = time.localtime(now)
         self.assertEqual(sum(map(sum, hours["grid"])), 3)

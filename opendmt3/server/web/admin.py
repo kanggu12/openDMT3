@@ -227,7 +227,7 @@ def routes(site):
                 if insights.ask_runner(site, user["login_id"], "remove" if action == "remove_data" else action,
                                        delete_data=action == "remove_data"):
                     return site.render(request, "admin_server_going.html", user=user, action=action,
-                                       runner=site.runner, data_dir=os.path.abspath(site.data_dir),
+                                       runner=site.runner, run=site.run, data_dir=os.path.abspath(site.data_dir),
                                        kept=insights.last_copy(site))
                 error = w("server.not_asked")
         return site.render(request, "admin_server.html", user=user, error=error, runner=site.runner,
