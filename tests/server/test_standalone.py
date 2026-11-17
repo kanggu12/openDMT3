@@ -75,21 +75,24 @@ class SettingsTest(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(self.data, "downloads", standalone.INSTALLER)))
         self.assertEqual(quiet("--data", self.data, "setup", "--installer", installer + ".none")[0], 2)
 
-    def test_the_bundled_installer_fills_an_empty_downloads_folder_only(self):
+    def test_the_bundled_installer_goes_in_under_its_release_name(self):
         package = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, package)
         os.makedirs(os.path.join(package, standalone.BUNDLED_INSTALLER))
-        with open(os.path.join(package, standalone.BUNDLED_INSTALLER, "opendmt3-launcher-1.2.3-windows-x64-setup.exe"),
-                  "wb") as f:
+        name = "opendmt3-launcher-1.2.3-windows-x64-setup.exe"
+        with open(os.path.join(package, standalone.BUNDLED_INSTALLER, name), "wb") as f:
             f.write(b"MZ bundled")
+        downloads = os.path.join(self.data, "downloads")
+        os.makedirs(downloads)
+        # The owner's (an older one, under the stored name) stays; the bundled one goes in beside it.
+        with open(os.path.join(downloads, standalone.INSTALLER), "wb") as f:
+            f.write(b"MZ the owner's")
         with mock.patch.object(standalone, "package_folder", return_value=package):
-            self.assertEqual(standalone.hand_out_bundled(self.data), "opendmt3-launcher-1.2.3-windows-x64-setup.exe")
-            put = os.path.join(self.data, "downloads", standalone.INSTALLER)
-            with open(put, "wb") as f:
-                f.write(b"MZ the owner's")
-            # One there already (the owner's) stays.
+            self.assertEqual(standalone.hand_out_bundled(self.data), name)
+            # Once there, a second start copies nothing.
             self.assertIsNone(standalone.hand_out_bundled(self.data))
-        with open(put, "rb") as f:
+        self.assertEqual(sorted(os.listdir(downloads)), sorted([standalone.INSTALLER, name]))
+        with open(os.path.join(downloads, standalone.INSTALLER), "rb") as f:
             self.assertEqual(f.read(), b"MZ the owner's")
 
     def test_expose_puts_the_site_behind_the_proxy_and_off_takes_it_back(self):

@@ -274,8 +274,11 @@ def log_to(data, console):
 
 
 def hand_out_bundled(data):
-    """The launcher's installer the Windows package brings, into an empty downloads folder: the site's Download page
-    then hands it out from the first start. One the owner put there is never replaced."""
+    """The launcher's installer the Windows package brings, into the downloads folder under its release name
+    (opendmt3-launcher-<version>-windows-x64-setup.exe) when it is not there yet: of the installers there the site
+    hands out the newest version (services/downloads.py), so a newer package moved onto an older data folder hands out
+    its own, and an installer the owner put there is never replaced or deleted. One without a release name goes in only
+    when the folder has none."""
     folder = os.path.join(package_folder(), BUNDLED_INSTALLER)
     downloads = os.path.join(data, "downloads")
     try:
@@ -283,10 +286,21 @@ def hand_out_bundled(data):
     except OSError:
         return None
     os.makedirs(downloads, exist_ok=True)
-    if not brought or any(n.lower().endswith(".exe") for n in os.listdir(downloads)):
+    if not brought:
         return None
-    shutil.copyfile(os.path.join(folder, brought[-1]), os.path.join(downloads, INSTALLER))
-    return brought[-1]
+    from opendmt3.server.services import downloads as handed
+    name = brought[-1]
+    there = os.listdir(downloads)
+    if handed.RELEASED.match(name):
+        if name in there:
+            return None
+        target = name
+    elif any(n.lower().endswith(".exe") for n in there):
+        return None
+    else:
+        target = INSTALLER
+    shutil.copyfile(os.path.join(folder, name), os.path.join(downloads, target))
+    return name
 
 
 def first_account_needed(data):
@@ -508,7 +522,12 @@ def cmd_setup(args):
     if args.installer:
         if not os.path.isfile(args.installer):
             raise Refused("no installer at %s" % args.installer)
-        shutil.copyfile(args.installer, os.path.join(data, "downloads", INSTALLER))
+        from opendmt3.server.services import downloads as handed
+        # Under its release name when it has one (the newest version there is handed out), else the stored name, in
+        # place of the one before.
+        name = os.path.basename(args.installer)
+        shutil.copyfile(args.installer, os.path.join(data, "downloads", name if handed.RELEASED.match(name)
+                                                     else INSTALLER))
         say("the Download page hands out %s" % os.path.basename(args.installer))
     if args.admin:
         if not first_account_needed(data):

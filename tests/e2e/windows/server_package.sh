@@ -59,7 +59,8 @@ docker run --rm --name "$C" --network none -e PYTHONDONTWRITEBYTECODE=1 "${mount
   r=$?; step "/health answers: $(tail -c 60 /out/health.txt)" $r
   get http://127.0.0.1:4730/ > /out/home.html 2>&1; head -1 /out/home.html | grep -q 200
   r=$?; step "the site answers" $r
-  [ -f data/downloads/openDMT3-win-Setup.exe ] && cmp -s data/downloads/openDMT3-win-Setup.exe installer/*.exe
+  brought=$(basename installer/*.exe)
+  [ -f "data/downloads/$brought" ] && cmp -s "data/downloads/$brought" "installer/$brought"
   r=$?; step "the installer it brings is in the downloads folder" $r
   python3 - > /out/api.txt 2>&1 <<"PY"
 import json, urllib.request

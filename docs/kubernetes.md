@@ -130,7 +130,7 @@ The launchers then use `https://dmt.example.org/` as the server's address, and t
 
 ## Values
 
-The chart's [values.yaml](../deploy/helm/opendmt3/values.yaml) says what each one does. The ones most owners set:
+The chart's [values.yaml](https://github.com/kanggu12/openDMT3/blob/main/deploy/helm/opendmt3/values.yaml) says what each one does. The ones most owners set:
 
 - `siteAddress`, `proxy`, `webhook` (a Discord or Slack webhook for new first places), `extraArgs` (more of the
   server's own options).
@@ -176,7 +176,7 @@ dmt3-opendmt3-data` removes the data too.
 
 `deploy/kind/up.sh` runs the chart on a local [kind](https://kind.sigs.k8s.io) cluster named `odt3-srv-kind`, with
 Docker, kind, kubectl and Helm on the PC. It builds the image from the tree, starts the cluster, installs the chart
-with [deploy/kind/values.yaml](../deploy/kind/values.yaml), and checks from the PC:
+with [deploy/kind/values.yaml](https://github.com/kanggu12/openDMT3/blob/main/deploy/kind/values.yaml), and checks from the PC:
 
 - `/health` and the sign-in page on `http://127.0.0.1:14730/`;
 - the game's port on `127.0.0.1:14725`;

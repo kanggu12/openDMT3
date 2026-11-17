@@ -52,8 +52,8 @@ Accounts, plays, backups, the log, the settings and the installer the Download p
 folder beside this program. To move the server to a new version, stop it, unpack the new zip into a new folder,
 and move the data folder into it.
 
-This package brings the launcher's installer of the same version: the first start puts it in data\downloads, from
-where the site's Download page hands it out.
+This package brings the launcher's installer of the same version: a start puts it in data\downloads, and the site's
+Download page hands out the newest installer there.
 
 Guides, and where to report a problem: https://github.com/kanggu12/openDMT3 (docs/server.md)
 

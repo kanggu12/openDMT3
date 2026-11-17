@@ -402,8 +402,8 @@ older database forward on its first start (a copy of it is kept first).
   new `opendmt3-launcher-0.3.1-windows-x64-setup.exe` in `data/downloads/`: of the installers there, the newest
   version is handed out.
 - **On Windows**: stop the server, unpack the new zip into a new folder, move the `data` folder into it, and start the
-  new `opendmt3-server.exe`. It brings the new launcher's installer and hands it out once the downloads folder has
-  none: delete the old installer in `data\downloads` first, or `opendmt3-server setup --installer FILE`.
+  new `opendmt3-server.exe`. It puts the new launcher's installer beside the old one in `data\downloads`, and the
+  **Download** page hands out the newest.
 - **The one-line install**: the new release's line; it stops and starts the server itself.
 - **In the launcher**: the launcher's own update (**Launcher**, **Check for updates**) updates its server too.
 
