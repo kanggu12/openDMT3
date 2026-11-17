@@ -127,21 +127,23 @@ class PictureTest(unittest.TestCase):
             self.assertEqual(len(art._HEADER_SHARDS), art.HEADER_SHARDS_KEPT)
             self.assertNotIn((300, 60, 11, tuple(sorted(colours.items()))), art._HEADER_SHARDS)
 
-    def test_the_bars_mark_never_changes_with_the_version(self):
-        # The bar's left end (art.brand): the mark, then LAUNCHER over the version. The mark is the same pixels whatever
-        # the version, and the whole is as tall; a version longer than a usual one is set smaller, not wider.
-        for scale in (1.0, 1.5):
-            plain = art.brand(scale, "")
-            for version in ("0.3.0", "0.10.12", "1.0.0-rc.1", "0.7.1-updatetest"):
-                shown = art.brand(scale, version)
-                # The mark stands on the picture's foot, at its left end.
-                mark = shown.crop((0, shown.height - plain.height, plain.width, shown.height))
-                self.assertEqual(mark.tobytes(), plain.tobytes(), (scale, version))
-                self.assertEqual(shown.height, art.brand(scale, "0.3.0").height, (scale, version))
-            usual, long = art.version_block("LAUNCHER", "v0.10.12", scale), art.version_block("LAUNCHER",
-                                                                                              "v0.7.1-updatetest", scale)
-            # The test build's name wider than a usual version, but not by its whole length at the usual size.
-            self.assertLess(long.width, usual.width * len("v0.7.1-updatetest") / len("v0.10.12"))
+    def test_the_columns_lockup_fits_its_room_at_every_scale(self):
+        # The column's top (art.brand) is the logo's lockup: OPEN and its slab over DMT3, LAUNCHER at DMT3's foot and
+        # the version over it, as the site's bar sets DMT3 SERVER. At every scale from 100 to 200 % it is as wide as
+        # the column's room at most, a usual version stands beside DMT3 (no taller for it), and it is the logo's
+        # picture at that width cut to its pixels.
+        try:
+            from opendmt3.client import widgets
+            self.assertLessEqual(art.BRAND_WIDTH, widgets.Rail.WIDTH - 2 * widgets.Rail.EDGE - 1)
+        except ImportError:
+            pass
+        for scale in (1.0, 1.25, 1.5, 1.75, 2.0):
+            room = int(round(art.BRAND_WIDTH * scale))
+            usual = art.brand(scale, "0.4.0")
+            self.assertLessEqual(usual.width, room, scale)
+            self.assertEqual(usual.height, art.brand(scale, "0.10.12").height, scale)
+            whole = art.logo(room, scale, label="LAUNCHER", version="0.4.0")
+            self.assertEqual(usual.tobytes(), whole.crop(whole.getbbox()).tobytes(), scale)
 
     def test_a_cards_corner_is_cut(self):
         # The page's colour beyond the cut (the top right), the card's inside under it (the bottom left).

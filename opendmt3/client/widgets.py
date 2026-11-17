@@ -130,8 +130,8 @@ class SlimBar(tk.Canvas):
 
 
 class Rail(tk.Frame):
-    """The column down the window's left side, as OpenDMTQ's launcher has it: the mark with its version block
-    (art.brand) at its top, then the menu (`nav`: the pages, one under another) or the first-start guide's steps
+    """The column down the window's left side, as OpenDMTQ's launcher has it: openDMT3's lockup with LAUNCHER and the
+    version (art.brand, the site bar's DMT3 SERVER in the launcher's words) at its top, then the menu (`nav`: the pages, one under another) or the first-start guide's steps
     (`steps`), and at its foot what the window places there (the status and PLAY, or the guide's Skip, Back and Next,
     LauncherApp.make_foot). Opaque, a step darker than the page, with a seam along its right edge where the page begins.
 
@@ -139,8 +139,8 @@ class Rail(tk.Frame):
     wraps to several lines over PLAY), the names stand closer together instead (fit), so the menu never runs under
     its foot."""
 
-    # The column's width, the room inside it either side, above the mark, and under it (logical pixels). The width
-    # holds the mark with its version at 100 % with the room either side, and PLAY's slab as wide as the column holds.
+    # The column's width, the room inside it either side, above the lockup, and under it (logical pixels). The width
+    # holds the lockup (art.BRAND_WIDTH) with the room either side, and PLAY's slab as wide as the column holds.
     WIDTH, EDGE, TOP, UNDER_BRAND = 248, 18, 22, 24
     # The least room between the menu's last name and the foot's top (logical pixels).
     ABOVE_FOOT = 16

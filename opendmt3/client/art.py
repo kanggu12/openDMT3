@@ -299,74 +299,19 @@ def logo(width, scale=1.0, label="LAUNCHER", accent=theme.BLUE_HI, version=None)
 # How far a leaning edge runs sideways for each pixel of its height: one slope for every plate, tab and button.
 LEAN = 0.36
 
-# The menu column's mark: its width in logical pixels (DMT3 at the size the site's bar sets it, its capitals 19 px
-# tall).
-BAR_MARK = 108
-# The version's number beside the mark: this size (logical pixels) while it is as short as a usual version, a smaller
-# one for a longer one, and never smaller than that: the mark beside it keeps its size whatever the version.
-VERSION_POINTS, VERSION_POINTS_LONG = 15, 11
+# The menu column's lockup: its width in logical pixels, the column's room between its sides (widgets.Rail: 248 wide,
+# 18 either side, and its seam).
+BRAND_WIDTH = 210
 
 
-def version_block(label, version, scale=1.0, accent=theme.BLUE_HI):
-    """The version as the family's launchers set it beside their mark (OpenDMTQ's PC CLIENT block): a line in the accent
-    leaning on the game's plates' slope, what this program is named small and spaced out over the number, the number
-    in the wide face and larger, both upright as the TECHNIKA 3 logo stands. Returns an RGBA picture.
-
-    A version as long as a usual one ("v0.10.12") keeps its size; a longer one (a test build's name) is set smaller
-    rather than wider, down to VERSION_POINTS_LONG, and only past that does the block grow."""
-    k = SS
-    s = scale * k
-    label_font = ImageFont.truetype(theme.WIDE_FILE, max(1, int(round(8 * s))))
-    # The number's size: the usual one while it is no wider than a usual version, else the smaller one.
-    number_font = ImageFont.truetype(theme.WIDE_FILE, max(1, int(round(VERSION_POINTS * s))))
-    room = number_font.getlength("v0.10.12")
-    if number_font.getlength(version) > room:
-        number_font = ImageFont.truetype(theme.WIDE_FILE, max(1, int(round(VERSION_POINTS_LONG * s))))
-    # The label's letters spaced out a fifth of their size, as OPEN is in the mark.
-    spacing = 0.2 * 8 * s
-    label_w = sum(label_font.getlength(ch) + spacing for ch in label) - spacing
-    number_w = number_font.getlength(version)
-    # The line's room, then the words: the label's capitals (0.688 of its size) over the number's, 5 px apart.
-    line_room = 12 * s
-    label_cap, number_cap = 0.688 * 8 * s, 0.688 * VERSION_POINTS * s
-    gap = 5 * s
-    height = int(math.ceil(label_cap + gap + number_cap + 4 * s))
-    width = int(math.ceil(line_room + max(label_w, number_w) + 2 * s))
-    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    # The line: 2 px thick, from the top to the foot, leaning as the plates do (its top further right).
-    thick, foot = 2 * s, height - 1 * s
-    lean = LEAN * foot
-    draw.polygon([(lean, 0), (lean + thick, 0), (thick, foot), (0, foot)], fill=_rgb(accent) + (255,))
-    # The label in the text's grey, letter by letter; its capitals stand at the top.
-    x = line_room
-    for ch in label:
-        draw.text((x, label_cap), ch, font=label_font, fill=_rgb(theme.MUTED) + (255,), anchor="ls")
-        x += label_font.getlength(ch) + spacing
-    # The number white under it, on the block's foot less the room the line keeps under it.
-    draw.text((line_room, label_cap + gap + number_cap), version, font=number_font, fill=_rgb(theme.TEXT) + (255,),
-              anchor="ls")
-    return img.resize((max(1, width // k), max(1, height // k)), Image.LANCZOS)
-
-
-def brand(scale=1.0, version="", label="LAUNCHER", mark_width=BAR_MARK, accent=theme.BLUE_HI):
-    """The menu column's top, as the family's launchers have it: the mark (logo() without a label, OPEN over DMT3 with
-    the TECHNIKA 3 logo's blue 3) and the version block beside it (version_block: LAUNCHER over the version), the
-    block's foot on DMT3's foot. The mark is the same picture whatever the version. Returns an RGBA picture."""
-    mark = logo(int(round(mark_width * scale)), scale, label="", accent=accent)
-    # The mark's own room round its letters (chrome_text's pad) stays out: the picture starts at its first pixel.
-    mark = mark.crop(mark.getbbox())
-    if not version:
-        return mark
-    block = version_block(label, "v" + version, scale, accent)
-    gap = int(round(14 * scale))
-    width = mark.width + gap + block.width
-    height = max(mark.height, block.height)
-    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    img.alpha_composite(mark, (0, height - mark.height))
-    # The block stands on the mark's foot (DMT3's foot is the picture's).
-    img.alpha_composite(block, (mark.width + gap, height - block.height))
-    return img
+def brand(scale=1.0, version="", label="LAUNCHER", width=BRAND_WIDTH, accent=theme.BLUE_HI):
+    """The menu column's top: openDMT3's lockup as the site's bar sets DMT3 SERVER (logo: OPEN and its slab over DMT3
+    with the TECHNIKA 3 logo's blue 3, the label at DMT3's foot on the right and the version over it, right beside
+    DMT3 under the slab's end), `width` logical pixels wide at `scale`. DMT3 is the same size whatever the version, and
+    a usual one is set at the version's 12 px. Cut to its first and last pixels, so that the column's rooms alone
+    place it. Returns an RGBA picture."""
+    made = logo(int(round(width * scale)), scale, label=label, accent=accent, version=version or None)
+    return made.crop(made.getbbox())
 
 
 def numeral(text, colour, scale=1.0, size=28):

@@ -212,8 +212,8 @@ class LauncherApp:
         self._paint_status()
 
     def make_rail(self, parent, nav=(), on_nav=None, steps=()):
-        """The column down the window's left (widgets.Rail): the mark with LAUNCHER and the version beside it
-        (art.brand), then the menu, or the guide's steps."""
+        """The column down the window's left (widgets.Rail): openDMT3's lockup with LAUNCHER and the version (art.brand),
+        then the menu, or the guide's steps."""
         rail = widgets.Rail(parent, self.ui, art.brand(self.scale, updates.shown_version()), nav=nav, on_nav=on_nav,
                             steps=steps)
         rail.pack(side="left", fill="y")
