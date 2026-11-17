@@ -20,10 +20,16 @@ body.lang-ko .area-section > h2 { font: 700 20px/1.3 var(--text-face); letter-sp
 .picture-forms .buttons { display: flex; gap: 8px; }
 .picture-forms input[type="file"] { height: auto; padding: 8px; }
 
-/* A player's picture: a square with the game's cut corner, the DJ name's first letter when there is none. */
-.avatar { width: 64px; height: 64px; flex: none; display: grid; place-items: center; overflow: hidden;
-          background: var(--well); border: 1px solid var(--seam);
-          clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%); }
+/* A player's picture: a square with the game's cut corner, the DJ name's first letter when there is none; its seam the
+   cut-corner parts' ring (site.css, .card::after), in the seam's own colour over the picture. */
+.avatar { --cut: 12px; position: relative; width: 64px; height: 64px; flex: none; display: grid; place-items: center;
+          overflow: hidden; background: var(--well);
+          clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
+.avatar::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: var(--seam);
+                 clip-path: polygon(evenodd, 0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%, 0 0,
+                                    1px 1px, 1px calc(100% - 1px), calc(100% - 1px) calc(100% - 1px),
+                                    calc(100% - 1px) calc(var(--cut) + 0.4142px), calc(100% - var(--cut) - 0.4142px) 1px,
+                                    1px 1px); }
 .avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .avatar span { font: 400 26px/1 var(--wide); color: var(--ash); }
 .avatar.big { width: 128px; height: 128px; }

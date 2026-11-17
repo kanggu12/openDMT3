@@ -32,6 +32,9 @@
   --glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.035);
   --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0, rgba(255, 255, 255, 0.012) 110px, transparent 240px);
   --chrome: linear-gradient(180deg, #fff 0%, #e3e8ee 44%, #727c88 53%, #b6bec7 72%, #f3f5f8 100%);
+  /* The seam of a part with the game's cut corner (.card and its kin, below): lit from above, brightest along the top
+     and down the cut, dimmer down the sides and along the foot. */
+  --rim: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0, rgba(255, 255, 255, 0.07) 56px);
   --wide: "DMT3 Wide", "Bahnschrift", "Arial", sans-serif;
   --text-face: "DMT3 Text", system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --cut: 14px;
@@ -311,11 +314,19 @@ main { flex: 1; }
 .page { padding: 24px 32px 40px; max-width: 1180px; margin: 0 auto; }
 /* A panel: gunmetal glass, a shade lighter at its head, the top-right corner cut like the game's plates. */
 .card { position: relative; margin-bottom: 18px; padding: 22px 24px; background: var(--glass-sheen), var(--glass);
-        box-shadow: var(--glass-rim); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
-        clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
-/* The light along the cut: a seam of one pixel lying on the diagonal. */
-.card::after { content: ""; position: absolute; width: calc(var(--cut) * 1.4142); height: 1px; top: calc(var(--cut) / 2);
-               right: calc(var(--cut) * -0.2071); transform: rotate(45deg); background: rgba(255, 255, 255, 0.22); }
+        -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); }
+/* The game's cut corner, one shape for every part that has it (a card, the podium's plates, a dialog's panel, a
+   player's picture: players.css): the part is clipped to it (--cut, the corner's size), and its seam is a ring of
+   1 px drawn by the same shape over the part (::after: the shape less the one 1 px inside it, even-odd). So one line
+   runs along the top, down the cut and down the right edge, its two edges anti-aliased by the shape itself and in
+   their place at any zoom; it passes over a tab head at the top left too, as the part's own edge. The inner shape's
+   cut is the outer's moved 1 px inward across it: 0.4142 px (the square root of 2, less 1) along each edge. */
+.card, .plate, .ask .panel { clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
+.card::after, .plate::after, .ask .panel::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; background: var(--rim);
+  clip-path: polygon(evenodd, 0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%, 0 0,
+                     1px 1px, 1px calc(100% - 1px), calc(100% - 1px) calc(100% - 1px),
+                     calc(100% - 1px) calc(var(--cut) + 0.4142px), calc(100% - var(--cut) - 0.4142px) 1px, 1px 1px); }
 .dj-name { font: 700 30px/1.15 var(--text-face); margin: 0; }
 body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 .cardline { display: flex; gap: 12px; align-items: baseline; margin: 14px 0 6px; }
@@ -627,10 +638,9 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 /* The first three on metal plates; the place in the game's big chrome digits, the first one lit. */
 .podium { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 14px; margin-bottom: 18px; }
 .plate { position: relative; display: flex; align-items: center; gap: 16px; padding: 18px 20px; color: var(--chalk);
-         background: var(--glass-sheen), var(--glass); box-shadow: var(--glass-rim);
-         clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
+         background: var(--glass-sheen), var(--glass); }
 .plate:hover { text-decoration: none; background: var(--glass-sheen), rgba(35, 41, 49, 0.9); }
-.plate.place-1 { box-shadow: var(--glass-rim), inset 0 -2px 0 var(--accent); }
+.plate.place-1 { box-shadow: inset 0 -2px 0 var(--accent); }
 .plate .numeral { font: 400 54px/1 var(--wide); background: var(--chrome); -webkit-background-clip: text; background-clip: text;
                   color: transparent; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6)); }
 .plate.place-1 .numeral { font-size: 64px; background: linear-gradient(180deg, #fff 0%, #ffe3f0 38%, var(--accent) 60%, var(--accent) 100%);
@@ -850,9 +860,8 @@ body.console .foot { background: #0a0c0f; }
 .ask[open] { animation: ask-rise 0.16s cubic-bezier(0.2, 0.7, 0.3, 1); }
 @keyframes ask-rise { from { transform: translateY(14px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ask[open] { animation: none; } }
-.ask .panel { position: relative; padding: 60px 38px 28px; text-align: center; background: var(--glass-sheen), rgba(26, 31, 37, 0.94);
-              box-shadow: var(--glass-rim);
-              clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%); }
+.ask .panel { --cut: 16px; position: relative; padding: 60px 38px 28px; text-align: center;
+              background: var(--glass-sheen), rgba(26, 31, 37, 0.94); }
 .ask .tab { position: absolute; top: 0; left: 50%; transform: translateX(-50%); padding: 0 40px; height: 30px; display: grid;
             place-items: center; white-space: nowrap; font: 400 10px/1 var(--wide); letter-spacing: 0.08em; text-transform: uppercase;
             color: var(--ink); background: linear-gradient(180deg, var(--tone-top), var(--tone-bottom));
