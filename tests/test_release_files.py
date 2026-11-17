@@ -103,6 +103,7 @@ class ReleaseFilesTest(unittest.TestCase):
         self.assertIn("| Server owners |", table)
         self.assertEqual((self.out.parent / "FILES.md").read_text(), table)
 
+    @NEEDS_GIT
     def test_the_lgpl_sources_are_the_archives_the_build_names(self):
         made = build(Path(self.tmp) / "build")
         code, _, _ = run(files, V, str(made), str(self.out))
