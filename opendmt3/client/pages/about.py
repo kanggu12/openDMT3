@@ -124,5 +124,5 @@ def build_about(app, parent):
     legal = card(parent, ui, w("about.legal"), last=True)
     for i, key in enumerate(("about.license", "about.notice")):
         if i:
-            widgets.divider(legal.body, ui, pady=9)
+            widgets.divider(legal.body, ui, pady=8)
         widgets.label(legal.body, ui, w(key), fg=theme.MUTED, wrap_margin=0).pack(fill="x")

@@ -13,7 +13,7 @@ click_next() { click_from_foot 209 37; }
 click_play() { click_from_foot 123 47; }
 
 # Which step of the guide is on show (1 to 5), read from the screen: the five steps stand down the menu column under
-# its mark (the list's top 88 pixels under the window's top at 100 %: the room over the mark, the mark, the room under
+# its mark (the list's top 86 pixels under the window's top at 100 %: the room over the mark, the mark, the room under
 # it; each step 50 pixels tall, 4 apart: widgets.RailList). The step on show stands on a slab with a blue rule along
 # its left edge, 3 pixels wide, 12 pixels in from the window's left; the other steps have no slab there. The rule is
 # read down those 3 columns: its run of blue rows says which step it stands by. 0 when there is no such rule (not the
@@ -42,9 +42,9 @@ for y in range(301):
         runs.append((start, y))
         start = None
 runs = [r for r in runs if r[1] - r[0] >= 30]
-# The step whose row the rule starts in (the list 8 rows under the crop'"'"'s top, each row 50 tall and 4 apart; rounded,
+# The step whose row the rule starts in (the list 6 rows under the crop'"'"'s top, each row 50 tall and 4 apart; rounded,
 # so the mark'"'"'s few pixels more or less on another system move nothing).
-print(int(round((runs[0][0] - 8) / 54.0)) + 1 if len(runs) == 1 and runs[0][0] < 8 + 5 * 54 else 0)'
+print(int(round((runs[0][0] - 6) / 54.0)) + 1 if len(runs) == 1 and runs[0][0] < 6 + 5 * 54 else 0)'
 }
 
 # Next, then until the guide shows step $1, at most $2 seconds; Next again while it still shows the step before (a

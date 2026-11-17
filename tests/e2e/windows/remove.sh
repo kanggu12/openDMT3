@@ -118,12 +118,12 @@ print("%d %d" % (x + w // 2, y + h // 2) if w > 1 and h > 1 else "")'
 }
 
 menu_entry() {   # menu_entry SHOT X Y N: the middle "x y" of the menu's Nth name from its end, in the window at X,Y
-  # The menu's names stand one under another down the column at the window's left (the list's top 88 pixels under the
+  # The menu's names stand one under another down the column at the window's left (the list's top 86 pixels under the
   # window's top at 100 %, each name in a row up to 42 pixels tall: widgets.RailList), from 28 pixels in. Each row of
   # that stretch of the column, averaged to one grey value: the rows with letters stand out of the dark column, and
   # rows less than 6 pixels apart are one name (the names stand 20 and more apart). Found on the screenshot, as rows
   # shrink in a short window.
-  in_c "convert /out/$1.png -crop 150x440+$(($2 + 28))+$(($3 + 88)) +repage -colorspace Gray -scale 1x440! -depth 8 txt:-" \
+  in_c "convert /out/$1.png -crop 150x440+$(($2 + 28))+$(($3 + 86)) +repage -colorspace Gray -scale 1x440! -depth 8 txt:-" \
     | python3 -c 'import re, sys
 rows = [(int(m.group(1)), int(m.group(2))) for m in (re.match(r"0,(\d+): \((\d+)", l) for l in sys.stdin) if m]
 base = sorted(v for _, v in rows)[len(rows) // 2]
@@ -140,7 +140,7 @@ if start is not None:
     names.append((start + last) // 2)
 n = int(sys.argv[3])
 # Nine names: anything else is not the menu (the guide, a dialog over it).
-print("%d %d" % (int(sys.argv[1]) + 28 + 40, int(sys.argv[2]) + 88 + names[-n]) if len(names) == 9 else "")' "$2" "$3" "$4"
+print("%d %d" % (int(sys.argv[1]) + 28 + 40, int(sys.argv[2]) + 86 + names[-n]) if len(names) == 9 else "")' "$2" "$3" "$4"
 }
 
 lowest_colour() {   # lowest_colour SHOT COLOUR: the centre "x y" of the lowest words on the screenshot in that colour

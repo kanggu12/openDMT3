@@ -11,7 +11,7 @@ from opendmt3.core.cabinet import values as choices
 from opendmt3.client import actions, dialogs, theme, widgets
 
 log = logging.getLogger("opendmt3.launcher")
-from opendmt3.client.pages.common import card
+from opendmt3.client.pages.common import Sections, card, rows_that_come
 
 
 # -------------------------------------------------------------------------------------------- Screen
@@ -32,120 +32,138 @@ def _row(card_, ui, title, control, hint, first=False):
 def build_screen(app, parent):
     """Four cards, as OpenDMTQ's SCREEN has its Display, Frames and Quality: the display (full screen or a window, its
     size), the frames (VSync, their pacing, motion clarity, the FPS counter), the picture (its shape, the size it is
-    drawn at, its enlarging and smoothing, glow, the videos) and the experiments."""
-    ui, w, v = app.ui, app.words, app.state.values
-    redraw = lambda: app.redraw("screen")  # noqa: E731  (the page drawn again in place)
-    mode = v["display_mode"]
+    drawn at, its enlarging and smoothing, glow, the videos) and the experiments. A choice that brings or takes rows
+    makes its own card again and no other (Sections)."""
+    ui, w = app.ui, app.words
+    sections = Sections(app, parent, rows_that_come("screen"))
 
-    def set_mode(value):
-        app.changed("display_mode", value)
-        # The size row and the hint depend on the mode: draw the page again.
-        redraw()
+    def display(holder):
+        v = app.state.values
+        mode = v["display_mode"]
 
-    display = card(parent, ui, w("screen.display"))
-    _row(display, ui, w("screen.mode"),
-         lambda p: widgets.Segmented(p, ui, [("fullscreen", w("screen.mode.fullscreen")),
-                                             ("window", w("screen.mode.window"))], mode, set_mode),
-         w("screen.mode.hint." + mode), first=True)
-    sw, sh = _work_area(app)
-    # Sizes that fit the monitor with room for the title bar and the taskbar; the smallest always stays.
-    sizes = [s for s in choices.WINDOW_SIZES
-             if s == choices.WINDOW_SIZES[0] or (int(s.split("x")[0]) <= sw and int(s.split("x")[1]) + 80 <= sh)]
-    if mode == "window":
-        _row(display, ui, w("screen.size"),
-             lambda p: widgets.Select(p, ui, [(s, s.replace("x", " × ")) for s in sizes], v["window_size"],
-                                      lambda s: app.changed("window_size", s), width=16),
-             w("screen.size.hint"))
-    frames = card(parent, ui, w("screen.frames"))
-    _row(frames, ui, w("screen.vsync"), lambda p: widgets.Toggle(p, ui, v["vsync"], lambda on: app.changed("vsync", on)),
-         w("screen.vsync.hint"), first=True)
-    # The game's logic runs once a frame, so it stays at 60 a second; how those frames are paced is the choice.
-    _row(frames, ui, w("screen.pacing"),
-         lambda p: widgets.Segmented(p, ui, [(value, w("screen.pacing." + value)) for value in choices.FRAME_PACINGS],
-                                     v["frame_pacing"], lambda value: app.changed("frame_pacing", value)),
-         w("screen.pacing.hint"))
-    # Motion clarity: only on a main screen at a whole multiple of 60 Hz from 120 up, where each frame has whole
-    # refreshes of its own to be lit over (the in-game overlay turns it off on any other).
-    from opendmt3.client import window_room
-    if window_room.strobe_offered(window_room.refresh_rate()):
-        _row(frames, ui, w("screen.motion"),
-             lambda p: widgets.Segmented(p, ui, [(value, w("screen.motion." + value))
-                                                 for value in choices.MOTION_CLARITIES],
-                                         v["motion_clarity"], lambda value: app.changed("motion_clarity", value)),
-             w("screen.motion.hint"))
+        def set_mode(value):
+            app.changed("display_mode", value)
+            # The size row and the hint depend on the mode: this card again.
+            sections.redo("display")
 
-    def set_fps(on):
-        app.changed("show_fps", on)
-        # The corner's row is there only while the counter is on, and the hint says the state: draw the page again.
-        redraw()
+        made = card(holder, ui, w("screen.display"))
+        _row(made, ui, w("screen.mode"),
+             lambda p: widgets.Segmented(p, ui, [("fullscreen", w("screen.mode.fullscreen")),
+                                                 ("window", w("screen.mode.window"))], mode, set_mode),
+             w("screen.mode.hint." + mode), first=True)
+        sw, sh = _work_area(app)
+        # Sizes that fit the monitor with room for the title bar and the taskbar; the smallest always stays.
+        sizes = [s for s in choices.WINDOW_SIZES
+                 if s == choices.WINDOW_SIZES[0] or (int(s.split("x")[0]) <= sw and int(s.split("x")[1]) + 80 <= sh)]
+        if mode == "window":
+            _row(made, ui, w("screen.size"),
+                 lambda p: widgets.Select(p, ui, [(s, s.replace("x", " × ")) for s in sizes], v["window_size"],
+                                          lambda s: app.changed("window_size", s), width=16),
+                 w("screen.size.hint"))
 
-    _row(frames, ui, w("screen.fps"), lambda p: widgets.Toggle(p, ui, v["show_fps"], set_fps),
-         w("screen.fps.hint." + ("on" if v["show_fps"] else "off")))
-    if v["show_fps"]:
-        # Its corner, a choice of its own (kept while the counter is off, for the next time it is on).
-        _row(frames, ui, w("screen.fps.position"),
-             lambda p: widgets.Select(p, ui, [(c, w("screen.fps.position." + c)) for c in choices.FPS_POSITIONS],
-                                      v["fps_position"], lambda c: app.changed("fps_position", c), width=16),
-             w("screen.fps.position.hint"))
-    picture = card(parent, ui, w("screen.picture"))
-    # The game's 5:3 picture in a screen of another shape: kept with bars beside it, or stretched to fill it.
-    _row(picture, ui, w("screen.shape"),
-         lambda p: widgets.Segmented(p, ui, [(value, w("screen.shape." + value)) for value in choices.PICTURE_SHAPES],
-                                     v["picture_shape"], lambda value: app.changed("picture_shape", value)),
-         w("screen.shape.hint"), first=True)
-    render = v["render_size"]
+    def frames(holder):
+        v = app.state.values
+        made = card(holder, ui, w("screen.frames"))
+        _row(made, ui, w("screen.vsync"),
+             lambda p: widgets.Toggle(p, ui, v["vsync"], lambda on: app.changed("vsync", on)),
+             w("screen.vsync.hint"), first=True)
+        # The game's logic runs once a frame, so it stays at 60 a second; how those frames are paced is the choice.
+        _row(made, ui, w("screen.pacing"),
+             lambda p: widgets.Segmented(p, ui, [(value, w("screen.pacing." + value))
+                                                 for value in choices.FRAME_PACINGS],
+                                         v["frame_pacing"], lambda value: app.changed("frame_pacing", value)),
+             w("screen.pacing.hint"))
+        # Motion clarity: only on a main screen at a whole multiple of 60 Hz from 120 up, where each frame has whole
+        # refreshes of its own to be lit over (the in-game overlay turns it off on any other).
+        from opendmt3.client import window_room
+        if window_room.strobe_offered(window_room.refresh_rate()):
+            _row(made, ui, w("screen.motion"),
+                 lambda p: widgets.Segmented(p, ui, [(value, w("screen.motion." + value))
+                                                     for value in choices.MOTION_CLARITIES],
+                                             v["motion_clarity"], lambda value: app.changed("motion_clarity", value)),
+                 w("screen.motion.hint"))
 
-    def set_render(value):
-        app.changed("render_size", value)
-        # The upscale filter's rows are there only while the game draws at its own size: draw the page again.
-        redraw()
+        def set_fps(on):
+            app.changed("show_fps", on)
+            # The corner's row is there only while the counter is on, and the hint says the state: this card again.
+            sections.redo("frames")
 
-    # The game drawn at its own 1280x768 and enlarged, or at the screen's size (the in-game overlay's render.c).
-    _row(picture, ui, w("screen.render"),
-         lambda p: widgets.Segmented(p, ui, [(value, w("screen.render." + value)) for value in choices.RENDER_SIZES],
-                                     render, set_render),
-         w("screen.render.hint." + render))
-    upscale = v["upscale"]
+        _row(made, ui, w("screen.fps"), lambda p: widgets.Toggle(p, ui, v["show_fps"], set_fps),
+             w("screen.fps.hint." + ("on" if v["show_fps"] else "off")))
+        if v["show_fps"]:
+            # Its corner, a choice of its own (kept while the counter is off, for the next time it is on).
+            _row(made, ui, w("screen.fps.position"),
+                 lambda p: widgets.Select(p, ui, [(c, w("screen.fps.position." + c)) for c in choices.FPS_POSITIONS],
+                                          v["fps_position"], lambda c: app.changed("fps_position", c), width=16),
+                 w("screen.fps.position.hint"))
 
-    def set_upscale(value):
-        app.changed("upscale", value)
-        # The sharpness row shows only for the filters that sharpen: draw the page again.
-        redraw()
+    def picture(holder):
+        v = app.state.values
+        made = card(holder, ui, w("screen.picture"))
+        # The game's 5:3 picture in a screen of another shape: kept with bars beside it, or stretched to fill it.
+        _row(made, ui, w("screen.shape"),
+             lambda p: widgets.Segmented(p, ui, [(value, w("screen.shape." + value))
+                                                 for value in choices.PICTURE_SHAPES],
+                                         v["picture_shape"], lambda value: app.changed("picture_shape", value)),
+             w("screen.shape.hint"), first=True)
+        render, upscale = v["render_size"], v["upscale"]
 
-    # The in-game overlay's enlarging of the 1280x768 picture to the window, only while the game draws at its own
-    # size; five choices fit one row of choices.
-    if render == "game":
-        _row(picture, ui, w("screen.upscale"),
-             lambda p: widgets.Segmented(p, ui, [(value, w("screen.upscale." + value)) for value in choices.UPSCALES],
-                                         upscale, set_upscale),
-             w("screen.upscale.hint"))
-    if render == "game" and upscale in choices.SHARPENING_UPSCALES:
-        # Only FSR 1 and NIS read the sharpness; for the others the row would change nothing, so it is left out.
-        _row(picture, ui, w("screen.sharpness"),
-             lambda p: widgets.Slider(p, ui, v["sharpness"], lambda val: app.changed("sharpness", val)),
-             w("screen.sharpness.hint"))
-    # Drawn at the screen's size, nothing is enlarged after the anti-aliasing: its hint says where it runs then.
-    aa_hint = "screen.antialiasing.hint" if render == "game" else "screen.antialiasing.hint.display"
-    # Nine choices are too many for a row of choices: a drop-down, as the window sizes are.
-    _row(picture, ui, w("screen.antialiasing"),
-         lambda p: widgets.Select(p, ui, [(value, w("screen.antialiasing." + value)) for value in choices.ANTIALIASINGS],
-                                  v["antialiasing"], lambda value: app.changed("antialiasing", value), width=16),
-         w(aa_hint))
-    for name, key in (("glow", "screen.glow"), ("videos", "screen.videos")):
-        _row(picture, ui, w(key), lambda p, n=name: widgets.Toggle(p, ui, v[n], lambda on, n=n: app.changed(n, on)),
-             w(key + ".hint"))
-    advanced = card(parent, ui, w("screen.advanced"), last=True)
-    _row(advanced, ui, w("screen.preload"),
-         lambda p: widgets.Toggle(p, ui, v["preload"], lambda on: app.changed("preload", on)),
-         w("screen.preload.hint"), first=True)
-    # The picture's GPU time by pass, measured while the game runs and logged when it closes (a report carries it).
-    _row(advanced, ui, w("screen.pass_times"),
-         lambda p: widgets.Toggle(p, ui, v["pass_times"], lambda on: app.changed("pass_times", on)),
-         w("screen.pass_times.hint"))
-    # Direct3D 9Ex's flip model for the borderless full screen, an experiment (the copy model unless it is on).
-    _row(advanced, ui, w("screen.flip"),
-         lambda p: widgets.Toggle(p, ui, v["flip_model"], lambda on: app.changed("flip_model", on)),
-         w("screen.flip.hint"))
+        def set_render(value):
+            app.changed("render_size", value)
+            # The upscale filter's rows are there only while the game draws at its own size: this card again.
+            sections.redo("picture")
+
+        def set_upscale(value):
+            app.changed("upscale", value)
+            # The sharpness row shows only for the filters that sharpen: this card again.
+            sections.redo("picture")
+
+        # The game drawn at its own 1280x768 and enlarged, or at the screen's size (the in-game overlay's render.c).
+        _row(made, ui, w("screen.render"),
+             lambda p: widgets.Segmented(p, ui, [(value, w("screen.render." + value))
+                                                 for value in choices.RENDER_SIZES], render, set_render),
+             w("screen.render.hint." + render))
+        # The in-game overlay's enlarging of the 1280x768 picture to the window, only while the game draws at its own
+        # size; five choices fit one row of choices.
+        if render == "game":
+            _row(made, ui, w("screen.upscale"),
+                 lambda p: widgets.Segmented(p, ui, [(value, w("screen.upscale." + value))
+                                                     for value in choices.UPSCALES], upscale, set_upscale),
+                 w("screen.upscale.hint"))
+        if render == "game" and upscale in choices.SHARPENING_UPSCALES:
+            # Only FSR 1 and NIS read the sharpness; for the others the row would change nothing, so it is left out.
+            _row(made, ui, w("screen.sharpness"),
+                 lambda p: widgets.Slider(p, ui, v["sharpness"], lambda val: app.changed("sharpness", val)),
+                 w("screen.sharpness.hint"))
+        # Drawn at the screen's size, nothing is enlarged after the anti-aliasing: its hint says where it runs then.
+        aa_hint = "screen.antialiasing.hint" if render == "game" else "screen.antialiasing.hint.display"
+        # Nine choices are too many for a row of choices: a drop-down, as the window sizes are.
+        _row(made, ui, w("screen.antialiasing"),
+             lambda p: widgets.Select(p, ui, [(value, w("screen.antialiasing." + value))
+                                              for value in choices.ANTIALIASINGS],
+                                      v["antialiasing"], lambda value: app.changed("antialiasing", value), width=16),
+             w(aa_hint))
+        for name, key in (("glow", "screen.glow"), ("videos", "screen.videos")):
+            _row(made, ui, w(key), lambda p, n=name: widgets.Toggle(p, ui, v[n], lambda on, n=n: app.changed(n, on)),
+                 w(key + ".hint"))
+
+    def advanced(holder):
+        v = app.state.values
+        made = card(holder, ui, w("screen.advanced"), last=True)
+        _row(made, ui, w("screen.preload"),
+             lambda p: widgets.Toggle(p, ui, v["preload"], lambda on: app.changed("preload", on)),
+             w("screen.preload.hint"), first=True)
+        # The picture's GPU time by pass, measured while the game runs and logged when it closes (a report carries it).
+        _row(made, ui, w("screen.pass_times"),
+             lambda p: widgets.Toggle(p, ui, v["pass_times"], lambda on: app.changed("pass_times", on)),
+             w("screen.pass_times.hint"))
+        # Direct3D 9Ex's flip model for the borderless full screen, an experiment (the copy model unless it is on).
+        _row(made, ui, w("screen.flip"),
+             lambda p: widgets.Toggle(p, ui, v["flip_model"], lambda on: app.changed("flip_model", on)),
+             w("screen.flip.hint"))
+
+    for name, build in (("display", display), ("frames", frames), ("picture", picture), ("advanced", advanced)):
+        sections.add(name, build)
 
 
 # --------------------------------------------------------------------------------------------- Sound
@@ -153,65 +171,78 @@ def build_screen(app, parent):
 
 def build_sound(app, parent):
     """Two cards, as OpenDMTQ's SOUND: the volumes, and the output (the device, who mixes, low latency, how late the
-    device plays)."""
-    ui, w, v = app.ui, app.words, app.state.values
-    redraw = lambda: app.redraw("sound")  # noqa: E731  (the page drawn again in place)
-    volume = card(parent, ui, w("sound.volumes"))
-    for i, (name, key) in enumerate((("music_volume", "sound.music"), ("key_volume", "sound.keys"))):
-        _row(volume, ui, w(key),
-             lambda p, n=name: widgets.Slider(p, ui, v[n], lambda val, n=n: app.changed(n, val)),
-             w(key + ".hint"), first=i == 0)
-    output = card(parent, ui, w("sound.output"), last=True)
-    # Windows' output devices, as DirectSound names them (the game plays through DirectSound).
-    from opendmt3.client import sound_devices
-    devices = sound_devices.listed()
-    chosen = v["sound_device"]
-    options = [("default", w("sound.device.default"))] + [(guid, name) for guid, name in devices]
-    gone = sound_devices.chosen_is_gone(chosen, devices)
-    if gone:
-        # Kept in the list so the choice shows, and said in the hint: the game plays on the default meanwhile.
-        options.append((chosen, w("sound.device.missing")))
-    _row(output, ui, w("sound.device"),
-         lambda p: widgets.Select(p, ui, options, chosen, lambda value: (app.changed("sound_device", value), redraw()),
-                                  width=30),
-         w("sound.device.gone") if gone else w("sound.device.hint"), first=True)
-    # Who mixes the game's sounds (native/cardreader/openal.c): Windows' DirectSound, or OpenAL Soft sharing the device
-    # or having it to itself; after a game where OpenAL Soft did not open, the page says DirectSound played instead.
-    session = app.state.last_session or {}
-    mixer = v["sound_path"]
-    mixer_hint = w("sound.mixer.hint")
-    fell_back = actions.sound_mixer_line(session.get("sound_mixer"), mixer, chosen)
-    if fell_back:
-        mixer_hint += " " + w(fell_back)
+    device plays). A choice that changes the output's rows or hints makes that card again and no other (Sections)."""
+    ui, w = app.ui, app.words
+    sections = Sections(app, parent, rows_that_come("sound"))
 
-    def set_mixer(value):
-        app.changed("sound_path", value)
-        # The last game's line under it is for the Mixer chosen: draw the page again.
-        redraw()
+    def volume(holder):
+        v = app.state.values
+        made = card(holder, ui, w("sound.volumes"))
+        for i, (name, key) in enumerate((("music_volume", "sound.music"), ("key_volume", "sound.keys"))):
+            _row(made, ui, w(key),
+                 lambda p, n=name: widgets.Slider(p, ui, v[n], lambda val, n=n: app.changed(n, val)),
+                 w(key + ".hint"), first=i == 0)
 
-    _row(output, ui, w("sound.mixer"),
-         lambda p: widgets.Segmented(p, ui, [(value, w("sound.mixer." + value)) for value in choices.SOUND_PATHS],
-                                     mixer, set_mixer),
-         mixer_hint)
-    # Windows' sound engine at the shortest period that device offers while the game runs (native/cardreader/engine.c);
-    # after a game on the device chosen now, the period it ran at (the in-game overlay's note, actions.sound_notes).
-    hint = w("sound.low_latency.hint")
-    last = (actions.sound_engine_line(session.get("sound_engine"), chosen) if v["low_latency"] else None)
-    if last:
-        hint += " " + w(last[0], **last[1])
+    def output(holder):
+        v = app.state.values
+        redo = lambda: sections.redo("output")  # noqa: E731  (this card made again in place)
+        made = card(holder, ui, w("sound.output"), last=True)
+        # Windows' output devices, as DirectSound names them (the game plays through DirectSound).
+        from opendmt3.client import sound_devices
+        devices = sound_devices.listed()
+        chosen = v["sound_device"]
+        options = [("default", w("sound.device.default"))] + [(guid, name) for guid, name in devices]
+        gone = sound_devices.chosen_is_gone(chosen, devices)
+        if gone:
+            # Kept in the list so the choice shows, and said in the hint: the game plays on the default meanwhile.
+            options.append((chosen, w("sound.device.missing")))
+        _row(made, ui, w("sound.device"),
+             lambda p: widgets.Select(p, ui, options, chosen,
+                                      lambda value: (app.changed("sound_device", value), redo()), width=30),
+             w("sound.device.gone") if gone else w("sound.device.hint"), first=True)
+        # Who mixes the game's sounds (native/cardreader/openal.c): Windows' DirectSound, or OpenAL Soft sharing the
+        # device or having it to itself; after a game where OpenAL Soft did not open, the page says DirectSound played
+        # instead.
+        session = app.state.last_session or {}
+        mixer = v["sound_path"]
+        mixer_hint = w("sound.mixer.hint")
+        fell_back = actions.sound_mixer_line(session.get("sound_mixer"), mixer, chosen)
+        if fell_back:
+            mixer_hint += " " + w(fell_back)
 
-    def set_low_latency(on):
-        app.changed("low_latency", on)
-        # The last game's line shows only while it is on: draw the page again.
-        redraw()
+        def set_mixer(value):
+            app.changed("sound_path", value)
+            # The last game's line under it is for the Mixer chosen: this card again.
+            redo()
 
-    _row(output, ui, w("sound.low_latency"), lambda p: widgets.Toggle(p, ui, v["low_latency"], set_low_latency), hint)
-    # How late the device plays: the in-game overlay's music lock keeps a song's frames that much behind its music.
-    low, high = choices.AUDIO_OFFSET_RANGE
-    _row(output, ui, w("sound.offset"),
-         lambda p: widgets.Slider(p, ui, v["audio_offset"], lambda val: app.changed("audio_offset", val),
-                                  low=low, high=high, unit=" ms"),
-         w("sound.offset.hint"))
+        _row(made, ui, w("sound.mixer"),
+             lambda p: widgets.Segmented(p, ui, [(value, w("sound.mixer." + value)) for value in choices.SOUND_PATHS],
+                                         mixer, set_mixer),
+             mixer_hint)
+        # Windows' sound engine at the shortest period that device offers while the game runs
+        # (native/cardreader/engine.c); after a game on the device chosen now, the period it ran at (the in-game
+        # overlay's note, actions.sound_notes).
+        hint = w("sound.low_latency.hint")
+        last = (actions.sound_engine_line(session.get("sound_engine"), chosen) if v["low_latency"] else None)
+        if last:
+            hint += " " + w(last[0], **last[1])
+
+        def set_low_latency(on):
+            app.changed("low_latency", on)
+            # The last game's line shows only while it is on: this card again.
+            redo()
+
+        _row(made, ui, w("sound.low_latency"), lambda p: widgets.Toggle(p, ui, v["low_latency"], set_low_latency),
+             hint)
+        # How late the device plays: the in-game overlay's music lock keeps a song's frames that much behind its music.
+        low, high = choices.AUDIO_OFFSET_RANGE
+        _row(made, ui, w("sound.offset"),
+             lambda p: widgets.Slider(p, ui, v["audio_offset"], lambda val: app.changed("audio_offset", val),
+                                      low=low, high=high, unit=" ms"),
+             w("sound.offset.hint"))
+
+    sections.add("volume", volume)
+    sections.add("output", output)
 
 
 # ------------------------------------------------------------------------------------------ Controls
@@ -219,25 +250,33 @@ def build_sound(app, parent):
 
 def build_controls(app, parent):
     """Two cards: what the player plays with, and what the game takes from it, a line each parted by the card's faint
-    lines, as OpenDMTQ's CONTROLS sets its lines."""
-    ui, w, v = app.ui, app.words, app.state.values
-    device = "mouse" if v["cursor"] else "touch"
+    lines, as OpenDMTQ's CONTROLS sets its lines. The input's hint follows the choice in its own card (Sections)."""
+    ui, w = app.ui, app.words
+    sections = Sections(app, parent, rows_that_come("controls"))
 
-    def set_device(value):
-        # A touch screen needs no pointer drawn over the game; a mouse does.
-        app.changed("cursor", value == "mouse")
-        app.redraw("controls")
+    def device_card(holder):
+        device = "mouse" if app.state.values["cursor"] else "touch"
 
-    input_card = card(parent, ui, w("controls.device"))
-    _row(input_card, ui, w("controls.input"),
-         lambda p: widgets.Segmented(p, ui, [("mouse", w("controls.input.mouse")),
-                                             ("touch", w("controls.input.touch"))], device, set_device),
-         w("controls.input.hint." + device), first=True)
-    in_game = card(parent, ui, w("controls.ingame"), last=True)
-    for i, key in enumerate(("controls.tap", "controls.drag", "controls.hold", "controls.edge")):
-        if i:
-            widgets.divider(in_game.body, ui, pady=9)
-        widgets.label(in_game.body, ui, w(key), wrap_margin=0).pack(fill="x")
+        def set_device(value):
+            # A touch screen needs no pointer drawn over the game; a mouse does.
+            app.changed("cursor", value == "mouse")
+            sections.redo("input")
+
+        made = card(holder, ui, w("controls.device"))
+        _row(made, ui, w("controls.input"),
+             lambda p: widgets.Segmented(p, ui, [("mouse", w("controls.input.mouse")),
+                                                 ("touch", w("controls.input.touch"))], device, set_device),
+             w("controls.input.hint." + device), first=True)
+
+    def in_game_card(holder):
+        made = card(holder, ui, w("controls.ingame"), last=True)
+        for i, key in enumerate(("controls.tap", "controls.drag", "controls.hold", "controls.edge")):
+            if i:
+                widgets.divider(made.body, ui, pady=8)
+            widgets.label(made.body, ui, w(key), wrap_margin=0).pack(fill="x")
+
+    sections.add("input", device_card)
+    sections.add("ingame", in_game_card)
 
 
 # ---------------------------------------------------------------------------------------------- Game

@@ -350,6 +350,9 @@ TEXT = {
     "online.pick": ("Choose", "고르기"),
     "online.add": ("Add a player", "플레이어 추가"),
     "online.id": ("ID", "ID"),
+    # A password field's Show at its right end, and Hide once the words show.
+    "field.show": ("Show", "보기"),
+    "field.hide": ("Hide", "숨기기"),
     "online.password": ("Password", "비밀번호"),
     "online.dj": ("DJ name", "DJ 이름"),
     "online.add.hint": ("ID: up to 8 letters and digits. DJ name: up to 8 characters, shown in the game. Password: {min} to {max} letters and digits.",
@@ -427,7 +430,8 @@ TEXT = {
     "records.sessions": ("Sessions", "세션"),
     "records.time": ("Time played", "플레이 시간"),
     "records.weeks": ("Stages cleared, last 12 weeks", "최근 12주 클리어 수"),
-    "records.most": ("Most in a week: {n}. Point at a week for its number.", "한 주 최대 {n}. 막대에 마우스를 올리면 그 주의 수가 나옵니다."),
+    # A week is chosen by a click, a tap or the arrow keys (records.py): the words name no mouse.
+    "records.most": ("Most in a week: {n}. Choose a week for its number.", "한 주 최대 {n}. 주를 고르면 그 주의 수가 나옵니다."),
     "records.week": ("{start} to {end}: {n}", "{start}~{end}: {n}"),
     "records.recent": ("Recent plays", "최근 플레이"),
     "records.bests": ("Best scores", "최고 점수"),
@@ -591,7 +595,20 @@ TEXT = {
     "setup.for": ("It is set up for {name}.", "이 설치 파일은 {name}용입니다."),
     "setup.repair.closing": ("The launcher is open: repairing closes it first.", "열려 있는 런처는 복구 전에 닫힙니다."),
     "setup.installed": ("openDMT3 {v} is installed.", "openDMT3 {v} 버전이 설치돼 있습니다."),
-    "setup.repair.detail": ("Install it again to repair it, or open it.", "다시 설치해 복구하거나 바로 열 수 있습니다."),
+    "setup.repair.detail": ("Open it, install it again to repair it, or uninstall it.",
+                            "바로 열거나, 다시 설치해 복구하거나, 제거할 수 있습니다."),
+    # The installer's Uninstall, with the launcher's HELP choices (help.uninstall.*).
+    "setup.uninstall": ("Uninstall", "제거"),
+    "setup.uninstall.detail": ("The files openDMT3 changed in the client data go back to how they were, and the "
+                               "program, its shortcuts and its entry in Windows' Apps go.",
+                               "openDMT3가 클라이언트 데이터에서 바꾼 파일은 원래대로 돌아가고, 프로그램과 바로 가기, "
+                               "Windows 앱 목록의 항목이 사라집니다."),
+    "setup.work.uninstall": ("Uninstalling", "제거 중"),
+    "setup.uninstalled": ("openDMT3 is uninstalled.", "openDMT3를 제거했습니다."),
+    "setup.uninstalled.kept": ("The settings, players and records stay for a later install.",
+                               "설정, 플레이어, 기록은 다음 설치를 위해 남겨 두었습니다."),
+    "setup.uninstalled.all": ("The settings, players and records are deleted too.", "설정, 플레이어, 기록도 지웠습니다."),
+    "setup.uninstall.failed": ("openDMT3 could not be uninstalled.", "openDMT3를 제거하지 못했습니다."),
     "setup.repair": ("Repair", "복구"),
     "setup.open": ("Open openDMT3", "openDMT3 열기"),
     "setup.cancel": ("Cancel", "취소"),

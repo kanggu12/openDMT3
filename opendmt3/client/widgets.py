@@ -35,21 +35,9 @@ class Ui:
 
 
 def style_ttk(ui):
-    """Dark styles for the one ttk widget used (the drop-down list)."""
-    s = ttk.Style(ui.root)
-    # 'clam' is the built-in theme that honours colours on every platform.
-    s.theme_use("clam")
-    s.configure("Dark.TCombobox", fieldbackground=theme.FIELD, background=theme.PANEL_HI, foreground=theme.TEXT,
-                arrowcolor=theme.TEXT, bordercolor=theme.LINE, lightcolor=theme.LINE, darkcolor=theme.LINE,
-                selectbackground=theme.FIELD, selectforeground=theme.TEXT, padding=ui.px(6))
-    s.map("Dark.TCombobox", fieldbackground=[("readonly", theme.FIELD)], foreground=[("readonly", theme.TEXT)],
-          bordercolor=[("focus", theme.CYAN)], arrowcolor=[("disabled", theme.FAINT)])
-    # The list that drops down is a plain Tk listbox; its colours come from the option database.
-    ui.root.option_add("*TCombobox*Listbox.background", theme.FIELD)
-    ui.root.option_add("*TCombobox*Listbox.foreground", theme.TEXT)
-    ui.root.option_add("*TCombobox*Listbox.selectBackground", theme.RAIL_UP)
-    ui.root.option_add("*TCombobox*Listbox.selectForeground", theme.TEXT)
-    ui.root.option_add("*TCombobox*Listbox.font", ui.fonts.body)
+    """Tk's themed widgets in the launcher's look: none is used any more (the drop-down is the launcher's own, Select),
+    and 'clam' stays the theme so that any that comes honours colours on every platform."""
+    ttk.Style(ui.root).theme_use("clam")
 
 
 def thumb_span(height, first, last, least):
@@ -153,7 +141,7 @@ class Rail(tk.Frame):
 
     # The column's width, the room inside it either side, above the mark, and under it (logical pixels). The width
     # holds the mark with its version at 100 % with the room either side, and PLAY's slab as wide as the column holds.
-    WIDTH, EDGE, TOP, UNDER_BRAND = 248, 18, 22, 26
+    WIDTH, EDGE, TOP, UNDER_BRAND = 248, 18, 22, 24
     # The least room between the menu's last name and the foot's top (logical pixels).
     ABOVE_FOOT = 16
 
@@ -167,7 +155,8 @@ class Rail(tk.Frame):
         # The seam along its right edge: the page's field starts after it.
         tk.Frame(self, bg=theme.LINE, width=max(1, px(1))).pack(side="right", fill="y")
         image = ImageTk.PhotoImage(brand, master=self)
-        self.brand = tk.Label(self, image=image, bg=theme.BAR, bd=0)
+        # No room of its own round the picture (Tk's pixel either side): the column's rooms alone place it.
+        self.brand = tk.Label(self, image=image, bg=theme.BAR, bd=0, padx=0, pady=0)
         # Kept on the label: Tk drops a picture the moment Python forgets it. A dialog draws the window from it.
         self.brand.image, self.brand.opendmt3_picture = image, brand
         self.brand.pack(side="top", anchor="w", padx=(px(self.EDGE), 0), pady=(px(self.TOP), px(self.UNDER_BRAND)))
@@ -945,28 +934,257 @@ class Slider(tk.Frame):
         self.number.configure(text=str(self.value) + self.unit)
 
 
-class Select(ttk.Combobox):
-    """A drop-down of (value, text) pairs; command(value) runs on a choice."""
+class Select(tk.Canvas):
+    """A drop-down of (value, text) pairs in the launcher's own look; command(value) runs on a choice.
+
+    Closed, it is a field: the choice's words on the fields' dark inside with their grey edge (cyan with the keyboard
+    on it) and a chevron at its right end. A click, or Enter, Space or Down with the keyboard on it, opens its list
+    (SelectList) under it, over everything (above it where the screen has no room under it): the choices on a card's
+    colour, the chosen one white with a rule in its page's colour along its left edge, the one under the pointer or the
+    keys on a lighter slab. Up and Down move along it, Enter or a click chooses, Esc or a click outside closes it; a
+    list longer than it shows scrolls with the wheel and the keys. Never Tk's own list, whose look and place the
+    launcher cannot set."""
+
+    # The field's room before its words and the chevron's room at its right end, and its height (logical pixels).
+    PAD, ARROW, HEIGHT = 10, 30, 34
 
     def __init__(self, parent, ui, options, value, command, width=24):
-        self.options = list(options)
-        super().__init__(parent, values=[t for _, t in self.options], state="readonly", width=width,
-                         style="Dark.TCombobox", font=ui.fonts.body)
-        self.command = command
+        self.ui, self.options, self.command = ui, list(options), command
+        bg = parent.cget("bg")
+        px = ui.px
+        # As wide as `width` characters of the text font, as a field of that width is, with the chevron's room.
+        field_width = ui.fonts.body.measure("0") * width + px(self.PAD) + px(self.ARROW)
+        super().__init__(parent, width=field_width, height=px(self.HEIGHT), bg=bg, highlightthickness=0, bd=0,
+                         takefocus=1, cursor="hand2")
+        self.bg, self.index, self.focused, self.over = bg, 0, False, False
+        # The list while it is open (None while closed).
+        self.list = None
         self.set_value(value)
-        self.bind("<<ComboboxSelected>>", self._chosen)
+        self.bind("<Configure>", lambda e: self.paint())
+        self.bind("<Button-1>", lambda e: self.open())
+        for key in ("<Return>", "<KP_Enter>", "<space>", "<Down>", "<Alt-Down>"):
+            self.bind(key, lambda e: (self.open(), "break")[1])
+        self.bind("<FocusIn>", lambda e: self._focus(True))
+        self.bind("<FocusOut>", lambda e: self._focus(False))
+        self.bind("<Enter>", lambda e: self._hover(True))
+        self.bind("<Leave>", lambda e: self._hover(False))
+        # Gone with its page: its list goes too.
+        self.bind("<Destroy>", lambda e: e.widget is self and self.close(), add="+")
+
+    @property
+    def value(self):
+        """The value chosen."""
+        return self.options[self.index][0] if self.options else None
+
+    def get(self):
+        """The chosen choice's words (as Tk's drop-down answers)."""
+        return self.options[self.index][1] if self.options else ""
 
     def set_value(self, value):
-        for i, (v, _) in enumerate(self.options):
-            if v == value:
-                self.current(i)
-                return
-        if self.options:
-            self.current(0)
+        """Show `value` as chosen (the first choice when it is none of them)."""
+        found = [i for i, (v, _) in enumerate(self.options) if v == value]
+        self.index = found[0] if found else 0
+        self.paint()
 
-    def _chosen(self, event):
-        self.selection_clear()
-        self.command(self.options[self.current()][0])
+    def _focus(self, on):
+        self.focused = on
+        self.paint()
+
+    def _hover(self, over):
+        self.over = over
+        self.paint()
+
+    def paint(self):
+        """The field's picture (its inside, its edge, the chevron) and the chosen words over it as Tk text."""
+        from PIL import Image, ImageDraw
+        px = self.ui.px
+        width, height = max(1, self.winfo_width()), max(1, self.winfo_height())
+        if width <= 1:
+            width, height = int(self.cget("width")), int(self.cget("height"))
+        self.delete("all")
+        picture = Image.new("RGB", (width, height), art._rgb(theme.FIELD))
+        draw = ImageDraw.Draw(picture)
+        # The edge: cyan with the keyboard on it or while its list is open, lighter under the pointer, grey at rest.
+        edge = theme.CYAN if (self.focused or self.list is not None) else (theme.FAINT if self.over else theme.LINE)
+        draw.rectangle([0, 0, width - 1, height - 1], outline=art._rgb(edge))
+        # The chevron at the right end, pointing down (up while the list is open over it).
+        cx, cy, half = width - px(self.ARROW) // 2, height // 2, px(4)
+        up = self.list is not None and self.list.above
+        tip = cy - half // 2 if up else cy + half // 2
+        base = cy + half // 2 if up else cy - half // 2
+        draw.line([(cx - half, base), (cx, tip), (cx + half, base)], fill=art._rgb(theme.MUTED), width=max(1, px(2)))
+        self._image = ImageTk.PhotoImage(picture, master=self)
+        # A dialog draws the window behind it from the widgets (snapshot.py): the field as it looks now.
+        self.opendmt3_picture = picture
+        self.create_image(0, 0, image=self._image, anchor="nw")
+        # The chosen words, cut with an ellipsis where the field is too narrow for them.
+        room = width - px(self.PAD) - px(self.ARROW)
+        self.create_text(px(self.PAD), height // 2, text=fit_words(self.ui.fonts.body, self.get(), room),
+                         font=self.ui.fonts.body, fill=theme.TEXT, anchor="w")
+
+    def open(self):
+        """Open the list under the field (above it when the screen has no room under it)."""
+        if self.list is not None or not self.options:
+            return
+        self.list = SelectList(self)
+        self.paint()
+
+    def close(self):
+        """Close the list (nothing chosen), the keyboard back on the field."""
+        if self.list is None:
+            return
+        shown, self.list = self.list, None
+        shown.destroy()
+        if self.winfo_exists():
+            self.paint()
+
+    def choose(self, index):
+        """Choose the choice at `index`: the list closes, the field shows it, and command runs for a new one."""
+        changed = index != self.index
+        self.close()
+        if not self.winfo_exists():
+            return
+        self.index = index
+        self.paint()
+        self.focus_set()
+        if changed:
+            self.command(self.options[index][0])
+
+
+class SelectList(tk.Toplevel):
+    """A Select's open list: a window of its own with no frame, over everything, as wide as the field, under it or
+    above it, its choices drawn on a canvas (Select says how it looks and takes the keys)."""
+
+    # A choice's height, the most that show at once, the room before the words, the rule's width (logical pixels).
+    ROW, MOST, PAD, RULE = 32, 8, 10, 3
+
+    def __init__(self, select):
+        ui, px = select.ui, select.ui.px
+        super().__init__(select, bg=theme.LINE)
+        self.select, self.ui = select, ui
+        # No title bar or frame: the window manager places it where it is told and keeps it over the launcher.
+        self.overrideredirect(True)
+        count = len(select.options)
+        shown = min(count, self.MOST)
+        width = max(select.winfo_width(), px(80))
+        height = shown * px(self.ROW) + 2
+        # Under the field, or above it where the screen's foot is too near (a field low on a small screen).
+        x, below = select.winfo_rootx(), select.winfo_rooty() + select.winfo_height() + px(2)
+        self.above = below + height > select.winfo_screenheight()
+        y = select.winfo_rooty() - height - px(2) if self.above else below
+        # Never past the screen's right edge either.
+        x = max(0, min(x, select.winfo_screenwidth() - width))
+        self.geometry("%dx%d+%d+%d" % (width, height, x, y))
+        # The list's edge is the window's colour round the canvas: one pixel of seam all round, as a card's.
+        self.canvas = tk.Canvas(self, bg=theme.PANEL, highlightthickness=0, bd=0, width=width - 2, height=height - 2,
+                                takefocus=1)
+        self.canvas.pack(padx=1, pady=1)
+        # The first choice in view, and the choice the pointer or the keys are on (the chosen one to start with).
+        self.top, self.at = 0, select.index
+        self.top = max(0, min(self.at - shown // 2, count - shown))
+        self.shown = shown
+        self.canvas.bind("<Motion>", lambda e: self._point(e.y))
+        self.canvas.bind("<ButtonRelease-1>", lambda e: self._release(e))
+        for key, by in (("<Down>", 1), ("<Up>", -1), ("<Next>", self.MOST), ("<Prior>", -self.MOST)):
+            self.canvas.bind(key, lambda e, by=by: self._move(by))
+        self.canvas.bind("<Home>", lambda e: self._move(-count))
+        self.canvas.bind("<End>", lambda e: self._move(count))
+        for key in ("<Return>", "<KP_Enter>", "<space>"):
+            self.canvas.bind(key, lambda e: self.select.choose(self.at))
+        self.canvas.bind("<Escape>", lambda e: self.select.close())
+        self.canvas.bind("<Tab>", lambda e: (self.select.close(), "break")[1])
+        # The wheel, as each system sends it: Windows and macOS a delta, X11 buttons 4 and 5.
+        self.canvas.bind("<MouseWheel>", lambda e: self._scroll(-1 if e.delta > 0 else 1))
+        self.canvas.bind("<Button-4>", lambda e: self._scroll(-1))
+        self.canvas.bind("<Button-5>", lambda e: self._scroll(1))
+        # A press anywhere else (the grab sends it here, outside the list) closes it, as any drop-down does.
+        self.bind("<ButtonPress-1>", self._outside, add="+")
+        self.paint()
+        self.update_idletasks()
+        # Over everything, and the keys and the pointer to it until it closes.
+        self.lift()
+        try:
+            self.grab_set()
+        except tk.TclError:
+            # Not viewable yet on a slow screen: the keys still come by the focus below.
+            pass
+        self.canvas.focus_force()
+
+    def _row_at(self, y):
+        """The choice at height `y` of the canvas, or None past the last."""
+        index = self.top + int(y // self.ui.px(self.ROW))
+        return index if 0 <= y and index < min(len(self.select.options), self.top + self.shown) else None
+
+    def _point(self, y):
+        index = self._row_at(y)
+        if index is not None and index != self.at:
+            self.at = index
+            self.paint()
+
+    def _release(self, event):
+        inside = 0 <= event.x < self.canvas.winfo_width() and 0 <= event.y < self.canvas.winfo_height()
+        index = self._row_at(event.y) if inside else None
+        if index is not None:
+            self.select.choose(index)
+
+    def _outside(self, event):
+        """A press outside the list (its own window's box) closes it."""
+        x, y = event.x_root - self.winfo_rootx(), event.y_root - self.winfo_rooty()
+        if not (0 <= x < self.winfo_width() and 0 <= y < self.winfo_height()):
+            self.select.close()
+
+    def _move(self, by):
+        count = len(self.select.options)
+        self.at = max(0, min(count - 1, self.at + by))
+        # The choice the keys are on stays in view.
+        if self.at < self.top:
+            self.top = self.at
+        elif self.at >= self.top + self.shown:
+            self.top = self.at - self.shown + 1
+        self.paint()
+        return "break"
+
+    def _scroll(self, by):
+        self.top = max(0, min(len(self.select.options) - self.shown, self.top + by))
+        self.paint()
+        return "break"
+
+    def paint(self):
+        """The choices in view: the chosen one white with its page's rule, the one under the pointer or the keys on a
+        lighter slab, the others grey; a thin thumb at the right edge when there are more than show."""
+        ui, px, c = self.ui, self.ui.px, self.canvas
+        c.delete("all")
+        width, row = int(c.cget("width")), px(self.ROW)
+        options = self.select.options
+        accent = ui.section["accent"]
+        for slot in range(self.shown):
+            index = self.top + slot
+            y = slot * row
+            if index == self.at:
+                c.create_rectangle(0, y, width, y + row, fill=theme.PANEL_HI, outline="")
+            chosen = index == self.select.index
+            if chosen:
+                # The rule along the chosen one's left edge, in its page's colour, as the menu marks its page.
+                c.create_rectangle(0, y, px(self.RULE) - 1, y + row - 1, fill=accent, outline="")
+            words = fit_words(ui.fonts.body, options[index][1], width - 2 * px(self.PAD))
+            c.create_text(px(self.PAD), y + row // 2, text=words, anchor="w", font=ui.fonts.body,
+                          fill=theme.TEXT if (chosen or index == self.at) else theme.MUTED)
+        count = len(options)
+        if count > self.shown:
+            # Where the view is in the whole list: a thin thumb, as the page's scroll bar draws it.
+            height = self.shown * row
+            top, bottom = thumb_span(height, self.top / count, (self.top + self.shown) / count, px(16))
+            c.create_rectangle(width - px(5), top + px(2), width - px(2), bottom - px(2), fill=theme.RAIL_UP,
+                               outline="")
+
+
+def fit_words(font, text, room):
+    """`text`, cut with an ellipsis where it is wider than `room` pixels in `font` (a long device name in a field)."""
+    if font.measure(text) <= room:
+        return text
+    while text and font.measure(text + "\u2026") > room:
+        text = text[:-1]
+    return text + "\u2026"
 
 
 # The room between a setting's name and its control (logical pixels).
@@ -1164,7 +1382,7 @@ def check_line(parent, ui, state, text, action_text=None, action=None, bg=None):
         beside.append(fix)
     words = label(row, ui, text, fg=theme.TEXT if state != "ok" else theme.MUTED, bg=bg, wrap_margin=24,
                   beside=beside)
-    words.pack(side="left", fill="x", padx=(ui.px(9), 0))
+    words.pack(side="left", fill="x", padx=(ui.px(8), 0))
     return row
 
 
@@ -1175,15 +1393,117 @@ def check_note(parent, ui, text, problem=False, bg=None):
     bg = bg or parent.cget("bg")
     row = tk.Frame(parent, bg=bg)
     # As far in as the line's words: the lamp's width and the gap after it.
-    indent = art.lamp(theme.MUTED, True, ui.scale).width + ui.px(9)
+    indent = art.lamp(theme.MUTED, True, ui.scale).width + ui.px(8)
     words = label(row, ui, text, font=ui.fonts.small, fg=theme.PINK if problem else theme.MUTED, bg=bg, wrap_margin=0)
     words.pack(fill="x", padx=(indent, 0))
     return row
 
 
 def entry(parent, ui, width=18, secret=False):
-    """A text field in the theme: dark inside, a blue edge while typing."""
+    """A text field in the theme: dark inside, a blue edge while typing. A password's field (`secret`) hides what is
+    typed and has Show at its right end to see it (SecretField)."""
+    if secret:
+        return SecretField(parent, ui, width)
     field = tk.Entry(parent, width=width, font=ui.fonts.body, bg=theme.FIELD, fg=theme.TEXT, insertbackground=theme.TEXT,
-                     relief="flat", highlightthickness=1, highlightbackground=theme.LINE, highlightcolor=theme.CYAN,
-                     show="\u2022" if secret else "")
+                     relief="flat", highlightthickness=1, highlightbackground=theme.LINE, highlightcolor=theme.CYAN)
     return field
+
+
+class SecretField(tk.Frame):
+    """A password's field: the dots of what is typed, and Show at its right end inside the same edge, which shows the
+    words until it is pressed again (Hide). Show takes the keyboard after the field (Tab), Enter or Space presses it,
+    and the field keeps what was typed and where the cursor was. Used as a plain field is (get, insert, delete, bind,
+    focus_set): the calls reach the field inside."""
+
+    def __init__(self, parent, ui, width):
+        # The edge is the frame's: grey, cyan while the field or Show has the keyboard, as a plain field's.
+        super().__init__(parent, bg=theme.FIELD, highlightthickness=1, highlightbackground=theme.LINE,
+                         highlightcolor=theme.LINE)
+        self.ui, self.shown = ui, False
+        self.field = tk.Entry(self, width=width, font=ui.fonts.body, bg=theme.FIELD, fg=theme.TEXT,
+                              insertbackground=theme.TEXT, relief="flat", highlightthickness=0, show="\u2022")
+        self.field.pack(side="left", fill="both", expand=True)
+        # Show: quiet words at the right end, white under the pointer, a cyan ring with the keyboard on it.
+        self.toggle = tk.Label(self, text=ui.words("field.show"), font=ui.fonts.small, fg=theme.MUTED,
+                               bg=theme.FIELD, cursor="hand2", takefocus=1, padx=ui.px(8),
+                               highlightthickness=max(1, ui.px(1)), highlightbackground=theme.FIELD,
+                               highlightcolor=theme.CYAN)
+        self.toggle.pack(side="right", fill="y")
+        self.toggle.bind("<Button-1>", lambda e: self.flip())
+        for key in ("<Return>", "<KP_Enter>", "<space>"):
+            self.toggle.bind(key, lambda e: self.flip())
+        self.toggle.bind("<Enter>", lambda e: self.toggle.configure(fg=theme.TEXT))
+        self.toggle.bind("<Leave>", lambda e: self.toggle.configure(fg=theme.MUTED))
+        # The edge lights while either part has the keyboard.
+        for part in (self.field, self.toggle):
+            part.bind("<FocusIn>", lambda e: self.configure(highlightbackground=theme.CYAN), add="+")
+            part.bind("<FocusOut>", lambda e: self.configure(highlightbackground=theme.LINE), add="+")
+
+    def flip(self):
+        """Show the typed words, or hide them again; the keyboard stays where it was."""
+        self.shown = not self.shown
+        self.field.configure(show="" if self.shown else "\u2022")
+        self.toggle.configure(text=self.ui.words("field.hide" if self.shown else "field.show"))
+        return "break"
+
+    # The field's own calls, so a password's field is used as any field is.
+    def get(self):
+        return self.field.get()
+
+    def insert(self, index, text):
+        return self.field.insert(index, text)
+
+    def delete(self, first, last=None):
+        return self.field.delete(first, last)
+
+    def bind(self, sequence=None, func=None, add=None):
+        # Keys typed go to the field inside (Enter signs in, Esc closes a dialog).
+        return self.field.bind(sequence, func, add)
+
+    def focus_set(self):
+        return self.field.focus_set()
+
+    def focus_force(self):
+        return self.field.focus_force()
+
+    def icursor(self, index):
+        return self.field.icursor(index)
+
+    def select_range(self, start, end):
+        return self.field.select_range(start, end)
+
+
+class FieldError(tk.Label):
+    """The words under one field of a form that say what is wrong with what was typed there (a password too short, an
+    ID taken), in the colour of a problem, as wide as the field; nothing (and no room) while there is nothing to say."""
+
+    def __init__(self, parent, ui, field, row, column, bg):
+        super().__init__(parent, text="", font=ui.fonts.small, fg=theme.PINK, bg=bg, justify="left", anchor="w",
+                         padx=0, pady=0)
+        self.ui, self.field, self.place_at = ui, field, (row, column)
+
+    def say(self, text):
+        """Show `text` under the field, wrapped at its width."""
+        row, column = self.place_at
+        self.configure(text=text, wraplength=max(self.ui.px(120), self.field.winfo_reqwidth()))
+        self.grid(row=row, column=column, sticky="w", padx=(0, self.ui.px(12)), pady=(self.ui.px(4), 0))
+
+    def clear(self):
+        self.configure(text="")
+        self.grid_remove()
+
+
+def form_fields(parent, ui, specs, bg):
+    """A form's fields side by side: each one's name above it, the field, and the line under it for what is wrong with
+    it (FieldError). specs: (key, words, width, secret). Returns the grid frame, {key: field}, {key: FieldError}; the
+    form's button goes in its row 1 after the fields (column len(specs))."""
+    form = tk.Frame(parent, bg=bg)
+    fields, errors = {}, {}
+    for column, (key, words, width, secret) in enumerate(specs):
+        tk.Label(form, text=words, font=ui.fonts.small, fg=theme.MUTED, bg=bg).grid(row=0, column=column, sticky="w",
+                                                                                 padx=(0, ui.px(12)))
+        field = entry(form, ui, width=width, secret=secret)
+        field.grid(row=1, column=column, sticky="w", padx=(0, ui.px(12)), ipady=ui.px(4))
+        fields[key] = field
+        errors[key] = FieldError(form, ui, field, 2, column, bg)
+    return form, fields, errors

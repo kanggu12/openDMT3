@@ -33,6 +33,9 @@ from opendmt3.core import game as g  # noqa: E402
 from opendmt3.core import safety  # noqa: E402
 from opendmt3.core.cabinet import values as choices  # noqa: E402
 from opendmt3.client import widgets  # noqa: E402
+# The boxes and the room round them (OpenDMTQ's spacing check, on openDMT3's widgets).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import spacing  # noqa: E402
 from opendmt3.core.formats import pak  # noqa: E402
 
 SETTINGS = (
@@ -437,6 +440,210 @@ def rail_problems(app, name, problems):
                 problems.append("%s: the menu's %s drawn past the list's foot" % (name, key))
 
 
+def lit_problems(app, name, problems):
+    """One lit main action on a screen, as OpenDMTQ's launcher has it: PLAY while it can go (the column's, or the
+    guide's last step's), or else the page's main button (Connect, Sign in, Add a player, an update), or the guide's
+    Next once the step can go on; never two at once. Not while a dialog is over the window (it has its own)."""
+    if getattr(app, "dialog", None) is not None:
+        return
+    lit = []
+    for w in widgets_of(app.root):
+        try:
+            if not w.winfo_ismapped() or not w.winfo_viewable():
+                continue
+        except Exception:  # noqa: BLE001  (a widget going while it was looked at)
+            continue
+        if isinstance(w, widgets.Button) and w.enabled and w.kind == "primary":
+            lit.append("the button %r" % w.words)
+    play = getattr(app, "play_button", None)
+    if play is not None and play.winfo_exists() and play.winfo_viewable() and app.play_lit():
+        lit.append("PLAY")
+    guide = getattr(app, "guide", None)
+    if guide is not None and guide.play_slab.winfo_viewable() and app.ready():
+        lit.append("the guide's PLAY")
+    LIT_LOOKS.append(name)
+    if len(lit) > 1:
+        problems.append("%s: %d main actions lit at once: %s" % (name, len(lit), ", ".join(lit)))
+
+
+def screen_reader():
+    """The screen's pixels as the X server (or Windows) shows them now: a function of (x, y), None off the screen."""
+    if sys.platform == "win32":
+        from PIL import ImageGrab
+        picture = ImageGrab.grab(all_screens=True).convert("RGB")
+    else:
+        path = os.path.join(tempfile.gettempdir(), "opendmt3-screen.png")
+        subprocess.run(["import", "-window", "root", path], check=True)
+        picture = Image.open(path).convert("RGB")
+        picture.load()
+    return lambda x, y: picture.getpixel((x, y)) if 0 <= x < picture.width and 0 <= y < picture.height else None
+
+
+def interactions_check(app, out, tag, problems):
+    """What the pages do in place, the way a person does it:
+
+    - SCREEN's FPS counter turned on brings its corner's row: only the FRAMES card is made again (the other cards are
+      the same widgets), the page stays where it was scrolled to, and the keyboard stays on the switch;
+    - a drop-down chosen with the keys (Enter opens it, Down, Enter chooses), the setting saved;
+    - ONLINE's Add a player with a password too short: the error under the Password field, nothing in the line under
+      the form;
+    - RECORDS' week chart: a click on a week, then Left, says each week's number (no pointer resting over a bar)."""
+    # ---- SCREEN: one card made again.
+    app.go("screen")
+    settle(app)
+    app.body.canvas.yview_moveto(0.2)
+    app.root.update()
+    top = app.body.canvas.yview()[0]
+    cards_before = [c for c in widgets_of(app.body.inner) if isinstance(c, widgets.Card)]
+    switch = [x for x in widgets_of(app.root) if isinstance(x, widgets.Toggle) and x.winfo_ismapped()][1]
+    switch.focus_force()
+    wait_out(app, 0.1)
+    was = app.state.values["show_fps"]
+    switch.event_generate("<space>")
+    wait_out(app, 0.3)
+    cards_after = [c for c in widgets_of(app.body.inner) if isinstance(c, widgets.Card)]
+    kept = [c for c in cards_before if c.winfo_exists()]
+    shot(app, out, "%s_screen-fps-row" % tag)
+    measure(app, "%s_screen-fps-row" % tag, problems)
+    if app.state.values["show_fps"] == was:
+        problems.append("%s: the FPS counter's switch did not turn" % tag)
+    if len(kept) != len(cards_before) - 1 or len(cards_after) != len(cards_before):
+        problems.append("%s: turning the FPS counter made %d of the page's %d cards again, not its own one"
+                        % (tag, len(cards_before) - len(kept), len(cards_before)))
+    if abs(app.body.canvas.yview()[0] - top) > 0.02:
+        problems.append("%s: the page moved from %.2f to %.2f when a card was made again"
+                        % (tag, top, app.body.canvas.yview()[0]))
+    focused = app.root.focus_get()
+    if not isinstance(focused, widgets.Toggle):
+        problems.append("%s: the keyboard left the switch when its card was made again (on %r)" % (tag, focused))
+    # Back as it was, for the screens after this one.
+    app.changed("show_fps", was)
+    # ---- a drop-down by the keys: the anti-aliasing.
+    app.go("screen")
+    settle(app)
+    select = [x for x in widgets_of(app.root) if isinstance(x, widgets.Select) and x.winfo_viewable()][-1]
+    before = select.value
+    app.body.show(select, app.ui.px(16))
+    select.focus_force()
+    wait_out(app, 0.1)
+    select.event_generate("<Return>")
+    wait_out(app, 0.3)
+    if select.list is None:
+        problems.append("%s: Enter on a drop-down did not open it" % tag)
+    else:
+        select.list.canvas.event_generate("<Down>")
+        wait_out(app, 0.1)
+        select.list.canvas.event_generate("<Return>")
+        wait_out(app, 0.3)
+        if select.list is not None or select.value == before:
+            problems.append("%s: Down and Enter in a drop-down's list did not choose the next one" % tag)
+        elif app.state.values["antialiasing"] != select.value:
+            problems.append("%s: the drop-down's choice was not kept (%r)" % (tag, app.state.values["antialiasing"]))
+    app.changed("antialiasing", before)
+    # ---- ONLINE: a form's error under its field.
+    kept_mode = app.state.mode
+    app.state.mode = "this_pc"
+    app.go("online")
+    settle(app)
+    errors = [x for x in widgets_of(app.root) if isinstance(x, widgets.FieldError)]
+    fields = [x for x in widgets_of(app.root) if isinstance(x, (tk_entry(), widgets.SecretField))
+              and not isinstance(x.master, widgets.SecretField)]
+    if len(fields) >= 3 and len(errors) == 3:
+        fields[0].insert(0, "NEWDJ")
+        fields[1].insert(0, "1")
+        # Add a player, as a click on it does.
+        adding = [b for b in widgets_of(app.root) if isinstance(b, widgets.Button) and b.words == app.words("online.add")]
+        adding[0].press()
+        wait_out(app, 0.3)
+        shot(app, out, "%s_online-field-error" % tag)
+        measure(app, "%s_online-field-error" % tag, problems)
+        said = [e for e in errors if e.winfo_exists() and e.winfo_ismapped() and e.cget("text")]
+        if len(said) != 1 or said[0].field is not fields[1]:
+            problems.append("%s: a password too short was not said under the Password field (%d said)"
+                            % (tag, len(said)))
+    else:
+        problems.append("%s: the add-player form has %d fields and %d error lines" % (tag, len(fields), len(errors)))
+    app.state.mode = kept_mode
+    # ---- RECORDS: a week by a click, then by the keys.
+    app.go("records")
+    settle(app, 10)
+    charts = [x for x in widgets_of(app.root) if getattr(x, "opendmt3_weeks", False)]
+    if not charts:
+        problems.append("%s: no week chart on RECORDS" % tag)
+        return
+    chart = charts[0]
+    app.body.show(chart, app.ui.px(16))
+    app.root.update()
+    chart.event_generate("<Button-1>", x=chart.winfo_width() - 10, y=chart.winfo_height() // 2)
+    wait_out(app, 0.2)
+    shot(app, out, "%s_records-week" % tag)
+    said = [x.cget("text") for x in widgets_of(app.root) if x.winfo_class() == "Label"]
+    clicked = [t for t in said if ": " in t and t.split(": ")[-1].isdigit()]
+    # The keyboard on the chart, as the click left it (a generated key goes where the keyboard is).
+    chart.focus_force()
+    wait_out(app, 0.1)
+    chart.event_generate("<Left>")
+    wait_out(app, 0.2)
+    said_after = [x.cget("text") for x in widgets_of(app.root) if x.winfo_class() == "Label"]
+    moved = [t for t in said_after if ": " in t and t.split(": ")[-1].isdigit()]
+    if not clicked or not moved or clicked == moved:
+        problems.append("%s: a click and Left on the week chart did not say each week (%r, %r)" % (tag, clicked, moved))
+    if any("mouse" in t.lower() or "마우스" in t or "point at" in t.lower() for t in said):
+        problems.append("%s: the week chart's words ask for a pointer" % tag)
+
+
+def tk_entry():
+    import tkinter as tk
+    return tk.Entry
+
+
+def list_shot(app, shown, out, name):
+    """A screenshot of the box round the launcher's window and an open drop-down's list, from the screen itself."""
+    SHOTS.append(name)
+    faulthandler.dump_traceback_later(STALL, exit=True)
+    root = app.root
+    left, top = min(root.winfo_rootx(), shown.winfo_rootx()), min(root.winfo_rooty(), shown.winfo_rooty())
+    right = max(root.winfo_rootx() + root.winfo_width(), shown.winfo_rootx() + shown.winfo_width())
+    bottom = max(root.winfo_rooty() + root.winfo_height(), shown.winfo_rooty() + shown.winfo_height())
+    target = os.path.join(out, name + ".png")
+    if sys.platform == "win32":
+        from PIL import ImageGrab
+        ImageGrab.grab(bbox=(left, top, right, bottom), all_screens=True).save(target)
+        return
+    subprocess.run(["import", "-window", "root", "-crop", "%dx%d+%d+%d" % (right - left, bottom - top, left, top),
+                    "+repage", target], check=True)
+
+
+def dropdowns_check(app, out, name, problems):
+    """Every drop-down on the page on show opened (widgets.Select): its list whole on the screen, clear of its field
+    and over everything at its corners (spacing.check_list); the first one's list shot for a look. Then closed with
+    Esc, as a person closes it, and the field shows what it showed before."""
+    selects = [w for w in widgets_of(app.root) if isinstance(w, widgets.Select) and w.winfo_viewable()]
+    for i, select in enumerate(selects):
+        before = select.value
+        # Into view first, as a person scrolls to it.
+        app.body.show(select, app.ui.px(16))
+        app.root.update()
+        select.open()
+        shown = select.list
+        if shown is None:
+            problems.append("%s: a drop-down did not open" % name)
+            continue
+        wait_out(app, 0.3)
+        problems.extend(spacing.check_list(shown, app.ui, "%s-list%d" % (name, i + 1), screen_reader()))
+        if i == 0:
+            # The window and the open list together as the screen shows them (the list is a window of its own, and
+            # may reach past the launcher's foot): the screen's pixels round both.
+            list_shot(app, shown, out, "%s-list" % name)
+        LISTS.append(name)
+        shown.canvas.event_generate("<Escape>")
+        wait_out(app, 0.15)
+        if select.list is not None or select.value != before:
+            problems.append("%s: Esc did not close drop-down %d as it was" % (name, i + 1))
+    app.body.to_top()
+    app.root.update()
+
+
 def measure(app, name, problems):
     """Text cut off (a label narrower than its text without wrapping), widgets past the window's right edge, and
     content hidden past the window's bottom edge with no way to scroll to it (hidden), and a menu column whose names
@@ -450,6 +657,10 @@ def measure(app, name, problems):
     # Below the visible area with no scroll to bring it up: counted, so a run that looked at nothing says so.
     HIDDEN_LOOKS.append(hidden(app, name, problems))
     rail_problems(app, name, problems)
+    # The boxes, their padding and the gaps between them (spacing.py), counted so a run that measured none says so.
+    problems.extend(spacing.check(root, app.ui, name))
+    SPACED.append(name)
+    lit_problems(app, name, problems)
     right = root.winfo_rootx() + root.winfo_width()
     for w in widgets_of(root):
         if not w.winfo_ismapped():
@@ -500,6 +711,8 @@ HIDDEN_LOOKS = []
 FITS = []
 # Every screen whose menu column was measured against its foot (rail_problems), counted the same way.
 RAILS = []
+# Every screen measured for its boxes and room (spacing.py), for its lit main actions, and every drop-down list opened.
+SPACED, LIT_LOOKS, LISTS = [], [], []
 
 
 def shot(app, out, name, root=None):
@@ -1345,6 +1558,48 @@ def installer_check(out, tag, problems):
         problems.extend("%s_setup-%s: %s" % (tag, name, p) for p in inst.dialog.layout_problems())
         inst.dialog.canvas.event_generate("<Escape>")
         run_until(inst, 0.3)
+    # This version installed: Uninstall beside Repair and Open, then the launcher's HELP choices (Cancel first, Keep
+    # data, Delete all), the work under way and the last word. Velopack's uninstall is a stand-in here that takes a
+    # second and takes the installed version away (the Wine test remove.sh runs the real one).
+    from opendmt3.client import leaving
+    asked_for = []
+
+    def fake_uninstall(updater, everything=False, popen=None):
+        asked_for.append((updater, everything))
+        script = "import os, time; time.sleep(1); os.remove(%r)" % os.path.join(app, "current", "sq.version")
+        return subprocess.Popen([sys.executable, "-c", script])
+
+    real_uninstall, leaving.start_uninstall = leaving.start_uninstall, fake_uninstall
+    try:
+        installed(__version__)
+        installer.launcher_open = lambda: False
+        inst = installer.Installer()
+        run_until(inst, 0.5)
+        offered = [b[1] for b in inst.dialog.buttons]
+        if offered != ["uninstall", "repair", "open"]:
+            problems.append("%s: this version installed offers %r, not Uninstall, Repair and Open" % (tag, offered))
+        inst.dialog.close("uninstall")
+        run_until(inst, 0.5)
+        shot(Shot(inst.root), out, "%s_setup-uninstall-ask" % tag, root=inst.root)
+        problems.extend("%s_setup-uninstall-ask: %s" % (tag, p) for p in inst.dialog.layout_problems())
+        choices_offered = [b[1] for b in inst.dialog.buttons]
+        if choices_offered != ["cancel", "keep", "all"]:
+            problems.append("%s: the installer's Uninstall offers %r, not Cancel, Keep data and Delete all"
+                            % (tag, choices_offered))
+        inst.dialog.close("keep")
+        run_until(inst, 0.5)
+        shot(Shot(inst.root), out, "%s_setup-uninstalling" % tag, root=inst.root)
+        run_until(inst, 4.0, until=lambda: inst.dialog.message == inst.words("setup.uninstalled"))
+        run_until(inst, 0.3)
+        shot(Shot(inst.root), out, "%s_setup-uninstalled" % tag, root=inst.root)
+        problems.extend("%s_setup-uninstalled: %s" % (tag, p) for p in inst.dialog.layout_problems())
+        if inst.dialog.message != inst.words("setup.uninstalled") or installer.installed_version() is not None:
+            problems.append("%s: the installer's Uninstall did not end uninstalled: %r" % (tag, inst.dialog.message))
+        if asked_for != [(os.path.join(app, "Update.exe"), False)]:
+            problems.append("%s: the installer's Keep data started %r" % (tag, asked_for))
+        inst.root.destroy()
+    finally:
+        leaving.start_uninstall = real_uninstall
     # Install from nothing, with an installer a server's site handed out (preset.py): the question says which
     # server it is set up for; then the work under way, the end, the launcher started, and the server left for it.
     from opendmt3.core import preset
@@ -2173,8 +2428,13 @@ def main():
         name = "%s_%s" % (tag, page)
         shot(app, args.out, name)
         measure(app, name, problems)
+        # Each drop-down on the page opened and measured (a list behind another box, or off the screen, fails).
+        dropdowns_check(app, args.out, name, problems)
         if args.smallest:
             at_smallest(app, args.out, name, problems)
+    # A choice that brings rows makes its own card only; a drop-down chosen by keys; a form's error under its field;
+    # a week of the RECORDS chart chosen without a pointer.
+    interactions_check(app, args.out, tag, problems)
     game_page_check(app, args.out, tag, problems)
     play_states_check(app, args.out, tag, made, problems)
     # The Launcher page's end: the licence and the two notice lines, as OpenDMTQ words them.
@@ -2382,6 +2642,9 @@ def finish(out, tag, problems):
     if not RAILS and len(SHOTS) > 1:
         # A run that met no menu column measured nothing of it (the line below says so too).
         problems.append("%s: no menu column was measured against its foot" % tag)
+    if not LISTS and len(SHOTS) > 20 and not os.environ.get("OPENDMT3_SHOTS_ONLY"):
+        # Pages with drop-downs were shown, so a run that opened none measured nothing of them.
+        problems.append("%s: no drop-down list was opened" % tag)
     with open(os.path.join(out, "problems-%s.txt" % tag), "w", encoding="utf-8") as f:
         f.write("\n".join(problems) + ("\n" if problems else ""))
     if RESIZES:
@@ -2394,6 +2657,9 @@ def finish(out, tag, problems):
           % (tag, sum(HIDDEN_LOOKS), len(HIDDEN_LOOKS), len(FITS)))
     # The screens whose menu column was measured against its foot: none would mean the check met no column at all.
     print("%s: %d screens' menu columns measured against their foot" % (tag, len(RAILS)))
+    # The boxes' room, the lit main actions and the opened drop-downs, counted the same way.
+    print("%s: %d screens measured for their boxes' room and their lit main actions, %d drop-down lists opened"
+          % (tag, len(SPACED), len(LISTS)))
     # Counted, not worked out: a screen that was skipped must show in the number.
     print("%s: %d screens, %d problems" % (tag, len(SHOTS), len(problems)))
     for p in problems:

@@ -100,14 +100,14 @@ class Card(tk.Frame):
             # What it holds, small and quiet, the parts apart by a middle dot.
             line = widgets.label(box, ui, "  ·  ".join(facts), font=ui.fonts.small, fg=theme.MUTED, bg=bg,
                                  wrap_margin=0)
-            line.pack(fill="x", pady=(ui.px(3), 0))
+            line.pack(fill="x", pady=(ui.px(4), 0))
             made.append(line)
         said = found.line_words(w)
         if said:
             # The one problem in the error colour; a note (a password to give, an archive inside) in the hint colour.
             colour = theme.PINK if found.tone == intake.PROBLEM else theme.MUTED
             note = widgets.label(box, ui, said, font=ui.fonts.small, fg=colour, bg=bg, wrap_margin=0)
-            note.pack(fill="x", pady=(ui.px(3), 0))
+            note.pack(fill="x", pady=(ui.px(4), 0))
             made.append(note)
         return made
 

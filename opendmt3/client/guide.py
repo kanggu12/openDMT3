@@ -194,7 +194,13 @@ class Guide:
         return True
 
     def _update_next(self):
-        self.next_button.enable(self._can_go_on())
+        can = self._can_go_on()
+        self.next_button.enable(can)
+        # One lit main action on the screen: the step's own main button (Add a player, Sign in, Connect) while Next
+        # waits for it, quiet once Next is lit and going on is the next thing to do.
+        self.app.main_buttons = [b for b in self.app.main_buttons if b.winfo_exists()]
+        for button in self.app.main_buttons:
+            button.set_kind("secondary" if can else "primary")
         if self.index == len(STEPS) - 1:
             self._paint_play(self.play_slab.mouse)
 
@@ -243,7 +249,7 @@ class Guide:
         for i, key in enumerate(("guide.1.need.1", "guide.1.need.2")):
             if i:
                 # One thing a line, parted by the card's faint lines, as OpenDMTQ's list of what is needed.
-                widgets.divider(need.body, ui, pady=9)
+                widgets.divider(need.body, ui, pady=8)
             widgets.label(need.body, ui, w(key), wrap_margin=0).pack(fill="x")
 
     def _language(self, language):
@@ -274,35 +280,45 @@ class Guide:
 
     def _screen(self, parent):
         app, ui, w = self.app, self.app.ui, self.app.words
-        v = app.state.values
-        # The same rows as the SCREEN, CONTROLS and SOUND pages, the ones a first start needs, on those pages' cards.
-        display = card(parent, ui, w("screen.display"))
-        widgets.setting_row(display.body, ui, w("screen.mode"),
-                            lambda p: widgets.Segmented(p, ui, [("fullscreen", w("screen.mode.fullscreen")),
-                                                                ("window", w("screen.mode.window"))],
-                                                        v["display_mode"], self._set_and_redraw("display_mode")),
-                            w("screen.mode.hint." + v["display_mode"])).pack(fill="x")
-        device = "mouse" if v["cursor"] else "touch"
-        controls = card(parent, ui, w("controls.device"))
-        widgets.setting_row(controls.body, ui, w("controls.input"),
-                            lambda p: widgets.Segmented(p, ui, [("mouse", w("controls.input.mouse")),
-                                                                ("touch", w("controls.input.touch"))], device,
-                                                        lambda d: self._set_and_redraw("cursor")(d == "mouse")),
-                            w("controls.input.hint." + device)).pack(fill="x")
-        volume = card(parent, ui, w("sound.volumes"), last=True)
-        for i, (name, key) in enumerate((("music_volume", "sound.music"), ("key_volume", "sound.keys"))):
-            if i:
-                widgets.divider(volume.body, ui)
-            widgets.setting_row(volume.body, ui, w(key),
-                                lambda p, n=name: widgets.Slider(p, ui, v[n], lambda val, n=n: app.changed(n, val)),
-                                w(key + ".hint")).pack(fill="x")
+        # The same rows as the SCREEN, CONTROLS and SOUND pages, the ones a first start needs, on those pages' cards;
+        # a choice makes its own card again with its new hint and no other (pages.Sections).
+        sections = pages.Sections(app, parent, pages.rows_that_come("guide:3"))
 
-    def _set_and_redraw(self, name):
-        def setter(value):
-            self.app.changed(name, value)
-            # The hint under the choice says the new one: the step drawn again where it was.
-            self.redraw()
-        return setter
+        def chose(name, value, section):
+            app.changed(name, value)
+            # The hint under the choice says the new one: its card again, where it was.
+            sections.redo(section)
+
+        def display(holder):
+            mode = app.state.values["display_mode"]
+            made = card(holder, ui, w("screen.display"))
+            widgets.setting_row(made.body, ui, w("screen.mode"),
+                                lambda p: widgets.Segmented(p, ui, [("fullscreen", w("screen.mode.fullscreen")),
+                                                                    ("window", w("screen.mode.window"))], mode,
+                                                            lambda value: chose("display_mode", value, "display")),
+                                w("screen.mode.hint." + mode)).pack(fill="x")
+
+        def controls(holder):
+            device = "mouse" if app.state.values["cursor"] else "touch"
+            made = card(holder, ui, w("controls.device"))
+            widgets.setting_row(made.body, ui, w("controls.input"),
+                                lambda p: widgets.Segmented(p, ui, [("mouse", w("controls.input.mouse")),
+                                                                    ("touch", w("controls.input.touch"))], device,
+                                                            lambda d: chose("cursor", d == "mouse", "input")),
+                                w("controls.input.hint." + device)).pack(fill="x")
+
+        def volume(holder):
+            v = app.state.values
+            made = card(holder, ui, w("sound.volumes"), last=True)
+            for i, (name, key) in enumerate((("music_volume", "sound.music"), ("key_volume", "sound.keys"))):
+                if i:
+                    widgets.divider(made.body, ui)
+                widgets.setting_row(made.body, ui, w(key),
+                                    lambda p, n=name: widgets.Slider(p, ui, v[n], lambda val, n=n: app.changed(n, val)),
+                                    w(key + ".hint")).pack(fill="x")
+
+        for name, build in (("display", display), ("input", controls), ("volume", volume)):
+            sections.add(name, build)
 
     # ------------------------------------------------------------------------------- LOG IN
 
@@ -331,8 +347,8 @@ class Guide:
                                                                 ("offline", w("online.mode.offline"))], mode, set_mode),
                             w("online.mode.hint." + mode)).pack(fill="x")
         if mode == "server":
-            pages.server_panel(app, parent, lambda: self.show(self.index))
-            self._needed(parent, "guide.login.need.server")
+            last = pages.server_panel(app, parent, lambda: self.show(self.index))
+            self._needed(last.body, "guide.login.need.server")
             return
         if mode != "this_pc":
             return
@@ -361,14 +377,17 @@ class Guide:
                     widget.bind("<Button-1>", lambda e, login_id=r["login_id"]: self._choose_player(login_id))
         add = card(parent, ui, w("online.add"), last=True)
         pages.player_form(app, add.body, self._choose_player)
-        self._needed(parent, "guide.login.need")
+        self._needed(add.body, "guide.login.need")
 
-    def _needed(self, parent, key):
-        """LOG IN's word on why Next is off, under the cards, while it is: what lets the guide go on."""
+    def _needed(self, body, key):
+        """LOG IN's word on why Next is off, while it is: what lets the guide go on, at the foot of the step's last
+        card (`body`), parted from what is above it by the card's faint line, inside the card's padding (words never
+        lie on the page's field outside a card)."""
         if self._can_go_on():
             return
-        ui, px = self.app.ui, self.app.ui.px
-        widgets.label(parent, ui, self.app.words(key), fg=theme.AMBER, wrap_margin=0).pack(fill="x", pady=(px(14), 0))
+        ui = self.app.ui
+        widgets.divider(body, ui)
+        widgets.label(body, ui, self.app.words(key), fg=theme.AMBER, wrap_margin=0).pack(fill="x")
 
     def _choose_player(self, login_id):
         self.app.state.player = login_id
@@ -384,8 +403,10 @@ class Guide:
         app.check_box.pack(fill="x")
         app.refresh_checks()
         pages.refresh_checks(app)
-        # How to leave the game, before the first PLAY: no key does, and nothing in the game says where the X is.
-        widgets.label(parent, ui, w("play.how.4"), fg=theme.MUTED, wrap_margin=0).pack(fill="x", pady=(px(16), 0))
+        # How to leave the game, before the first PLAY: no key does, and nothing in the game says where the X is. On
+        # the step's card under the ready check, parted by its faint line (never on the page's field).
+        widgets.divider(ready.body, ui)
+        widgets.label(ready.body, ui, w("play.how.4"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
         # The way to the launcher's pages without playing, where Skip stood on the steps before.
-        widgets.link(parent, ui, w("guide.4.launcher"), lambda: self.finish(play=False)).pack(anchor="w",
-                                                                                              pady=(px(12), 0))
+        widgets.link(ready.body, ui, w("guide.4.launcher"), lambda: self.finish(play=False)).pack(anchor="w",
+                                                                                                  pady=(px(12), 0))

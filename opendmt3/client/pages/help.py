@@ -31,7 +31,7 @@ def build_help(app, parent):
     crash = card(parent, ui, w("help.crash"))
     for i, (key, page) in enumerate((("help.crash.1", "screen"), ("help.crash.2", "screen"), ("help.crash.3", None))):
         if i:
-            widgets.divider(crash.body, ui, pady=9)
+            widgets.divider(crash.body, ui, pady=8)
         line = tk.Frame(crash.body, bg=theme.PANEL)
         line.pack(fill="x")
         beside = ()

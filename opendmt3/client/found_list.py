@@ -115,7 +115,13 @@ class FoundList:
         # Nothing found once the search is over: said, with where to choose one (the buttons under the list).
         nothing = not self.items and not self.searching
         if nothing and (self.none is None or not self.none.winfo_exists()):
-            self.none = widgets.label(box, ui, w("guide.2.none"), fg=theme.AMBER, bg=box["bg"], wrap_margin=0)
+            # On a card of its own on the page's field (words never lie on the field outside a card); inside a card
+            # already (the GAME page's), on that card.
+            if box["bg"] == theme.BG:
+                self.none = widgets.Card(box, ui)
+                widgets.label(self.none.body, ui, w("guide.2.none"), fg=theme.AMBER, wrap_margin=0).pack(fill="x")
+            else:
+                self.none = widgets.label(box, ui, w("guide.2.none"), fg=theme.AMBER, bg=box["bg"], wrap_margin=0)
         elif not nothing and self.none is not None:
             self.none.destroy()
             self.none = None
@@ -160,7 +166,8 @@ class FoundList:
             widget.pack_forget()
         self.top[1].pack(fill="x", pady=(0, px(12)))
         if self.none is not None:
-            self.none.pack(fill="x")
+            # A card keeps the gap the cards under it keep; the words alone stand right over them.
+            self.none.pack(fill="x", pady=(0, px(10) if isinstance(self.none, widgets.Card) else 0))
         for card in order:
             card.pack(fill="x", pady=(0, px(10)))
         self.on_update()

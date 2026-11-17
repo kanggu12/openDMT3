@@ -861,7 +861,8 @@ class LauncherTest(FolderCase):
         self.state.mode, self.state.server_url = "server", "http://203.0.113.7:4730"
         signed = {"game": "203.0.113.7:4725", "version": "0.11.0", "updates": False, "login_id": "NOVA",
                   "dj_name": "DJ NOVA", "card": "1" * 20, "token": "t"}
-        kept = {"game": "203.0.113.7:4725", "version": "0.11.0", "updates": False}
+        # Kept: the server's game and version, and the ID the sign-in form offers again (never the password).
+        kept = {"game": "203.0.113.7:4725", "version": "0.11.0", "updates": False, "login_id": "NOVA"}
         seen = []
 
         def ended(base, token):
@@ -1742,8 +1743,9 @@ class LauncherTest(FolderCase):
         with mock.patch.object(remote, "sign_out", return_value=True) as ending:
             self.assertEqual(main.main(["--sign-out"]), 0)
         ending.assert_called_once_with("http://192.0.2.1:4730", "t")
+        # The ID stays for the sign-in form to offer again; the card and the token go.
         self.assertEqual(st.LauncherState.load().remote, {"game": "192.0.2.1:4725", "version": "0.11.0",
-                                                          "updates": False})
+                                                          "updates": False, "login_id": "NOVA"})
         # The status: exit 1 while PLAY cannot go (here: no game folder known on another server, not signed in).
         self.assertEqual(main.main(["--status"]), 1)
         # A report where it is asked for; the log folder's path.

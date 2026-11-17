@@ -293,9 +293,10 @@ def sign_out(state):
 
 
 def signed_out(state):
-    """Forget the sign-in on the other server; its address and its game stay."""
+    """Forget the sign-in on the other server; its address, its game and the ID signed in with stay (the sign-in form
+    offers the ID again, never a password)."""
     if state.remote:
-        state.remote = {k: v for k, v in state.remote.items() if k in ("game", "version", "updates")}
+        state.remote = {k: v for k, v in state.remote.items() if k in ("game", "version", "updates", "login_id")}
 
 
 def forget_sign_in(state):

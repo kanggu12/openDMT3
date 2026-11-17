@@ -3,8 +3,9 @@
 Velopack's setup (bundled as velopack-setup.exe) does the work: it puts the launcher in %LocalAppData%\\openDMT3,
 makes the shortcuts and the uninstall entry, and keeps the update packages. Run with --silent it shows nothing
 and asks nothing, so every question and every message comes from here instead, in the shape of the game's popups
-like the launcher's: install, update, repair or go back a version, close a launcher that is open first, wait
-while a game is running, and what went wrong if it failed. When it is done the launcher starts.
+like the launcher's: install, update, repair or go back a version, open or uninstall the version installed (with the
+same choice as the launcher's HELP: keep the settings, players and records, or delete them too), close a launcher that
+is open first, wait while a game is running, and what went wrong if it failed. When it is done the launcher starts.
 
   opendmt3-launcher-<version>-windows-x64-setup.exe                         the dialogs
   opendmt3-launcher-<version>-windows-x64-setup.exe --silent [--no-start]   no dialog: install or update, then start
@@ -224,10 +225,13 @@ class Installer:
             return
         asked = plan(have, __version__, running, w)
         if asked is None:
+            # This version is installed: what can be done with it, as Windows' own installers offer it. Open is the
+            # main one (lit, with the ring); Repair and Uninstall are quiet, Uninstall in a quiet tint of the colour of
+            # taking away (one lit button on the screen).
             detail = w("setup.repair.detail") + ((" " + w("setup.repair.closing")) if running else "")
             self.show("info", w("setup.tab"), w("setup.installed", v=__version__), detail,
-                      [(w("setup.repair"), "repair", "neutral"), (w("setup.open"), "open", "info")], default=1,
-                      cancel="cancel")
+                      [(w("setup.uninstall"), "uninstall", "danger_quiet"), (w("setup.repair"), "repair", "neutral"),
+                       (w("setup.open"), "open", "info")], default=2, cancel="cancel")
             return
         kind, tab, question, detail, words, action = asked
         if self.preset:
@@ -239,6 +243,10 @@ class Installer:
     def _answered(self, value):
         if value in WORK:
             self.install(value)
+        elif value == "uninstall":
+            self.ask_uninstall()
+        elif value in ("keep", "all"):
+            self.uninstall(everything=value == "all")
         elif value == "again":
             self.ask()
         elif value == "open":
@@ -308,6 +316,67 @@ class Installer:
         self.show("info", self.words("setup.tab.done"), self.words("setup.done", v=__version__),
                   self.words("setup.starting"), progress=True)
         self._start_or_say()
+
+    def ask_uninstall(self):
+        """Uninstall, asked as the launcher's HELP asks it: Cancel (with the ring: Enter alone takes nothing away),
+        Keep data, or Delete all, with the size of what Delete all takes."""
+        from opendmt3.client import leaving
+        from opendmt3.client import state as st
+        w = self.words
+        size = leaving.megabytes(leaving.data_size(st.config_dir()))
+        closing = (" " + w("setup.closing")) if launcher_open() else ""
+        detail = "%s%s\n\n%s" % (w("setup.uninstall.detail"), closing, w("help.uninstall.choices", size=size))
+        self.show("danger", w("setup.uninstall"), w("help.uninstall.ask"), detail,
+                  [(w("setup.cancel"), "cancel", "neutral"), (w("help.uninstall.keep"), "keep", "warn"),
+                   (w("help.uninstall.all"), "all", "danger")], default=0, cancel="cancel")
+
+    def uninstall(self, everything):
+        """Velopack's uninstall, silent, as the launcher's HELP starts it (leaving.start_uninstall): it closes a
+        launcher that is open, runs the launcher's hook (the game's files back, the shortcuts gone, and with
+        `everything` the settings, players and records), then takes the install folder away. This installer runs
+        from its own temporary folder, so it stays to say when it is done."""
+        from opendmt3.client import leaving
+        w = self.words
+        self.action = "uninstall"
+        updater = os.path.join(app_dir(), "Update.exe")
+        if game_running():
+            # Asked between the first screen and now: the game came up meanwhile.
+            self.show("warn", w("setup.tab"), w("setup.game"), w("setup.game.detail"),
+                      [(w("setup.close"), "cancel", "neutral"), (w("setup.again"), "again", "info")], default=1,
+                      cancel="cancel")
+            return
+        self.everything = everything
+        self.show("danger", w("setup.work.uninstall"), w("help.uninstall.working.plain"), w("setup.work.detail"),
+                  progress=True)
+        try:
+            self.process = leaving.start_uninstall(updater, everything)
+        except OSError as e:
+            log.exception("could not start Velopack's uninstall")
+            self.failed(w("help.uninstall.start_failed.detail", error=w.error(e)), title=w("setup.uninstall.failed"))
+            return
+        self.started_at = time.time()
+        self.root.after(100, self._wait_uninstall)
+
+    def _wait_uninstall(self):
+        """Until Velopack's uninstall ends and the installed version is gone, then the last word and Close."""
+        w = self.words
+        code = self.process.poll()
+        if code is None and time.time() - self.started_at <= SETUP_LIMIT:
+            self.root.after(200, self._wait_uninstall)
+            return
+        if code is None:
+            log.error("Velopack's uninstall did not finish in %d s", SETUP_LIMIT)
+            self.process.kill()
+            self.failed(w("setup.too_long", m=SETUP_LIMIT // 60), title=w("setup.uninstall.failed"))
+            return
+        log.info("Velopack's uninstall ended with %s", code)
+        if installed_version() is not None:
+            self.failed(w("setup.code", code=code), title=w("setup.uninstall.failed"))
+            return
+        # Done: what stayed, or that the settings, players and records went too.
+        said = w("setup.uninstalled.all" if self.everything else "setup.uninstalled.kept")
+        self.show("info", w("setup.tab.done"), w("setup.uninstalled"), said, [(w("setup.close"), "close", "info")],
+                  default=0, cancel="close")
 
     def failed(self, why, title=None):
         """What went wrong, with the way to Velopack's log when there is one."""

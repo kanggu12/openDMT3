@@ -208,16 +208,26 @@ class Dialog:
                 "buttons": buttons, "button_w": button_w, "field": field, "link": link}
 
     def _button_row(self, panel_w, y):
-        """The buttons side by side, centred, at height y: their boxes' left tops, and their width."""
+        """The buttons side by side, centred, at height y: each one's left top and width, and the widest width. One
+        width for all while they fit the panel so; where they do not (three buttons, one with long words), each as
+        wide as its own words need."""
         px, fonts = self.ui.px, self.ui.fonts
         count = len(self.buttons)
-        widest = max([fonts.dialog_button.measure(b[0]) for b in self.buttons] or [0])
         # The buttons lean: their words keep clear of both slopes.
-        button_w = max(px(BUTTON_MIN), widest + 2 * (px(16) + int(px(BUTTON) * art.LEAN)))
+        sides = 2 * (px(16) + int(px(BUTTON) * art.LEAN))
+        needs = [max(px(BUTTON_MIN), fonts.dialog_button.measure(b[0]) + sides) for b in self.buttons]
         room = panel_w - 2 * px(22)
-        button_w = min(button_w, (room - (count - 1) * px(GAP)) // max(1, count))
-        row_w = count * button_w + (count - 1) * px(GAP)
-        return [((panel_w - row_w) // 2 + i * (button_w + px(GAP)), y) for i in range(count)], button_w
+        gaps = (count - 1) * px(GAP)
+        widths = [max(needs or [0])] * count
+        if sum(widths) + gaps > room:
+            # Each its own width; still too wide, all of them less by the same share (the check says so then).
+            widths = needs if sum(needs) + gaps <= room else [n * (room - gaps) // max(1, sum(needs)) for n in needs]
+        row_w = sum(widths) + gaps
+        row, x = [], (panel_w - row_w) // 2
+        for width in widths:
+            row.append((x, y, width))
+            x += width + px(GAP)
+        return row, max(widths or [0])
 
     def _draw(self, rise=False):
         """Draw the whole dialog for the canvas's present size (again after the window is resized)."""
@@ -246,20 +256,20 @@ class Dialog:
         # The buttons: one picture for each look, drawn over the panel's own pixels.
         margin = max(5, int(round(6 * scale)))
         self._images, self._items, self._boxes = [], [], []
-        for i, ((words, _value, look), (bx, by)) in enumerate(zip(self.buttons, lay["buttons"])):
-            under = panel.crop((bx - margin, by - margin, bx + lay["button_w"] + margin, by + px(BUTTON) + margin))
+        for i, ((words, _value, look), (bx, by, bw)) in enumerate(zip(self.buttons, lay["buttons"])):
+            under = panel.crop((bx - margin, by - margin, bx + bw + margin, by + px(BUTTON) + margin))
             images = {(state, ring): ImageTk.PhotoImage(
                 art.button_face(under.size, margin, look, state, ring, scale, under=under), master=c)
                 for state in ("normal", "hover", "pressed") for ring in (False, True)}
             tag = "button%d" % i
             picture = c.create_image(bx - margin, by - margin, image=images[("normal", False)], anchor="nw",
                                      tags=("card", tag))
-            c.create_text(bx + lay["button_w"] // 2, by + px(BUTTON) // 2, text=words,
+            c.create_text(bx + bw // 2, by + px(BUTTON) // 2, text=words,
                           font=self.ui.fonts.dialog_button, fill=art.BUTTON_LOOKS[look]["text"],
                           tags=("card", tag, "words"))
             self._images.append(images)
             self._items.append(picture)
-            self._boxes.append((bx, by, bx + lay["button_w"], by + px(BUTTON)))
+            self._boxes.append((bx, by, bx + bw, by + px(BUTTON)))
             for event, handler in (("<Enter>", self._enter), ("<Leave>", self._leave),
                                    ("<ButtonPress-1>", self._press), ("<ButtonRelease-1>", self._release)):
                 c.tag_bind(tag, event, lambda e, i=i, h=handler: h(i, e))
@@ -687,7 +697,7 @@ class PathDialog(Dialog):
         px, c = self.ui.px, self.canvas
         panel_w, panel_h = lay["panel"]
         top = lay["buttons"][0][1]
-        lay["buttons"] = [(x, y + px(self.FIELD)) for x, y in lay["buttons"]]
+        lay["buttons"] = [(x, y + px(self.FIELD), w) for x, y, w in lay["buttons"]]
         lay["panel"] = (panel_w, panel_h + px(self.FIELD))
         if self.entry is None:
             # In the launcher's own field look (widgets.entry), inside the dialog's canvas, so the dialog's grab takes it.

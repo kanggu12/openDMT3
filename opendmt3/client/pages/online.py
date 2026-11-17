@@ -8,7 +8,23 @@ from opendmt3.client import actions, dialogs, hosting, theme, widgets
 # The limits the accounts themselves check, so the add-player hint never says other numbers.
 from opendmt3.server.services import accounts
 
-from opendmt3.client.pages.common import card, database_trouble, main_button
+from opendmt3.client.pages.common import Sections, card, database_trouble, main_button
+
+
+# Which field an error is about, by its words' key: said under that field (said); any other under the whole form.
+ACCOUNT_FIELDS = {"error.account.id": "online.id", "error.account.taken": "online.id",
+                  "error.account.password": "online.password", "error.account.dj": "online.dj"}
+SIGN_IN_FIELDS = {"error.api.wrong_sign_in": "online.password", "error.api.unknown_player": "online.id"}
+
+
+def said(errors, message, error, w, fields):
+    """`error` in words under the field it is about (`fields`: its key to the field's), or in the form's own line
+    under it all when it is about no one field (a server that does not answer, a database that cannot be read)."""
+    key = fields.get(getattr(error, "key", None))
+    if key in errors:
+        errors[key].say(w.error(error))
+    else:
+        message.configure(text=w.error(error), fg=theme.PINK)
 
 
 def player_form(app, parent, on_added, bg=None):
@@ -16,33 +32,33 @@ def player_form(app, parent, on_added, bg=None):
     unless told (the card it is on)."""
     ui, w = app.ui, app.words
     bg = bg or parent.cget("bg")
-    form = tk.Frame(parent, bg=bg)
-    fields = {}
-    for col, (key, secret, width) in enumerate((("online.id", False, 10), ("online.password", True, 12),
-                                                 ("online.dj", False, 10))):
-        tk.Label(form, text=w(key), font=ui.fonts.small, fg=theme.MUTED, bg=bg).grid(row=0, column=col, sticky="w",
-                                                                                   padx=(0, ui.px(12)))
-        field = widgets.entry(form, ui, width=width, secret=secret)
-        field.grid(row=1, column=col, sticky="w", padx=(0, ui.px(12)), ipady=ui.px(4))
-        fields[key] = field
-    message = widgets.label(parent, ui, w("online.add.hint", min=accounts.PASSWORD_MIN, max=accounts.PASSWORD_MAX), font=ui.fonts.small, fg=theme.MUTED, bg=bg,
-                            wrap_margin=0)
+    # Each field's name above it and what is wrong with it under it (widgets.form_fields); the password's Show.
+    form, fields, errors = widgets.form_fields(parent, ui, (("online.id", w("online.id"), 10, False),
+                                                            ("online.password", w("online.password"), 12, True),
+                                                            ("online.dj", w("online.dj"), 10, False)), bg)
+    hint = w("online.add.hint", min=accounts.PASSWORD_MIN, max=accounts.PASSWORD_MAX)
+    message = widgets.label(parent, ui, hint, font=ui.fonts.small, fg=theme.MUTED, bg=bg, wrap_margin=0)
 
     def add():
         from opendmt3.server.services import accounts as acc
         login_id = fields["online.id"].get().strip()
         password = fields["online.password"].get()
         dj_name = fields["online.dj"].get().strip() or login_id
+        # What the last try said goes: the hint again, no field marked.
+        for error in errors.values():
+            error.clear()
+        message.configure(text=hint, fg=theme.MUTED)
         try:
             store = app.players()
         except hosting.HostingError as e:
-            # The database cannot be opened: said where the form says what went wrong.
+            # The database cannot be opened: no one field's fault, said in the form's own line.
             message.configure(text=w.error(e), fg=theme.PINK)
             return
         try:
             store.create(login_id.upper(), password, dj_name, who="launcher")
         except acc.AccountError as e:
-            message.configure(text=w.error(e), fg=theme.PINK)
+            # Under the field it is about (an ID taken or not allowed, a password too short, a DJ name too long).
+            said(errors, message, e, w, ACCOUNT_FIELDS)
             return
         finally:
             store.db.close()
@@ -50,7 +66,7 @@ def player_form(app, parent, on_added, bg=None):
         on_added(login_id.upper())
 
     # Adding a player is the card's main action: lit while PLAY waits, quiet beside a lit PLAY.
-    main_button(app, form, w("online.add"), add).grid(row=1, column=3, sticky="w")
+    main_button(app, form, w("online.add"), add).grid(row=1, column=3, sticky="nw")
     # Typing goes ID, Tab, password, Tab, DJ name, Enter: no reaching for the mouse between fields.
     for field in fields.values():
         field.bind("<Return>", lambda e: add())
@@ -63,7 +79,7 @@ def player_form(app, parent, on_added, bg=None):
 def server_panel(app, parent, rerender):
     """Another server, on two cards as OpenDMTQ's ONLINE has them: the server (its site's address and Connect, and the
     line under them), then the sign-in that brings back the player's card (who is signed in and Sign out, or the ID and
-    password and Sign in)."""
+    password and Sign in). Returns the last card made (the guide puts its line under it)."""
     from opendmt3.client import remote
     ui, w = app.ui, app.words
     server = card(parent, ui, w("online.server"))
@@ -109,7 +125,7 @@ def server_panel(app, parent, rerender):
         # Not connected yet: Connect is the card's main action; typing goes to the address, Enter connects.
         main_button(app, row, w("online.connect"), connect).grid(row=1, column=1, sticky="w")
         address.after_idle(address.focus_set)
-        return
+        return server
     sign = card(parent, ui, w("online.signin"), last=True)
     if remote_state.get("card"):
         signed = tk.Frame(sign.body, bg=bg)
@@ -118,7 +134,7 @@ def server_panel(app, parent, rerender):
         lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
         widgets.label(signed, ui, w("online.signed", dj=remote_state.get("dj_name", ""),
                                     login_id=remote_state.get("login_id", "")), wrap_margin=160).pack(
-            side="left", padx=(ui.px(9), 0))
+            side="left", padx=(ui.px(8), 0))
 
         def sign_out():
             # actions.sign_out's two steps, split across threads: the server ends the token first, off the window's
@@ -141,19 +157,19 @@ def server_panel(app, parent, rerender):
 
         leave = widgets.Button(signed, ui, w("online.signout"), sign_out)
         leave.pack(side="right")
-        return
-    form = tk.Frame(sign.body, bg=bg)
+        return sign
+    form, fields, errors = widgets.form_fields(sign.body, ui, (("online.id", w("online.id"), 14, False),
+                                                               ("online.password", w("online.password"), 14, True)), bg)
     form.pack(anchor="w")
-    fields = {}
-    for col, (key, secret) in enumerate((("online.id", False), ("online.password", True))):
-        tk.Label(form, text=w(key), font=ui.fonts.small, fg=theme.MUTED, bg=bg).grid(row=0, column=col, sticky="w")
-        field = widgets.entry(form, ui, width=14, secret=secret)
-        field.grid(row=1, column=col, sticky="w", padx=(0, ui.px(12)), ipady=ui.px(4))
-        fields[key] = field
+    # The last ID signed in with on this server, kept after signing out and across restarts (never its password).
+    last_id = remote_state.get("login_id") or ""
+    fields["online.id"].insert(0, last_id)
     message = widgets.label(sign.body, ui, w("online.signin.hint"), font=ui.fonts.small, fg=theme.MUTED,
                             wrap_margin=0)
 
     def sign_in():
+        for error in errors.values():
+            error.clear()
         message.configure(text=w("online.connecting"), fg=theme.MUTED)
         login_id, password = fields["online.id"].get().strip(), fields["online.password"].get()
 
@@ -162,9 +178,18 @@ def server_panel(app, parent, rerender):
                 me = remote.sign_in(app.state.server_url, login_id, password)
                 app.post(lambda: signed_in(me))
             except Exception as e:  # noqa: BLE001
-                app.post(lambda text=w.error(e): message.winfo_exists() and message.configure(text=text, fg=theme.PINK))
+                app.post(lambda e=e: refused(e))
 
         threading.Thread(target=work, daemon=True, name="sign-in").start()
+
+    def refused(error):
+        if not message.winfo_exists():
+            # The page went while the server was asked.
+            return
+        # The hint back in the form's line, then the error under the field it is about (a wrong password under the
+        # password), or in that line when it is about neither field (a server that does not answer).
+        message.configure(text=w("online.signin.hint"), fg=theme.MUTED)
+        said(errors, message, error, w, SIGN_IN_FIELDS)
 
     def signed_in(me):
         actions.signed_in(app.state, me)
@@ -174,11 +199,13 @@ def server_panel(app, parent, rerender):
 
     for field in fields.values():
         field.bind("<Return>", lambda e: sign_in())
-    # Connected: typing goes to the ID; Tab to the password; Enter signs in.
-    fields["online.id"].after_idle(fields["online.id"].focus_set)
+    # Connected: typing goes to the ID (to the password when the ID is remembered); Tab to the next; Enter signs in.
+    first = fields["online.password" if last_id else "online.id"]
+    first.after_idle(first.focus_set)
     # Signing in is the card's main action: lit while PLAY waits, quiet beside a lit PLAY.
-    main_button(app, form, w("online.signin"), sign_in).grid(row=1, column=2, sticky="w")
+    main_button(app, form, w("online.signin"), sign_in).grid(row=1, column=2, sticky="nw")
     message.pack(fill="x", pady=(ui.px(8), 0))
+    return sign
 
 
 def build_online(app, parent):
@@ -208,68 +235,87 @@ def build_online(app, parent):
         return
     if mode != "this_pc":
         return
-    players = card(parent, ui, w("online.players"))
-    try:
-        rows = app.player_rows()
-    except hosting.HostingError as e:
-        # The database cannot be read: said in place of the list, and the rest of the page still works.
-        database_trouble(app, players.body, e)
-        return
-    if not rows:
-        widgets.label(players.body, ui, w("online.players.none"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
-    for i, r in enumerate(rows):
-        if i:
-            # One line a player, parted by the card's faint lines.
-            widgets.divider(players.body, ui, pady=8)
-        line = tk.Frame(players.body, bg=theme.PANEL)
-        line.pack(fill="x")
-        on = r["login_id"] == app.state.player
-        # The player who goes in at PLAY has the lit lamp.
-        widgets.Lamp(line, ui, ui.section["accent"] if on else theme.MUTED, lit=on).pack(side="left")
-        tk.Label(line, text=r["dj_name"], font=ui.fonts.body_bold, fg=theme.TEXT, bg=theme.PANEL).pack(
-            side="left", padx=(ui.px(10), ui.px(8)))
-        tk.Label(line, text=r["login_id"], font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(side="left")
+    # The players and the form that adds one, each a card made again on its own when a player is added, chosen or
+    # deleted (Sections): the other cards, and what is typed in the form, stay as they were.
+    sections = Sections(app, parent)
 
-        def pick(login_id=r["login_id"]):
-            app.state.player = login_id
-            app.state.save()
-            app.go("online")
+    def players_card(holder):
+        players = card(holder, ui, w("online.players"))
+        try:
+            rows = app.player_rows()
+        except hosting.HostingError as e:
+            # The database cannot be read: said in place of the list, and the rest of the page still works.
+            database_trouble(app, players.body, e)
+            return
+        if not rows:
+            widgets.label(players.body, ui, w("online.players.none"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
+        for i, r in enumerate(rows):
+            if i:
+                # One line a player, parted by the card's faint lines.
+                widgets.divider(players.body, ui, pady=8)
+            _player_line(app, players.body, r, lambda: sections.redo("players"))
 
-        def remove(login_id=r["login_id"], name=r["dj_name"]):
-            if not dialogs.ask(app, "danger", w("online.remove.title"), w("online.remove.ask", name=name),
-                               w("online.remove.detail"), w("online.remove")):
-                return
-            try:
-                store = app.players()
-            except hosting.HostingError as e:
-                app.set_status(w("status.error", error=w.error(e)), "bad")
-                return
-            try:
-                store.delete(login_id, who="launcher")
-            finally:
-                store.db.close()
-            if app.state.player == login_id:
-                app.state.player = None
+    def add_card(holder):
+        add = card(holder, ui, w("online.add"))
+
+        def added(login_id):
+            # The first player plays next without asking; later ones are picked on this page or on PLAY.
+            if not app.state.player:
+                app.state.player = login_id
                 app.state.save()
-            app.go("online")
+            # The list with the new player, and the form empty again for the next one.
+            sections.redo("players")
+            sections.redo("add")
 
-        widgets.Button(line, ui, w("online.remove"), remove, kind="danger").pack(side="right")
-        if not on:
-            widgets.Button(line, ui, w("online.pick"), pick).pack(side="right", padx=(0, ui.px(8)))
-        else:
-            tk.Label(line, text=w("online.plays"), font=ui.fonts.small, fg=theme.LIME, bg=theme.PANEL).pack(
-                side="right", padx=(0, ui.px(12)))
-    add = card(parent, ui, w("online.add"))
+        player_form(app, add.body, added)
 
-    def added(login_id):
-        # The first player plays next without asking; later ones are picked on this page or on PLAY.
-        if not app.state.player:
-            app.state.player = login_id
-            app.state.save()
-        app.go("online")
-
-    player_form(app, add.body, added)
+    sections.add("players", players_card)
+    sections.add("add", add_card)
     _home_panel(app, parent)
+
+
+def _player_line(app, parent, r, changed):
+    """One player on the Players card: the lamp lit for the one who goes in at PLAY, the DJ name and ID, Delete, and
+    Play next for the others; `changed()` makes the card again after a choice."""
+    ui, w = app.ui, app.words
+    line = tk.Frame(parent, bg=theme.PANEL)
+    line.pack(fill="x")
+    on = r["login_id"] == app.state.player
+    # The player who goes in at PLAY has the lit lamp.
+    widgets.Lamp(line, ui, ui.section["accent"] if on else theme.MUTED, lit=on).pack(side="left")
+    tk.Label(line, text=r["dj_name"], font=ui.fonts.body_bold, fg=theme.TEXT, bg=theme.PANEL).pack(
+        side="left", padx=(ui.px(10), ui.px(8)))
+    tk.Label(line, text=r["login_id"], font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(side="left")
+
+    def pick(login_id=r["login_id"]):
+        app.state.player = login_id
+        app.state.save()
+        changed()
+
+    def remove(login_id=r["login_id"], name=r["dj_name"]):
+        if not dialogs.ask(app, "danger", w("online.remove.title"), w("online.remove.ask", name=name),
+                           w("online.remove.detail"), w("online.remove")):
+            return
+        try:
+            store = app.players()
+        except hosting.HostingError as e:
+            app.set_status(w("status.error", error=w.error(e)), "bad")
+            return
+        try:
+            store.delete(login_id, who="launcher")
+        finally:
+            store.db.close()
+        if app.state.player == login_id:
+            app.state.player = None
+            app.state.save()
+        changed()
+
+    widgets.Button(line, ui, w("online.remove"), remove, kind="danger").pack(side="right")
+    if not on:
+        widgets.Button(line, ui, w("online.pick"), pick).pack(side="right", padx=(0, ui.px(8)))
+    else:
+        tk.Label(line, text=w("online.plays"), font=ui.fonts.small, fg=theme.LIME, bg=theme.PANEL).pack(
+            side="right", padx=(0, ui.px(12)))
 
 
 def _home_panel(app, parent):

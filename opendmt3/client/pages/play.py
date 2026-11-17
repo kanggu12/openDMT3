@@ -113,14 +113,14 @@ def build_play(app, parent):
     for i, key in enumerate(how_to_play(app)):
         if i:
             # One line each, parted by the card's faint lines.
-            widgets.divider(how.body, ui, pady=7)
+            widgets.divider(how.body, ui, pady=8)
         widgets.label(how.body, ui, w(key), wrap_margin=0).pack(fill="x")
     last = widgets.Card(right, ui, title=w("play.last"))
     last.pack(fill="both", expand=True)
     widgets.label(last.body, ui, _last_session(app), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
     for play in (app.state.last_session or {}).get("plays", []):
         # Per cleared stage: the song on its own line (titles run long), then its pattern and the score in lime.
-        widgets.divider(last.body, ui, pady=7)
+        widgets.divider(last.body, ui, pady=8)
         widgets.label(last.body, ui, play["title"], font=ui.fonts.body_bold, wrap_margin=0).pack(fill="x")
         line = tk.Frame(last.body, bg=theme.PANEL)
         line.pack(fill="x")
@@ -162,7 +162,7 @@ def refresh_checks(app):
     def next_line():
         # The faint line between two checks (none before the first).
         if shown:
-            widgets.divider(box, ui, pady=7)
+            widgets.divider(box, ui, pady=8)
 
     for check in app.checks:
         name = w("check." + check.key)

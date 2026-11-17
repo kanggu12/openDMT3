@@ -1,7 +1,9 @@
-"""What the pages share: the pages' names, a card stacked under the ones before it, a page's main button, the rows a
-choice brings or takes, and what a page shows when this PC's database cannot be opened."""
+"""What the pages share: the pages' names, a card stacked under the ones before it, a page's cards made again one at
+a time (Sections), a page's main button, the rows a choice brings or takes, and what a page shows when this PC's
+database cannot be opened."""
 
 import os
+import tkinter as tk
 
 # Each page's name in the menu and as its title, in English in both languages as both sites' menus and OpenDMTQ's
 # launcher have them (and as the game's own menus are). A sentence that sends the player to a page names it so.
@@ -33,6 +35,63 @@ def card(parent, ui, title=None, last=False):
     made = widgets.Card(parent, ui, title=title)
     made.pack(fill="x", pady=(0, 0 if last else ui.px(CARD_GAP)))
     return made
+
+
+class Sections:
+    """A page's cards, each made by a function of its own, so that a choice that brings or takes rows, or changes a
+    hint, makes its own card again and no other (as OpenDMTQ's pages do): the new card is made beside the old one and
+    takes its place in the same turn of the window, so nothing flickers, the page stays where it was scrolled to, the
+    other cards (and what is typed in them) stay as they were, and the keyboard stays on the control it was on.
+
+    `parent` is the page's (or the guide step's) content; `more` the names of the rows that come and go on it
+    (rows_that_come), counted in its names' column, which a new card takes too."""
+
+    def __init__(self, app, parent, more=()):
+        self.app, self.parent, self.more = app, parent, more
+        # name -> [the function that makes the card in a holder, the holder on the page]
+        self.made = {}
+
+    def add(self, name, build):
+        """Make the card `name` with build(holder), in a holder of its own stacked under the cards before it."""
+        holder = tk.Frame(self.parent, bg=self.parent.cget("bg"))
+        holder.pack(fill="x")
+        build(holder)
+        self.made[name] = [build, holder]
+        return holder
+
+    def redo(self, name):
+        """Make the card `name` again where it stands, the keyboard kept on the control it was on in it."""
+        from opendmt3.client import widgets
+        build, old = self.made[name]
+        if not old.winfo_exists():
+            return
+        root = old.winfo_toplevel()
+        before = widgets.focus_order(old)
+        focused = root.focus_get()
+        index = before.index(focused) if focused in before else None
+        # The page's main buttons made with the old card go with it (pages.main_button lists the new ones).
+        self.app.main_buttons = [b for b in self.app.main_buttons if b.winfo_exists() and not _inside(b, old)]
+        holder = tk.Frame(self.parent, bg=self.parent.cget("bg"))
+        holder.pack(fill="x", after=old)
+        build(holder)
+        # The names' column the page has, counted again with the new card's rows.
+        widgets.fit_names(self.parent, self.app.ui, self.more)
+        old.destroy()
+        self.made[name][1] = holder
+        if index is not None:
+            # The rows before the changed one are the same, so the same place in the order is the same control.
+            after = widgets.focus_order(holder)
+            if index < len(after):
+                after[index].focus_set()
+
+
+def _inside(widget, box):
+    """True when `widget` is `box` or under it."""
+    while widget is not None:
+        if widget is box:
+            return True
+        widget = widget.master
+    return False
 
 
 def main_button(app, parent, text, command):
