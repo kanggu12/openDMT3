@@ -485,8 +485,8 @@ static void warm(int w, int h)
     Card c = {0, 0, g_settings.korean, g_fps_on};
     UiLayout l;
     g_room_panel_w = g_room_panel_h = g_room_toast_w = g_room_toast_h = 0;
-    /* The question as a song has it (with its line: every word it ever shows, and its tallest), then the menu; the
-     * room for the panel is the larger of each side. */
+    /* The question as a song has it (with its line: every word it ever shows, and its tallest), the menu, then the
+     * sound panel; the room for the panel is the largest of each side. */
     c.song = 1;
     card_open(&c, CARD_QUIT);
     ui_layout(&c, w, h, &l);
@@ -496,6 +496,14 @@ static void warm(int w, int h)
     }
     c.song = 0;
     card_open(&c, CARD_MENU);
+    ui_layout(&c, w, h, &l);
+    if (sprite_for(&g_s_panel, l.panel.w, l.panel.h, 8 * l.u)) {
+        look_panel(&g_s_panel, &c, &l, -1, -1, text_gdi, NULL);
+        room(g_s_panel.content, &g_room_panel_w, &g_room_panel_h);
+    }
+    /* The sound panel (the widest), with its values' words as they are now. */
+    card_open(&c, CARD_SOUND);
+    memcpy(c.sound, soundset_values()->v, sizeof c.sound);
     ui_layout(&c, w, h, &l);
     if (sprite_for(&g_s_panel, l.panel.w, l.panel.h, 8 * l.u)) {
         look_panel(&g_s_panel, &c, &l, -1, -1, text_gdi, NULL);
