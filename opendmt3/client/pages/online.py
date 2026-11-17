@@ -99,21 +99,24 @@ def player_form(app, parent, on_added, bg=None):
     return form
 
 
-def server_panel(app, parent, rerender):
+def server_panel(app, parent, rerender, lead=None):
     """Another server, on its cards as OpenDMTQ's ONLINE has them: the server (its site's address and Connect, and how
     it stands under them), the sign-in (the server it signs in to, the ID and the password, Sign in; or who is signed
-    in, where, and Sign out), and the connection test. Returns the last card made (the guide puts its line in it)."""
-    ui, w = app.ui, app.words
-    server = card(parent, ui, w("online.server"))
+    in, where, and Sign out), and the connection test. Returns the last card made (the guide puts its line in it).
+
+    Connected with nobody signed in, signing in is the next thing to do: its card leads the page, before `lead` (the
+    Where you play card), so that the whole of it, its key included, is on the screen at the window's smallest size
+    whatever it says; the server it signs in to is its first line, with Change, and the server's own card is folded
+    away into that line. Change opens the server's card as it is before connecting (its address chosen whole to type
+    over, Connect the main action, no sign-in until a server answers; app.server_open: the address it was opened
+    for, forgotten once a server answers or the page is left)."""
+    ui = app.ui
     remote_state = app.state.remote or {}
     connected = bool(app.state.server_url and remote_state.get("game"))
-    # The address, named over its field with an example of one in it, Connect on the field's line.
-    place = widgets.Form(server.body, ui)
-    place.pack(fill="x")
-    address = place.field("address", w("online.address"), width=ADDRESS_CHARS,
-                          placeholder=w("online.address.example"), row=0, column=0)
-    address.refresh()
-    address.insert(0, app.state.server_url or "")
+    signing_in = connected and not remote_state.get("card")
+    # The server's card folds into the sign-in's first line, unless Change opened it for this very address.
+    changing = signing_in and getattr(app, "server_open", None) == app.state.server_url
+    folded = signing_in and not changing
     # The connection test's card, made last: a failure's line leads to it (filled in once it is made).
     tester = {}
 
@@ -124,6 +127,40 @@ def server_panel(app, parent, rerender):
             app.body.show(made, ui.px(16))
             made.run()
 
+    def change():
+        """Change, on the sign-in's server line: the server's card open again, its address ready to type over."""
+        app.server_open = app.state.server_url
+        rerender()
+
+    # The address the connection test checks: the one typed in the server's card, or the one connected to.
+    typed = (lambda: app.state.server_url or "") if folded else _server_card(app, parent, rerender,
+                                                                            connected and not changing, test_link,
+                                                                            changing)
+    if not connected or changing:
+        return _test_card_for(app, parent, typed, tester)
+    if remote_state.get("card"):
+        _signed_card(app, parent, remote_state, rerender)
+    else:
+        sign = _sign_in_card(app, parent, remote_state, rerender, test_link, None if not folded else change)
+        if lead is not None and lead.winfo_exists():
+            # First on the page: the next thing to do, whole on the screen.
+            sign.pack_configure(before=lead)
+    return _test_card_for(app, parent, typed, tester, rerender)
+
+
+def _server_card(app, parent, rerender, connected, test_link, changing=False):
+    """The server's card: its site's address, named over its field with an example of one in it, Connect on the
+    field's line, and how it stands under them; `changing`, opened by Change, the address chosen whole so that typing
+    replaces it. Returns the way to read the address typed."""
+    ui, w = app.ui, app.words
+    remote_state = app.state.remote or {}
+    server = card(parent, ui, w("online.server"))
+    place = widgets.Form(server.body, ui)
+    place.pack(fill="x")
+    address = place.field("address", w("online.address"), width=ADDRESS_CHARS,
+                          placeholder=w("online.address.example"), row=0, column=0)
+    address.refresh()
+    address.insert(0, app.state.server_url or "")
     if connected:
         place.tell(w("online.connected", base=app.state.server_url, version=remote_state.get("version", "?"),
                      game=remote_state["game"]), "ok")
@@ -152,26 +189,31 @@ def server_panel(app, parent, rerender):
         # the test that finds the step that fails.
         address.set_error(True)
         place.tell(w.error(error), "bad", (w("server_test.run"), test_link))
+        place.into_view()
 
     def connected_to(base, found):
         actions.use_server(app.state, base, found)
         app.state.save()
+        # Connected: the server's card folds into the sign-in's line again.
+        app.server_open = None
         app.refresh_checks()
         rerender()
 
     # Not connected yet, Connect is the card's main action (typing goes to the address, Enter connects); connected,
     # connecting again is no longer the next thing to do, so it is a quiet one.
-    if connected:
-        place.button(w("online.connect"), connect, row=0, column=1, beside=True, main=_plain(app))
-    else:
-        place.button(w("online.connect"), connect, row=0, column=1, beside=True, main=_main(app))
-        address.after_idle(address.focus_set)
-        return _test_card_for(app, parent, address.get, tester)
-    if remote_state.get("card"):
-        _signed_card(app, parent, remote_state, rerender)
-    else:
-        _sign_in_card(app, parent, remote_state, rerender, test_link)
-    return _test_card_for(app, parent, address.get, tester, rerender)
+    place.button(w("online.connect"), connect, row=0, column=1, beside=True,
+                 main=_plain(app) if connected else _main(app))
+    if not connected:
+        def ready():
+            # Typing goes to the address; opened by Change, it replaces the one connected to.
+            if address.winfo_exists():
+                address.focus_set()
+                if changing:
+                    address.entry.select_range(0, "end")
+                    address.entry.icursor("end")
+
+        address.after_idle(ready)
+    return address.get
 
 
 def _test_card_for(app, parent, typed, tester, rerender=None):
@@ -182,7 +224,7 @@ def _test_card_for(app, parent, typed, tester, rerender=None):
     return made
 
 
-def _sign_in_card(app, parent, remote_state, rerender, test_link):
+def _sign_in_card(app, parent, remote_state, rerender, test_link, change=None):
     """The sign-in, as the site's door (FORMS.md): the server it signs in to, the ID with the person's mark and the
     password with the lock's and Show inside, each named over its field, Remember my ID on this PC, and Sign in across
     the form; under a seam, what to do when the password is gone. The ID kept by Remember my ID is there already and
@@ -190,7 +232,8 @@ def _sign_in_card(app, parent, remote_state, rerender, test_link):
     key shows the game's moving stripes. What is wrong is said where it is: an empty field under it, a wrong ID or
     password under the password in one sentence (the server tells the two apart to nobody: IDs are private), too many
     tries and a server that does not answer right above the key (the latter with the way to the connection test), a
-    banned account on a plate in place of the form, with the owner's reason and Sign in with another ID."""
+    banned account on a plate in place of the form, with the owner's reason and Sign in with another ID. `change`, when
+    the server's own card is folded into the server's line, opens it again (Change on that line)."""
     ui, w = app.ui, app.words
     sign = card(parent, ui, w("online.signin"))
     holder = tk.Frame(sign.body, bg=theme.PANEL)
@@ -203,21 +246,22 @@ def _sign_in_card(app, parent, remote_state, rerender, test_link):
     def form_again(keep_id=True):
         for child in holder.winfo_children():
             child.destroy()
-        _sign_in_form(app, holder, remembered if keep_id else "", rerender, test_link, banned)
+        _sign_in_form(app, holder, remembered if keep_id else "", rerender, test_link, banned, change)
 
     def banned(reason, login_id):
         """The account is banned: a plate in place of the form, and the way to sign in with another ID."""
         for child in holder.winfo_children():
             child.destroy()
-        _banned_plate(app, holder, reason, lambda: form_again(keep_id=False))
+        _banned_plate(app, holder, reason, lambda: form_again(keep_id=False), change)
 
     form_again()
     return sign
 
 
-def _server_line(app, parent):
+def _server_line(app, parent, change=None):
     """The server a sign-in goes to: "Signing in to" in the hint's ink over the address in the names' face, its
-    openDMT3 version after it."""
+    openDMT3 version after it, and Change after that when the server's own card is folded into this line (`change`
+    opens it again)."""
     ui, w = app.ui, app.words
     remote_state = app.state.remote or {}
     to = tk.Frame(parent, bg=theme.PANEL)
@@ -231,15 +275,20 @@ def _server_line(app, parent):
     if remote_state.get("version"):
         tk.Label(where, text="openDMT3 %s" % remote_state["version"], font=ui.fonts.small, fg=theme.HINT,
                  bg=theme.PANEL, padx=0, pady=0).pack(side="left", padx=(ui.px(8), 0))
+    if change is not None:
+        # The way to another server: the folded server's card opened again, in the section's light as a link is.
+        made = widgets.link(where, ui, w("online.server.change"), change, chevron=False)
+        made.configure(font=ui.fonts.small)
+        made.pack(side="left", padx=(ui.px(12), 0))
 
 
-def _sign_in_form(app, parent, remembered, rerender, test_link, banned):
+def _sign_in_form(app, parent, remembered, rerender, test_link, banned, change=None):
     """The sign-in's form, in `parent` (see _sign_in_card); banned(reason, login_id) when the server says the account
-    is banned."""
+    is banned; `change` opens the server's folded card again (Change on the server's line)."""
     from opendmt3.client import remote
     from opendmt3.server.services import accounts as acc
     ui, w = app.ui, app.words
-    _server_line(app, parent)
+    _server_line(app, parent, change)
     # A stacked form at a readable width, its fields the sign-in's large ones, each with its mark.
     form = widgets.Form(parent, ui, width=SIGN_IN_WIDTH)
     form.pack(anchor="w")
@@ -352,12 +401,12 @@ def _sign_in_form(app, parent, remembered, rerender, test_link, banned):
     first.after_idle(first.focus_set)
 
 
-def _banned_plate(app, parent, reason, again):
+def _banned_plate(app, parent, reason, again, change=None):
     """A banned account (FORMS.md): a plate on the slot's dark with a pink edge, the problem's lamp and "This account is
     banned", the owner's reason after "Reason", that the owner can lift the ban, and one quiet key, Sign in with
-    another ID, which brings the form back with the ID empty."""
+    another ID, which brings the form back with the ID empty; under the server's line (with Change: `change`)."""
     ui, w = app.ui, app.words
-    _server_line(app, parent)
+    _server_line(app, parent, change)
     # As wide as the sign-in form it stands in place of: a column held to that width by a pixel-high rule of the
     # card's colour, the plate and its key across it, the words wrapped inside it.
     column = tk.Frame(parent, bg=theme.PANEL)
@@ -577,6 +626,8 @@ def build_online(app, parent):
     def set_mode(value):
         app.state.mode = value
         app.state.save()
+        # Another way to play: the server's card folds again when its sign-in comes back.
+        app.server_open = None
         app.read_song_list_ahead()
         if value != "this_pc" and app.state.lan and app.host.running and app.session is None:
             # Open to the other PCs on this network only while playing on this PC.
@@ -591,7 +642,8 @@ def build_online(app, parent):
                                                             ("offline", w("online.mode.offline"))], mode, set_mode),
                         w("online.mode.hint." + mode)).pack(fill="x")
     if mode == "server":
-        server_panel(app, parent, lambda: app.go("online"))
+        # Connected with nobody signed in, the sign-in's card leads, before this one.
+        server_panel(app, parent, lambda: app.go("online"), lead=where)
         return
     if mode != "this_pc":
         return

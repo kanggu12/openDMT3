@@ -84,7 +84,10 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   boxes. The sign-in on another server is the site's door: the server it signs in to, the ID and the password with
   their marks, **Remember my ID on this PC**, one sentence under the password for a wrong ID or password, too many
   tries and a server that does not answer above the key (the latter with the way to the connection test), and a
-  banned account's reason on a plate of its own. **Add a player** takes its three fields side by side.
+  banned account's reason on a plate of its own. Once a server is connected and nobody is signed in, the sign-in's
+  card comes first on **Online** and in the guide's LOG IN, whole on the screen at the window's smallest size, the
+  server's card folded into its first line (the address, its version and **Change**). **Add a player** takes its
+  three fields side by side.
 - **Play** shows who plays across its top, then the ready check beside the last game; the cards of instructions on
   **Play** and **Controls** are gone (the guides in the docs keep how the game plays). The settings' hints say one
   fact each.

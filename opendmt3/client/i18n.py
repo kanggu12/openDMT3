@@ -346,6 +346,8 @@ TEXT = {
     # The sign-in (FORMS.md's door): the server it signs in to, Remember my ID, a wrong ID or password in one sentence
     # (as the site says it), the way back when the password is gone, a banned account's plate, signed in.
     "online.signin.to": ("Signing in to", "로그인할 서버"),
+    # On the server's line of the sign-in: the folded server's card opened again, to connect to another one.
+    "online.server.change": ("Change", "변경"),
     "online.remember": ("Remember my ID on this PC", "이 PC에 ID 저장"),
     "online.signin.wrong": ("ID or password does not match.", "ID 또는 비밀번호가 맞지 않습니다."),
     "online.forgot": ("Forgot your password? The server's owner can give you a new one.",

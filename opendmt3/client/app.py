@@ -109,6 +109,7 @@ class LauncherApp:
         self.then = None                      # what main() runs once the window is gone (removing openDMT3)
         self.removing = False                 # the game's files are going back to remove openDMT3
         self.guide = None                     # the first-start guide, while it is on show
+        self.server_open = None               # the server whose folded card Change opened (ONLINE's sign-in line)
         self.main_buttons = []                # the page's main buttons (pages.main_button), lit while PLAY is not
         self.folder_look = None               # what the folder in use is (client/intake.py), for the Game page
         self.game_list = None                 # the Game page's list of folders to change to, while it is open
@@ -549,6 +550,9 @@ class LauncherApp:
     def go(self, page):
         """Show a page: its name lit in the menu, its head (title and line) and its cards."""
         from opendmt3.client import pages
+        if page != self.page:
+            # The server's card opened by Change on ONLINE folds again once the page is left.
+            self.server_open = None
         self.page = page
         # The page's widgets take its section's colour.
         self.ui.use_section(page)

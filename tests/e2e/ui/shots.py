@@ -479,6 +479,38 @@ def screen_reader():
     return lambda x, y: picture.getpixel((x, y)) if 0 <= x < picture.width and 0 <= y < picture.height else None
 
 
+def on_screen(widget):
+    """Whether `widget` stands whole inside its page's visible area (a small window's page scrolled to it)."""
+    area = widget
+    while area is not None and not isinstance(area, widgets.ScrollArea):
+        area = area.master
+    if area is None:
+        return True
+    top = area.canvas.winfo_rooty()
+    return top <= widget.winfo_rooty() and widget.winfo_rooty() + widget.winfo_height() <= (
+        top + area.canvas.winfo_height())
+
+
+def sign_in_card_whole(inside, label, problems):
+    """The sign-in's card that holds `inside` (its form, or a banned account's key), whole on the screen with its page
+    at the top: its fields, what it says, Remember my ID and its key seen without scrolling, at every size."""
+    made = inside
+    while made is not None and not isinstance(made, widgets.Card):
+        made = made.master
+    area = made
+    while area is not None and not isinstance(area, widgets.ScrollArea):
+        area = area.master
+    if made is None or area is None:
+        problems.append("%s: the sign-in is on no card of a page" % label)
+        return
+    scrolled = area.canvas.canvasy(0)
+    if scrolled > 0 or not on_screen(made):
+        problems.append("%s: the sign-in's card is not whole on the screen without scrolling (its foot at %d, the "
+                        "page's at %d, scrolled %d)" % (label, made.winfo_rooty() + made.winfo_height(),
+                                                         area.canvas.winfo_rooty() + area.canvas.winfo_height(),
+                                                         scrolled))
+
+
 def signin_states_check(app, out, tag, problems):
     """ONLINE's sign-in card as a server answers it (remote.sign_in made up here: no network), in each state a person
     meets: the key busy while the server is asked, a wrong ID or password, a server that does not answer, too many
@@ -503,17 +535,6 @@ def signin_states_check(app, out, tag, problems):
         made = [x for x in widgets_of(app.root) if isinstance(x, widgets.Form) and "online.id" in x.fields
                 and "online.dj" not in x.fields and x.winfo_ismapped()]
         return made[0] if made else None
-
-    def on_screen(widget):
-        """Whether `widget` stands whole inside its page's visible area (a small window's page scrolled to it)."""
-        area = widget
-        while area is not None and not isinstance(area, widgets.ScrollArea):
-            area = area.master
-        if area is None:
-            return True
-        top = area.canvas.winfo_rooty()
-        return top <= widget.winfo_rooty() and widget.winfo_rooty() + widget.winfo_height() <= (
-            top + area.canvas.winfo_height())
 
     try:
         app.state.mode, app.state.server_url = "server", base
@@ -555,6 +576,7 @@ def signin_states_check(app, out, tag, problems):
                 wait_out(app, 0.4)
                 shot(app, out, label)
                 measure(app, label, problems)
+                sign_in_card_whole(form, label, problems)
                 if not form.submit_button.busy_now or form.fields["online.id"].enabled:
                     problems.append("%s: while the server is asked, the key does not show it works or the fields "
                                     "can be typed in" % label)
@@ -565,14 +587,18 @@ def signin_states_check(app, out, tag, problems):
             shot(app, out, label)
             measure(app, label, problems)
             form = sign_in_form()
+            if form is not None:
+                sign_in_card_whole(form, label, problems)
             if name == "banned":
-                texts = [x.cget("text") for x in widgets_of(app.root) if isinstance(x, widgets.tk.Label) and x.winfo_ismapped()]
+                texts = [x.cget("text") for x in widgets_of(app.root)
+                         if isinstance(x, widgets.tk.Label) and x.winfo_ismapped()]
                 keys = [x for x in widgets_of(app.root) if isinstance(x, widgets.Button) and x.winfo_ismapped()
                         and x.words == w("online.banned.other")]
                 if form is not None or "Played on another person's card." not in texts or not keys:
                     problems.append("%s: a banned account's plate with the owner's reason and Sign in with another ID "
                                     "does not stand in place of the form" % label)
                 else:
+                    sign_in_card_whole(keys[0], label, problems)
                     keys[0].press()
                     wait_out(app, 0.4)
                     again = sign_in_form()
@@ -604,7 +630,34 @@ def signin_states_check(app, out, tag, problems):
                 if (form.line.link is not None) != (name == "unreachable"):
                     problems.append("%s: the way to the connection test is %s" % (
                         label, "missing" if name == "unreachable" else "offered for an account's trouble"))
+        # Connected with nobody signed in, the server's own card is folded into the sign-in's first line: Change there
+        # opens it as it is before connecting, the keyboard on its address chosen whole, and no sign-in until a server
+        # answers.
+        app.go("online")
+        settle(app)
+        label = "%s_online-signin-change" % tag
+        servers = [x for x in widgets_of(app.root) if isinstance(x, widgets.Form) and "address" in x.fields
+                   and x.winfo_ismapped()]
+        change = [x for x in widgets_of(app.root) if isinstance(x, widgets.tk.Label) and x.winfo_ismapped()
+                  and x.cget("text") == w("online.server.change")]
+        if servers or not change:
+            problems.append("%s: the server's card is not folded into the sign-in's line, or that line has no Change"
+                            % label)
+        else:
+            change[0].event_generate("<Button-1>")
+            settle(app)
+            shot(app, out, label)
+            measure(app, label, problems)
+            servers = [x for x in widgets_of(app.root) if isinstance(x, widgets.Form) and "address" in x.fields
+                       and x.winfo_ismapped()]
+            if not servers or app.root.focus_get() is not servers[0].fields["address"].entry \
+                    or not servers[0].fields["address"].entry.selection_present():
+                problems.append("%s: Change does not open the server's card with the keyboard on its address, chosen "
+                                "whole" % label)
+            if sign_in_form() is not None:
+                problems.append("%s: the sign-in to the server being changed still shows" % label)
     finally:
+        app.server_open = None
         remote.sign_in = real
         app.state.mode, app.state.server_url, app.state.remote = kept
         app.state.save()
@@ -2482,6 +2535,21 @@ def guide_states_check(app, out, tag, problems):
             problems.append("%s_guide4-server: Next is %s and the step %s what lets it go on" % (
                 tag, "lit" if guide.next_button.enabled else "off",
                 "says" if w("guide.login.need.server") in labels(app) else "does not say"))
+        # Connected with nobody signed in: the sign-in leads the step, whole on the screen at every size.
+        app.state.server_url = "http://192.168.0.10:4730"
+        app.state.remote = {"game": "192.168.0.10:4725", "version": "0.3.0"}
+        guide.show(guide.index)
+        settle(app)
+        label = "%s_guide4-server-connected" % tag
+        shot(app, out, label)
+        measure(app, label, problems)
+        forms = [x for x in widgets_of(app.root) if isinstance(x, widgets.Form) and "online.id" in x.fields
+                 and "online.dj" not in x.fields and x.winfo_ismapped()]
+        if not forms:
+            problems.append("%s: no sign-in form in the guide's LOG IN while connected" % label)
+        else:
+            sign_in_card_whole(forms[0], label, problems)
+        app.state.server_url, app.state.remote = None, None
         app.state.mode = "offline"
         guide.show(guide.index)
         settle(app)

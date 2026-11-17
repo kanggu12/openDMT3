@@ -347,7 +347,8 @@ class Guide:
                                                                 ("offline", w("online.mode.offline"))], mode, set_mode),
                             w("online.mode.hint." + mode)).pack(fill="x")
         if mode == "server":
-            last = pages.server_panel(app, parent, lambda: self.show(self.index))
+            # Connected with nobody signed in, the sign-in's card leads the step, before Where you play.
+            last = pages.server_panel(app, parent, lambda: self.show(self.index), lead=where)
             self._needed(last.body, "guide.login.need.server")
             return
         if mode != "this_pc":
