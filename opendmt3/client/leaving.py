@@ -319,13 +319,15 @@ def _named_in(folder, named):
 
 def _launchers_files(folder):
     """Every file delete_data() takes from `folder`: the launcher's own names in its own places, nothing else."""
-    from opendmt3.server.services import cards, catalog
+    from opendmt3.server.services import cards, catalog, players
     yield from _named_in(folder, lambda name: name in DATA_FILES or name.startswith(DATA_PREFIXES))
     yield from _named_in(os.path.join(folder, "logs"), LOG_NAME.match)
     server = os.path.join(folder, "server")
     yield from _named_in(os.path.join(server, "backups"), BACKUP_NAME.match)
     yield from _named_in(os.path.join(server, "logs"), REQUESTS_NAME.match)
     yield from _named_in(os.path.join(server, catalog.JACKETS), PICTURE_NAME.match)
+    # The players' own pictures from the account page (server/services/players.py), one per account by its number.
+    yield from _named_in(os.path.join(server, players.PICTURES), PICTURE_NAME.match)
     pictures = os.path.join(server, cards.FOLDER)
     for kind in _names(pictures):
         yield from _named_in(os.path.join(pictures, kind), PICTURE_NAME.match)
@@ -371,7 +373,7 @@ def delete_data(folder):
     """Delete the launcher's settings, its log and this PC's server data (players, records, the backups of them)
     from `folder`, file by file and only by the names the launcher gives them, then each folder once it is empty.
     A file or folder of any other name stays, and the folders holding it. Returns the names left in `folder`."""
-    from opendmt3.server.services import cards, catalog
+    from opendmt3.server.services import cards, catalog, players
     for path in list(_launchers_files(folder)):
         _delete(path)
     server = os.path.join(folder, "server")
@@ -383,7 +385,7 @@ def delete_data(folder):
     for top in list(_staging(server)):
         for inside, _, _ in os.walk(top, topdown=False):
             _remove_if_empty(inside)
-    for name in (cards.FOLDER, catalog.JACKETS, "backups", "logs") + SERVER_EMPTY:
+    for name in (cards.FOLDER, catalog.JACKETS, players.PICTURES, "backups", "logs") + SERVER_EMPTY:
         _remove_if_empty(os.path.join(server, name))
     for path in (server, os.path.join(folder, "logs"), folder):
         _remove_if_empty(path)

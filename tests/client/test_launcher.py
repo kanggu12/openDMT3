@@ -1150,14 +1150,16 @@ class LauncherTest(FolderCase):
             for name in ("update-pending.json", "launcher.json.broken-20261110-101010", ".launcher-abc123"):
                 with open(os.path.join(folder, name), "w") as f:
                     f.write("{}")
-            for sub in ("backups", "jackets", "cards/icon", "downloads"):
+            for sub in ("backups", "jackets", "cards/icon", "downloads", "pictures", "logs"):
                 os.makedirs(os.path.join(folder, "server", *sub.split("/")))
             os.makedirs(os.path.join(folder, "server", ".song-list-abc123", "jackets"))
             for name in ("openDMT3.sqlite", "openDMT3.sqlite-wal", "openDMT3.sqlite.v3-20261110-101010.bak",
                          "catalog.json", "cards.json", "web.secret", "backups/openDMT3-20261110-000000-daily.sqlite",
                          "jackets/12.png", "cards/icon/6.png", "catalog-read.json", "catalog.log", "catalog.log.1",
                          ".song-list.lock", "maintenance.json", "notice.json.new", ".song-list-upload-x1.zip",
-                         ".song-list-abc123/catalog.json", ".song-list-abc123/jackets/3.png"):
+                         ".song-list-abc123/catalog.json", ".song-list-abc123/jackets/3.png",
+                         # A player's own picture (the account page), the requests log and the machine's last day.
+                         "pictures/7.png", "logs/requests.log", "logs/requests.log.1", "machine.json"):
                 with open(os.path.join(folder, "server", *name.split("/")), "wb") as f:
                     f.write(b"x")
             # Not the launcher's: files someone put there, beside its own and among them.
