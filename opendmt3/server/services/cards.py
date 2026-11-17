@@ -304,17 +304,22 @@ def shown(row, tables):
 
 
 def of(row, tables, catalog, records):
-    """What the game's 0x65 needs for an account row: experience, icon, title and comment."""
+    """What the game's 0x65 needs for an account row: experience (the stages cleared's, with an admin's change:
+    players.py), icon, title, comment and the MAX points the song select shows."""
+    from opendmt3.server.services import players
     cleared = records.cleared(row["id"]) if records is not None else []
     icon, plate, pattern = shown(row, tables)
-    return {"exp": experience(tables, catalog, cleared), "icon": icon, "title": title(plate, pattern),
-            "comment": row["comment"]}
+    return {"exp": players.experience(row, experience(tables, catalog, cleared)), "icon": icon,
+            "title": title(plate, pattern), "comment": row["comment"], "points": players.points_shown(row)}
 
 
 def view(row, tables, catalog, cleared):
     """An account's card as the site, the API and the launcher show it: the choices shown, the comment, the
     experience and the level the game gives it, and whether the server has the pictures."""
+    from opendmt3.server.services import players
     icon, plate, pattern = shown(row, tables)
-    exp = experience(tables, catalog, cleared)
+    # What the game is sent: the stages cleared's experience with the admin's change on top (players.py).
+    exp = players.experience(row, experience(tables, catalog, cleared))
     return {"icon": icon, "plate": plate, "pattern": pattern, "comment": row["comment"], "exp": exp,
-            "level": level(tables, exp), "pictures": bool(tables.get("icon"))}
+            "level": level(tables, exp), "pictures": bool(tables.get("icon")),
+            "max_points": players.points_shown(row)}

@@ -21,10 +21,13 @@ from starlette.routing import Route
 from opendmt3.server.services import accounts as acc
 from opendmt3.server.services import cards
 from opendmt3.server.services import catalog as cat
+from opendmt3.server.services import pictures
+from opendmt3.server.services import players as pl
 from opendmt3.server.services import records as rec
 from opendmt3.server.services import tokens as tok
 # The worker threads a handler hands its work to, its processor time counted (work.py).
-from opendmt3.server.web.work import threaded
+from opendmt3.server.web.work import long, threaded
+from opendmt3.server.web import control
 from opendmt3.server.web import session as sess
 from opendmt3.server.web import strings
 # The cookies' names and the helpers the admin pages and the API use too (common.py).
@@ -48,6 +51,15 @@ RANKING_SHOWN = 100
 BESTS_SHOWN = 20
 
 
+# The changes the account page says it made (?done=), each with its words me.<name>.done, and the section it is in.
+DONE = ("dj_name", "password", "card", "picture", "picture_clear", "signout_others")
+SECTIONS = {"card": "profile", "picture": "profile", "picture_clear": "profile", "dj_name": "account",
+            "password": "security", "signout_others": "security", "delete_me": "security"}
+# Why a picture was refused (?picture=, from its own route: player_pages.py), by the words that say it.
+PICTURE_REFUSALS = {"size": "me.picture.size", "kind": "me.picture.kind", "pixels": "me.picture.pixels",
+                    "expired": "form.expired"}
+
+
 def _number(text):
     """A form's number as an int; anything else as it came (the card's check refuses it), None when absent."""
     if text is None or text == "":
@@ -68,7 +80,9 @@ def routes(site):
         # has the ID typed, so what is left is the password.
         made = _made_id(request.cookies.get(MADE_COOKIE)) if not error else None
         response = site.render(request, "signin.html", status=status, user=None, target=target, error=error,
-                               signin_token=token, login_id=login_id or made or "", made=made)
+                               signin_token=token, login_id=login_id or made or "", made=made,
+                               # Right after a player deleted their own account (the account page sends them here).
+                               gone=request.query_params.get("gone") == "1" and not error)
         response.set_cookie(SIGNIN_COOKIE, token, max_age=3600, httponly=True, samesite="strict",
                             secure=request.url.scheme == "https")
         if MADE_COOKIE in request.cookies:
@@ -118,6 +132,10 @@ def routes(site):
             response.headers["Retry-After"] = str(held[2])
             return response
         if row is None:
+            # A banned account's own password: the player is told why (anyone else gets the one answer for all).
+            reason = await long(control.ban_note, site, login_id, form.get("password", ""))
+            if reason is not None:
+                return await threaded(_signin_page, request, target, 403, w("signin.banned", reason=reason), login_id)
             return await threaded(_signin_page, request, target, 401, w("signin.wrong"), login_id)
         response = _signed_in(request, row, target)
         # The form's token is used up with the sign-in.
@@ -319,35 +337,48 @@ def routes(site):
         return FileResponse(path, media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
 
     async def account_page(request):
-        """The signed-in player's own account: the DJ card, the DJ name, the password (a new card goes with it) and the
-        API's named tokens (made, shown once, listed, revoked: services/tokens.py, shared with the API's twins).
+        """The signed-in player's own account, in three sections: the profile and its decoration (the picture, the DJ
+        card the game shows), the account (the ID, the DJ name) and its security (the password, the sign-ins, the API's
+        named tokens, deleting the account).
 
-        Each change ends on a redirect back here (the page's form token follows the new sign-in after a new
-        password); the current password is counted like a sign-in, so this form cannot be used to guess it. The form
-        is read on the loop; every change and the page are made on worker threads.
+        Each change ends on a redirect back here (the page's form token follows the new sign-in after a new password
+        or a sign-out of the others); the current password is counted like a sign-in, so this form cannot be used to
+        guess it. The form is read on the loop; every change and the page are made on worker threads.
         """
         w = strings.words(site.language(request))
         form = await request.form() if request.method == "POST" else None
         user = await threaded(site.account, request)
-        # A token made just now: shown in this answer only (never in an address or a redirect), with its name.
-        error, made, notice = None, None, None
+        # A token made just now: shown in this answer only (never in an address or a redirect), with its name. A
+        # mistake in the password's form is said under its own field (fields).
+        error, made, notice, fields = None, None, None, {}
         if form is not None:
+            action = form.get("action")
             if not hmac.compare_digest(form.get("csrf", ""), site.csrf(request)):
                 error = w("form.expired")
-            elif form.get("action") in ("token_make", "token_revoke", "card", "dj_name"):
+            elif action in ("token_make", "token_revoke", "card", "dj_name"):
                 # A change without a password: made on a worker thread; a done one goes back to the page.
                 error, made, notice, back = await threaded(_account_change, w, user, form)
                 if back:
                     return _redirect(back)
-            elif form.get("action") == "password":
+            elif action == "signout_others":
+                # Every other sign-in on the site ends (a new round of sign-ins), this one comes along to the next.
+                fresh = await threaded(_others_out, user)
+                return _signed_in(request, fresh, "/account?done=signout_others")
+            elif action in ("password", "delete_me"):
                 # The current password is checked like a sign-in: the same limits, on a worker thread.
                 checked, held = await _check_password(site, request, user["login_id"], form.get("current", ""))
                 if held:
-                    error = w(held[0])
+                    fields["current"] = w(held[0])
                 elif checked is None:
-                    error = w("me.password.wrong")
+                    fields["current"] = w("me.password.wrong")
+                elif action == "delete_me":
+                    refused = await threaded(_delete_me, w, user)
+                    if refused is None:
+                        # Gone: nothing is signed in any more; the sign-in page says so.
+                        return _redirect("/signin?gone=1")
+                    error = refused
                 elif form.get("new", "") != form.get("again", ""):
-                    error = w("me.password.mismatch")
+                    fields["again"] = w("me.password.mismatch")
                 else:
                     try:
                         await site.hashed(_accounts_call, site, "set_password", user["login_id"], form.get("new", ""),
@@ -356,11 +387,42 @@ def routes(site):
                         fresh = await threaded(_accounts_call, site, "by_login", user["login_id"])
                         return _signed_in(request, fresh, "/account?done=password")
                     except acc.AccountError as e:
-                        error = w.error(e)
+                        fields["new"] = w.error(e)
+                # Which form the field's words are for: the password's, or the deletion's own password box.
+                fields["form"] = action
         done = request.query_params.get("done")
-        if notice is None and done in ("dj_name", "password", "card") and not error:
+        if notice is None and done in DONE and not error:
             notice = w("me.%s.done" % done)
-        return await threaded(_account_shown, request, user, notice, error, made)
+        # A picture refused on its own route comes back here with why, as a word of the address.
+        refused = request.query_params.get("picture")
+        if refused in PICTURE_REFUSALS and not error:
+            error = w(PICTURE_REFUSALS[refused], mb=pl.PICTURE_UPLOAD_MOST >> 20)
+        return await threaded(_account_shown, request, user, notice, error, made, fields, done)
+
+    def _others_out(user):
+        """account_page's sign-out of every other sign-in on a worker thread: the account as it is now."""
+        store = site.accounts()
+        try:
+            store.end_sign_ins(user["id"])
+            store._log(user["login_id"], "signed %s out everywhere else" % user["login_id"], user["login_id"])
+            return store.by_login(user["login_id"])
+        finally:
+            store.db.close()
+
+    def _delete_me(w, user):
+        """The player's own account deleted (its plays go with it), on a worker thread: None when done, else the
+        page's words for why not (the only enabled admin stays)."""
+        store = site.accounts()
+        try:
+            if store.leaves_no_admin(user["login_id"]):
+                return w("me.delete.last_admin")
+            if user["picture"]:
+                # The picture's file goes too (the account's row takes the rest with it).
+                pl.Players(store.db).clear_picture(user["login_id"], site.data_dir, who=user["login_id"])
+            store.delete(user["login_id"], who=user["login_id"])
+            return None
+        finally:
+            store.db.close()
 
     def _account_change(w, user, form):
         """account_page's changes that need no password, on a worker thread: (error, the token made, the notice, the
@@ -398,18 +460,25 @@ def routes(site):
         finally:
             store.db.close()
 
-    def _account_shown(request, user, notice, error, made):
+    def _account_shown(request, user, notice, error, made, fields, done):
         """The account page itself, on a worker thread: the player's named tokens, newest first (names, scopes and
-        times, never the tokens), the DJ card and the choices."""
+        times, never the tokens), the DJ card and the choices, and the section each notice belongs to."""
         store = site.accounts()
         try:
             listed = tok.Tokens(store.db).all(user["id"])
+            # The account as it is now (the request's row may be from before a change on this very request).
+            fresh = store.by_login(user["login_id"]) or user
         finally:
             store.db.close()
-        return site.render(request, "account.html", user=user, notice=notice, error=error, card=_card(site, user),
-                           choices=cards.load(site.data_dir), comment_max=cards.COMMENT_MAX,
+        # Where the page opens: the section of what was just done or refused.
+        action = fields.get("form") or (done if done in DONE else None)
+        opened = SECTIONS.get(action, "security" if made or fields else "profile")
+        return site.render(request, "account.html", user=user, me=fresh, notice=notice, error=error,
+                           card=_card(site, fresh), choices=cards.load(site.data_dir), comment_max=cards.COMMENT_MAX,
                            password_min=acc.PASSWORD_MIN, password_max=acc.PASSWORD_MAX, dj_max=acc.DJ_NAME_MAX,
-                           tokens=listed, made=made, token_name_max=tok.NAME_MAX, tokens_most=tok.MOST)
+                           tokens=listed, made=made, token_name_max=tok.NAME_MAX, tokens_most=tok.MOST,
+                           fields=fields, opened=opened, picture_mb=pl.PICTURE_UPLOAD_MOST >> 20,
+                           picture_size=pl.PICTURE_SIZE, pictures_taken=pictures.available())
 
     def card_picture(request):
         """A picture of the DJ card's choices, read from the server owner's own game files at --catalog."""

@@ -6,6 +6,7 @@ The words of errors are in errors.py, shared with the launcher.
 import re
 
 from opendmt3.core import errors
+from opendmt3.server.web import strings_crew
 
 TEXT = {
     "site.tagline": ("Open-source TECHNIKA 3 project", "오픈소스 TECHNIKA 3 프로젝트"),
@@ -844,6 +845,9 @@ TEXT = {
     "job.again": ("Look again", "다시 보기"),
 }
 
+# The account area's and the admin's page of one player's words (strings_crew.py), in the same table.
+TEXT.update(strings_crew.TEXT)
+
 
 def words(language):
     """A function key -> text in the language (Korean entries fall back to English when missing).
@@ -887,6 +891,8 @@ def _shape(english):
     return re.compile("^%s$" % pattern, re.S)
 
 
+# The account area's and the player page's changes, tried after the others.
+CHANGES += strings_crew.CHANGES
 # Each shape made once, when the site starts.
 _SHAPES = [(key, _shape(TEXT[key][0])) for key in CHANGES]
 

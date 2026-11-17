@@ -35,7 +35,7 @@ CARRIES_SECRETS = frozenset((0x60, 0x61, 0x62))
 NAMES = {
     0x01: "HandshakeRequest", 0x02: "HandshakeAnswer", 0x03: "HandshakeResult", 0x06: "Ping", 0x07: "Pong",
     0x0A: "Alive", 0x0B: "AliveAck", 0x5E: "OnlineNotify", 0x5F: "MusicHiScoreAck", 0x60: "CardAuth",
-    0x61: "IdAuth", 0x62: "Join", 0x64: "AuthInAck", 0x65: "UserInfo",
+    0x61: "IdAuth", 0x62: "Join", 0x64: "AuthInAck", 0x65: "UserInfo", 0x79: "SessionMaxPoints",
 }
 
 
@@ -170,6 +170,7 @@ TITLE_AT = 46               # the DJ card's title plate: a u32, (pattern number 
 COMMENT_STYLE_AT = 50       # the comment's letters: 1 white with an outline (0 draws them clear: no comment shows)
 COMMENT_AT = 54             # one line over the plate, 12 UTF-16 units up to the note skin at 78 (always 0 here)
 COMMENT_CHARS = 12
+POINTS_AT = 82              # MAX points, the game's currency: shown beside the DJ name on the song select
 ICON = 1                    # the basic DJ icon, a new player's
 # The Platinum Crew plate with no pattern over it: what the game's own login screen calls the player (a Platinum
 # Crew member), and the value proven on screen. Plate and pattern numbers come from the game's title tables;
@@ -177,10 +178,10 @@ ICON = 1                    # the basic DJ icon, a new player's
 TITLE = 0x00008001
 
 
-def user_info(user_number, dj_name, title=TITLE, exp=0, icon=ICON, comment=""):
+def user_info(user_number, dj_name, title=TITLE, exp=0, icon=ICON, comment="", points=0):
     """0x65: the player as the game shows them on the DJ card: their number, the DJ name, the level (from the
-    experience), the icon, the title plate and the comment over it. The other fields (MAX points, the note skin,
-    the crew, the boosts) stay zero. Each field here was seen on the game's screen with these values; a number
+    experience), the icon, the title plate and the comment over it, and the MAX points the song select shows beside
+    the name (seen there as 432098). The other fields (the note skin, the crew, the boosts) stay zero. Each field here was seen on the game's screen with these values; a number
     outside the game's own tables crashed it once (a note skin it has no folder for), so the callers send only
     numbers the tables have (services/cards.py).
 
@@ -194,6 +195,8 @@ def user_info(user_number, dj_name, title=TITLE, exp=0, icon=ICON, comment=""):
     _put_wide(msg, DJ_NAME_AT, 9, dj_name)
     struct.pack_into("<I", msg, ICON_AT, icon)
     struct.pack_into("<I", msg, TITLE_AT, title)
+    # The balance the server keeps; the game adds what this session earns to it on its own screen.
+    struct.pack_into("<I", msg, POINTS_AT, points)
     if comment:
         # White letters with an outline; all 12 places may hold letters (the note skin after them is zero).
         struct.pack_into("<I", msg, COMMENT_STYLE_AT, 1)
@@ -273,3 +276,10 @@ def stage_results(msg):
             "raw": raw,
         })
     return user, mode, bool(cleared), records
+
+
+def session_points(msg):
+    """0x79 at the end of a session: (user number, the MAX points the session earned). The client sends it with the
+    results (0x78 to 0x6E, every session, captured), its two values from its player (uiGSN) and the points it added up
+    this session (iAddMaxPoint, the names in the client's own build): CNetLayer 0x713de0, called from 0x480940."""
+    return struct.unpack_from("<II", msg, 8)

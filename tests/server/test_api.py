@@ -801,9 +801,13 @@ class RouteDocsTest(ApiBase):
         is the table's, and its answer has the table's main fields of the table's types (or is the table's file)."""
         from opendmt3.server.services import backups
         from opendmt3.server.web import calls
-        self.make("BOSS", dj="BOSS", admin=True)
+        boss = self.make("BOSS", dj="BOSS", admin=True)
         nova = self.make()
         self.make("PASS", dj="PASS")
+        # An account that deletes itself (DELETE /api/v1/me), and a made-up picture to upload.
+        self.make("GONE", dj="GONE")
+        from tests.server.test_players import made_up_picture
+        picture = made_up_picture()
         self.catalog([{"number": 1, "title": "Made-up Song"}])
         self.play(nova, 1, 1, 500)
         # A picture of a song and of an icon, an installer, a cabinet seen and a backup, so their calls answer.
@@ -813,7 +817,7 @@ class RouteDocsTest(ApiBase):
             with open(os.path.join(self.tmp, folder, name), "wb") as f:
                 f.write(b"\x89PNG made-up" if name.endswith(".png") else b"MZ made-up")
         with open(os.path.join(self.tmp, "cards.json"), "w") as f:
-            f.write('{"icon": [{"number": 1, "grade": ""}], "plate": [], "pattern": []}')
+            f.write('{"icon": [{"number": 1, "grade": ""}], "plate": [], "pattern": [], "levels": [12, 42, 92]}')
         store = self.site.activity()
         try:
             store.seen("198.51.100.7", "test", "198.51.100.7:50000")
@@ -841,6 +845,11 @@ class RouteDocsTest(ApiBase):
             ("POST", "/api/v1/tokens", "/api/v1/tokens", {"json": {"name": "bot", "scope": "read"}}),
             ("GET", "/api/v1/tokens", "/api/v1/tokens", {}),
             ("DELETE", "/api/v1/tokens/{id}", "/api/v1/tokens/{made_token}", {}),
+            ("POST", "/api/v1/me/picture", "/api/v1/me/picture", {"content": picture}),
+            ("GET", "/api/v1/djs/{player}/picture.png", "/api/v1/djs/%d/picture.png" % boss["id"], {}),
+            ("DELETE", "/api/v1/me/picture", "/api/v1/me/picture", {}),
+            ("DELETE", "/api/v1/me/sign_ins", "/api/v1/me/sign_ins", {}),
+            ("DELETE", "/api/v1/me", "/api/v1/me", {"json": {"password": "pass1234"}, "token": self.token("GONE")}),
             ("GET", "/api/v1/plays", "/api/v1/plays", {}),
             ("GET", "/api/v1/rankings", "/api/v1/rankings", {}),
             ("GET", "/api/v1/songs", "/api/v1/songs", {}),
@@ -859,6 +868,15 @@ class RouteDocsTest(ApiBase):
             ("DELETE", "/api/v1/players/{login_id}/admin", "/api/v1/players/NEW1/admin", {}),
             ("POST", "/api/v1/players/{login_id}/disable", "/api/v1/players/NEW1/disable", {}),
             ("POST", "/api/v1/players/{login_id}/enable", "/api/v1/players/NEW1/enable", {}),
+            ("GET", "/api/v1/players/{login_id}", "/api/v1/players/NEW1", {}),
+            ("POST", "/api/v1/players/{login_id}/max_points", "/api/v1/players/NEW1/max_points", {"json": {"amount": 9}}),
+            ("POST", "/api/v1/players/max_points", "/api/v1/players/max_points", {"json": {"add": 5}}),
+            ("POST", "/api/v1/players/{login_id}/level", "/api/v1/players/NEW1/level", {"json": {"level": 3}}),
+            ("DELETE", "/api/v1/players/{login_id}/level", "/api/v1/players/NEW1/level", {}),
+            ("POST", "/api/v1/players/{login_id}/ban", "/api/v1/players/NEW1/ban", {"json": {"reason": "Made up"}}),
+            ("DELETE", "/api/v1/players/{login_id}/ban", "/api/v1/players/NEW1/ban", {}),
+            ("POST", "/api/v1/players/{login_id}/dj_card", "/api/v1/players/NEW1/dj_card", {"json": {"comment": "HI"}}),
+            ("DELETE", "/api/v1/players/{login_id}/picture", "/api/v1/players/NEW1/picture", {}),
             ("DELETE", "/api/v1/players/{login_id}/plays", "/api/v1/players/NEW1/plays", {}),
             ("DELETE", "/api/v1/players/{login_id}", "/api/v1/players/NEW1", {}),
             ("POST", "/api/v1/cabinets/{id}/name", "/api/v1/cabinets/%d/name" % cabinet, {"json": {"name": "Left"}}),

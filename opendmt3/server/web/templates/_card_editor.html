@@ -1,0 +1,33 @@
+{# The DJ card's editor, inside its form: a preview drawn as the game draws the card (the icon, the plate with its
+   pattern over it and the comment over both, the level and the name), which follows every choice as it is made
+   (static/profile.js), then the comment and one group of pictures per choice, the chosen one ringed.
+   Needs: card (cards.view), name, choices (cards.load), comment_max, comment (the comment now). #}
+<div class="card-preview" aria-live="polite">
+  {% if card.pictures %}
+  <img class="cp-icon" data-kind="icon" src="/cards/icon/{{ card.icon }}.png" alt="{{ w('me.card.icon') }} {{ w('me.card.number', n=card.icon) }}" width="104" height="64">
+  <span class="cp-plate">
+    <img data-kind="plate" src="/cards/plate/{{ card.plate }}.png" alt="" width="204" height="64">
+    <img class="over" data-kind="pattern" src="/cards/pattern/{{ card.pattern }}.png" alt="" width="204" height="64"{% if not card.pattern %} hidden{% endif %}>
+    <span class="cp-comment">{{ comment }}</span>
+  </span>
+  {% else %}<span class="cp-plate plain"><span class="cp-comment">{{ comment }}</span></span>{% endif %}
+  <span class="cp-who">
+    {% if card.level %}<span class="cp-level">Lv {{ card.level }}</span>{% endif %}
+    <span class="cp-name">{{ name }}</span>
+    <span class="cp-points" title="{{ w('profile.points') }}">{{ w("profile.points.short") }} {{ "{:,}".format(card.max_points) }}</span>
+  </span>
+</div>
+<label class="comment-field">{{ w("me.card.comment") }}
+  <input name="comment" value="{{ comment }}" maxlength="{{ comment_max }}" aria-describedby="comment-count">
+  <span class="muted small" id="comment-count" data-count>{{ comment|length }} / {{ comment_max }}</span>
+</label>
+{% if choices.icon %}
+{% for kind, now in (("icon", card.icon), ("plate", card.plate), ("pattern", card.pattern)) %}
+<details class="picker"><summary>{{ w("me.card." + kind) }} <span class="muted">{{ w("me.card.count", n=choices[kind]|length) }}</span></summary>
+  <div class="choices {{ kind }}" role="radiogroup" aria-label="{{ w('me.card.' + kind) }}">
+    {# A pattern is seen over the plate chosen now (pattern 0, none, is the plate alone). #}
+    {% for c in choices[kind] %}<label class="choice" title="{{ w('me.card.number', n=c.number) }}{{ ' · ' + c.grade if c.grade }}"{% if kind == "pattern" %} style="background-image: url(/cards/plate/{{ card.plate }}.png)"{% endif %}><input type="radio" name="{{ kind }}" value="{{ c.number }}"{{ " checked" if c.number == now }}><img src="/cards/{{ kind }}/{{ c.number }}.png" alt="{{ w('me.card.number', n=c.number) }}" loading="lazy" width="{{ 104 if kind == 'icon' else 204 }}" height="64"></label>{% endfor %}
+  </div>
+</details>
+{% endfor %}
+{% else %}<p class="muted small">{{ w("me.card.no_pictures") }}</p>{% endif %}

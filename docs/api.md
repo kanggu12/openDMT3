@@ -76,7 +76,7 @@ caller's ID, as the same change on the site does.
 | `GET /api/v1/status` | anyone | | `{"server": "openDMT3", "version", "game_port", "updates"}`; `updates` is whether `/updates/` hands out the launcher's update packages | | (the launcher's server check) |
 | `GET /api/v1/openapi.json` | anyone | | the OpenAPI 3.1 document of every call under `/api/v1/` (below) | | (programs that read OpenAPI) |
 | `GET /updates/{name}` | anyone | | one file of the launcher's update feed in `data/updates/`: `releases.win.json`, a `.nupkg` or its `.sig` | `404` (as text) for any other name | (the launcher's updates) |
-| `POST /api/v1/session` | anyone | `{"login_id", "password"}` | the account and a token (above) | `400 bad_request`, `401 wrong_sign_in`, `429 too_many_tries` | Sign in |
+| `POST /api/v1/session` | anyone | `{"login_id", "password"}` | the account and a token (above) | `400 bad_request`, `401 wrong_sign_in`, `403 banned` (the right password of a banned account: the error has the ban's `reason` beside its `message`), `429 too_many_tries` | Sign in |
 | `DELETE /api/v1/session` | signed in | | `{"signed_out": true}`: the token sent no longer works (a named token is revoked); the account's other tokens and its sign-ins on the site go on | | Sign out |
 | `GET /api/v1/licenses` | anyone | `?lang=` | `{"own": {"name", "text"}, "parts": [{"part", "used_for", "license"}], "licenses": [{"name", "faces", "text"}]}`: openDMT3's own license (its text `null` when the server has no `LICENSE` beside the package), the parts the server and the launcher it hands out are made with, each with what it is used for and its license, and the fonts the site serves, each license with the faces it covers and its text in full | | Licenses |
 
@@ -93,6 +93,10 @@ caller's ID, as the same change on the site does.
 | `GET /api/v1/tokens` | signed in | | `{"tokens": [{"id", "name", "scope", "created_at", "used_at"}]}`: your named tokens, newest first, with when each was made and last used (null: never); never the tokens themselves | | My account, API tokens |
 | `POST /api/v1/tokens` | signed in | `{"name", "scope"}`, `scope` `read` or `write` | `201` with the token's `id`, `name`, `scope`, `created_at`, `used_at` and `token`, the token itself, which this answer alone has | `400 bad_request`, `400 refused` (a name of 1 to 40 characters on one line, a scope of `read` or `write`, 20 tokens at most) | My account, make a token |
 | `DELETE /api/v1/tokens/{id}` | signed in | | `{"revoked": id, "name"}`: the token ends for good (it may be the one calling) | `404 unknown_token` | My account, revoke a token |
+| `POST /api/v1/me/picture` | signed in | the picture itself as the body: PNG, JPEG, WebP or GIF, up to 2 MB and 4096 × 4096 pixels | the account with `picture`, how many pictures it has had (its address `/pictures/{player}.png?v={picture}` changes with each); the server keeps a square of 256 pixels cut from the middle, made again from its pixels alone. The site's own: the game shows the DJ icon | `400 refused` (not a picture), `413 too_large` | My account, Profile, picture |
+| `DELETE /api/v1/me/picture` | signed in | | the account with `picture` 0 | | My account, Profile, remove the picture |
+| `DELETE /api/v1/me/sign_ins` | signed in | | `{"signed_out": true}`: every sign-in on the site ends; the launcher's tokens and the token calling go on | | My account, Security, sign out everywhere else |
+| `DELETE /api/v1/me` | signed in | `{"password"}` | `{"deleted": login_id}`: the account goes with its plays, DJ card and picture, and its card stops logging in | `400 bad_request`, `400 refused` (the server's only enabled admin), `403 wrong_password`, `429 too_many_tries` | My account, Security, delete the account |
 
 ### Records
 
@@ -104,6 +108,7 @@ caller's ID, as the same change on the site does.
 | `GET /api/v1/songs/{number}` | signed in | | one song's boards, one per chart (below) | `404 unknown_song` | A song |
 | `GET /api/v1/songs/{number}/jacket.png` | signed in | | the song's jacket (PNG), read from its owner's game files | `404 not_found` | Songs and a song (`/jackets/{number}.png`) |
 | `GET /api/v1/djs/{player}` | signed in | | a player's records (below): `dj_card`, counts, best scores, recent plays, `activity` (stages per week for 12 weeks, per mode, most played songs, sessions, seconds played) and `places`, their place in each mode's ranking by total (`[{"mode", "mode_name", "place", "of"}]`) | `404 unknown_player` | A DJ (`/dj/{player}`) |
+| `GET /api/v1/djs/{player}/picture.png` | signed in | | a player's picture (PNG, 256 × 256) | `404 not_found` (none, or a disabled account's) | A DJ, My account (`/pictures/{player}.png`) |
 | `GET /api/v1/cabinets` | signed in | `?all=1` (an admin's) | the cabinets connected now: `{"cabinets": [{"player"}]}`, `player` the DJ name on each (null when free); an admin's token also gets each one's `address`, `version` and `login_id`. With `all`, every cabinet seen: `id`, `host`, `name`, `version`, `first_seen`, `last_seen`, `sessions`, `plays`, `connected`, `player` | `403 admin_only` (`all` with a player's token), `403 read_only` (`all` with a read-only token) | Home, cabinets; Admin, cabinets |
 
 ### Downloads
@@ -129,6 +134,15 @@ caller's ID, as the same change on the site does.
 | `DELETE /api/v1/players/{login_id}` | admin | | `{"deleted": login_id}`; the account's plays go with it | `400 refused` (your own account), `404 unknown_player` | Admin, delete |
 | `DELETE /api/v1/players/{login_id}/plays` | admin | | `{"login_id", "plays", "kept_as"}`: the player's plays go (`plays`, how many), after a backup of the database (`kept_as`, a backup of the kind `reset`); the account, its DJ card and its settings stay | `404 unknown_player` | Admin, players, reset plays |
 | `DELETE /api/v1/plays` | admin | | `{"plays", "kept_as"}`: every player's plays go, after a backup of the database, as for one player | | Admin, players, reset every play |
+| `GET /api/v1/players/{login_id}` | admin | | one player as their page shows them (below) | `404 unknown_player` | Admin, a player (`/admin/players/{login_id}`) |
+| `POST /api/v1/players/{login_id}/max_points` | admin | one of `{"amount"}` (the balance, 0 to 999999), `{"add"}` (added, below 0 taken, kept within 0 to 999999) or `{"unlimited"}` (true or false) | the player (below). MAX points are the game's currency: the game shows the balance beside the DJ name on the song select from the next card login, adds what each session earns (the server keeps what the game reports, at most 4,000 a login), and with `unlimited` shows 999999 | `400 bad_request`, `400 refused`, `404 unknown_player` | Admin, a player, MAX points |
+| `POST /api/v1/players/max_points` | admin | `{"add", "login_ids"}`, `login_ids` a list of IDs (without it: every player) | `{"players"}`: how many balances changed, each kept within 0 to 999999 | `400 bad_request`, `400 refused`, `404 unknown_player` | (programs: MAX points for many players) |
+| `POST /api/v1/players/{login_id}/level` | admin | `{"level"}`, 1 to the game's last (99) | the player: the game shows that level from the next card login, and it grows from there as they clear stages (`exp_extra`, the change on top of `exp_plays`) | `400 bad_request`, `400 refused` (no table of levels before the song list is read), `404 unknown_player` | Admin, a player, level |
+| `DELETE /api/v1/players/{login_id}/level` | admin | | the player, the level of their cleared stages again | `404 unknown_player` | Admin, a player, back to the level of their plays |
+| `POST /api/v1/players/{login_id}/ban` | admin | `{"reason"}`, one line of 1 to 120 characters | the player, banned: the game refuses their card, the site and the launcher their sign-in (telling them the reason), and they leave the rankings | `400 bad_request`, `400 refused` (a reason's rules, the only enabled admin), `404 unknown_player` | Admin, a player, ban |
+| `DELETE /api/v1/players/{login_id}/ban` | admin | | the player, enabled again | `404 unknown_player` | Admin, a player, lift the ban |
+| `POST /api/v1/players/{login_id}/dj_card` | admin | any of `{"icon", "plate", "pattern", "comment"}` | the player with their card, by the rules of `POST /api/v1/me/dj_card` | `400 bad_request`, `400 refused`, `404 unknown_player` | Admin, a player, DJ card |
+| `DELETE /api/v1/players/{login_id}/picture` | admin | | the player, without their picture | `404 unknown_player` | Admin, a player, remove the picture |
 
 ### The admin's cabinets, status, notice and logs
 
@@ -232,11 +246,29 @@ A player's records:
 A DJ card, as `dj_card` in the account and a player's records:
 
 ```json
-{"icon": 6, "plate": 32768, "pattern": 7, "comment": "HELLO", "exp": 1000, "level": 10, "pictures": true}
+{"icon": 6, "plate": 32768, "pattern": 7, "comment": "HELLO", "exp": 1000, "level": 10, "pictures": true,
+ "max_points": 4200}
 ```
 
-`exp` is the experience of the stages the player cleared, and `level` the level the game shows for it (null before
-the server read its owner's game files). `pictures` is whether the server has the pictures to show the card.
+`exp` is the experience the game is sent: that of the stages the player cleared, with an admin's change of the level
+on top. `level` is the level the game shows for it (null before the server read its owner's game files).
+`pictures` is whether the server has the pictures to show the card. `max_points` is what the song select shows beside
+the name: the balance, or 999999 while it is unlimited.
+
+A player, as `GET /api/v1/players/{login_id}` and each change to them answer (`history`: the newest changes made to
+the account, by anyone, newest first; `card_end`: the card number's last four digits):
+
+```json
+{"login_id": "NOVA", "dj_name": "DJ NOVA", "player": 2, "is_admin": false, "disabled": false, "banned": false,
+ "ban_reason": null, "created_at": 1762560000, "last_login": 1762560600, "card_end": "0417",
+ "dj_card": {"icon": 6, "plate": 32768, "pattern": 7, "comment": "HELLO", "exp": 1013, "level": 11,
+             "pictures": true, "max_points": 4200},
+ "exp_plays": 13, "exp_extra": 1000, "max_points": 4200, "unlimited_points": false, "points_shown": 4200,
+ "levels": 99, "picture": 1, "summary": {"plays": 1, "songs": 1, "charts": 1, "last": 1762560600},
+ "recent": [{"song": 1, "title": "...", "pattern": 1, "score": 1300, "mode": 0, "mode_name": "STAR", "dj": "DJ NOVA",
+             "player": 2, "level": 7, "at": 1762560600}],
+ "history": [{"at": 1762560700, "who": "BOSS", "what": "set the level of NOVA to 11"}]}
+```
 
 Disabled accounts are in no ranking, board or list of everyone's plays, and have no DJ page.
 
@@ -263,8 +295,8 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/
 Every error under `/api/`, a wrong path or method included, answers its HTTP status and
 `{"error": {"code": "...", "message": "..."}}`: `bad_request` (400, such as a mode outside 0 to 255),
 `refused` (400, a change the rules refuse, with the reason), `wrong_sign_in` (401), `sign_in` (401, no token, or
-one that no longer works), `admin_only`, `read_only` (a read-only named token) and `wrong_password` (403, the current
-password on a change), `unknown_song`, `unknown_player`, `unknown_backup`, `unknown_cabinet`, `unknown_token`,
+one that no longer works), `admin_only`, `read_only` (a read-only named token), `wrong_password` (403, the current
+password on a change) and `banned` (403, a banned account's sign-in, with its `reason`), `unknown_song`, `unknown_player`, `unknown_backup`, `unknown_cabinet`, `unknown_token`,
 `no_installer`, `no_game_folder` and `not_found` (404), `method_not_allowed` (405, with `Allow`, the methods the path
 takes), `busy` and `not_read` (409, the song list imported while another import goes, or a song list that cannot be
 read),

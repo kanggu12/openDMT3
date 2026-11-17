@@ -10,6 +10,7 @@
     <p class="muted">{{ w("signin.text") }}</p>
     {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
     {# Right after the first-run page made the owner's account: said once, with the ID typed already. #}
+    {% if gone %}<p class="alert ok" role="status">{{ w("signin.gone") }}</p>{% endif %}
     {% if made %}<p class="alert ok" role="status">{{ w("signin.made", login_id=made) }}</p>{% endif %}
     {# After a try that failed the ID stays typed and the password box takes the focus; the password is never kept. #}
     <form method="post" action="/signin?next={{ target|urlencode }}" class="form">

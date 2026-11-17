@@ -59,9 +59,10 @@ class Tokens:
     def __init__(self, db):
         self.db = db
 
-    def _log(self, who, what):
-        # The change log, as every change made on the site or through the API writes it.
-        self.db.execute("INSERT INTO changes (at, who, what) VALUES (?, ?, ?)", (int(time.time()), who, what))
+    def _log(self, who, what, account_id=None):
+        # The change log, as every change made on the site or through the API writes it, under the account it names.
+        self.db.execute("INSERT INTO changes (at, who, what, account_id) VALUES (?, ?, ?, ?)",
+                        (int(time.time()), who, what, account_id))
 
     def all(self, account_id):
         """The account's tokens, newest first: id, name, scope, when made and last used (never the hash)."""
@@ -96,7 +97,7 @@ class Tokens:
             self.db.execute("INSERT INTO api_tokens (id, account_id, name, scope, hash, created_at)"
                             " VALUES (?, ?, ?, ?, ?, ?)", (token_id, account["id"], name, scope, digest(token), made))
             # In the change log by its name and scope: never the token.
-            self._log(who, "made the API token %s (%s) for %s" % (name, scope, account["login_id"]))
+            self._log(who, "made the API token %s (%s) for %s" % (name, scope, account["login_id"]), account["id"])
         return {"id": token_id, "name": name, "scope": scope, "created_at": made, "used_at": None}, token
 
     def revoke(self, account, token_id, who="system"):
@@ -107,7 +108,7 @@ class Tokens:
         if row is None:
             raise TokenError("no token %s on this account" % token_id, "error.token.unknown", id=token_id)
         self.db.execute("DELETE FROM api_tokens WHERE id = ?", (str(token_id),))
-        self._log(who, "revoked the API token %s of %s" % (row["name"], account["login_id"]))
+        self._log(who, "revoked the API token %s of %s" % (row["name"], account["login_id"]), account["id"])
         return row["name"]
 
     def check(self, sent):

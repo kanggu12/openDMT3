@@ -127,6 +127,21 @@ STEPS = [
         "CREATE INDEX sessions_by_cabinet ON sessions (cabinet)",
         "CREATE INDEX plays_by_session ON plays (session_id)",
     ],
+    # 9: what an admin controls of a player in the game, and the player's own picture (services/players.py). The game's
+    # currency, MAX points, is kept here: the game shows the balance beside the name (0x65 at 82) and reports what a
+    # session earned (0x79); `unlimited_points` makes the game show the most instead. `exp_extra` is the admin's change
+    # to the level, added to the experience of the stages cleared. A ban is a disabled account with the reason the
+    # player is shown. `picture` counts the player's uploads (0: none), so a new one gets a new address. Each change
+    # in the log names the account it was made to (NULL for the server's own), for the admin's page of one player.
+    [
+        "ALTER TABLE accounts ADD COLUMN max_points INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE accounts ADD COLUMN unlimited_points INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE accounts ADD COLUMN exp_extra INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE accounts ADD COLUMN ban_reason TEXT",
+        "ALTER TABLE accounts ADD COLUMN picture INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE changes ADD COLUMN account_id INTEGER",
+        "CREATE INDEX changes_by_account ON changes (account_id, id)",
+    ],
 ]
 VERSION = len(STEPS)
 # How long a statement waits for another connection's write to end before it gives up with "database is locked", in

@@ -21,7 +21,7 @@ from opendmt3.server.web import strings
 PACKAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, os.pardir, "opendmt3")
 # The exceptions built on errors.Worded.
 WORDED = ("GameError", "AccountError", "HostingError", "RemoteError", "BackupError", "CardError", "UpdateError", "RepairError",
-          "NoticeError", "TokenError", "SourceError", "SongListError")
+          "NoticeError", "TokenError", "SourceError", "SongListError", "PlayerError")
 
 
 def _english(call):

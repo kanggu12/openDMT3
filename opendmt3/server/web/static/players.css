@@ -1,0 +1,130 @@
+/* The account area (the player's profile and its decoration, the account, its security) and the admin's page of one
+   player, in the site's own tokens (site.css): the same gunmetal cards and cut corners, colour only where it means
+   something (amber for the console, pink for a refusal and a ban, lime for what went well). */
+
+/* -------------------------------------------------------------------------------------- the account area */
+/* A rail of the three sections beside them on a wide screen, a row above them on a phone. */
+.account-area { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; max-width: 1180px; margin: 0 auto;
+                padding: 24px 32px 40px; }
+.subnav { position: sticky; top: 84px; align-self: start; display: grid; gap: 4px; }
+.subnav a { display: block; padding: 10px 14px; color: var(--ash); background: var(--deck); border-left: 3px solid transparent; }
+.subnav a:hover { color: var(--chalk); background: var(--deck-top); text-decoration: none; }
+.subnav a.on { color: var(--chalk); border-left-color: var(--accent); background: var(--deck-top); }
+.sections { min-width: 0; }
+.area-section { scroll-margin-top: 84px; margin-bottom: 30px; }
+.area-section > h2 { font: 400 18px/1.2 var(--wide); letter-spacing: 0.02em; margin: 0 0 14px; color: var(--chalk); }
+body.lang-ko .area-section > h2 { font: 700 20px/1.3 var(--text-face); letter-spacing: 0; }
+
+/* The profile's head: the picture, the name and what the game shows of the level and the points, the picture's forms. */
+.profile-head { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 280px); gap: 22px; align-items: start; }
+.profile-name { font: 700 26px/1.15 var(--text-face); margin: 4px 0 10px; overflow-wrap: anywhere; }
+.picture-forms { display: grid; gap: 10px; }
+.picture-forms h3 { margin-bottom: 4px; }
+.picture-forms .buttons { display: flex; gap: 8px; }
+.picture-forms input[type="file"] { height: auto; padding: 8px; }
+
+/* A player's picture: a square with the game's cut corner, the DJ name's first letter when there is none. */
+.avatar { width: 64px; height: 64px; flex: none; display: grid; place-items: center; overflow: hidden;
+          background: var(--well); border: 1px solid var(--seam);
+          clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%); }
+.avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.avatar span { font: 400 26px/1 var(--wide); color: var(--ash); }
+.avatar.big { width: 128px; height: 128px; }
+.avatar.big span { font-size: 48px; }
+.badge img { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+
+/* Facts as label over value, in a row that wraps. */
+.facts { display: flex; flex-wrap: wrap; gap: 10px 26px; margin: 0 0 8px; }
+.facts div { min-width: 0; }
+.facts dt { font: 400 10px/1.4 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash); }
+body.lang-ko .facts dt { font: 600 12px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
+.facts dd { margin: 2px 0 0; font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
+.facts.wide { gap: 14px 40px; }
+
+/* The DJ card as the game draws it, large: the icon, the plate with the pattern and the comment over it, then the
+   level, the name and the MAX points; it follows each choice as it is made (profile.js). */
+.card-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 16px; margin-bottom: 16px;
+                background: var(--well); border: 1px solid var(--seam); }
+.cp-icon { display: block; width: 156px; height: 96px; }
+.cp-plate { position: relative; display: block; width: 306px; height: 96px; max-width: 100%; }
+.cp-plate img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cp-plate img[hidden] { display: none; }
+.cp-plate.plain { width: auto; height: auto; }
+.cp-comment { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 24px;
+              color: #fff; font-weight: 700; font-size: 20px; text-shadow: 0 0 2px #333, 0 0 2px #333, 0 1px 3px #000;
+              white-space: nowrap; overflow: hidden; }
+.cp-plate.plain .cp-comment { position: static; padding: 0; }
+.cp-who { display: grid; gap: 2px; min-width: 0; }
+.cp-level { font: 400 15px/1 var(--wide); color: var(--amber); letter-spacing: 0.04em; }
+.cp-name { font-weight: 700; font-size: 20px; overflow-wrap: anywhere; }
+.cp-points { font: 400 12px/1.2 var(--wide); color: var(--ash); letter-spacing: 0.04em; }
+.comment-field { max-width: 420px; }
+.comment-field [data-count] { justify-self: end; }
+
+/* A field with what is wrong with it said under it, and the button that shows the password typed. */
+.field { display: grid; gap: 6px; font-size: 13px; color: var(--ash); min-width: 0; }
+.field-error { color: #ff9cc8; font-size: 13px; }
+.field-error::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; background: var(--pink);
+                       clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+input[aria-invalid="true"] { border-color: var(--pink); }
+.secret { display: flex; min-width: 0; }
+.secret input { flex: 1; min-width: 0; }
+.reveal { flex: none; height: 42px; padding: 0 12px; margin-left: -1px; color: var(--ash); background: var(--rail);
+          border: 1px solid var(--seam); font: 13px var(--text-face); cursor: pointer; }
+.reveal:hover { color: var(--chalk); background: var(--rail-up); }
+.reveal[aria-pressed="true"] { color: var(--chalk); }
+.password-form { max-width: 420px; }
+
+/* The DJ page's head: the picture, the DJ card, and on one's own page the way to decorate it. */
+.dj-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 16px; }
+.dj-head .djcard { margin-bottom: 0; }
+.dj-head .dj-edit { margin-left: auto; }
+
+/* ------------------------------------------------------------------------------ the admin's page of one player */
+.player-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: start; }
+.player-head .tags { margin: 0 0 10px; }
+.player-head .profile-name { margin-bottom: 6px; }
+.player-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.player-grid > .card { margin-bottom: 0; }
+.player-grid .wide { grid-column: 1 / -1; }
+/* A balance or a level beside the forms that change it. */
+.big-value { font: 400 30px/1 var(--wide); letter-spacing: 0.02em; margin: 0 0 4px; }
+.big-value.unlimited { color: var(--amber); }
+.controls { display: grid; gap: 12px; margin-top: 14px; }
+.controls .form.row { grid-template-columns: minmax(0, 1fr) auto; }
+/* The unlimited switch: a button that says it is a switch and whether it is on. */
+.switch { display: inline-flex; align-items: center; gap: 12px; padding: 0; color: var(--chalk); background: none; border: 0;
+          font: 15px var(--text-face); cursor: pointer; }
+.switch .track { position: relative; width: 46px; height: 26px; border-radius: 13px; background: var(--rail-up); flex: none; }
+.switch .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%;
+                        background: var(--chalk); transition: left var(--quick); }
+.switch[aria-checked="true"] .track { background: var(--amber); }
+.switch[aria-checked="true"] .track::after { left: 23px; background: var(--ink); }
+.switch:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) { .switch .track::after { transition: none; } }
+/* A ban: its reason on a pink rail. */
+.ban-reason { position: relative; margin: 0 0 14px; padding: 10px 14px 10px 18px; background: var(--well); }
+.ban-reason::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--pink); }
+.history td:first-child { white-space: nowrap; }
+.plays.compact li { padding: 6px 0; }
+
+/* ----------------------------------------------------------------------------------------------- phones */
+@media (max-width: 900px) {
+  .profile-head { grid-template-columns: auto minmax(0, 1fr); }
+  .picture-forms { grid-column: 1 / -1; }
+  .player-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .account-area { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 14px; }
+  /* The rail becomes a row of three that stays at the top while the page scrolls under it. */
+  .subnav { top: 96px; z-index: 5; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; background: var(--field); }
+  .subnav a { text-align: center; padding: 10px 4px; border-left: 0; border-bottom: 3px solid transparent; font-size: 13px; }
+  .subnav a.on { border-bottom-color: var(--accent); }
+  .area-section { scroll-margin-top: 150px; }
+  .profile-head, .player-head { grid-template-columns: minmax(0, 1fr); }
+  .avatar.big { width: 96px; height: 96px; }
+  .cp-icon { width: 104px; height: 64px; }
+  .cp-plate { width: 204px; height: 64px; }
+  .cp-comment { font-size: 14px; padding: 0 14px; }
+  .controls .form.row { grid-template-columns: minmax(0, 1fr); }
+}

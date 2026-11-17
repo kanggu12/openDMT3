@@ -105,8 +105,11 @@ class Accounts:
     def __init__(self, db):
         self.db = db
 
-    def _log(self, who, what):
-        self.db.execute("INSERT INTO changes (at, who, what) VALUES (?, ?, ?)", (int(time.time()), who, what))
+    def _log(self, who, what, login_id=None):
+        """A line of the change log; `login_id` names the account it was made to, so the admin's page of that player
+        lists it (the account's number is kept, found by its ID: NULL once the account is gone)."""
+        self.db.execute("INSERT INTO changes (at, who, what, account_id) VALUES (?, ?, ?,"
+                        " (SELECT id FROM accounts WHERE login_id = ?))", (int(time.time()), who, what, login_id))
 
     def _new_card(self):
         """A card number no account has, of random digits."""
@@ -131,7 +134,7 @@ class Accounts:
                 "INSERT INTO accounts (login_id, password, dj_name, card, is_admin, created_at)"
                 " VALUES (?, ?, ?, ?, ?, ?)",
                 (login_id, secret, name, self._new_card(), int(bool(is_admin)), int(time.time())))
-            self._log(who, "made the account %s" % login_id)
+            self._log(who, "made the account %s" % login_id, login_id)
         # A new player in the lists of every player (the API's players with their cards).
         changed()
         return self.by_login(login_id)
@@ -188,7 +191,7 @@ class Accounts:
         # whoever made one with the old password keeps nothing.
         self.db.execute("DELETE FROM api_tokens WHERE account_id IN (SELECT id FROM accounts WHERE login_id = ?)",
                         (login_id,))
-        self._log(who, "set a new password (and card) for %s" % login_id)
+        self._log(who, "set a new password (and card) for %s" % login_id, login_id)
 
     def end_sign_ins(self, account_id):
         """End the account's sign-ins on the site (a sign-out): each sign-in cookie carries the account's round of
@@ -218,7 +221,7 @@ class Accounts:
         self.db.execute("UPDATE accounts SET dj_name = ? WHERE login_id = ?", (dj_name, login_id))
         # The rankings and the boards show the name.
         changed()
-        self._log(who, "named %s %s" % (login_id, dj_name))
+        self._log(who, "named %s %s" % (login_id, dj_name), login_id)
 
     def set_card(self, login_id, tables, icon=None, plate=None, pattern=None, comment=None, who="system"):
         """The DJ card's icon, title plate, pattern and comment (cards.py); what is None stays. `tables` are the
@@ -235,7 +238,7 @@ class Accounts:
                         list(fields.values()) + [login_id])
         # The DJ page shows the card.
         changed()
-        self._log(who, "changed the DJ card of %s (%s)" % (login_id, ", ".join(sorted(fields))))
+        self._log(who, "changed the DJ card of %s (%s)" % (login_id, ", ".join(sorted(fields))), login_id)
 
     def leaves_no_admin(self, login_id):
         """True when the account is the server's only enabled admin: taking its admin rights, or disabling it, would
@@ -263,7 +266,7 @@ class Accounts:
                 raise _last_admin(login_id)
             # No such account: nothing changed.
             return False
-        self._log(who, ("gave admin rights to %s" if is_admin else "took admin rights from %s") % login_id)
+        self._log(who, ("gave admin rights to %s" if is_admin else "took admin rights from %s") % login_id, login_id)
         return True
 
     def set_disabled(self, login_id, disabled, who="system"):
@@ -285,10 +288,11 @@ class Accounts:
             return
         # A disabled player leaves everything that shows other players (and comes back when enabled).
         changed()
-        self._log(who, "%s the account %s" % ("disabled" if disabled else "enabled", login_id))
+        self._log(who, "%s the account %s" % ("disabled" if disabled else "enabled", login_id), login_id)
 
     def delete(self, login_id, who="system"):
+        # Logged first, while the account is there to name: its page's history keeps the line under its number.
+        self._log(who, "deleted the account %s" % login_id, login_id)
         self.db.execute("DELETE FROM accounts WHERE login_id = ?", (login_id,))
         # Its plays go with it (ON DELETE CASCADE).
         changed()
-        self._log(who, "deleted the account %s" % login_id)

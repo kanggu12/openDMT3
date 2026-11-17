@@ -12,6 +12,7 @@ queries never run on the event loop the game server shares); one with a JSON bod
 rest to a worker thread, and a password is made or checked through Site.hashed and the sign-in limits as everywhere.
 """
 
+import io
 import json
 import os
 import re
@@ -28,11 +29,12 @@ from opendmt3.server.services import cards
 from opendmt3.server.services import catalog as cat
 from opendmt3.server.services import maintenance
 from opendmt3.server.services import notice
+from opendmt3.server.services import players as pl
 from opendmt3.server.services import songlist, sources
 from opendmt3.server.services import tokens as tok
 # The worker threads a handler hands its work to, its processor time counted (work.py).
 from opendmt3.server.web.work import long, threaded
-from opendmt3.server.web import calls
+from opendmt3.server.web import calls, control, player_pages, upload
 from opendmt3.server.web import session as sess
 from opendmt3.server.web import strings
 # The password check and what the pages show and do too, which the API gives and takes as JSON (common.py).
@@ -243,6 +245,12 @@ def routes(site):
         if held:
             return _waited(held)
         if row is None:
+            # A banned account's own password: the launcher is told why (anyone else gets the one answer for all).
+            reason = await long(control.ban_note, site, str(body.get("login_id", "")).strip(),
+                                str(body.get("password", "")))
+            if reason is not None:
+                return JSONResponse({"error": {"code": "banned", "message": "this account is banned",
+                                               "reason": reason}}, status_code=403)
             return _error(401, "wrong_sign_in", "that ID and password do not match an account")
         # The account's card (a look at its plays) on a worker thread.
         return await threaded(lambda: JSONResponse(dict(_me(row), token=_new_token(row))))
@@ -289,6 +297,12 @@ def routes(site):
                                            "text": texts[key]} for key, faces in LICENCE_FACES]})
 
     # ------------------------------------------------------------------------------- your account
+
+    async def api_me_or_delete(request):
+        """GET: the account; DELETE: the account deleted (api_me_delete)."""
+        if request.method == "DELETE":
+            return await api_me_delete(request)
+        return await threaded(api_me, request)
 
     def api_me(request):
         row, refused = _caller(request)
@@ -689,6 +703,177 @@ def routes(site):
             store.delete(login_id, who=admin["who"])
             return JSONResponse({"deleted": login_id})
         return _on_player(request, change)
+
+    # ------------------------------------------------------- the admin's control of one player (control.py)
+
+    def api_player(request):
+        """GET: everything the admin's page of the player shows (control.state). DELETE: the account goes."""
+        if request.method == "DELETE":
+            return api_player_delete(request)
+        row, login_id, refused = _player_named(request)
+        if refused:
+            return refused
+        return JSONResponse(control.state(site, login_id))
+
+    def _controlled(request, body, pick):
+        """An admin's change of control.ACTIONS to the player the path names, on a worker thread: pick(body) gives
+        (the action, its values) or an error answer; the answer is the player's state after it."""
+        row, login_id, refused = _player_named(request)
+        if refused:
+            return refused
+        if body is None:
+            return _error(400, "bad_request", "send a JSON object")
+        picked = pick(body)
+        if not isinstance(picked, tuple):
+            return picked
+        action, values = picked
+        try:
+            control.change(site, row["who"], login_id, action, values)
+        except (pl.PlayerError, acc.AccountError, cards.CardError) as e:
+            return _error(400, "refused", str(e))
+        return JSONResponse(control.state(site, login_id))
+
+    async def api_player_points(request):
+        """POST {"amount"} sets the balance, {"add"} adds (below 0: takes), {"unlimited": true|false} switches it."""
+        body = await _json_object(request)
+
+        def pick(body):
+            if "unlimited" in body:
+                if not isinstance(body["unlimited"], bool):
+                    return _error(400, "bad_request", "unlimited is true or false")
+                return ("unlimited_on" if body["unlimited"] else "unlimited_off"), {}
+            if "add" in body:
+                return "points_add", {"amount": body["add"]}
+            if "amount" in body:
+                return "points_set", {"amount": body["amount"]}
+            return _error(400, "bad_request", "send JSON: {\"amount\": ...}, {\"add\": ...} or {\"unlimited\": ...}")
+        return await threaded(_controlled, request, body, pick)
+
+    async def api_player_level(request):
+        """POST {"level"}: the level the game shows set; DELETE: back to the level of the stages cleared."""
+        body = await _json_object(request) if request.method == "POST" else {}
+        return await threaded(_controlled, request, body,
+                              lambda b: ("level_set", {"level": b.get("level")}) if request.method == "POST"
+                              else ("level_clear", {}))
+
+    async def api_player_ban(request):
+        """POST {"reason"}: the player banned with the reason they are shown; DELETE: the ban lifted."""
+        body = await _json_object(request) if request.method == "POST" else {}
+        return await threaded(_controlled, request, body,
+                              lambda b: ("ban", {"reason": str(b.get("reason") or "")}) if request.method == "POST"
+                              else ("unban", {}))
+
+    async def api_player_dj_card(request):
+        """POST any of {"icon", "plate", "pattern", "comment"}: the player's DJ card, by their own rules."""
+        body = await _json_object(request)
+        return await threaded(_controlled, request, body, lambda b: ("card", b))
+
+    def api_player_picture(request):
+        """DELETE: the player's picture taken away."""
+        return _controlled(request, {}, lambda b: ("picture_clear", {}))
+
+    async def api_players_points(request):
+        """POST {"add", "login_ids"}: MAX points added to (or taken from) many players at once, every player without
+        login_ids; each balance stays within its range."""
+        row, refused = await threaded(_caller, request, True)
+        if refused:
+            return refused
+        body = await _json_object(request)
+        if body is None or "add" not in body:
+            return _error(400, "bad_request", "send JSON: {\"add\": ..., \"login_ids\": [...]}")
+        ids = body.get("login_ids")
+        if ids is not None and (not isinstance(ids, list) or not all(isinstance(i, str) for i in ids)):
+            return _error(400, "bad_request", "login_ids is a list of IDs")
+
+        def work():
+            connection = site.connect()
+            try:
+                done = pl.Players(connection).add_points(None if ids is None else [i.upper() for i in ids],
+                                                         body["add"], who=row["who"])
+            except pl.PlayerError as e:
+                if e.key == "error.player.unknown":
+                    return _error(404, "unknown_player", str(e))
+                return _error(400, "refused", str(e))
+            finally:
+                connection.close()
+            return JSONResponse({"players": done})
+        return await threaded(work)
+
+    # ------------------------------------------------------- the account area's own (player_pages.py)
+
+    async def api_me_picture(request):
+        """POST: a new picture, the request's body itself (at most PICTURE_UPLOAD_MOST bytes, read as it comes);
+        DELETE: none. The answer is the account."""
+        row, refused = await threaded(_caller, request)
+        if refused:
+            return refused
+        if request.method == "DELETE":
+            await threaded(player_pages.clear_picture, site, row)
+        else:
+            if upload.declared_too_large(request, pl.PICTURE_UPLOAD_MOST):
+                return _error(413, "too_large", str(pl.picture_too_large()))
+            data = io.BytesIO()
+            try:
+                await upload.body_to(request, data, pl.PICTURE_UPLOAD_MOST, too_large=pl.picture_too_large)
+                await threaded(player_pages.keep_picture, site, row, data.getvalue())
+            except pl.PlayerError as e:
+                return _error(413 if e.key == "error.player.picture.size" else 400,
+                              "too_large" if e.key == "error.player.picture.size" else "refused", str(e))
+        fresh = await threaded(_accounts_call, site, "by_login", row["login_id"])
+        return await threaded(lambda: JSONResponse(dict(_me(fresh), picture=fresh["picture"])))
+
+    def api_dj_picture(request):
+        """A player's picture by their number (the site's own: the game shows its icon)."""
+        _, refused = _caller(request)
+        if refused:
+            return refused
+        player = request.path_params["player"]
+        path = control.picture_file(site, player) if player < 2 ** 63 else None
+        if path is None:
+            return _error(404, "not_found", "no such picture")
+        return FileResponse(path, media_type="image/png")
+
+    def api_me_sign_ins(request):
+        """DELETE: every sign-in on the site ends (the site's own sign-out of all of them); the launcher's tokens and
+        this one go on."""
+        row, refused = _caller(request)
+        if refused:
+            return refused
+        store = site.accounts()
+        try:
+            store.end_sign_ins(row["id"])
+            store._log(row["who"], "signed %s out everywhere else" % row["login_id"], row["login_id"])
+        finally:
+            store.db.close()
+        return JSONResponse({"signed_out": True})
+
+    async def api_me_delete(request):
+        """DELETE {"password"}: the caller's own account deleted, its plays and picture with it. Never the server's only
+        enabled admin."""
+        row, refused = await threaded(_caller, request)
+        if refused:
+            return refused
+        body = await _json_object(request)
+        if body is None:
+            return _error(400, "bad_request", "send JSON: {\"password\": ...}")
+        checked, held = await _check_password(site, request, row["login_id"], str(body.get("password", "")))
+        if held:
+            return _waited(held)
+        if checked is None:
+            return _error(403, "wrong_password", "the password is not right")
+
+        def work():
+            store = site.accounts()
+            try:
+                if store.leaves_no_admin(row["login_id"]):
+                    return _error(400, "refused", "the server's only enabled admin keeps their account")
+                if row["picture"]:
+                    pl.Players(store.db).clear_picture(row["login_id"], site.data_dir, who=row["who"])
+                store.delete(row["login_id"], who=row["who"])
+            finally:
+                store.db.close()
+            return JSONResponse({"deleted": row["login_id"]})
+        return await threaded(work)
 
     # ----------------------------------------------------------------- cabinets, status, notice, logs
 
@@ -1123,7 +1308,9 @@ def routes(site):
         Route("/api/v1/backups/upload", api_backup_upload, methods=["POST"]),
         Route("/api/v1/backups/{name}", api_backup, methods=["GET", "DELETE"]),
         Route("/api/v1/backups/{name}/restore", api_backup_restore, methods=["POST"]),
-        Route("/api/v1/me", api_me),
+        Route("/api/v1/me", api_me_or_delete, methods=["GET", "DELETE"]),
+        Route("/api/v1/me/picture", api_me_picture, methods=["POST", "DELETE"]),
+        Route("/api/v1/me/sign_ins", api_me_sign_ins, methods=["DELETE"]),
         Route("/api/v1/me/password", api_me_password, methods=["POST"]),
         Route("/api/v1/me/dj_name", api_me_dj_name, methods=["POST"]),
         Route("/api/v1/me/dj_card", api_me_dj_card, methods=["POST"]),
@@ -1159,6 +1346,7 @@ def routes(site):
         Route("/api/v1/songs/{number:int}", api_song),
         Route("/api/v1/songs/{number:int}/jacket.png", api_jacket),
         Route("/api/v1/djs/{player:int}", api_records),
+        Route("/api/v1/djs/{player:int}/picture.png", api_dj_picture),
         Route("/api/v1/download", api_download),
         Route("/api/v1/download/windows", api_installer),
         Route("/api/v1/players/{login_id}/password", api_player_password, methods=["POST"]),
@@ -1167,5 +1355,11 @@ def routes(site):
         Route("/api/v1/players/{login_id}/admin", api_player_admin, methods=["POST", "DELETE"]),
         Route("/api/v1/players/{login_id}/dj_name", api_player_dj_name, methods=["POST"]),
         Route("/api/v1/players/{login_id}/plays", api_player_plays, methods=["DELETE"]),
-        Route("/api/v1/players/{login_id}", api_player_delete, methods=["DELETE"]),
+        Route("/api/v1/players/max_points", api_players_points, methods=["POST"]),
+        Route("/api/v1/players/{login_id}/max_points", api_player_points, methods=["POST"]),
+        Route("/api/v1/players/{login_id}/level", api_player_level, methods=["POST", "DELETE"]),
+        Route("/api/v1/players/{login_id}/ban", api_player_ban, methods=["POST", "DELETE"]),
+        Route("/api/v1/players/{login_id}/dj_card", api_player_dj_card, methods=["POST"]),
+        Route("/api/v1/players/{login_id}/picture", api_player_picture, methods=["DELETE"]),
+        Route("/api/v1/players/{login_id}", api_player, methods=["GET", "DELETE"]),
     ]

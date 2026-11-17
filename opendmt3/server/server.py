@@ -32,7 +32,7 @@ import time
 
 from opendmt3.server import connection, crypto, db, messages
 from opendmt3.server.services import accounts as accounts_service
-from opendmt3.server.services import cards, catalog, firsts, limits, maintenance
+from opendmt3.server.services import cards, catalog, firsts, limits, maintenance, players
 from opendmt3.server.services import records as records_service
 
 log = logging.getLogger("opendmt3.server")
@@ -500,6 +500,19 @@ class GameServer:
             return row, outcome
         return self.write(keep)
 
+    def keep_points(self, player, user, points, kept_before):
+        """A 0x79's MAX points, on the database thread: added to the balance of the account logged in (`player`, its
+        login ID), checked again, when the message names that account (`user`, the number 0x65 gave it) and what this
+        card login earned with it stays within what a login can earn. Returns the row and whether they were kept."""
+        def keep():
+            row = self.accounts.by_login(player) if self.accounts is not None else None
+            if row is None or row["disabled"] or row["id"] != user:
+                return row, False
+            if kept_before + points > players.EARNED_MOST:
+                return row, False
+            return row, players.Players(self._db()).earned(row["id"], points)
+        return self.write(keep)
+
     def _session_kept(self, session):
         """`session` when the database still has it, else None: a restore can take the session a cabinet is in back
         out of the database, and a play pointing at a session that is not there would be refused."""
@@ -745,6 +758,8 @@ async def card_auth(server, conn, msg):
     conn.player = row["login_id"]
     # A new login: its own count of stages kept.
     conn.stages_kept = 0
+    # And its own count of MAX points earned (services/players.py EARNED_MOST).
+    conn.points_kept = 0
     if server.activity is not None:
         # The session card_login started (the cabinet's last one ended there).
         conn.session = answer["session"]
@@ -777,6 +792,26 @@ def _not_kept(conn, why):
         return
     conn.results_told = True
     log.info("%s results not kept: %s (no more lines about results on this link)", conn.address, why)
+
+
+@handles(0x79)
+async def session_points(server, conn, msg):
+    """The MAX points the session earned, by the game's own count (it sends them with its results): added to the
+    balance of the player logged in on this cabinet, which the next login shows on the song select. A guest's, another
+    account's number, or more than a login can earn are not kept (GameServer.keep_points)."""
+    user, points = messages.session_points(msg)
+    if points == 0:
+        # Nothing earned (a guest's session, a tutorial): nothing to keep or say.
+        return
+    if server.accounts is None or not conn.player:
+        _not_kept(conn, "%d MAX points of a guest" % points)
+        return
+    row, kept = await server.database(server.keep_points, conn.player, user, points, conn.points_kept)
+    if not kept:
+        _not_kept(conn, "%d MAX points for player %d" % (points, user))
+        return
+    conn.points_kept += points
+    log.info("%s %s: %d MAX points", conn.address, row["login_id"], points)
 
 
 @handles(0x6E)

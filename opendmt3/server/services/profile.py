@@ -75,7 +75,9 @@ def dj_plays(connection, data_dir, row, now=None):
     done = act.Activity(connection).dj_plays(row["id"], now)
     cleared = store.cleared(row["id"])
     songs = catalog.load(data_dir)
+    # picture: how many pictures the player has had on the site (0: none), the count in its address.
     return {"player": row["id"], "dj_name": row["dj_name"], "summary": summary,
+            "picture": row["picture"] if "picture" in row.keys() else 0,
             "dj_card": cards.view(row, cards.load(data_dir), songs, cleared),
             "bests": [{"song": b["song"], "title": catalog.title(songs, b["song"]), "mode": b["mode"],
                        "mode_name": mode_name(b["mode"]), "pattern": b["pattern"], "score": b["score"],

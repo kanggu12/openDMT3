@@ -52,7 +52,8 @@
       <tbody>
       {% for r in rows %}
         <tr class="{{ 'off' if r.disabled }}">
-          <td><code>{{ r.login_id }}</code></td>
+          {# The ID opens the player's own page: their state in the game and every control (player_pages.py). #}
+          <td><a href="/admin/players/{{ r.login_id }}"><code>{{ r.login_id }}</code></a></td>
           {# The DJ name, changed in its row by the account page's rules. #}
           <td>
             <form method="post" class="inline-name">

@@ -1,12 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ dj.dj_name }} · {% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/players.css?v={{ version }}">{% endblock %}
 {% block main %}
 <section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
   <div class="hero-text"><p class="kicker">{{ w("dj.kicker") }}</p><h1 class="word">{{ dj.dj_name }}</h1></div>
 </section>
 <section class="grid">
   <div class="card wide">
-    {% set card = dj.dj_card %}{% set name = dj.dj_name %}{% include "_djcard.html" %}
+    {# The player's picture on the site beside the DJ card the game shows; a way to change both on one's own page. #}
+    <div class="dj-head">
+      {% if dj.picture %}<div class="avatar" aria-hidden="true"><img src="/pictures/{{ dj.player }}.png?v={{ dj.picture }}" alt="" width="64" height="64"></div>{% endif %}
+      {% set card = dj.dj_card %}{% set name = dj.dj_name %}{% include "_djcard.html" %}
+      {% if user.id == dj.player %}<a class="btn small dj-edit" href="/account">{{ w("dj.edit") }}</a>{% endif %}
+    </div>
     <div class="stats">
       <div class="stat"><span class="value">{{ dj.summary.plays }}</span><span class="label">{{ w("dj.plays") }}</span></div>
       <div class="stat"><span class="value">{{ dj.summary.songs }}</span><span class="label">{{ w("dj.songs") }}</span></div>

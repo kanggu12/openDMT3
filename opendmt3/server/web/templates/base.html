@@ -8,6 +8,8 @@
 {# Every static address carries the version: a browser keeps the file for a year and asks again after an update. #}
 <link rel="icon" href="/static/favicon.ico?v={{ version }}" sizes="16x16 32x32 48x48">
 <link rel="stylesheet" href="/static/site.css?v={{ version }}">
+{# A page's own styles beside the site's (the account area and the admin's page of a player: static/players.css). #}
+{% block head %}{% endblock %}
 {# The site's faces (static/fonts/README.md), here rather than in site.css so their addresses carry the version too.
    DMT3 Wide is the launcher's own file; DMT3 Text is Pretendard cut to KS X 1001's syllables and Latin, every weight
    in one 450 KB file (a rarer syllable comes from the next font in the list); the wide face has no Hangul, so in a
@@ -35,7 +37,7 @@
     {# The language switch comes back to this page (next=, checked to be a path of this site). #}
     <span class="langs"><a href="/lang/ko?next={{ here|urlencode }}" lang="ko" class="{{ 'on' if lang == 'ko' }}">KOR</a><a href="/lang/en?next={{ here|urlencode }}" lang="en" class="{{ 'on' if lang == 'en' }}">ENG</a></span>
     {% if user %}
-    <a class="who{{ ' on' if path == '/account' }}" href="/account" title="{{ w('me.title') }}"{% if path == '/account' %} aria-current="page"{% endif %}><span class="badge">{{ user.dj_name[:1] }}</span><span class="who-name">{{ user.dj_name }}</span></a>
+    <a class="who{{ ' on' if path == '/account' }}" href="/account" title="{{ w('me.title') }}"{% if path == '/account' %} aria-current="page"{% endif %}><span class="badge">{% if user.picture %}<img src="/pictures/{{ user.id }}.png?v={{ user.picture }}" alt="" width="26" height="26">{% else %}{{ user.dj_name[:1] }}{% endif %}</span><span class="who-name">{{ user.dj_name }}</span></a>
     <form method="post" action="/signout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn small">{{ w("nav.signout") }}</button></form>
     {% endif %}
   </div>

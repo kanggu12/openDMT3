@@ -55,7 +55,7 @@ from opendmt3.server.services import notice
 from opendmt3.server.services import requestlog
 from opendmt3.server.services import sources
 # The areas: each builds its own routes for a Site, and create_app joins them into one table.
-from opendmt3.server.web import admin, api, pages
+from opendmt3.server.web import admin, api, pages, player_pages
 # The lists made from everyone's plays, kept until the plays change.
 from opendmt3.server.web import cache
 # The admin pages' long jobs, and who started the server (how its Stop asks them).
@@ -95,7 +95,9 @@ BODY_LIMIT = 64 * 1024
 # and its API twin): their handlers read the body into a file as it comes and count it against the upload's own limit
 # (services/backups.py UPLOAD_MOST, services/songlist.py MOST), so the wall leaves a POST to them alone; BODY_LIMIT
 # stays for every other request.
-UPLOADS = ("/admin/backups/upload", "/api/v1/backups/upload", "/admin/song_list/upload", "/api/v1/server/song_list")
+UPLOADS = ("/admin/backups/upload", "/api/v1/backups/upload", "/admin/song_list/upload", "/api/v1/server/song_list",
+           # A player's picture on the Account page and its API twin (player_pages.py, at most 2 MB).
+           "/account/picture", "/api/v1/me/picture")
 # How long a one-use sign-in link from this PC's launcher works (it is opened at once).
 ONCE_SECONDS = 60
 # Every HTML page's own headers (Site.render): not stored anywhere, and told apart by the sign-in cookie.
@@ -124,7 +126,7 @@ WAITING_MOST = 32
 # The stretch the seconds are counted over.
 SHARE_WINDOW = 60.0
 # What costs nothing to hand out and comes many at a time with every page (files read as they are): never counted.
-FREE_PATHS = ("/static/", "/fonts/", "/jackets/", "/cards/", "/updates/")
+FREE_PATHS = ("/static/", "/fonts/", "/jackets/", "/cards/", "/updates/", "/pictures/")
 # The single files of the same kind, matched whole (as a prefix "/health" took "/healthX" too).
 FREE_FILES = ("/favicon.ico", "/robots.txt", "/health")
 # Seconds the health check's answer is kept: Docker asks every 30 seconds, and a stream of asks takes the database's
@@ -591,7 +593,7 @@ def create_app(site):
     # the work an async handler hands over: the route made again around the counted handler, as it was otherwise.
     areas = [route if not isinstance(route, Route) or asyncio.iscoroutinefunction(route.endpoint)
              else Route(route.path, charged(route.endpoint), methods=route.methods, name=route.name)
-             for route in pages.routes(site) + admin.routes(site) + api.routes(site)]
+             for route in pages.routes(site) + admin.routes(site) + player_pages.routes(site) + api.routes(site)]
     routes = [Route("/health", health)] + areas + [
         Mount("/static", VersionedFiles(directory=os.path.join(HERE, "static")), name="static"),
         Mount("/fonts", VersionedFiles(directory=FONTS), name="fonts"),

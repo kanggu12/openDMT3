@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}{{ p.login_id }} · {{ w("admin.players") }} · {{ w("admin.title") }} · {% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/players.css?v={{ version }}">{% endblock %}
+{% block main %}
+<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="hero-text"><p class="kicker">{{ w("nav.admin") }} · {{ w("admin.players") }}</p><h1 class="word">{{ p.dj_name }}</h1><p class="sub">{{ w("player.sub") }}</p></div>
+</section>
+<section class="page">
+  {% set tab = "players" %}{% include "_admin_tabs.html" %}
+  <p><a href="/admin/players">{{ w("player.back") }}</a></p>
+  {% if notice %}<p class="alert ok" role="status">{{ notice }}</p>{% endif %}
+  {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
+  {# After a new password: what the player needs, as text to copy (selected whole on focus, site.js). #}
+  {% if message %}
+  <div class="card">
+    <h3><label for="message">{{ w("admin.message") }}</label></h3>
+    <textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea>
+    {% if message_local %}<p class="alert look message-local">{{ w("admin.message.local", address=message_local) }}</p>{% endif %}
+  </div>
+  {% endif %}
+
+  {# The player at a glance: the picture, the state, the DJ card as the game shows it, and what the game is sent. #}
+  <div class="card player-head">
+    <div class="avatar big" aria-hidden="true">{% if p.picture %}<img src="/pictures/{{ p.player }}.png?v={{ p.picture }}" alt="" width="128" height="128">{% else %}<span>{{ p.dj_name[:1] }}</span>{% endif %}</div>
+    <div>
+      <p class="tags">
+        <code>{{ p.login_id }}</code>
+        {% if p.is_admin %}<span class="tag">{{ w("admin.role") }}</span>{% endif %}
+        {% if p.banned %}<span class="tag bad">{{ w("player.banned") }}</span>{% elif p.disabled %}<span class="tag bad">{{ w("admin.disabled") }}</span>{% endif %}
+      </p>
+      {% set card = p.dj_card %}{% set name = p.dj_name %}{% include "_djcard.html" %}
+      <dl class="facts">
+        <div><dt>{{ w("profile.level") }}</dt><dd>{{ "Lv %d" % card.level if card.level else "-" }}</dd></div>
+        <div><dt>{{ w("profile.exp") }}</dt><dd>{{ "{:,}".format(card.exp) }}</dd></div>
+        <div><dt>{{ w("profile.points") }}</dt><dd>{{ w("player.points.unlimited") if p.unlimited_points else "{:,}".format(p.max_points) }}</dd></div>
+        <div><dt>{{ w("dj.plays") }}</dt><dd>{{ "{:,}".format(p.summary.plays) }}</dd></div>
+        <div><dt>{{ w("admin.last") }}</dt><dd>{{ p.last_login|when if p.last_login else w("admin.never") }}</dd></div>
+        <div><dt>{{ w("me.account.since") }}</dt><dd>{{ p.created_at|when }}</dd></div>
+        <div><dt>{{ w("player.card") }}</dt><dd><code>…{{ p.card_end }}</code></dd></div>
+      </dl>
+      <p class="muted small">{{ w("player.next_login") }} · <a href="/dj/{{ p.player }}">{{ w("player.dj_page") }}</a> · <a href="/admin/log/plays?player={{ p.player }}">{{ w("player.plays_log") }}</a></p>
+    </div>
+  </div>
+
+  <div class="player-grid">
+    {# ---------------------------------------------------------------- MAX points: the game's currency #}
+    <div class="card">
+      <h3>{{ w("profile.points") }}</h3>
+      <p class="big-value{{ ' unlimited' if p.unlimited_points }}">{{ w("player.points.unlimited") if p.unlimited_points else "{:,}".format(p.max_points) }}</p>
+      <p class="muted small">{{ w("player.points.hint", most="{:,}".format(points_most)) }}</p>
+      <div class="controls">
+        {# The switch posts at once: a button that says it is one, and whether it is on. #}
+        <form method="post">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ 'unlimited_off' if p.unlimited_points else 'unlimited_on' }}">
+          <button class="switch" role="switch" aria-checked="{{ 'true' if p.unlimited_points else 'false' }}"><span class="track" aria-hidden="true"></span>{{ w("player.points.unlimited.switch") }}</button>
+        </form>
+        <form method="post" class="form row">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="points_add">
+          <label>{{ w("player.points.add") }}<input name="amount" type="number" step="1" min="-{{ points_most }}" max="{{ points_most }}" required inputmode="numeric" placeholder="500 / -500"></label>
+          <button class="btn">{{ w("player.points.add.button") }}</button>
+        </form>
+        <form method="post" class="form row">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="points_set">
+          <label>{{ w("player.points.set") }}<input name="amount" type="number" step="1" min="0" max="{{ points_most }}" value="{{ p.max_points }}" required inputmode="numeric"></label>
+          <button class="btn">{{ w("player.points.set.button") }}</button>
+        </form>
+      </div>
+    </div>
+
+    {# ---------------------------------------------------------------- the level #}
+    <div class="card">
+      <h3>{{ w("profile.level") }}</h3>
+      <p class="big-value">{{ "Lv %d" % p.dj_card.level if p.dj_card.level else "-" }}</p>
+      <p class="muted small">{{ w("player.level.from", plays="{:,}".format(p.exp_plays), extra=("+" if p.exp_extra > 0 else "") ~ "{:,}".format(p.exp_extra)) if p.exp_extra else w("player.level.plays", plays="{:,}".format(p.exp_plays)) }}</p>
+      {% if p.levels %}
+      <div class="controls">
+        <form method="post" class="form row">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="level_set">
+          <label>{{ w("player.level.set") }}<input name="level" type="number" step="1" min="1" max="{{ p.levels }}" value="{{ p.dj_card.level or 1 }}" required inputmode="numeric"></label>
+          <button class="btn">{{ w("player.level.set.button") }}</button>
+        </form>
+        {% if p.exp_extra %}
+        <form method="post">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="level_clear">
+          <button class="btn small">{{ w("player.level.clear") }}</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}<p class="muted small">{{ w("player.level.no_table") }}</p>{% endif %}
+    </div>
+
+    {# ---------------------------------------------------------------- the ban #}
+    <div class="card">
+      <h3>{{ w("player.ban") }}</h3>
+      {% if p.banned %}
+      <p class="ban-reason">{{ p.ban_reason }}</p>
+      <p class="muted small">{{ w("player.ban.on") }}</p>
+      <form method="post">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="unban">
+        <button class="btn">{{ w("player.unban") }}</button>
+      </form>
+      {% elif p.disabled %}
+      <p class="muted small">{{ w("player.disabled.hint") }}</p>
+      <form method="post">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="enable">
+        <button class="btn">{{ w("admin.enable") }}</button>
+      </form>
+      {% else %}
+      <p class="muted small" id="ban-rules">{{ w("player.ban.hint", max=reason_max) }}</p>
+      <form method="post" class="form" data-ask="{{ w('player.ban.ask', login_id=p.login_id) }}" data-ask-title="{{ w('player.ban') }}" data-ask-detail="{{ w('player.ban.detail') }}" data-ask-yes="{{ w('player.ban.yes') }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="ban">
+        <label>{{ w("player.ban.reason") }}<input name="reason" maxlength="{{ reason_max }}" required aria-describedby="ban-rules"></label>
+        <div><button class="btn danger">{{ w("player.ban.yes") }}</button></div>
+      </form>
+      {% endif %}
+    </div>
+
+    {# ---------------------------------------------------------------- the account #}
+    <div class="card">
+      <h3>{{ w("me.section.account") }}</h3>
+      <form method="post" class="form row">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="rename">
+        <label>{{ w("account.dj") }}<input name="dj_name" value="{{ p.dj_name }}" maxlength="{{ dj_max }}" required></label>
+        <button class="btn">{{ w("admin.rename") }}</button>
+      </form>
+      <div class="controls">
+        <form method="post" data-ask="{{ w('admin.newpass.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.newpass') }}" data-ask-detail="{{ w('admin.newpass.detail') }}" data-ask-yes="{{ w('admin.newpass') }}" data-ask-tone="warn"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="password"><button class="btn small">{{ w("admin.newpass") }}</button> <span class="muted small">{{ w("player.newpass.hint") }}</span></form>
+        <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ 'admin_off' if p.is_admin else 'admin_on' }}"><button class="btn small">{{ w("admin.rights.take") if p.is_admin else w("admin.rights.give") }}</button></form>
+        {% if p.picture %}
+        <form method="post" data-ask="{{ w('player.picture.clear.ask', login_id=p.login_id) }}" data-ask-title="{{ w('me.picture') }}" data-ask-yes="{{ w('me.picture.clear') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="picture_clear"><button class="btn small danger">{{ w("me.picture.clear") }}</button></form>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ---------------------------------------------------------------- the DJ card #}
+    <div class="card wide">
+      <h3>{{ w("me.card") }}</h3>
+      <form method="post" class="form card-form" data-card-editor>
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="card">
+        {% set card = p.dj_card %}{% set name = p.dj_name %}{% set comment = p.dj_card.comment %}{% include "_card_editor.html" %}
+        <div><button class="btn primary">{{ w("me.card.save") }}</button></div>
+      </form>
+    </div>
+
+    {# ---------------------------------------------------------------- the records #}
+    <div class="card">
+      <h3>{{ w("dj.recent") }}</h3>
+      {% if not p.recent %}<p class="muted">{{ w("dj.none") }}</p>{% endif %}
+      <ul class="plays compact">
+      {% for r in p.recent %}
+        <li><a class="song" href="/songs/{{ r.song }}">{{ r.title }}</a>
+          <span class="muted">{{ w("song.chart.level" if r.level else "song.chart", mode=r.mode_name, n=r.pattern, level=r.level) }} · {{ r.at|when }}</span>
+          <span class="score">{{ "{:,}".format(r.score) }}</span></li>
+      {% endfor %}
+      </ul>
+      <form method="post" data-ask="{{ w('admin.reset.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.reset.title') }}" data-ask-detail="{{ w('admin.reset.detail') }}" data-ask-yes="{{ w('admin.reset') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="reset_plays"><button class="btn small danger">{{ w("admin.reset") }}</button></form>
+    </div>
+
+    {# ---------------------------------------------------------------- what admins and the player changed #}
+    <div class="card">
+      <h3>{{ w("player.history") }}</h3>
+      {% if p.history %}
+      <table class="table history">
+        <thead><tr><th>{{ w("log.when") }}</th><th>{{ w("log.who") }}</th><th>{{ w("log.what") }}</th></tr></thead>
+        <tbody>{% for h in p.history %}<tr><td class="muted" data-label="{{ w('log.when') }}">{{ h.at|when }}</td><td data-label="{{ w('log.who') }}">{{ h.who }}</td><td data-label="{{ w('log.what') }}">{{ h.said }}</td></tr>{% endfor %}</tbody>
+      </table>
+      {% else %}<p class="muted">{{ w("player.history.none") }}</p>{% endif %}
+    </div>
+
+    {% if p.login_id != user.login_id %}
+    <div class="card wide">
+      <h3>{{ w("admin.delete.title") }}</h3>
+      <form method="post" class="form row" data-ask="{{ w('admin.delete.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.delete.title') }}" data-ask-detail="{{ w('admin.delete.detail') }}" data-ask-yes="{{ w('admin.delete') }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="delete">
+        <p class="muted small grow">{{ w("admin.delete.detail") }}</p>
+        <button class="btn danger">{{ w("admin.delete") }}</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</section>
+<script src="/static/profile.js?v={{ version }}"></script>
+{% endblock %}

@@ -748,11 +748,13 @@ def _log_counts(site):
     return {"changes": changes, "messages": len(site.game_server.messages) if site.game_server else 0}
 
 
-def _log_change(site, who, what):
-    """A line in the change log (the accounts' own changes write theirs in services/accounts.py)."""
+def _log_change(site, who, what, account_id=None):
+    """A line in the change log (the accounts' own changes write theirs in services/accounts.py), under the account it
+    names when it names one (the admin's page of that player lists it)."""
     connection = site.connect()
     try:
-        connection.execute("INSERT INTO changes (at, who, what) VALUES (?, ?, ?)", (int(time.time()), who, what))
+        connection.execute("INSERT INTO changes (at, who, what, account_id) VALUES (?, ?, ?, ?)",
+                           (int(time.time()), who, what, account_id))
     finally:
         connection.close()
 
@@ -1034,7 +1036,8 @@ def _reset_plays(site, who, account=None):
             store.db.close()
     # Whose plays, how many, and the backup that holds them.
     whose = "the plays of %s" % account["login_id"] if account is not None else "every play"
-    _log_change(site, who, "reset %s: %d gone, backed up as %s" % (whose, gone, kept))
+    _log_change(site, who, "reset %s: %d gone, backed up as %s" % (whose, gone, kept),
+                account["id"] if account is not None else None)
     return gone, kept
 
 

@@ -58,6 +58,7 @@ class Connection:
         self.answer = None          # the client's 0x02, read (machine value, version)
         self.player = None          # the ID of the player logged in on this cabinet, if any
         self.stages_kept = 0        # cleared stages kept since the player's card login (server.STAGES_PER_LOGIN)
+        self.points_kept = 0        # MAX points kept since the player's card login (players.EARNED_MOST)
         self.results_told = False   # results not kept were already named in the log for this link
         self.opened = time.monotonic()
         self.last_heard = self.opened       # the last bytes received
