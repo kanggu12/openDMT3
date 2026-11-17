@@ -66,6 +66,10 @@ class Sections:
         if not old.winfo_exists():
             return
         root = old.winfo_toplevel()
+        # The page's scroll area, and where its view starts in pixels: kept, whatever the page's height does while
+        # the new card is laid out (a region measured half way would pull the view up).
+        area = next((a for a in _ancestors(self.parent) if isinstance(a, widgets.ScrollArea)), None)
+        top = area.canvas.canvasy(0) if area is not None else None
         before = widgets.focus_order(old)
         focused = root.focus_get()
         index = before.index(focused) if focused in before else None
@@ -78,11 +82,27 @@ class Sections:
         widgets.fit_names(self.parent, self.app.ui, self.more)
         old.destroy()
         self.made[name][1] = holder
+        if area is not None:
+            # Laid out first, so that the region is the new page's; then the view where it was, in pixels.
+            root.update_idletasks()
+            area._region()
+            total = area.head_height + area.inner.winfo_reqheight()
+            if total > 0:
+                area.canvas.yview_moveto(top / total)
         if index is not None:
             # The rows before the changed one are the same, so the same place in the order is the same control.
             after = widgets.focus_order(holder)
             if index < len(after):
                 after[index].focus_set()
+
+
+def _ancestors(widget):
+    """The widgets round `widget`, nearest first."""
+    found, parent = [], widget.master
+    while parent is not None:
+        found.append(parent)
+        parent = parent.master
+    return found
 
 
 def _inside(widget, box):
