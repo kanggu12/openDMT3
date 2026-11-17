@@ -90,11 +90,11 @@ address and the admin's password. A server also runs [in the launcher](docs/serv
 
 ### In the game
 
-The overlay bar comes down from the game's top edge: the menu, minimise, window and an X that asks first. During a song
-the menu and the question hold the game still.
+The overlay bar comes down from the game's top edge or a tap on its handle: the menu (with the sound panel's volumes and
+equalizer), minimise, window and an X that asks first. During a song an open panel holds the game still.
 
 <p align="center">
-  <img src="docs/images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, QUIT THE GAME in red. Under it, three pieces of other frames: the quit question hanging from the bar under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.8 ms on one line" width="100%">
+  <img src="docs/images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, SOUND, QUIT THE GAME in red. Under it, four pieces of other frames, two by two: the quit question hanging from the bar under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; the sound panel hanging from the bar under the X, Sound, with eight columns: ALL, MUSIC and KEYS at 100, then the bands 60 at +3, 250 at 0, 1K at +2, 4K and 12K at 0; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.8 ms on one line" width="100%">
 </p>
 
 ### Frames on time, and on the music
