@@ -759,6 +759,67 @@ def server_test_check(app, out, tag, problems):
         settle(app)
 
 
+def admin_link_check(app, out, tag, problems):
+    """ONLINE's Admin pages (the Players card's, on this PC): this PC's server starts with its admin site on its own
+    listener, and the link the launcher opens signs its admin in there. The browser is this process, headless: the
+    one-time link works from this PC only, and the run has no network."""
+    import http.cookiejar
+    import urllib.request
+    from opendmt3.client import actions
+    w = app.words
+    kept = (app.state.mode, actions.open_link)
+    opened = []
+    try:
+        app.state.mode = "this_pc"
+        app.go("online")
+        settle(app)
+        keys = [x for x in widgets_of(app.root) if isinstance(x, widgets.Button) and x.winfo_ismapped()
+                and x.words == w("online.admin")]
+        if not keys:
+            problems.append("%s: no Admin pages on the Players card of ONLINE" % tag)
+            return
+        actions.open_link = opened.append
+        keys[0].press()
+        end = time.time() + 30
+        while time.time() < end and not opened and app.status_tone != "bad":
+            app.root.update()
+            time.sleep(0.05)
+        settle(app)
+        label = "%s_online-admin-opened" % tag
+        shot(app, out, label)
+        measure(app, label, problems)
+        import importlib.util
+        if not all(importlib.util.find_spec(m) for m in ("uvicorn", "starlette", "jinja2", "multipart")):
+            # This run's Python has no web libraries (the UI image): no site starts, and the status line says why, in
+            # the product's words. The admin site itself is checked where they are (the unit tests, the Wine tests).
+            import types
+            wanted = w("status.error", error=w.error(types.SimpleNamespace(key="error.admin.no_site")))
+            if opened or app.status_tone != "bad" or app.status_text != wanted:
+                problems.append("%s: without the web libraries, Admin pages said %r (%s)"
+                                % (label, app.status_text, app.status_tone))
+            return
+        if not opened or app.status_text != w("online.admin.opened"):
+            problems.append("%s: Admin pages opened nothing (%r, %s)" % (label, app.status_text, app.status_tone))
+            return
+        admin = app.host.admin_url
+        if not admin or admin == app.host.web_url or not opened[0].startswith(admin + "signin/once/"):
+            problems.append("%s: the link %r is not the admin site's one-time sign-in (admin site %r, site %r)"
+                            % (label, opened[0], admin, app.host.web_url))
+            return
+        browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        with browser.open(opened[0], timeout=15) as page:
+            where, body = page.geturl(), page.read().decode("utf-8")
+        # Signed in on the admin site: its Status page, the admin's name in its header.
+        if where != admin + "admin/status" or 'class="who-name"' not in body:
+            problems.append("%s: the admin site did not open signed in (%s)" % (label, where))
+    finally:
+        app.state.mode, actions.open_link = kept
+        # The server the check started goes, as when the launcher closes: the checks after it start their own.
+        app.host.stop()
+        app.refresh_checks()
+        settle(app)
+
+
 def interactions_check(app, out, tag, problems):
     """What the pages do in place, the way a person does it:
 
@@ -2747,6 +2808,8 @@ def main():
     # A choice that brings rows makes its own card only; a drop-down chosen by keys; a form's error under its field;
     # a week of the RECORDS chart chosen without a pointer.
     interactions_check(app, args.out, tag, problems)
+    # This PC's server's admin pages, opened from ONLINE's Players card.
+    admin_link_check(app, args.out, tag, problems)
     game_page_check(app, args.out, tag, problems)
     play_states_check(app, args.out, tag, made, problems)
     # The Launcher page's end: the licence and the two notice lines, as OpenDMTQ words them.

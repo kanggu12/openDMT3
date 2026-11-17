@@ -177,7 +177,7 @@ on the site, under **My account**: playing on this PC, **Play**, **Open my recor
 | **Sound** | The master volume, the volumes of the music and of the keysounds (the sound each note plays when you hit it), the equalizer, the output device, who mixes the game's sounds, low latency, and the audio offset for a device that plays late |
 | **Controls** | A mouse or a touch screen (the cursor hides on a touch screen) |
 | **Game** | The client data in use, with its client, songs and jackets; the song list (**Save the song list...** and, signed in as a server's admin, **Send the song list to this server**); FREE PLAY; the hidden patterns |
-| **Online** | The way to play, the players on this PC, opening this PC's server to the other PCs on your network |
+| **Online** | The way to play, the players on this PC (and **Admin pages**, this PC's server's admin pages, opened signed in), opening this PC's server to the other PCs on your network |
 | **Records** | The chosen player's numbers, the last 12 weeks (a click or a tap on a week, or the arrow keys, says its number), recent plays and best scores |
 | **Help** | The checks, what to do when the game closes by itself, putting the files back, a report for an issue, the launcher's log, Repair, Uninstall |
 | **Launcher** | Language (**Same as Windows**, English, Korean), playing without this window, updates, the first-start guide again |
@@ -301,6 +301,10 @@ On the PC that keeps the players, turn on **Online**, **Open this PC's server**.
 the network. On each other PC, choose **Another server**, type one of those addresses and sign in with a player made
 on the first PC. The server runs while that launcher is open. Windows may ask whether to allow it on private networks:
 allow it. To keep a server running without a launcher, see [Running a server](server.md).
+
+This PC's server has admin pages of its own, as any server's ([the admin pages](admin.md)), on this PC only
+(`http://127.0.0.1:4731/`, or the next free port). **Online**, **Admin pages** (the Players card's) opens them signed in
+as the server's admin; the first player made on this PC is its admin, as a server's first account is its owner's.
 
 ## The song list for a server
 
@@ -445,6 +449,7 @@ not know is said, with the list of the ones it does.
 | `--records --text` | Prints the Records page instead |
 | `--lan on` / `--lan off` | Opens this PC's server to the other PCs on your network, or not |
 | `--serve` | Runs this PC's server without the window, until Ctrl+C |
+| `--admin [--no-browser]` | Opens this PC's server's admin pages signed in, as **Online**, **Admin pages** does (until Ctrl+C) |
 | `--shortcut` | Makes the desktop shortcut |
 | `--autostart on` / `--autostart off` | Plays when Windows starts, or not |
 | `--set NAME=VALUE` | Changes a setting (below); several `--set` in one command change several |

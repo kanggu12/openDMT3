@@ -1038,6 +1038,54 @@ class LauncherTest(FolderCase):
             host.stop()
         self.assertIsNone(host.web_url)
 
+    @unittest.skipUnless(all(importlib.util.find_spec(m) for m in ("uvicorn", "starlette", "jinja2", "multipart")),
+                         "needs the web libraries")
+    def test_the_admin_link_opens_this_pcs_admin_site_signed_in(self):
+        import http.cookiejar
+        import urllib.request
+        from opendmt3.client import hosting
+        host = hosting.BuiltinServer(path=os.path.join(self.config, "server", "openDMT3.sqlite"), port=0, web_port=0,
+                                     game=False)
+        try:
+            # No player yet: nobody to sign in to the admin pages as.
+            with self.assertRaises(g.GameError) as e:
+                actions.admin_link(self.state, host)
+            self.assertEqual(e.exception.key, "error.admin.no_player")
+            store = host.accounts()
+            store.create("NOVA", "pass1234", "DJ NOVA")
+            store.create("ACE", "pass1234", "DJ ACE")
+            store.db.close()
+            self.state.language = "ko"
+            link = actions.admin_link(self.state, host)
+            # The admin site on this PC's own address, its listener beside the players' site (ADMIN-SITE.md).
+            self.assertTrue(host.admin_url.startswith("http://127.0.0.1:"), host.admin_url)
+            self.assertNotEqual(host.admin_url, host.web_url)
+            self.assertTrue(link.startswith(host.admin_url + "signin/once/") and link.endswith("?lang=ko"), link)
+            # The first player made here is this PC's server's admin now, as a server's first account is its owner's.
+            store = host.accounts()
+            try:
+                self.assertEqual((store.by_login("NOVA")["is_admin"], store.by_login("ACE")["is_admin"]), (1, 0))
+            finally:
+                store.db.close()
+            browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+            with browser.open(link, timeout=10) as page:
+                # Signed in on the admin site: its Status page, on the admin port.
+                self.assertEqual(page.geturl(), host.admin_url + "admin/status")
+            # The link works once: again, it leads to the admin site's sign-in.
+            fresh = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+            with fresh.open(link, timeout=10) as page:
+                self.assertEqual(page.geturl(), host.admin_url + "signin")
+            # Asked again, the same admin (no other player is made one).
+            self.assertTrue(actions.admin_link(self.state, host).startswith(host.admin_url))
+            store = host.accounts()
+            try:
+                self.assertEqual(store.by_login("ACE")["is_admin"], 0)
+            finally:
+                store.db.close()
+        finally:
+            host.stop()
+        self.assertIsNone(host.admin_url)
+
     def test_the_records_page_reads_this_pcs_database_or_says_why_not(self):
         from opendmt3.client import hosting, i18n, remote
         host = hosting.BuiltinServer(path=os.path.join(self.config, "server", "openDMT3.sqlite"), port=0, web_port=0)

@@ -469,6 +469,12 @@ TEXT = {
                                 "연결해서 로그인하거나 오프라인을 고르면 다음으로 넘어갑니다."),
 
     # --------------------------------------------------------------------------------------------- help
+    # This PC's server's admin pages, opened signed in from the Players card (app.open_admin).
+    "online.admin": ("Admin pages", "관리 페이지"),
+    "online.admin.opening": ("Opening this PC's admin pages in the browser...",
+                             "브라우저에서 이 PC의 관리 페이지를 여는 중입니다..."),
+    "online.admin.opened": ("This PC's admin pages are open in the browser.",
+                            "브라우저에서 이 PC의 관리 페이지를 열었습니다."),
     "online.home": ("Other PCs on this network", "같은 네트워크의 다른 PC"),
     "online.home.open": ("Open this PC's server", "이 PC 서버 열기"),
     "online.home.hint": ("Lets other PCs on this network play on this PC's server.",

@@ -219,6 +219,34 @@ def _records(state, no_browser):
     return 0
 
 
+def _admin(state, no_browser):
+    """--admin: ONLINE's Admin pages: this PC's server's admin site, signed in as its admin, from a site of its own
+    that runs until Ctrl+C (only the sites run here, so it works beside an open launcher that holds the game's port)."""
+    import time
+    from opendmt3.client import hosting
+    host = hosting.BuiltinServer(game=False)
+    try:
+        link = actions.admin_link(state, host)
+    except Exception as e:  # noqa: BLE001  (said, logged, never swallowed)
+        log.exception("--admin failed")
+        say(str(e), error=True)
+        host.stop()
+        return 2
+    say("Admin pages: %s" % host.admin_url)
+    if no_browser:
+        say("Sign-in link (works once, for a minute, from this PC): %s" % link)
+    else:
+        actions.open_link(link)
+        say("Opened in the browser. Ctrl+C stops the sites.")
+    try:
+        while host.running:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    host.stop()
+    return 0
+
+
 def _repair():
     """--repair: Help's Repair (client/repair.py), its outcome in a line or two."""
     from opendmt3.core import errors
@@ -627,7 +655,10 @@ def parse(argv):
                    help="with --uninstall: delete the settings, players and records on this PC too")
     job.add_argument("--records", action="store_true",
                      help="open the chosen player's records on this PC's site (it runs until Ctrl+C)")
-    p.add_argument("--no-browser", action="store_true", help="with --records: print the link instead of opening it")
+    job.add_argument("--admin", action="store_true",
+                     help="open this PC's server's admin pages, signed in as its admin (they run until Ctrl+C)")
+    p.add_argument("--no-browser", action="store_true",
+                   help="with --records or --admin: print the link instead of opening it")
     job.add_argument("--serve", action="store_true",
                      help="run this PC's server (game and site) until Ctrl+C, open to the other PCs on this network "
                           "with --lan on")
@@ -723,7 +754,7 @@ def parse(argv):
 def has_jobs(args):
     """Whether the command line asks for anything besides the window (then no window opens)."""
     return (args.play or args.check or args.restore or args.update or args.repair or args.uninstall or args.records
-            or args.serve
+            or args.serve or args.admin
             or args.shortcut or args.autostart or args.status or args.find or args.inspect or args.unpack
             or args.test_server is not None
             or args.sound_devices
@@ -842,6 +873,8 @@ def run_jobs(args, state, play_failed):
         return _records_text(state)
     if args.records:
         return _records(state, args.no_browser)
+    if args.admin:
+        return _admin(state, args.no_browser)
     if args.play:
         from opendmt3.client import hosting
         checks = actions.readiness(state)

@@ -27,6 +27,8 @@ ADDRESS = "127.0.0.1"
 EVERY_ADDRESS = "0.0.0.0"
 # The site's port, as on a server; when another program holds it, any free port (the launcher passes the address).
 WEB_PORT = 4730
+# The admin site's usual port (ADMIN-SITE.md): on this PC's own address only, the next free one when it is taken.
+ADMIN_PORT = 4731
 
 
 def database_path():
@@ -72,6 +74,10 @@ class BuiltinServer:
         self.web = None
         self.web_task = None
         self.web_url = None
+        # The admin site beside it (its own listener on this PC's own address), and its address.
+        self.admin_web = None
+        self.admin_task = None
+        self.admin_url = None
         self.backup_task = None
         # The song list read apart from the window before PLAY needs it (import_catalog_soon), once at a time.
         self._catalog_lock = threading.Lock()
@@ -144,22 +150,28 @@ class BuiltinServer:
                 self.backup_task.cancel()
                 self.loop.run_until_complete(asyncio.gather(self.backup_task, return_exceptions=True))
             if self.web is not None:
-                # uvicorn's own shutdown: it closes the listening socket and waits for open requests.
+                # uvicorn's own shutdown: it closes the listening sockets and waits for open requests (the site's and
+                # the admin site's, together).
                 self.web.should_exit = True
-                self.loop.run_until_complete(asyncio.wait([self.web_task], timeout=5))
+                tasks = [self.web_task]
+                if self.admin_web is not None:
+                    self.admin_web.should_exit = True
+                    tasks.append(self.admin_task)
+                self.loop.run_until_complete(asyncio.wait(tasks, timeout=5))
             if server is not None:
                 self.loop.run_until_complete(server.close())
         finally:
             connection.close()
             self.server = None
             self.site = self.web = self.web_task = self.web_url = self.backup_task = None
+            self.admin_web = self.admin_task = self.admin_url = None
             self.loop.close()
 
     def _start_site(self, game_server):
         """The site beside the game server, on this PC's own address only."""
         try:
             import uvicorn
-            from opendmt3.server.web.app import Site, create_app
+            from opendmt3.server.web.app import Site, create_admin_app, create_app
         except ImportError:
             log.info("no site on this PC: the web libraries are not installed")
             return
@@ -169,31 +181,53 @@ class BuiltinServer:
         except OSError:
             # Another program (a server, another launcher's site) has the usual port: any free one will do.
             listener.bind((self.listen_address, 0))
+        # The admin site on this PC's own address only, whatever the site listens on (ADMIN-SITE.md), its usual port or
+        # any free one.
+        admin = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            admin.bind((ADDRESS, ADMIN_PORT))
+        except OSError:
+            admin.bind((ADDRESS, 0))
+        admin_url = "http://%s:%d/" % (ADDRESS, admin.getsockname()[1])
         # The site keeps its files beside the database: the song list, the sign-in secret.
-        # The launcher started this server, so the admin page's Stop names the launcher (web/runner.py).
+        # The launcher started this server, so the admin page's Stop names the launcher (web/runner.py). The admin pages
+        # are the admin site's alone, and its links to the players' pages go to the site's port.
         from opendmt3.server.web.runner import Runner
         site = Site(os.path.dirname(self.path), game_server=game_server, game_port=self.port,
-                    runner=Runner("launcher"))
-        # log_config=None: uvicorn's loggers go to the launcher's own log instead of a setup of their own.
-        config = uvicorn.Config(create_app(site), log_level="warning", log_config=None, access_log=False,
-                                proxy_headers=False, lifespan="off", loop="none", http="h11", ws="none")
-        self.web = uvicorn.Server(config)
-        self.web_task = self.loop.create_task(self.web.serve(sockets=[listener]))
+                    runner=Runner("launcher"), admin_address=admin_url, admin_on_site_port=False,
+                    site_port=listener.getsockname()[1])
+
+        def served(app, sockets):
+            # log_config=None: uvicorn's loggers go to the launcher's own log instead of a setup of their own.
+            config = uvicorn.Config(app, log_level="warning", log_config=None, access_log=False, proxy_headers=False,
+                                    lifespan="off", loop="none", http="h11", ws="none")
+            server = uvicorn.Server(config)
+            return server, self.loop.create_task(server.serve(sockets=sockets))
+
+        self.web, self.web_task = served(create_app(site), [listener])
+        self.admin_web, self.admin_task = served(create_admin_app(site), [admin])
         # Ready means it takes connections: the launcher opens the browser right after.
         self.loop.run_until_complete(self._site_started())
         if not self.web.started:
             log.warning("the site on this PC did not start")
-            self.web.should_exit = True
-            self.web = self.web_task = None
+            self.web.should_exit = self.admin_web.should_exit = True
+            self.web = self.web_task = self.admin_web = self.admin_task = None
             return
         self.site = site
         self.web_url = "http://%s:%d/" % (ADDRESS, listener.getsockname()[1])
         log.info("site on this PC at %s", self.web_url)
+        if self.admin_web.started:
+            self.admin_url = admin_url
+            log.info("admin pages on this PC at %s", self.admin_url)
+        else:
+            # The site still runs; the admin pages are not offered.
+            log.warning("the admin site on this PC did not start")
 
     async def _site_started(self, limit=5.0):
-        """Wait (at most `limit` seconds) until uvicorn listens, or stopped trying."""
+        """Wait (at most `limit` seconds) until both uvicorns listen, or stopped trying."""
         waited = 0.0
-        while not self.web.started and not self.web_task.done() and waited < limit:
+        while waited < limit and any(not server.started and not task.done()
+                                     for server, task in ((self.web, self.web_task), (self.admin_web, self.admin_task))):
             await asyncio.sleep(0.02)
             waited += 0.02
 
@@ -216,6 +250,29 @@ class BuiltinServer:
         if row is None or row["disabled"]:
             return None
         return "%ssignin/once/%s?lang=%s" % (self.web_url, self.site.once(row["id"]), language)
+
+    def admin_link(self, language="en"):
+        """A link that opens this PC's server's admin pages signed in (Site.once for the admin site, from this PC only):
+        as its admin, the first enabled admin account. With none yet, the first player made on this PC becomes its
+        admin, as a server's first account is its owner's: this PC's server is the PC's owner's, and the admin pages
+        take an admin's sign-in alone. None without an admin site or an enabled player."""
+        if self.site is None or self.admin_url is None:
+            return None
+        store = self.accounts()
+        try:
+            row = store.db.execute("SELECT id, login_id FROM accounts WHERE is_admin = 1 AND disabled = 0 "
+                                   "ORDER BY id LIMIT 1").fetchone()
+            if row is None:
+                first = store.db.execute("SELECT id, login_id FROM accounts WHERE disabled = 0 ORDER BY id LIMIT 1"
+                                         ).fetchone()
+                if first is None:
+                    return None
+                store.set_admin(first["login_id"], True, who="launcher")
+                log.info("%s is this PC's server's admin now (its first player)", first["login_id"])
+                row = first
+        finally:
+            store.db.close()
+        return "%ssignin/once/%s?lang=%s" % (self.admin_url, self.site.once(row["id"], admin=True), language)
 
     def stop(self):
         if self.loop is not None and self.thread is not None and self.thread.is_alive():

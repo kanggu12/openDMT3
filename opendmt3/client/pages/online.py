@@ -661,6 +661,10 @@ def build_online(app, parent):
             return
         if not rows:
             widgets.label(players.body, ui, w("online.players.none"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
+        else:
+            # This PC's server's admin pages (its own site on this PC's address), opened signed in as its admin: at the
+            # card's head, as a card's action is.
+            players.action(w("online.admin"), app.open_admin)
         for i, r in enumerate(rows):
             if i:
                 # One line a player, parted by the card's faint lines.

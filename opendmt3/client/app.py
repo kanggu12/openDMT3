@@ -501,6 +501,22 @@ class LauncherApp:
 
         threading.Thread(target=work, daemon=True, name="records").start()
 
+    def open_admin(self):
+        """ONLINE's Admin pages: this PC's server's admin site, signed in as its admin, in the browser."""
+        self.set_status(self.words("online.admin.opening"), "normal")
+
+        def work():
+            try:
+                # Starting the server and its sites can take a moment: never on the window's thread.
+                actions.open_link(actions.admin_link(self.state, self.host))
+            except Exception as e:  # noqa: BLE001  (shown, never swallowed)
+                log.exception("opening the admin pages failed")
+                self.post(lambda e=e: self.set_status(self.words("status.error", error=self.words.error(e)), "bad"))
+                return
+            self.post(lambda: self.set_status(self.words("online.admin.opened"), "ok"))
+
+        threading.Thread(target=work, daemon=True, name="admin").start()
+
     def _failed(self, error):
         self._ready_shown()
         self.busy = False

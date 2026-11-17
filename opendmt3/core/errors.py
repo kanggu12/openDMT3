@@ -75,6 +75,11 @@ TEXT = {
                                  "이 서버는 RECORDS 페이지를 보여 주기에 너무 오래된 버전입니다."),
     "error.records.offline": ("records are kept when playing on this PC or on another server, not offline",
                               "기록은 이 PC나 다른 서버에서 플레이할 때 남습니다. 오프라인에서는 남지 않습니다."),
+    # This PC's server's admin pages (launcher.actions.admin_link).
+    "error.admin.no_site": ("this launcher cannot show the admin pages (its web libraries are missing)",
+                            "이 런처는 관리 페이지를 띄울 수 없습니다(웹 라이브러리가 없습니다)."),
+    "error.admin.no_player": ("add a player on this PC first: the admin pages are signed in to as one",
+                              "먼저 이 PC에 플레이어를 추가하세요. 관리 페이지는 플레이어 계정으로 로그인합니다."),
     # Shortcuts and starting with Windows (client/shortcuts.py).
     "error.shortcut.installed": ("only the installed launcher on Windows can make this",
                                  "설치한 런처(Windows)에서만 만들 수 있습니다."),
