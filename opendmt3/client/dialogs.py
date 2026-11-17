@@ -265,7 +265,7 @@ class Dialog:
         box = (x0, y0, panel_w, panel_h)
         scene, soft = art.dialog_scene(behind, box, scale)
         tab_w, tab_words = lay["tab"]
-        panel = art.dialog_panel(soft, box, (tab_w, px(TAB), px(SLANT)) + self.style["tab"], scale)
+        panel = art.dialog_panel(soft, box, (tab_w, px(TAB), px(SLANT)) + self.style["tab"], scale, scene)
         self._scene, self._panel = ImageTk.PhotoImage(scene, master=c), ImageTk.PhotoImage(panel, master=c)
         c.create_image(0, 0, image=self._scene, anchor="nw", tags=("scene",))
         c.create_image(0, 0, image=self._panel, anchor="nw", tags=("card", "panel"))

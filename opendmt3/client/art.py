@@ -332,21 +332,33 @@ def numeral(text, colour, scale=1.0, size=28):
     return img.resize((max(1, width // k), max(1, height // k)), Image.LANCZOS)
 
 
-def corner(size, inside, outside, seam=None):
-    """A card's top-right corner, cut as the family's panels are (both sites' and OpenDMTQ's launcher's): what covers
-    the card's square corner, the page's colour beyond the cut and the card's seam along it."""
+def cut_masks(cut):
+    """A cut top-right corner (a card's, a dialog's, the menu's lit slab's), as masks of its `cut` x `cut` square at
+    the box's top-right: (beyond, seam). beyond is what lies past the cut, where the page shows; seam is the box's
+    one-pixel edge going on along the cut's diagonal at the edge's own weight (a pixel across, at right angles to it),
+    from the top edge at the square's left side to the right edge at its foot, so that no square corner is left. Drawn
+    SS times larger and brought down by area, so the diagonal is smooth and its ends meet the straight edges."""
     k = SS
-    s = size * k
-    img = Image.new("RGB", (s, s), _rgb(inside))
+    s = cut * k
     beyond = Image.new("L", (s, s), 0)
     ImageDraw.Draw(beyond).polygon([(0, 0), (s, 0), (s, s)], fill=255)
+    # One pixel across a 45-degree line is the square root of two down a column.
+    band = math.sqrt(2) * k
+    seam = Image.new("L", (s, s), 0)
+    ImageDraw.Draw(seam).polygon([(0, 0), (s, s), (s - band, s), (0, band)], fill=255)
+    return beyond.resize((cut, cut), Image.BOX), seam.resize((cut, cut), Image.BOX)
+
+
+def corner(size, inside, outside, seam=None):
+    """A card's top-right corner, cut as the family's panels are (both sites' and OpenDMTQ's launcher's): the picture
+    laid over the card's square corner, seam included (cut_masks): the page's colour beyond the cut, the card's seam
+    along it, the card's inside under it."""
+    beyond, line = cut_masks(size)
+    img = Image.new("RGB", (size, size), _rgb(inside))
     img.paste(_rgb(outside), (0, 0), beyond)
     if seam:
-        # The seam goes on along the cut, as thick as the card's own (a pixel).
-        line = Image.new("L", (s, s), 0)
-        ImageDraw.Draw(line).line([(0, 0), (s, s)], fill=255, width=k)
         img.paste(_rgb(seam), (0, 0), line)
-    return img.resize((size, size), Image.LANCZOS)
+    return img
 
 
 def _slanted(size, slant, cut_left=True):
@@ -821,9 +833,11 @@ def dialog_scene(window, box, scale):
     area = (max(0, x - reach), max(0, y - reach), min(w, x + bw + reach), min(h, y + bh + reach + int(12 * scale)))
     size = (area[2] - area[0], area[3] - area[1])
     mask = Image.new("L", size, 0)
-    # It falls a little below the panel, as from a light above.
+    # It falls a little below the panel, as from a light above, the panel's cut corner cut in it too.
     left, top = x - area[0], y - area[1] + int(12 * scale)
-    ImageDraw.Draw(mask).rectangle([left, top, left + bw, top + bh], fill=int(255 * 0.72))
+    cut = panel_cut(scale)
+    ImageDraw.Draw(mask).polygon([(left, top), (left + bw - cut, top), (left + bw, top + cut), (left + bw, top + bh),
+                                  (left, top + bh)], fill=int(255 * 0.72))
     mask = mask.filter(ImageFilter.GaussianBlur(20 * scale))
     region = scene.crop(area)
     region.paste(Image.new("RGB", size, (0, 0, 0)), (0, 0), mask)
@@ -831,9 +845,15 @@ def dialog_scene(window, box, scale):
     return scene, soft
 
 
-def dialog_panel(soft, box, tab, scale):
+def panel_cut(scale):
+    """A dialog panel's cut top-right corner, in pixels: the cards' 14 logical pixels (widgets.Card.CUT)."""
+    return max(2, int(round(14 * scale)))
+
+
+def dialog_panel(soft, box, tab, scale, scene=None):
     """The panel: gunmetal glass over the blurred window with a sheen at its head and a light rim along its top,
-    and the title tab hanging from the top edge as on the game's popups.
+    and the title tab hanging from the top edge as on the game's popups; its top-right corner cut as the cards' are
+    (cut_masks), what lies behind the panel showing past the cut (`scene`, the picture under it).
 
     tab: (width, height, slant, top colour, bottom colour) in the panel's own pixels. Returns an opaque picture of
     the box.
@@ -845,10 +865,17 @@ def dialog_panel(soft, box, tab, scale):
     sheen = Image.linear_gradient("L").resize((1, reach)).point(lambda v: int(14 * (1 - v / 255.0) ** 1.6))
     panel.paste(Image.new("RGB", (bw, min(reach, bh)), (255, 255, 255)), (0, 0), sheen.resize((bw, reach)).crop(
         (0, 0, bw, min(reach, bh))))
-    # The edge: one pixel of seam, lit along the top like polished metal.
+    # The edge: one pixel of seam, lit along the top like polished metal, going on along the cut corner's diagonal.
+    cut = min(panel_cut(scale), bw, bh)
+    beyond, seam = cut_masks(cut)
     edge = Image.new("L", (bw, bh), 0)
     ImageDraw.Draw(edge).rectangle([0, 0, bw - 1, bh - 1], outline=255)
+    edge.paste(seam, (bw - cut, 0))
     panel.paste(_gradient((bw, bh), "#626d7c", theme.LINE), (0, 0), edge)
+    # Past the cut, what is behind the panel (the scene at the panel's place), or the window's colour.
+    behind = scene.crop((x + bw - cut, y, x + bw, y + cut)) if scene is not None else \
+        Image.new("RGB", (cut, cut), _rgb(theme.BG))
+    panel.paste(behind, (bw - cut, 0), beyond)
     # The tab: wider at the panel's edge, narrowing downwards, in the dialog's colour.
     tw, th, slant, top, bottom = tab
     tx = (bw - tw) // 2

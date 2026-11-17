@@ -309,13 +309,15 @@ class RailList(tk.Canvas):
         for i, key in enumerate(keys):
             top = i * (self.row + px(self.ITEM_GAP))
             self.boxes[key] = (left, top, right, top + self.row)
-            if key == lit or (self.nav and key == self.hover):
+            if (key == lit or (self.nav and key == self.hover)) and right - left > px(self.CUT) and self.row > 0:
                 # The slab: the cards' colour under the entry on show, a quieter one under the pointer, its top-right
-                # corner cut as the cards' are.
+                # corner cut as the cards' are (once the list has its width: before, there is nothing to draw on).
                 cut, bottom = px(self.CUT), top + self.row - 1
                 fill = theme.PANEL if key == lit else theme.NAV_HOVER
-                draw.polygon([(left, top), (right - 1 - cut, top), (right - 1, top + cut), (right - 1, bottom),
-                              (left, bottom)], fill=art._rgb(fill))
+                draw.rectangle([left, top, right - 1, bottom], fill=art._rgb(fill))
+                # The cut as the cards' (art.cut_masks): the column's colour beyond it, the diagonal smooth.
+                beyond, _seam = art.cut_masks(cut)
+                picture.paste(art._rgb(theme.BAR), (right - cut, top), beyond)
                 if key == lit:
                     # The rule along its left edge, where the window is: the page's section's colour, the guide's blue.
                     colour = theme.section_colours(key)["accent"] if self.nav else theme.BLUE_HI
@@ -1522,14 +1524,16 @@ class Card(tk.Frame):
         self.head_pad = (ui.px(pad - 8), ui.px(6))
         self.body = tk.Frame(inside, bg=theme.PANEL, padx=ui.px(pad), pady=0)
         self.body.pack(fill="both", expand=True, pady=(top, ui.px(pad - 2)))
-        # The cut: a small picture over the square corner, the page's colour beyond it and the seam along it.
+        # The cut: a small picture over the square corner, its seam included (placed from the card's outer edge, not
+        # inside the pixel of seam the frame keeps round its inside): the page's colour beyond the cut, the seam going
+        # on along it from the top edge to the right one, so that no square corner is left.
         cut = ui.px(self.CUT)
         picture = art.corner(cut, theme.PANEL, outside, seam=theme.LINE)
         self._corner = ImageTk.PhotoImage(picture, master=self)
         corner = tk.Label(self, image=self._corner, bd=0, highlightthickness=0, bg=outside)
         # A dialog draws the window behind it from the widgets (snapshot.py): the corner as it looks.
         corner.opendmt3_picture = picture
-        corner.place(relx=1.0, x=-cut, y=0, width=cut, height=cut)
+        corner.place(relx=1.0, x=-cut, y=0, width=cut, height=cut, bordermode="outside")
 
     def action(self, text, command, kind="secondary"):
         """What the card does, as a small button at the right end of its tab's row (OpenDMTQ's Check again)."""
