@@ -32,7 +32,7 @@ from opendmt3.server.services import cards, downloads, files, maintenance, notic
 from opendmt3.server.services import records as rec
 # The upload's own reading of a request's body, into a file in backups/ (the Backups tab and its API twin).
 # The worker threads a handler hands its work to, its processor time counted (work.py).
-from opendmt3.server.web.work import charged, long, threaded
+from opendmt3.server.web.work import REQUEST, charged, long, threaded
 from opendmt3.server.web import upload
 
 # The site's cookies and how long a sign-in lasts, all here: the names share one name space in the browser, so a
@@ -174,12 +174,15 @@ def _health(site):
 async def _check_password(site, request, login_id, password):
     """(the account, None) for a right ID and password, (None, None) for a wrong one, or (None, why) when the try
     must wait: why is (the page's words, the API's message, the seconds to wait: a 429's Retry-After). The check
-    runs on a worker thread (Site.gate).
+    runs on a worker thread (Site.gate), once: a banned account's own password is no wrong one, and its ban's reason
+    is kept in the request for control.ban_note to say (the account is still None here, as for any failed sign-in).
 
     Every try counts against the address's sign-ins a minute. Right before the check, with nothing awaited between,
     the limits on wrong passwords are read and the try is counted as wrong, then taken back if it was right: tries
     sent at once see each other, so none slips past the limit while others are being checked, and right ones in a
-    burst never hold each other back (only HASHING_AT_ONCE are being checked at any moment)."""
+    burst never hold each other back (only HASHING_AT_ONCE are being checked at any moment). Wrong passwords hold
+    back the ID at the address they came from (other IDs behind it go on), the address once they pass its own looser
+    ceiling for any IDs, and the ID from every address but the server PC (app.TRIES, ADDRESS_TRIES, ID_TRIES)."""
     address, local = _address(request), _local(request)
     if not site.sign_in_allowed(address):
         return None, ("signin.wait", "too many sign-ins from this address; wait a minute", site.sign_in_wait(address))
@@ -187,27 +190,43 @@ async def _check_password(site, request, login_id, password):
         if site.too_many(address):
             return None, ("signin.wait", "too many failed sign-ins from this address; wait a few minutes",
                           site.wrong_wait(address))
-        if not local and site.id_held(login_id):
-            # Never for a visit from this PC: the owner can always sign in at the server itself.
-            return None, ("signin.wait.id", "too many wrong passwords for this ID; wait a few minutes",
-                          site.id_wait(login_id))
-        marks = site.failed(address, None if local else login_id)
+        # The ID at this address, and from anywhere: never the latter for a visit from this PC (the owner can always
+        # sign in at the server itself).
+        here, anywhere = site.held_here(address, login_id), not local and site.id_held(login_id)
+        if here or anywhere:
+            # Until every limit that holds it lets go.
+            wait = max(site.here_wait(address, login_id) if here else 0, site.id_wait(login_id) if anywhere else 0)
+            return None, ("signin.wait.id", "too many wrong passwords for this ID; wait a few minutes", wait)
+        marks = site.failed(address, login_id, local)
         # The check and its look into the database on a thread of the long work's own (the request's connection opened
         # there too): the site's own threads go on meanwhile.
-        row = await long(_password_matches, site, login_id, password)
-    if row is not None:
+        row, banned = await long(_password_matches, site, login_id, password)
+    if row is not None or banned is not None:
+        # The right password: an enabled account's, or a banned account's own (its reason is said to whoever knows it,
+        # so it tells nothing a guess could use): never counted as a wrong one.
         site.forgive(marks)
     else:
         # Who tried which ID from where (never the password); %r keeps a typed line break on one log line.
         log.warning("a wrong password for the ID %r from %s (%s)", str(login_id)[:32], address, request.url.path)
+    work = REQUEST.get()
+    if work is not None:
+        # What this check found of a ban, for control.ban_note: the password is never checked a second time.
+        work.banned = (login_id, banned) if banned is not None else None
     return row, None
 
 
 def _password_matches(site, login_id, password):
-    """The account whose ID and password these are, or None (accounts.check_web), on the request's connection."""
+    """One check of the password (accounts.check_sign_in), on the request's connection: (the account whose ID and
+    password these are, None), (None, the ban's reason) for a banned account's own password, or (None, None) for any
+    other (a wrong password, an unknown ID, a disabled account without a reason, answered as any wrong password)."""
     store = site.accounts()
     try:
-        return store.check_web(login_id, password)
+        code, row = store.check_sign_in(login_id, password)
+        if code != "disabled":
+            return row, None
+        # The right password of a disabled account: its ban's reason, when it has one.
+        account = store.by_login((login_id or "").strip())
+        return None, account["ban_reason"] if account is not None else None
     finally:
         store.db.close()
 

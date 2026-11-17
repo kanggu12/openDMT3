@@ -479,7 +479,7 @@ caller (a sign-in on the site, or an API token):
 | A cabinet's link | 10 seconds to answer the handshake; 90 seconds without a message ends it; 15 seconds to read what is sent; 16 logins or results waiting for the database | The link is closed (what it left unread thrown away); past 16, its next messages wait their turn |
 | What one address sends the game's port | 64 KB a minute over all its links (a cabinet sends a few hundred bytes a minute) | Its links are closed until the minute ends |
 | Results | 8 stages a card login, only modes, patterns and songs the game has | Not kept, one log line a link |
-| Sign-ins | 20 a minute from one address; 5 wrong passwords in 10 minutes from one address, 10 for one ID (never for the server PC itself); 2 password checks at once | 429 with Retry-After |
+| Sign-ins | 20 a minute from one address; in 10 minutes, 5 wrong passwords for one ID from one address (its other IDs go on), 30 from one address for any IDs, 10 for one ID from anywhere (never for the server PC itself); a banned account's right password is no wrong one; 2 password checks at once | 429 with Retry-After |
 | Requests at once | 1 per caller, 8 per address; up to 32 more of each wait their turn | 429 with Retry-After |
 | The server's work | 30 seconds of processor time a minute per caller, 90 per address (a page takes a few milliseconds; a file of every play on a long history a few seconds) | 429 with Retry-After until enough of the minute has passed |
 | A request's body | 64 KB, but an admin's uploads: a backup up to 256 MB, a song list up to 64 MB | 413 |

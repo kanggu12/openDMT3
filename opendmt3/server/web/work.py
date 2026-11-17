@@ -50,7 +50,7 @@ def limit_threads():
 class Request:
     """What one request keeps while it is answered (REQUEST)."""
 
-    __slots__ = ("connection", "accounts", "cpu")
+    __slots__ = ("connection", "accounts", "cpu", "banned")
 
     def __init__(self):
         # Its connection to the database, opened at its first use (app.Site.connect), closed by app.Work.
@@ -59,6 +59,9 @@ class Request:
         self.accounts = {}
         # Seconds of processor time its work took on the worker threads (charged()).
         self.cpu = 0.0
+        # (the ID, the ban's reason) when its password check found a banned account's own password
+        # (common._check_password), which control.ban_note says without checking the password again.
+        self.banned = None
 
 
 def charged(fn):

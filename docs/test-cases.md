@@ -425,7 +425,7 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 |:---|:---|:---|:---|:---:|
 | SITE-01 | Any page without a sign-in | Asks for one | `tests/server/test_web.py#test_every_page_asks_for_a_sign_in_first` | unit |
 | SITE-02 | The owner's first page | From the server PC only, and once | `tests/server/test_web.py#test_the_owner_page_only_from_this_pc_and_only_once` | unit |
-| SITE-03 | Wrong passwords | Slowed down per address | `tests/server/test_web.py#test_wrong_passwords_are_slowed_down` | unit |
+| SITE-03 | Wrong passwords | Slowed down for the ID at the address they came from | `tests/server/test_web.py#test_wrong_passwords_are_slowed_down` | unit |
 | SITE-04 | A flood of addresses | The table does not grow | `tests/server/test_web.py#test_a_flood_of_addresses_does_not_grow_the_table` | unit |
 | SITE-05 | A link to another site after a sign-in | Not followed | `tests/server/test_web.py#test_a_link_to_another_site_is_not_followed_after_sign_in` | unit |
 | SITE-06 | A player's own name and password | Changed on My account | `tests/server/test_web.py#test_a_player_changes_their_own_name_and_password` | unit |
@@ -444,6 +444,9 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 | SITE-19 | A right password sent over and over | Limited per address too; another address goes on | `tests/server/test_web.py#test_right_passwords_are_limited_per_address_too` | unit |
 | SITE-20 | Wrong passwords from addresses of one IPv6 /64 | Count as one address | `tests/server/test_web.py#test_wrong_passwords_from_one_ipv6_network_count_together` | unit |
 | SITE-21 | Wrong passwords for one ID from many addresses | The ID waits, but never on the server PC | `tests/server/test_web.py#test_wrong_passwords_for_one_id_from_many_addresses_hold_it_but_never_on_this_pc` | unit |
+| SITE-167 | A banned player's right password, seven times on the site and seven in the launcher, from one address | Each answered with the ban's reason (403), from one password check each; never counted as a wrong password: another player behind the address signs in; a wrong password for the banned account is answered as any | `tests/server/test_web.py#test_a_banned_players_right_password_is_no_wrong_one_and_is_checked_once` | unit |
+| SITE-168 | Five wrong passwords for one ID from one address | That ID waits there, right password or not (429, the ID's words, Retry-After); every other ID behind the address signs in, and the ID from another address | `tests/server/test_web.py#test_wrong_passwords_for_one_id_hold_that_id_at_its_address_and_no_other` | unit |
+| SITE-169 | Thirty wrong passwords from one address, each for another ID | Then the whole address waits for every ID (429, the address's words); another address goes on | `tests/server/test_web.py#test_wrong_passwords_for_many_ids_from_one_address_hold_the_address` | unit |
 | SITE-22 | A request through a proxy that names 127.0.0.1 | Never the server PC: no owner's page, no one-use link | `tests/server/test_web.py#test_a_forwarded_request_is_never_from_this_pc` | unit |
 | SITE-23 | `--proxy` given a network; a visitor through the published port says it is 127.0.0.1 | No owner's page | `tests/server/test_web.py#test_a_visitor_through_the_published_port_cannot_pass_as_this_pc` | unit |
 | SITE-24 | A player asks for the cabinets | DJ names only; addresses and login IDs for admins | `tests/server/test_web.py#test_players_see_who_plays_on_a_cabinet_but_not_its_address_or_login_id` | unit |

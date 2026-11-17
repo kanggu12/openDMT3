@@ -112,6 +112,9 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   does, and lifting it brings none back; the card number stays.
 - MAX points and levels take ASCII digits alone (a minus only for a change of MAX points): digits of another script, a
   plus sign or a line break are refused as any other number that is not one.
+- Wrong passwords hold back the ID at the address they came from, so the other players behind one address (a game
+  centre's) go on signing in; the address itself waits after 30 for any IDs. A banned player's right password is no
+  longer counted as a wrong one, and is checked once.
 
 ## [0.3.1] - 2026-11-17
 

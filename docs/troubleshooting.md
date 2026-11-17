@@ -148,10 +148,11 @@ address; `./dmt3 logs` shows the server's log.
   `./dmt3 setup --address 192.168.0.5`.
 - **A newer database**: a server refuses a database made by a newer openDMT3, and leaves it alone. Run the newer
   server, or put back a backup.
-- **Too many failed sign-ins**: wrong passwords hold back their own address for a few minutes, and ten wrong passwords
-  for one ID within ten minutes hold back that ID from every address but the server PC's, until ten minutes after the
-  first of them. Any address can sign in 20 times a minute, right or wrong. Behind a proxy, start the server with
-  `--proxy` and the proxy's own address, so the server tells visitors apart.
+- **Too many failed sign-ins**: five wrong passwords for one ID hold back that ID at the address they came from for
+  a few minutes (the other players behind the same address go on signing in), thirty from one address for any IDs
+  hold back the whole address, and ten for one ID within ten minutes hold back that ID from every address but the
+  server PC's, until ten minutes after the first of them. Any address can sign in 20 times a minute, right or wrong.
+  Behind a proxy, start the server with `--proxy` and the proxy's own address, so the server tells visitors apart.
 - **The song list was not imported**: the import says its one line
   ([The client data](client-data.md#what-a-card-says)); the details of a part that could not be read are in
   `catalog.log` in the data folder.

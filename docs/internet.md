@@ -79,7 +79,8 @@ and to connect to TCP 4725.
 
 - **The site**: every page asks for a sign-in first, but the sign-in page, its language switch, the licenses,
   `/health` and the launcher's updates when the server hands them out.
-  Repeated wrong passwords are slowed down for each address. Accounts are made by an admin; nobody makes their own.
+  Repeated wrong passwords are slowed down for each ID at each address, for each address and for each ID.
+  Accounts are made by an admin; nobody makes their own.
 - **The admin pages and the API**: an admin's sign-in, or a named token on every request ([The API](api.md)).
 - **The game's port**: the game's own protocol, which carries a player's card number and no password, as the
   original service's did. A card number logs its player in by itself: [What to keep private](server.md#what-to-keep-private).

@@ -75,9 +75,16 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # The wide face the site shares with the launcher, kept once in the client's assets (opendmt3/client/assets/fonts):
 # a file read, not an import, so the server still imports nothing of the client.
 FONTS = os.path.join(os.path.dirname(os.path.dirname(HERE)), "client", "assets", "fonts")
-# Wrong passwords from one address (an IPv6 /64 counts as one, services/limits.py): at most this many in this many
-# seconds, then it waits.
+# Wrong passwords for one ID from one address (an IPv6 /64 counts as one, services/limits.py): at most this many in
+# this many seconds, then that ID waits there. Every other ID behind the address goes on: a game centre's players
+# share one address, and one player's mistakes (or a banned player trying again) never hold the others back.
 TRIES, WINDOW = 5, 600
+# Wrong passwords from one address within WINDOW, for any IDs: past this many the whole address waits. A guess spread
+# over many IDs from one address (one password tried on every ID, which no ID's own limit sees) stops here. Thirty
+# is six players behind one address each reaching their own limit (TRIES) at the same time, far more mistakes than a
+# room of players makes, while a guesser gets thirty tries in ten minutes (and 20 sign-ins a minute at most,
+# SIGN_INS) where the per-ID limits let it try every ID five times.
+ADDRESS_TRIES = 30
 # Wrong passwords for one ID within WINDOW, from wherever they come: a guess spread over many addresses stops here
 # too. Visits from the server PC itself never wait for it, so nobody can shut the owner out of their own server.
 ID_TRIES = 10
@@ -176,12 +183,14 @@ class Site:
         self.downloads = downloads or os.path.join(data_dir, "downloads")
         # The launcher's update packages (build.sh's OUT_DIR/releases), handed to the launchers connected here.
         self.updates = os.path.join(data_dir, "updates")
-        # Wrong passwords per address, wrong passwords per ID, and every sign-in per address (services/limits.py).
+        # Wrong passwords per ID at each address, per address for any IDs, per ID from anywhere, and every sign-in per
+        # address (services/limits.py).
         self.wrong = limits.Recent(WINDOW, lambda: ADDRESSES_KEPT)
+        self.wrong_addresses = limits.Recent(WINDOW, lambda: ADDRESSES_KEPT)
         self.wrong_ids = limits.Recent(WINDOW, lambda: ADDRESSES_KEPT)
         self.sign_ins = limits.Recent(SIGN_IN_WINDOW, lambda: ADDRESSES_KEPT)
-        # The address table itself: address -> times of its recent wrong passwords.
-        self.failures = self.wrong.table
+        # The address table itself: address -> times of its recent wrong passwords, for any IDs.
+        self.failures = self.wrong_addresses.table
         # (the event loop, a semaphore on it) for hashed(): made on the loop that first needs it.
         self._gate = None
         # One-use sign-in links the launcher on this PC hands the browser: token -> (account id, expiry).
@@ -395,20 +404,26 @@ class Site:
         return HTMLResponse(html, status_code=status, headers=PAGE_HEADERS)
 
     def too_many(self, address):
-        """True while the address has had TRIES wrong passwords within WINDOW."""
-        return self.wrong.count(limits.sender(address)) >= TRIES
+        """True while the address has had ADDRESS_TRIES wrong passwords within WINDOW, for any IDs."""
+        return self.wrong_addresses.count(limits.sender(address)) >= ADDRESS_TRIES
 
-    def failed(self, address, login_id=None):
-        """Count a wrong password from the address, and for the ID when one is given; returns what forgive() takes
-        back. The table forgets the address heard from longest ago first (services/limits.py), in constant time."""
-        marks = [self.wrong.add(limits.sender(address))]
-        if login_id:
-            marks.append(self.wrong_ids.add(_id_key(login_id)))
+    def held_here(self, address, login_id):
+        """True while the ID has had TRIES wrong passwords within WINDOW from the address."""
+        return self.wrong.count(_here_key(address, login_id)) >= TRIES
+
+    def failed(self, address, login_id=None, local=False):
+        """Count a wrong password from the address: for the ID there, for the address, and for the ID from anywhere
+        when one is given and the visit is not from the server PC (`local`); returns what forgive() takes back. Each
+        table forgets the key heard from longest ago first (services/limits.py), in constant time."""
+        marks = [(self.wrong, self.wrong.add(_here_key(address, login_id))),
+                 (self.wrong_addresses, self.wrong_addresses.add(limits.sender(address)))]
+        if login_id and not local:
+            marks.append((self.wrong_ids, self.wrong_ids.add(_id_key(login_id))))
         return marks
 
     def forgive(self, marks):
         """Take back a wrong password counted before its check (failed()), which turned out right."""
-        for table, mark in zip((self.wrong, self.wrong_ids), marks):
+        for table, mark in marks:
             table.take_back(mark)
 
     def id_held(self, login_id):
@@ -430,8 +445,12 @@ class Site:
         return _whole_seconds(self.sign_ins.wait(limits.sender(address), SIGN_INS))
 
     def wrong_wait(self, address):
-        """Until the address's wrong passwords are fewer than TRIES (too_many)."""
-        return _whole_seconds(self.wrong.wait(limits.sender(address), TRIES))
+        """Until the address's wrong passwords are fewer than ADDRESS_TRIES (too_many)."""
+        return _whole_seconds(self.wrong_addresses.wait(limits.sender(address), ADDRESS_TRIES))
+
+    def here_wait(self, address, login_id):
+        """Until the ID's wrong passwords from the address are fewer than TRIES (held_here)."""
+        return _whole_seconds(self.wrong.wait(_here_key(address, login_id), TRIES))
 
     def id_wait(self, login_id):
         """Until the ID's wrong passwords are fewer than ID_TRIES (id_held)."""
@@ -452,6 +471,11 @@ def _size_words(n):
 def _id_key(login_id):
     """An ID as the limits count it: as the database compares it (in any case), cut to a sane length."""
     return str(login_id).strip().upper()[:32]
+
+
+def _here_key(address, login_id):
+    """An ID at an address, as the limits count it: the sender (an IPv6 /64 is one) and the ID (none: "")."""
+    return limits.sender(address), _id_key(login_id or "")
 
 
 def _whole_seconds(wait):

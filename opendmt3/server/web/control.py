@@ -13,6 +13,8 @@ from opendmt3.server.services import catalog as cat
 from opendmt3.server.services import players as pl
 from opendmt3.server.services import profile
 from opendmt3.server.services import records as rec
+# The request being answered: what its password check found of a ban (ban_note).
+from opendmt3.server.web.work import REQUEST
 
 # The newest plays and changes the player's page lists.
 RECENT = 8
@@ -129,19 +131,13 @@ def picture_file(site, player):
 
 def ban_note(site, login_id, password):
     """The reason a banned account's sign-in is refused, said only to whoever knows its password (a sign-in that
-    failed: the check in accounts.check_web answers the same for every failure), else None. Only a banned account's
-    password is checked again here."""
-    connection = site.connect()
-    try:
-        store = acc.Accounts(connection)
-        row = store.by_login((login_id or "").strip())
-        if row is None or not row["disabled"] or row["ban_reason"] is None:
-            return None
-        if not (password or "").isascii():
-            return None
-        # The password's own check, as the game's login makes it (a disabled account's answer is "disabled" only for
-        # the right password).
-        code, _ = store.check_game(row["login_id"], acc.game_digest(password))
-        return row["ban_reason"] if code == "disabled" else None
-    finally:
-        connection.close()
+    failed: common._check_password answers the same for every failure), else None. What the request's own check of
+    the password found (kept in the request, work.REQUEST), for the ID it was made for: the password is never checked
+    a second time (`password` is not looked at), so a banned player's try costs one check, inside the gate the
+    checks share (Site.gate)."""
+    work = REQUEST.get()
+    found = work.banned if work is not None else None
+    if found is None or found[0] != (login_id or "").strip():
+        # No ban found by this request's check, or a check of another ID.
+        return None
+    return found[1]

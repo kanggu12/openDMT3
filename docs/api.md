@@ -19,9 +19,11 @@ while the account is disabled, or when the token is signed out:
 `DELETE /api/v1/session`, sent with a token, ends that token and no other (the launcher's **Sign out** does so, and a
 launcher signed in on another PC stays signed in). Signing out on the site ends the site's sign-ins, not the tokens.
 
-Sign-ins answer `429` (`too_many_tries`) for a few minutes after too many wrong passwords from one address (the
-addresses of one IPv6 /64 count as one) or for one ID, and past 20 sign-ins a minute from one address, right or wrong;
-its `Retry-After` says how many seconds to wait. A sign-in from the server PC itself never waits for its ID.
+Sign-ins answer `429` (`too_many_tries`) for a few minutes after too many wrong passwords: 5 for one ID from one
+address (the addresses of one IPv6 /64 count as one; the address's other IDs go on), 30 from one address for any
+IDs, or 10 for one ID from anywhere, each within 10 minutes; and past 20 sign-ins a minute from one address, right or
+wrong. Its `Retry-After` says how many seconds to wait. A sign-in from the server PC itself never waits for an ID's
+wrong passwords from elsewhere, and a banned account's right password is never counted as a wrong one.
 
 ```sh
 TOKEN=$(curl -s -X POST http://SERVER:4730/api/v1/session -H 'Content-Type: application/json' \

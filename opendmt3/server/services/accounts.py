@@ -173,13 +173,19 @@ class Accounts:
 
         IDs match in any case (the column compares without it).
         """
+        code, row = self.check_sign_in(login_id, password)
+        return row if code == "ok" else None
+
+    def check_sign_in(self, login_id, password):
+        """check_web's one check of the password, with what it found as check_game says it: ('ok', row), or
+        ('unknown' | 'wrong_password' | 'disabled', None), 'disabled' only for the right password of a disabled
+        account. The site tells a banned player its reason from that one check (web/common.py)."""
         password = password or ""
         if not password.isascii():
-            # No account has such a password (they are letters and digits); answered after the same wait.
+            # No account has such a password (they are letters and digits): a wrong one, after the same wait.
             _matches(_dummy_hash(), game_digest("no account has this"))
-            return None
-        code, row = self.check_game((login_id or "").strip(), game_digest(password))
-        return row if code == "ok" else None
+            return "wrong_password", None
+        return self.check_game((login_id or "").strip(), game_digest(password))
 
     def set_password(self, login_id, password, who="system"):
         check_password(password)

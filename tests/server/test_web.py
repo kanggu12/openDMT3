@@ -1064,6 +1064,82 @@ class AttackTest(WebBase):
         # The server PC itself: the owner is never shut out of their own server.
         self.assertEqual(self.api_sign_in(self.local).status_code, 200)
 
+    def test_a_banned_players_right_password_is_no_wrong_one_and_is_checked_once(self):
+        import threading
+        from opendmt3.server.services import accounts, players
+        from opendmt3.server.web import app as web_app
+        self.make()
+        self.make("RIO", dj="RIO")
+        store = self.site.accounts()
+        try:
+            players.Players(store.db).ban("RIO", "Made-up reason", who="NOVA")
+        finally:
+            store.db.close()
+        # Every password check, by the thread it ran on.
+        checks, real = [], accounts._matches
+
+        def counted(stored, digest):
+            checks.append(threading.get_ident())
+            return real(stored, digest)
+
+        # The review's: a banned player at a game centre (one address) signing in with the right password, again and
+        # again, on the site and in the launcher.
+        centre = self.client_at("198.51.100.50")
+        tries = web_app.TRIES + 2
+        with mock.patch.object(accounts, "_matches", counted):
+            for _ in range(tries):
+                r = self.api_sign_in(centre, "RIO")
+                self.assertEqual((r.status_code, r.json()["error"]["code"], r.json()["error"].get("reason")),
+                                 (403, "banned", "Made-up reason"))
+                page = self.sign_in(centre, "RIO")
+                self.assertEqual(page.status_code, 403)
+                self.assertIn("This account is banned: Made-up reason", page.text)
+        # One check of the password each (the reason said from that check, never from a second one).
+        self.assertEqual(len(checks), 2 * tries)
+        # Never counted as wrong passwords: every other player behind that address goes on signing in.
+        self.assertEqual(self.api_sign_in(centre).status_code, 200)
+        # A wrong password for the banned account is still one, and says nothing of the ban.
+        r = self.api_sign_in(centre, "RIO", "nope1234")
+        self.assertEqual((r.status_code, r.json()["error"]["code"]), (401, "wrong_sign_in"))
+
+    def test_wrong_passwords_for_one_id_hold_that_id_at_its_address_and_no_other(self):
+        self.make()
+        self.make("RIO", dj="RIO")
+        centre = self.client_at("198.51.100.60")
+        from opendmt3.server.web import app as web_app
+        for _ in range(web_app.TRIES):
+            self.assertEqual(self.api_sign_in(centre, "RIO", "nope1234").status_code, 401)
+        # Every other player behind that address (a game centre's players share it) goes on signing in.
+        self.assertEqual(self.api_sign_in(centre).status_code, 200)
+        self.assertEqual(self.sign_in(centre).status_code, 303)
+        # RIO waits there, right password or not, in the ID's words; RIO from another address does not.
+        held = self.api_sign_in(centre, "RIO")
+        self.assertEqual((held.status_code, held.json()["error"]["message"]),
+                         (429, "too many wrong passwords for this ID; wait a few minutes"))
+        self.assertTrue(web_app.WINDOW - 30 <= int(held.headers["retry-after"]) <= web_app.WINDOW, held.headers)
+        self.assertIn("Too many wrong passwords for this ID", self.sign_in(centre, "RIO").text)
+        self.assertEqual(self.api_sign_in(self.client_at("198.51.100.61"), "RIO").status_code, 200)
+
+    def test_wrong_passwords_for_many_ids_from_one_address_hold_the_address(self):
+        from opendmt3.server.web import app as web_app
+        # The address's own ceiling, far looser than one ID's (web_app.ADDRESS_TRIES).
+        ceiling = 30
+        self.make()
+        guesser = self.client_at("198.51.100.70")
+        # Sign-ins a minute let through here: only the wrong passwords' ceiling is looked at.
+        with mock.patch.object(web_app, "SIGN_INS", 10 * ceiling):
+            # One password tried on many IDs, each ID once: no ID reaches its own limit.
+            for n in range(ceiling):
+                self.assertEqual(self.api_sign_in(guesser, "ID%d" % n, "nope1234").status_code, 401, n)
+            # Then the whole address waits, for every ID, right password or not.
+            held = self.api_sign_in(guesser)
+            self.assertEqual((held.status_code, held.json()["error"]["message"]),
+                             (429, "too many failed sign-ins from this address; wait a few minutes"))
+            self.assertIn("Too many tries from this address", self.sign_in(guesser).text)
+            # Another address goes on.
+            self.assertEqual(self.api_sign_in(self.client_at("198.51.100.71")).status_code, 200)
+        self.assertEqual(web_app.ADDRESS_TRIES, ceiling)
+
     # ------------------------------------------------------------------------------ behind a proxy
 
     def test_a_forwarded_request_is_never_from_this_pc(self):
