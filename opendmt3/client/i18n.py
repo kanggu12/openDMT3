@@ -57,6 +57,7 @@ TEXT = {
     "play.on.server": ("On {name}", "{name}에서 플레이"),
     "play.on.offline": ("Offline, as a guest", "오프라인, 손님으로 플레이"),
     "play.ready": ("Ready check", "준비 점검"),
+    "play.checking": ("Checking...", "점검하는 중..."),
     "play.ok": ("OK", "정상"),
     "play.will_change": ("ready at PLAY", "PLAY 때 준비됩니다"),
     "play.rest": ("The rest is made ready at PLAY.", "나머지는 PLAY 때 준비됩니다."),
@@ -107,11 +108,8 @@ TEXT = {
     "screen.motion.off": ("Off", "끔"),
     "screen.motion.crt": ("CRT beam", "CRT 빔"),
     "screen.motion.bfi": ("Black frames", "검은 프레임"),
-    "screen.motion.hint": ("Lights each frame for part of its refreshes, as a CRT did, so moving notes smear less and "
-                           "the picture is darker: CRT beam rolls from the top down, Black frames lights the whole "
-                           "screen at once.",
-                           "CRT처럼 한 프레임 동안 화면을 잠깐만 밝혀 움직이는 노트의 잔상이 줄고 화면은 어두워집니다. CRT 빔은 "
-                           "위에서 아래로 훑고, 검은 프레임은 화면 전체를 한꺼번에 밝힙니다."),
+    "screen.motion.hint": ("Lights each frame for part of its refreshes, as a CRT did: moving notes smear less, and the picture is darker.",
+                          "CRT처럼 프레임마다 화면을 잠깐만 밝힙니다. 움직이는 노트의 잔상이 줄고 화면은 어두워집니다."),
     # What of Windows' keeps motion clarity off on this screen (window_room.refresh_advice, the in-game layer's rule).
     "screen.motion.hint.dynamic": ("Windows' dynamic refresh rate gives the game {now} Hz on this screen: for motion "
                                    "clarity, choose {hz} Hz in place of Dynamic in Windows' display settings.",
@@ -143,20 +141,16 @@ TEXT = {
     "screen.render.display": ("Screen size", "화면 크기"),
     "screen.render.hint.game": ("The game draws its own 1280×768 picture and the upscale filter enlarges it.",
                                 "게임이 원래 크기인 1280×768로 그리고, 확대 필터로 화면에 맞춰 키웁니다."),
-    "screen.render.hint.display": ("The game draws at the screen's size: the edges of its art, and all it moves or "
-                                   "scales, are drawn in the screen's own pixels. The upscale filter is not used.",
-                                   "게임이 화면 크기로 그립니다. 그림의 가장자리와 움직이거나 커지는 것이 화면의 화소 "
-                                   "단위로 그려집니다. 확대 필터는 쓰지 않습니다."),
+    "screen.render.hint.display": ("The game draws at the screen's own size; the upscale filter is not used.",
+                                  "게임이 화면 크기 그대로 그립니다. 확대 필터는 쓰지 않습니다."),
     "screen.upscale": ("Upscale filter", "확대 필터"),
     "screen.upscale.off": ("Off", "끔"),
     "screen.upscale.smooth": ("Smooth", "부드럽게"),
     "screen.upscale.fsr1": ("AMD FSR 1", "AMD FSR 1"),
     "screen.upscale.nis": ("NVIDIA NIS", "NVIDIA NIS"),
     "screen.upscale.anime4k": ("Anime4K", "Anime4K"),
-    "screen.upscale.hint": ("How the game's 1280×768 picture is enlarged to the window: sharp bilinear, bilinear, "
-                            "AMD FSR 1, NVIDIA NIS or Anime4K, a small neural network made for drawn art.",
-                            "게임의 1280×768 화면을 창 크기로 확대하는 방식입니다. 선명한 쌍선형, 쌍선형, AMD FSR 1, NVIDIA NIS, "
-                            "그림에 맞춘 작은 신경망인 Anime4K 중에서 고릅니다."),
+    "screen.upscale.hint": ("How the game's 1280×768 picture is enlarged to the window.",
+                           "게임의 1280×768 화면을 창 크기로 키우는 방식입니다."),
     "screen.sharpness": ("Sharpness", "선명도"),
     "screen.sharpness.hint": ("How much AMD FSR 1 and NVIDIA NIS sharpen, from 0 to 100.",
                               "AMD FSR 1과 NVIDIA NIS가 게임 화면을 얼마나 선명하게 할지 0~100으로 고릅니다."),
@@ -181,22 +175,18 @@ TEXT = {
     "screen.preload.hint": ("Reads songs and videos before they are needed: shorter waits, more memory.",
                             "곡과 영상을 미리 읽습니다. 기다림이 줄고 메모리를 더 씁니다."),
     "screen.flip": ("Flip model", "플립 모델"),
-    "screen.flip.hint": ("In full screen, hands each frame to Windows instead of copying it (Direct3D 9Ex). Off, each "
-                         "frame is copied.",
-                         "전체 화면에서 프레임을 복사하지 않고 Windows에 그대로 넘깁니다(Direct3D 9Ex). 끄면 프레임을 복사합니다."),
+    "screen.flip.hint": ("In full screen, each frame goes to Windows instead of being copied (Direct3D 9Ex).",
+                        "전체 화면에서 프레임을 복사하지 않고 Windows에 바로 넘깁니다(Direct3D 9Ex)."),
     "screen.pass_times": ("Measure the picture's GPU time", "게임 화면의 GPU 시간 측정"),
-    "screen.pass_times.hint": ("Times each step of the picture on the graphics card while the game runs. The times "
-                               "go into the launcher's log when the game closes, and so into the report on the HELP page.",
-                               "게임 실행 중에 게임 화면을 그리는 단계마다 그래픽 카드에서 걸린 시간을 잽니다. 게임을 닫으면 런처 로그에 남고 HELP 페이지의 보고서에도 들어갑니다."),
-
+    "screen.pass_times.hint": ("Times each step of the picture on the graphics card; the times go into the launcher's log and the report.",
+                              "화면을 그리는 단계마다 그래픽 카드에서 걸린 시간을 재서 런처 로그와 보고서에 남깁니다."),
     # -------------------------------------------------------------------------------------------- sound
     "sound.sub": ("The game's volumes and equalizer, the device it plays on, who mixes it and how late the device plays.",
                   "게임 음량과 이퀄라이저, 소리를 낼 장치, 믹서, 소리 지연 보정입니다."),
     "sound.volumes": ("Volume", "음량"),
     "sound.master": ("Master", "전체"),
-    "sound.master.hint": ("All of the game's sound. The game's menu has these too, under SOUND, and the two stay the "
-                          "same.",
-                          "게임 소리 전체입니다. 게임 안 메뉴의 사운드에도 같은 값이 있고, 어느 쪽에서 바꿔도 같습니다."),
+    "sound.master.hint": ("All of the game's sound, the same value as the game's own menu under SOUND.",
+                         "게임 소리 전체입니다. 게임 안 메뉴의 사운드와 같은 값입니다."),
     "sound.music": ("Music", "음악"),
     "sound.music.hint": ("The song's backing track.", "곡의 배경 음악입니다."),
     "sound.keys": ("Keysounds", "키음"),
@@ -219,22 +209,18 @@ TEXT = {
     "sound.device": ("Device", "장치"),
     "sound.device.default": ("Windows' default output", "Windows 기본 출력"),
     "sound.device.missing": ("A device that is not connected", "연결되지 않은 장치"),
-    "sound.device.hint": ("Where the game's sound goes. Windows' default output is the one Windows' sound settings name.",
-                          "게임 소리가 나갈 장치입니다. Windows 기본 출력은 Windows 소리 설정에서 정한 장치입니다."),
+    "sound.device.hint": ("Where the game's sound goes.",
+                         "게임 소리가 나갈 장치입니다."),
     "sound.device.gone": ("The chosen device is not connected: the game plays on Windows' default output.",
                           "고른 장치가 연결되어 있지 않아 Windows 기본 출력으로 소리를 냅니다."),
     "sound.mixer": ("Mixer", "믹서"),
     "sound.mixer.directsound": ("DirectSound", "DirectSound"),
     "sound.mixer.openal": ("OpenAL Soft", "OpenAL Soft"),
     "sound.mixer.openal-exclusive": ("Exclusive", "단독"),
-    "sound.mixer.hint": ("Who mixes the game's sounds. DirectSound is Windows' own, as the game was made for. OpenAL "
-                         "Soft mixes them itself, on a shorter way to the device; Exclusive is OpenAL Soft with the "
-                         "device to itself, so no other program plays on it while the game runs, and Low latency "
-                         "does not apply. When OpenAL Soft cannot open the device, DirectSound plays.",
-                         "게임 소리를 누가 섞을지 고릅니다. DirectSound는 게임이 만들어진 대로 Windows가 섞습니다. "
-                         "OpenAL Soft는 직접 섞어 더 짧은 경로로 장치에 보냅니다. 단독은 OpenAL Soft가 장치를 혼자 써서, "
-                         "게임이 켜져 있는 동안 다른 프로그램은 그 장치로 소리를 내지 못하고 저지연은 쓰이지 않습니다. "
-                         "OpenAL Soft가 장치를 열지 못하면 DirectSound로 소리를 냅니다."),
+    "sound.mixer.hint": ("DirectSound is Windows' own; OpenAL Soft takes a shorter way to the device; Exclusive keeps the "
+                         "device for the game alone. Where OpenAL Soft cannot open the device, DirectSound plays.",
+                         "DirectSound는 Windows가 섞고, OpenAL Soft는 더 짧은 경로로 장치에 보내며, 단독은 장치를 게임 "
+                         "혼자 씁니다. OpenAL Soft가 장치를 열지 못하면 DirectSound로 납니다."),
     "sound.mixer.fell_back": ("In the last game, OpenAL Soft could not open the device, so DirectSound played.",
                               "지난 게임에서는 OpenAL Soft가 장치를 열지 못해 DirectSound로 소리를 냈습니다."),
     "sound.mixer.not_loaded": ("In the last game, OpenAL Soft's libraries did not load, so DirectSound played. "
@@ -242,12 +228,10 @@ TEXT = {
                                "지난 게임에서는 OpenAL Soft 라이브러리를 불러오지 못해 DirectSound로 소리를 냈습니다. "
                                "HELP 페이지의 복구로 고치세요."),
     "sound.low_latency": ("Low latency", "저지연"),
-    "sound.low_latency.hint": ("While the game runs, Windows mixes this device's sound in the shortest steps its "
-                               "driver allows: 2.7 ms with Windows' own audio driver, where 10 ms is usual. Every "
-                               "program playing on it goes in those steps too.",
-                               "게임이 켜져 있는 동안 Windows가 이 장치의 소리를 드라이버가 허락하는 가장 짧은 단위로 "
-                               "섞습니다. 보통 10 ms인데 Windows 기본 오디오 드라이버에서는 2.7 ms가 됩니다. 이 장치로 소리를 내는 다른 "
-                               "프로그램도 같은 단위로 섞입니다."),
+    "sound.low_latency.hint": ("While the game runs, this device's sound goes in its driver's shortest steps: 2.7 ms with "
+                               "Windows' own driver, where 10 ms is usual.",
+                               "게임이 켜져 있는 동안 이 장치의 소리를 드라이버의 가장 짧은 단위로 섞습니다. Windows 기본 "
+                               "드라이버에서는 보통 10 ms가 2.7 ms가 됩니다."),
     "sound.low_latency.held": ("In the last game, this device's sound went in {ms} ms steps ({usual} ms without this).",
                                "지난 게임에서는 이 장치의 소리를 {ms} ms 단위로 섞었습니다(끄면 {usual} ms)."),
     "sound.low_latency.other": ("In the last game, this device's sound went in {ms} ms steps, as another program "
@@ -259,11 +243,8 @@ TEXT = {
                                "지난 게임에서는 이 장치의 소리를 {ms} ms 단위로 섞었습니다. 드라이버나 Windows가 더 짧은 "
                                "단위를 허락하지 않았습니다."),
     "sound.offset": ("Audio offset", "소리 지연 보정"),
-    "sound.offset.hint": ("With frame pacing Locked to the music, a song's notes and their judging are held this many "
-                          "milliseconds behind its music, for a device that plays late (Bluetooth, HDMI).",
-                          "프레임 간격이 음악에 맞춤일 때 곡의 노트와 판정을 음악보다 이만큼(밀리초) 늦춥니다. 블루투스, HDMI처럼 "
-                          "소리가 늦게 나는 장치에 맞춥니다."),
-
+    "sound.offset.hint": ("Holds a song's notes this many milliseconds behind its music, for a device that plays late (Bluetooth, HDMI).",
+                         "곡의 노트를 음악보다 이만큼(ms) 늦춥니다. 블루투스, HDMI처럼 소리가 늦게 나는 장치에 맞춥니다."),
     # ----------------------------------------------------------------------------------------- controls
     "controls.sub": ("The game was made for a touch screen; a mouse stands in for it.",
                      "게임은 터치스크린용입니다. 마우스로도 플레이할 수 있습니다."),
@@ -282,9 +263,8 @@ TEXT = {
     "game.folder.choose": ("Choose the folder or the archive your client data is in.",
                            "클라이언트 데이터가 든 폴더나 압축 파일을 고르세요."),
     "game.change": ("Change...", "바꾸기..."),
-    "game.songlist.hint": ("Save the song list... makes the file a server's admin uploads. The song list holds the "
-                           "jackets and the DJ cards too.",
-                           "'곡 목록 저장...'은 서버 관리자가 올릴 곡 목록을 만듭니다. 곡 목록에는 자켓과 DJ 카드도 들어 있습니다."),
+    "game.songlist.hint": ("The song list, with the jackets and the DJ cards, is the file a server's admin uploads.",
+                          "곡 목록(자켓과 DJ 카드 포함)은 서버 관리자가 올리는 파일입니다."),
     "game.songlist.save": ("Save the song list...", "곡 목록 저장..."),
     "game.songlist.send": ("Send the song list to this server", "이 서버로 곡 목록 보내기"),
     "songlist.save.title": ("Save the song list", "곡 목록 저장"),

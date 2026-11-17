@@ -196,9 +196,10 @@ class Dialog:
                                       fill=theme.BAD_INK, anchor="nw", width=text_w - lamp.width - px(8),
                                       tags=("card", "words", "field_error"))
                 line = fonts.small.metrics("linespace")
-                # Raised with the words over the panel's picture, which is drawn after the layout.
+                # Raised with the words over the panel's picture, which is drawn after the layout (by its own tag:
+                # "words" are text items, which layout_problems reads).
                 c.create_image(px(PAD), y + (line - lamp.height) // 2, image=self._error_lamp, anchor="nw",
-                               tags=("card", "words", "field_error"))
+                               tags=("card", "field_error"))
                 y = c.bbox(words)[3]
         y += px(28)
         if self.progress:
@@ -299,6 +300,8 @@ class Dialog:
         if lay.get("field") is not None:
             self._place_field(lay["field"])
         c.tag_raise("words")
+        # The error's lamp beside its words, over the panel's picture as they are.
+        c.tag_raise("field_error")
         self.origin = (x0, y0)
         self.panel_size = (panel_w, panel_h)
         c.move("card", x0, y0)

@@ -78,9 +78,16 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   makes its own card again and no other, in place: the page no longer flickers or jumps, and the keyboard stays where
   it was. The drop-downs are the launcher's own: a field with a chevron that opens its list under it (above it near
   the screen's foot), with the chosen one marked in its page's colour, the arrow keys, Enter, Esc and the wheel.
-- The sign-in and add-player forms: **Show** in the password field, an error under the field it is about (a password
-  too short, a wrong password, an ID taken), and the last ID signed in with on another server filled in again after
-  signing out or a restart (never the password).
+- The launcher's forms are one design with the site's (fields sunk into their cards, names over them, what each
+  takes or what is wrong under it, **Show** inside a password's field, the keyboard's cyan ring, a key's moving
+  stripes while it works), and so are its switches, rows of choices, sliders (now moved by the keys too) and tick
+  boxes. The sign-in on another server is the site's door: the server it signs in to, the ID and the password with
+  their marks, **Remember my ID on this PC**, one sentence under the password for a wrong ID or password, too many
+  tries and a server that does not answer above the key (the latter with the way to the connection test), and a
+  banned account's reason on a plate of its own. **Add a player** takes its three fields side by side.
+- **Play** shows who plays across its top, then the ready check beside the last game; the cards of instructions on
+  **Play** and **Controls** are gone (the guides in the docs keep how the game plays). The settings' hints say one
+  fact each.
 - RECORDS' week chart says a week's number for a click, a tap or the arrow keys, not only under a resting pointer.
 - Running the installer again over the same version offers **Uninstall** beside **Repair** and **Open openDMT3**,
   with the same choice as **Help**, **Uninstall**: keep the settings, players and records, or delete them too.
@@ -91,6 +98,10 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ### Fixed
 
+- When another server no longer takes the launcher's sign-in (found by the connection test, RECORDS, the song list or
+  PLAY), the launcher forgets it, its sign-in card asks for the password again with the ID kept, and PLAY says why it
+  cannot start; it went on showing "Signed in" and a lit PLAY.
+- The touch screen's hint on **Controls** says every finger plays, as it has since 0.3.0.
 - `.env` saved by Notepad (with a byte-order mark, CRLF or spaces around `=`) reads the same as any other.
 - The launcher connects to an `https://` address without a port on 443, as a browser does.
 - `./dmt3 expose <address> --local-ca` (an IP address as the site's name, on a closed network) answers over HTTPS:

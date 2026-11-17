@@ -137,7 +137,12 @@ def refresh_checks(app):
         child.destroy()
     ui, w = app.ui, app.words
     if app.checks is None:
-        widgets.label(box, ui, "...", fg=theme.MUTED).pack(anchor="w")
+        # Being made (a worker thread): said as a check line is, its lamp an outline until the answer comes.
+        line = tk.Frame(box, bg=theme.PANEL)
+        line.pack(fill="x")
+        lamp = widgets.Lamp(line, ui, theme.MUTED, lit=False)
+        lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
+        widgets.label(line, ui, w("play.checking"), fg=theme.MUTED).pack(side="left", padx=(ui.px(8), 0))
         return
     # What PLAY makes ready by itself and has not yet: several are said in one line under the list (a first start has
     # all of them), one alone by its name.
