@@ -6,6 +6,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-17
+
 ### Added
 
 - The admin pages are a site of their own, apart from the players' site: on the server PC at
@@ -396,7 +398,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - Updates inside the launcher, signed by the project, and an installer with repair and removal, in English and
   Korean.
 
-[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/kanggu12/openDMT3/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/kanggu12/openDMT3/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/kanggu12/openDMT3/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kanggu12/openDMT3/compare/v0.1.1...v0.2.0

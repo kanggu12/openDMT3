@@ -45,7 +45,7 @@ you, and a server of your own in place of the game's online service.
 
 On Windows 10 or 11, with your own client data ([which](docs/client-data.md#which-client-data)):
 
-1. Download **[opendmt3-launcher-0.3.1-windows-x64-setup.exe](https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-launcher-0.3.1-windows-x64-setup.exe)**
+1. Download **[opendmt3-launcher-0.4.0-windows-x64-setup.exe](https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-launcher-0.4.0-windows-x64-setup.exe)**
    and run it. If Windows says it protected your PC, choose **More info**, then **Run anyway**.
 2. Choose **Install**. The launcher's first-start guide finds your client data and takes you to **PLAY**.
 
@@ -65,8 +65,8 @@ For players on their own PCs. On Linux, macOS or Windows in WSL 2, with Docker (
 release's server package (or a clone of the repository: `git clone`, then `./dmt3 setup` in it):
 
 ```sh
-curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.3.1/opendmt3-server-0.3.1.zip
-unzip opendmt3-server-0.3.1.zip
+curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0.zip
+unzip opendmt3-server-0.4.0.zip
 cd opendmt3-server-0.3.1
 ./dmt3 setup
 ```
