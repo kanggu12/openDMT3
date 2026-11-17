@@ -156,8 +156,11 @@ def routes(site):
         if upload.declared_too_large(request, pl.PICTURE_UPLOAD_MOST + upload.FORM_ROOM):
             return _redirect("/account?picture=size#profile")
         if request.headers.get("content-type", "").startswith("application/x-www-form-urlencoded"):
-            # The remove button's small form (no file).
-            form = await request.form()
+            # The remove button's small form (no file), read as it comes up to a form's room (never whole, as
+            # Starlette's form() reads it): a body past it is answered as a picture too large is.
+            form = await upload.small_form(request)
+            if form is None:
+                return _redirect("/account?picture=size#profile")
             if not hmac.compare_digest(form.get("csrf", ""), site.csrf(request)):
                 return _redirect("/account?picture=expired#profile")
             await threaded(clear_picture, site, user)

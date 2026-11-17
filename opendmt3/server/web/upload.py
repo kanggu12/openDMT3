@@ -1,13 +1,17 @@
-"""Receiving a file the admin uploads (a database on the Backups tab, a song list on the Song list tab), as a form
-(multipart/form-data) and through each one's API twin (the file itself is the request's body): written to its own file
-as it comes, never held in memory whole, and counted, so an upload past its limit stops at that byte.
+"""Receiving a file the admin uploads (a database on the Backups tab, a song list on the Song list tab) or a player's
+picture, as a form (multipart/form-data) and through each one's API twin (the file itself is the request's body):
+written to its own file as it comes, never held in memory whole, and counted, so an upload past its limit stops at
+that byte.
 
-The wall in app.py leaves these two routes' bodies alone (its BODY_LIMIT is for every other request); the reading here
-is their limit. Starlette's own form reader is not used: it keeps a file in memory or in the system's temporary folder,
-not in backups/, and reads the whole body before the form's token can be looked at.
+The wall in app.py leaves these routes' bodies alone (its BODY_LIMIT is for every other request); the reading here is
+their limit, for every part of the body: the file, the form's fields, each part's headers, and the whole of it (a body
+sent in chunks says nothing beforehand). Starlette's own form reader is not used: it keeps a file in memory or in the
+system's temporary folder, not in backups/, reads the whole body before the form's token can be looked at, and reads
+a form of fields (application/x-www-form-urlencoded) whole, however long it is.
 """
 
 import hmac
+from urllib.parse import parse_qsl
 
 from starlette.concurrency import run_in_threadpool
 
@@ -23,6 +27,9 @@ from opendmt3.server.services import backups as bak
 
 # What a form's body may hold besides its file: the token, each part's headers and the boundaries between them.
 FORM_ROOM = 64 * 1024
+# What one part's headers may hold, all of them together: a browser sends two short lines (its name and its file's
+# name, and the file's type). Past it the body is no form a page sends, and is read no further.
+HEADER_ROOM = 8 * 1024
 # A form's own fields beside the file (its token): this many at most, each this many bytes at most.
 FIELDS_MOST = 4
 FIELD_BYTES = 1024
@@ -48,6 +55,24 @@ def declared_too_large(request, most):
         # Sent in pieces without a length: counted as it comes instead.
         return False
     return not declared.isdigit() or int(declared) > most
+
+
+async def small_form(request, most=FORM_ROOM):
+    """A form of fields alone (application/x-www-form-urlencoded: the picture's remove button), read as it comes: its
+    fields by name (a name sent twice keeps its last value, as Starlette's form does), or None once the body passes
+    `most` bytes (or says beforehand that it will), and the rest of it is never read."""
+    if declared_too_large(request, most):
+        # Too long by its own Content-Length: not a byte read.
+        return None
+    data = bytearray()
+    async for chunk in request.stream():
+        # Gathered in place (a bytearray grows without copying what it holds), and counted as it comes.
+        data += chunk
+        if len(data) > most:
+            # Past the room: the reading stops here, whatever the client goes on sending.
+            return None
+    # The fields as Starlette reads them: the bytes as Latin-1 (a form's body is ASCII), each %XX as UTF-8, blanks kept.
+    return dict(parse_qsl(bytes(data).decode("latin-1"), keep_blank_values=True))
 
 
 class _Writer:
@@ -98,26 +123,41 @@ async def form_to(request, out, most, token, too_large=bak.too_large, named=Fals
     if kind != b"multipart/form-data" or not boundary:
         raise Malformed("not a multipart form")
     writer = _Writer(out, most, too_large)
-    # The part being read: its headers as they come, its name, and whether it is the file.
-    part = {"field": b"", "value": b"", "disposition": b"", "name": "", "file": False, "data": bytearray()}
+    # The whole body at most: the file and a form's room beside it, as declared_too_large says it of a body's length
+    # beforehand (a body sent in chunks is counted against it as it comes instead).
+    room = most + FORM_ROOM
+    # The part being read: its headers as they come (in bytearrays, which grow in place: a header gathered with += on
+    # bytes was copied whole at each piece), how many bytes of headers it has had, its name, and whether it is the file.
+    part = {"field": bytearray(), "value": bytearray(), "headers": 0, "disposition": b"", "name": "", "file": False,
+            "data": bytearray()}
     # The text fields by name, the file's field (one at most), and whether the form's last boundary came.
     fields, files, ended = {}, [], []
 
     def on_part_begin():
         # A new part: nothing of the last one carries over.
-        part.update(field=b"", value=b"", disposition=b"", name="", file=False, data=bytearray())
+        part.update(field=bytearray(), value=bytearray(), headers=0, disposition=b"", name="", file=False,
+                    data=bytearray())
+
+    def headers_counted(size):
+        # A part's headers, every piece of every name and value, counted against their room: past it, read no further.
+        part["headers"] += size
+        if part["headers"] > HEADER_ROOM:
+            raise Malformed("a part's headers longer than a page's form sends")
 
     def on_header_field(data, start, end):
+        headers_counted(end - start)
         part["field"] += data[start:end]
 
     def on_header_value(data, start, end):
+        headers_counted(end - start)
         part["value"] += data[start:end]
 
     def on_header_end():
-        # Only the part's Content-Disposition says what it is (its name, and a file's name).
+        # Only the part's Content-Disposition says what it is (its name, and a file's name): kept as bytes, the form
+        # the header parser reads.
         if part["field"].lower() == b"content-disposition":
-            part["disposition"] = part["value"]
-        part["field"], part["value"] = b"", b""
+            part["disposition"] = bytes(part["value"])
+        part["field"], part["value"] = bytearray(), bytearray()
 
     def on_headers_finished():
         _, says = parse_options_header(part["disposition"])
@@ -157,7 +197,13 @@ async def form_to(request, out, most, token, too_large=bak.too_large, named=Fals
         "on_header_field": on_header_field, "on_header_value": on_header_value, "on_header_end": on_header_end,
         "on_headers_finished": on_headers_finished, "on_end": on_end})
     try:
+        # The bytes of the body read so far, all its parts and boundaries.
+        received = 0
         async for chunk in request.stream():
+            received += len(chunk)
+            if received > room:
+                # Longer than any form with a file this large: the refusal of a file too large, read no further.
+                raise too_large()
             # The callbacks above run inside write(): the file's bytes are gathered there, written here.
             parser.write(chunk)
             await writer.flush()

@@ -328,5 +328,146 @@ class UploadRoutesTest(ApiBase):
         self.assertEqual(self.kept(), ([], []))
 
 
+def streamed(app, path, cookie, content_type, pieces, client=("203.0.113.5", 50000)):
+    """POST `path` straight to the ASGI app with a body sent in pieces and no length, as a client sends one in chunks:
+    (the answer's status, its Location or None, how many bytes of the body the app read). Each piece is made only when
+    the app asks for it, so what the app never read is never made: a body of any length costs the test what was read."""
+    import asyncio
+    taken, answer, ended = [0], {}, [False]
+
+    async def run():
+        # Set once the answer's last piece is sent: a client that gave its whole body then waits for it.
+        done = asyncio.Event()
+
+        async def receive():
+            if ended[0]:
+                # The whole body was given: what comes next is the client going, once it has its answer.
+                await done.wait()
+                return {"type": "http.disconnect"}
+            piece = next(pieces, None)
+            if piece is None:
+                # The body's end, as a client that stops sending says it.
+                ended[0] = True
+                return {"type": "http.request", "body": b"", "more_body": False}
+            # What the app read, counted as it reads it.
+            taken[0] += len(piece)
+            return {"type": "http.request", "body": piece, "more_body": True}
+
+        async def send(message):
+            if message["type"] == "http.response.start":
+                # The status and the headers, by their names in lower case.
+                answer["status"] = message["status"]
+                answer["headers"] = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in message["headers"]}
+            elif message["type"] == "http.response.body" and not message.get("more_body"):
+                done.set()
+
+        # A request as a server hands it to the app: no Content-Length, so nothing says beforehand how long it is.
+        headers = [(b"host", b"testserver"), (b"cookie", cookie.encode("latin-1")),
+                   (b"content-type", content_type.encode("latin-1")), (b"transfer-encoding", b"chunked")]
+        scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "POST", "scheme": "http",
+                 "path": path, "raw_path": path.encode(), "query_string": b"", "root_path": "", "headers": headers,
+                 "client": client, "server": ("testserver", 80)}
+        await app(scope, receive, send)
+
+    asyncio.run(run())
+    return answer["status"], answer["headers"].get("location"), taken[0]
+
+
+@unittest.skipUnless(WEB, "needs starlette, jinja2, httpx and python-multipart")
+class FormBodyTest(ApiBase):
+    """A form's body read as it comes, never past the room it has: a player's picture forms and the admin's upload
+    forms stop reading a few bytes past it, whatever the client goes on sending (the review's attack sent hundreds of
+    megabytes in chunks; here each piece is counted as the app reads it)."""
+
+    # A piece of a body as the network brings it.
+    PIECE = 1024
+    # The boundary of the multipart bodies made here.
+    BOUNDARY = "made-up-boundary"
+    # The room a part's headers have, all of them together (upload.HEADER_ROOM).
+    HEADER_ROOM = 8 * 1024
+
+    def pieces(self, first, filler, most):
+        """`first`, then `filler` again and again, `most` bytes in all at most: made one at a time, as they are read."""
+        yield first
+        sent = len(first)
+        while sent < most:
+            yield filler
+            sent += len(filler)
+
+    def cookie(self):
+        """The Cookie header of the sign-in on self.client."""
+        from opendmt3.server.web.common import COOKIE
+        return "%s=%s" % (COOKIE, self.client.cookies.get(COOKIE))
+
+    def multipart(self):
+        """A multipart form's Content-Type, with the boundary of the bodies made here."""
+        return "multipart/form-data; boundary=" + self.BOUNDARY
+
+    def test_the_pictures_remove_form_is_read_up_to_a_forms_room(self):
+        from opendmt3.server.web import upload
+        self.make()
+        self.sign_in(self.client)
+        token = self.form_token(self.client, "/account")
+        # The remove button's own form, with the right token, then a field that never ends: eight forms' room of it.
+        body = self.pieces(("csrf=%s&action=clear&more=" % token).encode(), b"a" * self.PIECE, 8 * upload.FORM_ROOM)
+        status, location, taken = streamed(self.app, "/account/picture", self.cookie(),
+                                           "application/x-www-form-urlencoded", body)
+        # Read no further than a form's room and a piece, and refused as a picture too large is.
+        self.assertLessEqual(taken, upload.FORM_ROOM + self.PIECE)
+        self.assertEqual((status, location), (303, "/account?picture=size#profile"))
+        # Said beforehand, it is not read at all.
+        r = self.client.post("/account/picture", content=b"a" * (upload.FORM_ROOM + 1), follow_redirects=False,
+                             headers={"Content-Type": "application/x-www-form-urlencoded"})
+        self.assertEqual(r.headers["location"], "/account?picture=size#profile")
+        # The button itself goes on working.
+        r = self.client.post("/account/picture", data={"csrf": token, "action": "clear"}, follow_redirects=False)
+        self.assertEqual(r.headers["location"], "/account?done=picture_clear#profile")
+
+    def test_a_parts_headers_are_read_up_to_their_room_on_every_form(self):
+        from opendmt3.server.web import upload
+        self.make()
+        player = self.cookie_of(self.client, "NOVA")
+        self.admin()
+        admin = self.cookie()
+        # A part's Content-Disposition that never ends, on the picture's form and on each of the admin's upload forms.
+        first = ('--%s\r\nContent-Disposition: form-data; name="csrf"; more="' % self.BOUNDARY).encode()
+        for path, cookie in (("/account/picture", player), ("/admin/backups/upload", admin),
+                             ("/admin/song_list/upload", admin)):
+            with self.subTest(path=path):
+                body = self.pieces(first, b"a" * self.PIECE, 64 * self.HEADER_ROOM)
+                status, location, taken = streamed(self.app, path, cookie, self.multipart(), body)
+                # Read no further than the part's headers' room and a piece, then answered as a body no page sends.
+                self.assertLessEqual(taken, self.HEADER_ROOM + len(first) + self.PIECE)
+                self.assertIn(status, (200, 303))
+                if path == "/account/picture":
+                    self.assertEqual(location, "/account?picture=size#profile")
+        # Nothing of them was kept, and the room is the one upload.py gives a part's headers.
+        self.assertEqual(backups.all_backups(self.tmp), [])
+        self.assertEqual(upload.HEADER_ROOM, self.HEADER_ROOM)
+
+    def test_a_form_in_pieces_is_read_up_to_its_files_limit_and_a_forms_room(self):
+        from opendmt3.server.services import players
+        from opendmt3.server.web import upload
+        self.make()
+        self.sign_in(self.client)
+        token = self.form_token(self.client, "/account")
+        # The form's token again and again, each part small, a field the form has, no file: past any room a form has.
+        part = ('--%s\r\nContent-Disposition: form-data; name="csrf"\r\n\r\n%s\r\n' % (self.BOUNDARY, token)).encode()
+        with mock.patch.object(players, "PICTURE_UPLOAD_MOST", 4096):
+            most = players.PICTURE_UPLOAD_MOST + upload.FORM_ROOM
+            status, location, taken = streamed(self.app, "/account/picture", self.cookie(), self.multipart(),
+                                               self.pieces(part, part, 16 * most))
+        # Read no further than what the file and a form's room add up to (and a piece), refused as a picture too large.
+        self.assertLessEqual(taken, most + len(part))
+        self.assertEqual((status, location), (303, "/account?picture=size#profile"))
+
+    def cookie_of(self, client, login_id):
+        """The Cookie header of `login_id` signed in on `client`, which then signs out of the site's own cookies."""
+        self.sign_in(client, login_id)
+        cookie = self.cookie()
+        client.cookies.clear()
+        return cookie
+
+
 if __name__ == "__main__":
     unittest.main()
