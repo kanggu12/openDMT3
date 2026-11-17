@@ -7,8 +7,8 @@
 <section class="page">
   {% if modes %}<nav class="tabs">{% for m, name in modes %}<a href="/rankings?mode={{ m }}&amp;by={{ by }}" class="{{ 'on' if m == mode }}">{{ name }}</a>{% endfor %}</nav>
   <nav class="tabs quiet">{% for key in ("total", "best30", "month") %}<a href="/rankings?mode={{ mode }}&amp;by={{ key }}" class="{{ 'on' if by == key }}">{{ w("rankings.by." + key, n=best_of) }}</a>{% endfor %}</nav>
-  {% if by == "best30" %}<p class="muted small">{{ w("rankings.best30.hint", n=best_of) }}</p>{% endif %}
-  {% if by == "month" %}<p class="muted small">{{ w("rankings.month.hint", month=month.name) }}</p>{% endif %}{% endif %}
+  {% if by == "best30" %}<p class="page-note muted small">{{ w("rankings.best30.hint", n=best_of) }}</p>{% endif %}
+  {% if by == "month" %}<p class="page-note muted small">{{ w("rankings.month.hint", month=month.name) }}</p>{% endif %}{% endif %}
   {% set value_label = w("rankings.by.best30", n=best_of) if by == "best30" else w("rankings.total") %}
   {% if not rows %}
   <div class="card"><p class="muted">{{ w("rankings.month.none") if by == "month" and modes else w("rankings.none") }}</p></div>

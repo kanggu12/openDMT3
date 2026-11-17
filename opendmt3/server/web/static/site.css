@@ -693,3 +693,11 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 .table.commands td:first-child { white-space: nowrap; }
 /* The Players tab's times and sorting headers stay on one line each (a date broken after its month read as two). */
 .table.players td.time, .table.players th a.sort { white-space: nowrap; }
+/* A line that says how a list is made (the rankings' best 30 and month), on a glass strip of its own as every word
+   of a page sits on something. */
+.page-note { background: var(--glass); box-shadow: var(--glass-rim); padding: 10px 14px; margin: 0 0 16px; }
+/* The line under the message to send (an address only this PC reaches) keeps a step from the message's box. */
+.alert.message-local { margin: 12px 0 0; }
+/* A chart with nothing kept yet says so in the middle of its plot. */
+.trend-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--faint);
+               font-size: 13px; text-align: center; padding: 0 16px; pointer-events: none; }

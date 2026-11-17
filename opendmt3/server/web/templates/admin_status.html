@@ -71,10 +71,12 @@
     {{ trend(machine.charts[key], w("machine.chart." + key), w) }}
     {% endfor %}
     {% if machine.partial %}<p class="muted small">{{ w("machine.since", when=(machine.since|when)) }}</p>{% endif %}
+    {% if machine.charts.cpu.known or machine.charts.memory.known %}
     <details class="as-table"><summary>{{ w("machine.table") }}</summary>
       <table class="table"><thead><tr><th>{{ w("machine.hour") }}</th>{% for key in ("cpu", "memory", "disk") %}<th class="num">{{ w("machine." + key) }}</th>{% endfor %}</tr></thead>
         <tbody>{% for h in range(24) %}<tr><td>{{ machine.hours[h]|clock }}</td>{% for key in ("cpu", "memory", "disk") %}{% set v = machine.charts[key].hours[h][1] %}<td class="num" data-label="{{ w('machine.' + key) }}">{{ "%s%%"|format(v) if v is not none else "-" }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
     </details>
+    {% endif %}
   </div>
   {# The data folder's disk: the server's own parts, then other files and what is free, as one bar and a table. #}
   {% set disk = machine.disk %}

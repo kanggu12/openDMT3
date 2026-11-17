@@ -666,6 +666,8 @@ TEXT = {
     "machine.of": ("{used} of {total}", "{total} 중 {used}"),
     "machine.unknown": ("not measured here", "여기서는 재지 않음"),
     "machine.measuring": ("measuring", "재는 중"),
+    "machine.empty": ("The first point comes five minutes after the server starts.",
+                      "서버를 켜고 5분 뒤에 첫 기록이 생깁니다."),
     "machine.since": ("Kept since {when}. The charts fill in as the server runs, up to the last 24 hours.",
                       "{when}부터 기록했습니다. 서버가 도는 동안 최근 24시간까지 채워집니다."),
     "machine.day": ("Last 24 hours", "최근 24시간"),

@@ -14,6 +14,8 @@
       {% for line, area in chart.runs %}<polygon class="wash" points="{{ area }}"></polygon><polyline class="line" points="{{ line }}" vector-effect="non-scaling-stroke"></polyline>{% endfor %}
     </svg>
     <span class="trend-y top" aria-hidden="true">100%</span><span class="trend-y mid" aria-hidden="true">50%</span>
+    {# Nothing kept yet (a server started minutes ago): the plot says so in its middle. #}
+    {% if not chart.known %}<p class="trend-empty">{{ w("machine.empty") }}</p>{% endif %}
     {# One target an hour, over the whole height: hover or focus shows its average and peak. #}
     <div class="trend-hours">
       {% for at, avg, peak in chart.hours %}{% set tip = w("machine.tip", time=at|clock, avg=avg, peak=peak) if avg is not none else w("machine.tip.none", time=at|clock) %}
