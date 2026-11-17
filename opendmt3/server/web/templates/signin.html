@@ -1,24 +1,43 @@
 {% extends "base.html" %}
 {% block title %}{{ w("signin.title") }} · {% endblock %}
+{% set door = true %}
 {% block main %}
-<section class="hero small"><div class="shards" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="hero-text"><p class="kicker">openDMT3 · SERVER</p><h1>TECHNIKA <b>3</b></h1><p class="sub">{{ w("site.tagline") }}</p></div>
-</section>
-<section class="narrow">
-  <div class="card">
-    <h2>{{ w("signin.title") }}</h2>
-    <p class="muted">{{ w("signin.text") }}</p>
-    {% if error %}<p class="alert bad" role="alert">{{ error }}</p>{% endif %}
-    {# Right after the first-run page made the owner's account: said once, with the ID typed already. #}
-    {% if gone %}<p class="alert ok" role="status">{{ w("signin.gone") }}</p>{% endif %}
-    {% if made %}<p class="alert ok" role="status">{{ w("signin.made", login_id=made) }}</p>{% endif %}
-    {# After a try that failed the ID stays typed and the password box takes the focus; the password is never kept. #}
-    <form method="post" action="/signin?next={{ target|urlencode }}" class="form">
-      <input type="hidden" name="csrf" value="{{ signin_token }}">
-      <label>{{ w("signin.id") }}<input name="login_id" value="{{ login_id }}" autocomplete="username" autocapitalize="characters" required{% if not login_id %} autofocus{% endif %}></label>
-      <label>{{ w("signin.password") }}<input name="password" type="password" autocomplete="current-password" required{% if login_id %} autofocus{% endif %}></label>
-      <button class="btn primary">{{ w("signin.button") }}</button>
-    </form>
+{% include "_door.html" %}
+<section class="card signin">
+  <h2>{{ w("signin.title") }}</h2>
+  {# Right after the first-run page made the owner's account, or after a player deleted their own: said once. #}
+  {% if made %}<p class="done-line" role="status">{{ w("signin.made", login_id=made) }}</p>{% endif %}
+  {% if gone %}<p class="done-line" role="status">{{ w("signin.gone") }}</p>{% endif %}
+  {% if banned is not none %}
+  {# A banned account's own password: the form gives way to what the server's owner wrote, and a way back to it. #}
+  <div class="held" role="alert">
+    <p class="held-head">{{ w("signin.banned.head") }}</p>
+    <p class="held-why"><b>{{ w("signin.banned.reason") }}</b>{{ banned }}</p>
+    <p class="held-lift">{{ w("signin.banned.lift") }}</p>
   </div>
+  <div class="form-actions"><a class="btn" href="/signin{{ '?next=' ~ (target|urlencode) if target != '/' }}">{{ w("signin.other") }}</a></div>
+  {% else %}
+  {# The site's own check before the form goes (site.js, novalidate): an empty field says so under itself. After a try
+     that failed the ID stays typed and the password field takes the focus; the password is never kept. A wrong ID and a
+     wrong password get one sentence, under the password: the site never tells which (login IDs are private here). #}
+  <form method="post" action="/signin?next={{ target|urlencode }}" class="form" novalidate data-remember="site">
+    <input type="hidden" name="csrf" value="{{ signin_token }}">
+    <div class="field">
+      <label class="label" for="signin-id">{{ w("signin.id") }}</label>
+      <span class="slot marked"><svg class="mark lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20c1.4-3.7 4.3-5.6 7.5-5.6s6.1 1.9 7.5 5.6"/></svg><input id="signin-id" class="lg" name="login_id" value="{{ login_id }}" autocomplete="username" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="32" required data-missing="{{ w('signin.missing.id') }}"{% if field == "id" %} aria-invalid="true" aria-describedby="signin-id-error"{% endif %}{% if not login_id or field == "id" %} autofocus{% endif %}></span>
+      {% if field == "id" %}<span class="field-error" id="signin-id-error" role="alert">{{ error }}</span>{% endif %}
+    </div>
+    <div class="field">
+      <label class="label" for="signin-password">{{ w("signin.password") }}</label>
+      <span class="slot marked keyed"><svg class="mark lg" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="1.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg><input id="signin-password" class="lg" name="password" type="password" autocomplete="current-password" maxlength="64" required data-missing="{{ w('signin.missing.password') }}"{% if field == "password" %} aria-invalid="true" aria-describedby="signin-password-error"{% endif %}{% if login_id and field != "id" %} autofocus{% endif %}><button type="button" class="slot-key" data-reveal="signin-password" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w('signin.password') }}" hidden>{{ w("me.password.show") }}</button></span>
+      {% if field == "password" %}<span class="field-error" id="signin-password-error" role="alert">{{ error }}</span>{% endif %}
+    </div>
+    {# Kept in this browser alone (site.js), never sent anywhere: ticked, the ID is in its field next time. #}
+    <label class="check sub"><input type="checkbox" name="remember" value="1">{{ w("signin.remember") }}</label>
+    {% if error and not field %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+    <div class="form-actions"><button class="btn primary lg">{{ w("signin.button") }}</button></div>
+  </form>
+  <p class="lost">{{ w("signin.lost") }}</p>
+  {% endif %}
 </section>
 {% endblock %}

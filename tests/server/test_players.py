@@ -453,7 +453,9 @@ class AdminPlayerPageTest(ApiBase):
         visitor = TestClient(self.app, client=("203.0.113.9", 50004))
         r = self.sign_in(visitor)
         self.assertEqual(r.status_code, 403)
-        self.assertIn("This account is banned: Made-up reason", r.text)
+        # The form gives way to the plate that says it, with the owner's reason.
+        self.assertIn('<p class="held-head">This account is banned</p>', r.text)
+        self.assertIn("Made-up reason", r.text)
         r = self.sign_in(visitor, password="nope1234")
         self.assertEqual(r.status_code, 401)
         self.assertNotIn("Made-up reason", r.text)

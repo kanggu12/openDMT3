@@ -44,7 +44,7 @@
 
   <div class="player-grid">
     {# ---------------------------------------------------------------- MAX points: the game's currency #}
-    <div class="card">
+    <div id="points" class="card">
       <h3>{{ w("profile.points") }}</h3>
       <p class="big-value{{ ' unlimited' if p.unlimited_points }}">{{ w("player.points.unlimited") if p.unlimited_points else "{:,}".format(p.max_points) }}</p>
       <p class="muted small">{{ w("player.points.hint", most="{:,}".format(points_most)) }}</p>
@@ -54,29 +54,42 @@
           <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ 'unlimited_off' if p.unlimited_points else 'unlimited_on' }}">
           <button class="switch" role="switch" aria-checked="{{ 'true' if p.unlimited_points else 'false' }}"><span class="track" aria-hidden="true"></span>{{ w("player.points.unlimited.switch") }}</button>
         </form>
-        <form method="post" class="form row">
+        {# A field and its key in one row, one height; each number's bounds said under it and checked before it goes. #}
+        <form method="post" action="#points" class="form row" novalidate>
           <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="points_add">
-          <label>{{ w("player.points.add") }}<input name="amount" type="number" step="1" min="-{{ points_most }}" max="{{ points_most }}" required inputmode="numeric" placeholder="500 / -500"></label>
+          <div class="field grow">
+            <label class="label" for="points-add">{{ w("player.points.add") }}</label>
+            <input id="points-add" name="amount" type="number" step="1" min="-{{ points_most }}" max="{{ points_most }}" required inputmode="numeric" placeholder="500" data-missing="{{ w('player.points.missing') }}" data-invalid="{{ w('player.points.add.hint', most='{:,}'.format(points_most)) }}" aria-describedby="points-add-hint">
+            <p class="field-hint" id="points-add-hint">{{ w("player.points.add.hint", most="{:,}".format(points_most)) }}</p>
+          </div>
           <button class="btn">{{ w("player.points.add.button") }}</button>
         </form>
-        <form method="post" class="form row">
+        <form method="post" action="#points" class="form row" novalidate>
           <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="points_set">
-          <label>{{ w("player.points.set") }}<input name="amount" type="number" step="1" min="0" max="{{ points_most }}" value="{{ p.max_points }}" required inputmode="numeric"></label>
+          <div class="field grow">
+            <label class="label" for="points-set">{{ w("player.points.set") }}</label>
+            <input id="points-set" name="amount" type="number" step="1" min="0" max="{{ points_most }}" value="{{ p.max_points }}" required inputmode="numeric" data-missing="{{ w('player.points.missing') }}" data-invalid="{{ w('player.points.set.hint', most='{:,}'.format(points_most)) }}" aria-describedby="points-set-hint">
+            <p class="field-hint" id="points-set-hint">{{ w("player.points.set.hint", most="{:,}".format(points_most)) }}</p>
+          </div>
           <button class="btn">{{ w("player.points.set.button") }}</button>
         </form>
       </div>
     </div>
 
     {# ---------------------------------------------------------------- the level #}
-    <div class="card">
+    <div id="level" class="card">
       <h3>{{ w("profile.level") }}</h3>
       <p class="big-value">{{ "Lv %d" % p.dj_card.level if p.dj_card.level else "-" }}</p>
       <p class="muted small">{{ w("player.level.from", plays="{:,}".format(p.exp_plays), extra=("+" if p.exp_extra > 0 else "") ~ "{:,}".format(p.exp_extra)) if p.exp_extra else w("player.level.plays", plays="{:,}".format(p.exp_plays)) }}</p>
       {% if p.levels %}
       <div class="controls">
-        <form method="post" class="form row">
+        <form method="post" action="#level" class="form row" novalidate>
           <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="level_set">
-          <label>{{ w("player.level.set") }}<input name="level" type="number" step="1" min="1" max="{{ p.levels }}" value="{{ p.dj_card.level or 1 }}" required inputmode="numeric"></label>
+          <div class="field grow">
+            <label class="label" for="level-set">{{ w("player.level.set") }}</label>
+            <input id="level-set" name="level" type="number" step="1" min="1" max="{{ p.levels }}" value="{{ p.dj_card.level or 1 }}" required inputmode="numeric" data-missing="{{ w('player.level.missing') }}" data-invalid="{{ w('player.level.hint', most=p.levels) }}" aria-describedby="level-hint">
+            <p class="field-hint" id="level-hint">{{ w("player.level.hint", most=p.levels) }}</p>
+          </div>
           <button class="btn">{{ w("player.level.set.button") }}</button>
         </form>
         {% if p.exp_extra %}
@@ -90,7 +103,7 @@
     </div>
 
     {# ---------------------------------------------------------------- the ban #}
-    <div class="card">
+    <div id="ban" class="card">
       <h3>{{ w("player.ban") }}</h3>
       {% if p.banned %}
       <p class="ban-reason">{{ p.ban_reason }}</p>
@@ -107,23 +120,31 @@
       </form>
       {% else %}
       <p class="muted small" id="ban-rules">{{ w("player.ban.hint", max=reason_max) }}</p>
-      <form method="post" class="form" data-ask="{{ w('player.ban.ask', login_id=p.login_id) }}" data-ask-title="{{ w('player.ban') }}" data-ask-detail="{{ w('player.ban.detail') }}" data-ask-yes="{{ w('player.ban.yes') }}">
+      <form method="post" action="#ban" class="form" novalidate data-ask="{{ w('player.ban.ask', login_id=p.login_id) }}" data-ask-title="{{ w('player.ban') }}" data-ask-detail="{{ w('player.ban.detail') }}" data-ask-yes="{{ w('player.ban.yes') }}">
         <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="ban">
-        <label>{{ w("player.ban.reason") }}<input name="reason" maxlength="{{ reason_max }}" required aria-describedby="ban-rules"></label>
-        <div><button class="btn danger">{{ w("player.ban.yes") }}</button></div>
+        <div class="field">
+          <label class="label" for="ban-reason">{{ w("player.ban.reason") }}<span class="count" data-count-for="ban-reason">0 / {{ reason_max }}</span></label>
+          <input id="ban-reason" name="reason" maxlength="{{ reason_max }}" required data-missing="{{ w('player.ban.missing') }}" aria-describedby="ban-rules">
+        </div>
+        <div class="form-actions"><button class="btn danger">{{ w("player.ban.yes") }}</button></div>
       </form>
       {% endif %}
     </div>
 
     {# ---------------------------------------------------------------- the account #}
-    <div class="card">
+    <div id="account" class="card">
       <h3>{{ w("me.section.account") }}</h3>
-      <form method="post" class="form row">
+      <form method="post" action="#account" class="form row" novalidate>
         <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="rename">
-        <label>{{ w("account.dj") }}<input name="dj_name" value="{{ p.dj_name }}" maxlength="{{ dj_max }}" required></label>
+        <div class="field grow">
+          <label class="label" for="player-dj">{{ w("account.dj") }}</label>
+          <input id="player-dj" name="dj_name" value="{{ p.dj_name }}" maxlength="{{ dj_max }}" required data-missing="{{ w('me.dj.missing') }}">
+        </div>
         <button class="btn">{{ w("admin.rename") }}</button>
       </form>
-      <div class="controls">
+      {# The account's other changes side by side, each a key that says what it does (the ones that cannot be undone ask
+         first in the site's own dialog). #}
+      <div class="form-actions key-row">
         <form method="post" data-ask="{{ w('admin.newpass.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.newpass') }}" data-ask-detail="{{ w('admin.newpass.detail') }}" data-ask-yes="{{ w('admin.newpass') }}" data-ask-tone="warn"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="password"><button class="btn small">{{ w("admin.newpass") }}</button> <span class="muted small">{{ w("player.newpass.hint") }}</span></form>
         <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ 'admin_off' if p.is_admin else 'admin_on' }}"><button class="btn small">{{ w("admin.rights.take") if p.is_admin else w("admin.rights.give") }}</button></form>
         {% if p.picture %}
@@ -133,12 +154,12 @@
     </div>
 
     {# ---------------------------------------------------------------- the DJ card #}
-    <div class="card wide">
+    <div id="card" class="card wide">
       <h3>{{ w("me.card") }}</h3>
-      <form method="post" class="form card-form" data-card-editor>
+      <form method="post" action="#card" class="form card-form" data-card-editor>
         <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="card">
         {% set card = p.dj_card %}{% set name = p.dj_name %}{% set comment = p.dj_card.comment %}{% include "_card_editor.html" %}
-        <div><button class="btn primary">{{ w("me.card.save") }}</button></div>
+        <div class="form-actions"><button class="btn primary">{{ w("me.card.save") }}</button></div>
       </form>
     </div>
 

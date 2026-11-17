@@ -129,9 +129,12 @@
   {# The notice every page of the site shows at its top: one line, set or cleared here. #}
   <div class="card">
     <h3>{{ w("notice.title") }}</h3>
-    <form method="post" action="/admin/status" class="form row">
+    <form method="post" action="/admin/status#notice" class="form row" id="notice" novalidate>
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="set">
-      <label class="grow">{{ w("notice.label") }}<input name="text" value="{{ kept.text if kept else '' }}" maxlength="{{ notice_max }}"></label>
+      <div class="field grow">
+        <label class="label" for="notice-text">{{ w("notice.label") }}<span class="count" data-count-for="notice-text">{{ (kept.text if kept else '')|length }} / {{ notice_max }}</span></label>
+        <input id="notice-text" name="text" value="{{ kept.text if kept else '' }}" maxlength="{{ notice_max }}" required data-missing="{{ w('notice.missing') }}">
+      </div>
       <button class="btn primary">{{ w("notice.save") }}</button>
     </form>
     {% if kept %}
@@ -140,7 +143,6 @@
       <div><button class="btn small">{{ w("notice.clear") }}</button> <span class="muted small">{{ w("notice.since", when=(kept.at|when), who=kept.by) }}</span></div>
     </form>
     {% endif %}
-    <p class="muted small">{{ w("notice.hint", max=notice_max) }}</p>
   </div>
   {# Maintenance: on or off here; while it is on the game server refuses card logins (services/maintenance.py). #}
   <div class="card">

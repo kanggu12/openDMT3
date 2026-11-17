@@ -1,20 +1,32 @@
 {% extends "base.html" %}
 {% block title %}{{ w("owner.title") }} · {% endblock %}
+{% set door = true %}
 {% block main %}
-<section class="narrow">
-  <div class="card">
-    <h2>{{ w("owner.title") }}</h2>
-    <p class="muted">{{ w("owner.text") }}</p>
-    {% if error %}<p class="alert bad">{{ error }}</p>{% endif %}
-    <form method="post" action="/owner" class="form">
-      <input type="hidden" name="csrf" value="{{ owner_token }}">
-      <label>{{ w("account.id") }}<input name="login_id" maxlength="8" autocapitalize="characters" required autofocus></label>
-      <label>{{ w("account.password") }}<input name="password" type="password" minlength="{{ password_min }}" maxlength="{{ password_max }}" required></label>
-      <label>{{ w("account.dj") }}<input name="dj_name" maxlength="8"></label>
-      <button class="btn primary">{{ w("owner.button") }}</button>
-    </form>
-    {# The rules of an ID, a DJ name and a password, before one is broken (the launcher's own line for them). #}
-    <p class="muted small">{{ w("owner.hint", min=password_min, max=password_max) }}</p>
-  </div>
+{% include "_door.html" %}
+<section class="card signin">
+  <h2>{{ w("owner.title") }}</h2>
+  <p class="door-lead">{{ w("owner.text") }}</p>
+  {# Each field's rule under it, as the launcher's own form says them; what the server refuses goes under the field it is
+     about (field), anything else above the key. #}
+  <form method="post" action="/owner" class="form" novalidate>
+    <input type="hidden" name="csrf" value="{{ owner_token }}">
+    <div class="field">
+      <label class="label" for="owner-id">{{ w("account.id") }}</label>
+      <input id="owner-id" class="lg" name="login_id" value="{{ typed.login_id }}" maxlength="8" pattern="[A-Za-z0-9]{1,8}" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="username" required data-missing="{{ w('owner.missing.id') }}" data-invalid="{{ w('owner.hint.id') }}" aria-describedby="{{ 'owner-id-error' if field == 'id' else 'owner-id-hint' }}"{% if field == "id" %} aria-invalid="true"{% endif %}{% if not field or field == "id" %} autofocus{% endif %}>
+      {% if field == "id" %}<span class="field-error" id="owner-id-error" role="alert">{{ error }}</span>{% else %}<p class="field-hint" id="owner-id-hint">{{ w("owner.hint.id") }}</p>{% endif %}
+    </div>
+    <div class="field">
+      <label class="label" for="owner-dj">{{ w("account.dj") }}<span class="opt">{{ w("form.optional") }}</span></label>
+      <input id="owner-dj" class="lg" name="dj_name" value="{{ typed.dj_name }}" maxlength="8" aria-describedby="{{ 'owner-dj-error' if field == 'dj' else 'owner-dj-hint' }}"{% if field == "dj" %} aria-invalid="true" autofocus{% endif %}>
+      {% if field == "dj" %}<span class="field-error" id="owner-dj-error" role="alert">{{ error }}</span>{% else %}<p class="field-hint" id="owner-dj-hint">{{ w("owner.hint.dj") }}</p>{% endif %}
+    </div>
+    <div class="field">
+      <label class="label" for="owner-password">{{ w("account.password") }}</label>
+      <span class="slot keyed"><input id="owner-password" class="lg" name="password" type="password" minlength="{{ password_min }}" maxlength="{{ password_max }}" pattern="{{ password_pattern }}" autocomplete="new-password" required data-missing="{{ w('owner.missing.password') }}" data-invalid="{{ w('owner.hint.password', min=password_min, max=password_max) }}" aria-describedby="{{ 'owner-password-error' if field == 'password' else 'owner-password-hint' }}"{% if field == "password" %} aria-invalid="true" autofocus{% endif %}><button type="button" class="slot-key" data-reveal="owner-password" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w('account.password') }}" hidden>{{ w("me.password.show") }}</button></span>
+      {% if field == "password" %}<span class="field-error" id="owner-password-error" role="alert">{{ error }}</span>{% else %}<p class="field-hint" id="owner-password-hint">{{ w("owner.hint.password", min=password_min, max=password_max) }}</p>{% endif %}
+    </div>
+    {% if error and not field %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+    <div class="form-actions"><button class="btn primary lg">{{ w("owner.button") }}</button></div>
+  </form>
 </section>
 {% endblock %}

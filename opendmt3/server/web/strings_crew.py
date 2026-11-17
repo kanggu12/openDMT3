@@ -101,6 +101,12 @@ TEXT = {
                         "정지된 플레이어는 게임, 이 사이트, 런처에 로그인할 수 없고, 로그인할 때 사유를 봅니다. "
                         "사유는 {max}자까지입니다."),
     "player.ban.reason": ("Reason", "사유"),
+    "player.ban.missing": ("Write the reason: the player is told it.", "사유를 입력하세요. 플레이어에게 보입니다."),
+    "player.points.missing": ("Type a number.", "숫자를 입력하세요."),
+    "player.points.add.hint": ("-{most} to {most}; below 0 takes away.", "-{most}~{most}, 0보다 작으면 뺍니다."),
+    "player.points.set.hint": ("0 to {most}.", "0~{most}."),
+    "player.level.missing": ("Type a level.", "레벨을 입력하세요."),
+    "player.level.hint": ("1 to {most}.", "1~{most}."),
     "player.ban.yes": ("Ban", "정지하기"),
     "player.ban.ask": ("Ban {login_id}?", "{login_id}의 이용을 정지할까요?"),
     "player.ban.detail": ("Their card stops logging in and their sign-ins end at once, and they leave the rankings until "

@@ -14,6 +14,15 @@
   /* The game's colours. */
   --blue: #2a5ff0; --blue-hi: #5b8cff; --blue-deep: #0d2a8f; --lime: #b4f02a; --pink: #ff4fa0; --amber: #ffb33d;
   --cyan: #5fd3ff;
+  /* A field is a slot sunk into its plate (the forms below): the well's dark, a machined edge, a shade along its top
+     inside; a field not usable now between the well and the plate. Words under a field: the hint dimmer than a label
+     (6:1 on a card), an error in a pink light enough to read (8:1). Three heights: a page's fields and keys, a table row's
+     and a toolbar's, the sign-in's. */
+  --slot: #0d1014; --slot-edge: #3a434e; --slot-edge-hover: #56616e; --slot-shade: rgba(0, 0, 0, 0.55);
+  --slot-off: #14181d; --slot-off-edge: #2b323b; --hint: #939eaa; --bad-ink: #ff9cc8;
+  --ctl: 42px; --ctl-sm: 34px; --ctl-lg: 48px;
+  /* A tick box's mark in the ink that reads on the section's colour (white on the title screen's blue). */
+  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.4l3.2 3.2L13 4.8' fill='none' stroke='%23ffffff' stroke-width='2.2' stroke-linecap='square'/%3E%3C/svg%3E");
   /* The section in use (the title screen's blue unless a section says otherwise). */
   --accent: var(--blue-hi); --accent-light: #2f6bff; --accent-deep: var(--blue-deep); --accent-fill: var(--blue);
   --accent-ink: #ffffff;
@@ -29,10 +38,15 @@
   color-scheme: dark;
 }
 /* The game's colours by section: rankings in POP's pink, songs in STAR's lime, the console in amber. */
+/* The sections whose colour is light take the dark ink's tick. */
+body:is([data-section="console"], [data-section="pop"], [data-section="star"]) {
+  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.4l3.2 3.2L13 4.8' fill='none' stroke='%230b0e12' stroke-width='2.2' stroke-linecap='square'/%3E%3C/svg%3E"); }
 body[data-section="console"] { --accent: var(--amber); --accent-light: #e3961f; --accent-deep: #4f3306; --accent-fill: var(--amber); --accent-ink: var(--ink); }
 body[data-section="pop"] { --accent: var(--pink); --accent-light: #e8338a; --accent-deep: #5c0c35; --accent-fill: var(--pink); --accent-ink: var(--ink); }
 body[data-section="star"] { --accent: var(--lime); --accent-light: #8fcc12; --accent-deep: #2c4406; --accent-fill: var(--lime); --accent-ink: var(--ink); }
 
+/* A finger needs room: on a touch screen every field and small key is 44 px at least. */
+@media (pointer: coarse) { :root { --ctl: 44px; --ctl-sm: 44px; } }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
@@ -43,6 +57,8 @@ body {
   background-image: radial-gradient(circle, rgba(255, 255, 255, 0.045) 1px, transparent 1.3px);
   background-size: 6px 6px; background-attachment: fixed;
 }
+/* A word longer than its line (a path, an address) breaks rather than run past its box, in every language. */
+body { overflow-wrap: break-word; }
 /* Korean breaks between words, never inside one (the browser's default would split a word between syllables). */
 body.lang-ko { word-break: keep-all; overflow-wrap: anywhere; }
 a { color: var(--accent); text-decoration: none; }
@@ -177,7 +193,7 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 
 /* ------------------------------------------------------------------------------------------- controls */
 /* Everything one can press: quiet metal cut at two corners like PLAY, lighting up at the pointer. */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px; min-width: 96px;
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: var(--ctl); min-width: 96px;
        padding: 0 18px; border: 0; margin: 0; font: 600 14px/1 var(--text-face); white-space: nowrap; text-decoration: none;
        color: var(--chalk); background: linear-gradient(180deg, var(--rail-up), var(--rail)); cursor: pointer;
        clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
@@ -189,25 +205,221 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 .btn.primary:hover { color: var(--accent-ink); background: var(--accent-fill); filter: brightness(1.12); }
 .btn.primary:focus-visible { outline-color: var(--accent-ink); }
 .btn.big { height: 52px; font-size: 17px; padding: 0 30px; margin-bottom: 18px; }
-.btn.small { height: 34px; min-width: 76px; font-size: 13px; padding: 0 12px; }
+/* On a phone the big key takes the row and its words wrap (a long name ran past a 360 px screen). */
+@media (max-width: 760px) { .btn.big { width: 100%; height: auto; min-height: 52px; padding: 10px 18px; white-space: normal; text-align: center; } }
+.btn.small { height: var(--ctl-sm); min-width: 76px; font-size: 13px; padding: 0 12px; }
+/* The sign-in's key, as tall as its fields. */
+.btn.lg { height: var(--ctl-lg); font-size: 16px; }
 .btn.danger { color: #ffb8d9; background: linear-gradient(180deg, #5a3a52, #4b3044); }
 .btn.danger:hover { color: var(--ink); background: var(--pink); }
 .btn.danger.fill { color: var(--ink); background: var(--pink); }
 .btn.warn.fill { color: var(--ink); background: var(--amber); }
 .btn.warn.fill:hover { filter: brightness(1.1); }
 .btn.danger.fill:hover { filter: brightness(1.1); }
-.form { display: grid; gap: 14px; }
-.form label { display: grid; gap: 6px; font-size: 13px; color: var(--ash); }
-.form.row { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: end; }
-.form .check { display: flex; align-items: center; gap: 8px; color: var(--chalk); }
-input { height: 42px; background: var(--well); color: var(--chalk); border: 1px solid var(--seam); padding: 0 12px;
-        font: 15px var(--text-face); min-width: 0; }
-input[type="checkbox"] { height: auto; accent-color: var(--accent-fill); }
-input:focus { outline: none; border-color: var(--cyan); }
-/* A list to pick from (the plays log's filter), a field like the others. */
-select { height: 42px; min-width: 0; background: var(--well); color: var(--chalk); border: 1px solid var(--seam); padding: 0 8px;
-         font: 15px var(--text-face); }
-select:focus { outline: none; border-color: var(--cyan); }
+/* ---------------------------------------------------------------------------------------------- forms */
+/* One design for every form of the site, the admin pages and the launcher (_work/webux/FORMS.md): a field is a slot sunk
+   into its plate (square: plates and keys are cut, slots are not), its label above it, its hint or what is wrong under
+   it; the keyboard's cyan while typing, the problem's pink when wrong; one main key per form in the section's colour. */
+/* Fields stacked, one under the other, 16 px apart; a stacked form keeps its fields to a readable width. */
+.form { display: grid; gap: 16px; }
+.form.stack { max-width: 440px; }
+/* A field: its label, the slot, then a hint or what is wrong, 6 px apart. A label that wraps its field reads the same. */
+.field, .form label:not(.check):not(.drop):not(.choice) { display: grid; gap: 6px; min-width: 0; align-content: start; }
+/* The label: what goes in, 13 px semibold in the ash's grey, a sentence's case in English (never capitals). */
+.field > .label, .form label:not(.check):not(.drop):not(.choice) { font: 600 13px/18px var(--text-face); color: var(--ash); }
+.field > .label { display: flex; align-items: baseline; gap: 8px; min-height: 18px; margin: 0; }
+/* "Optional" after a label: the field may stay empty. */
+.label .opt { font-weight: 400; color: var(--hint); }
+/* At the label's right end: a count of what is typed, in the hint's ink; the chalk at the limit, pink past it. */
+.label .count { margin-left: auto; font-weight: 400; color: var(--hint); font-variant-numeric: tabular-nums; }
+.label .count.full { color: var(--chalk); }
+.label .count.over { color: var(--bad-ink); }
+/* What a field takes, or what an empty one means: a fact in the hint's ink, never advice. */
+.field-hint { margin: 0; font: 400 13px/1.45 var(--text-face); color: var(--hint); overflow-wrap: anywhere; }
+/* What is wrong with a field, right under it, or with the whole form, right above its keys: the problem's lit pink lamp,
+   then the words; gone once the field changes (site.js). */
+.field-error, .form-error { display: flex; align-items: baseline; gap: 8px; margin: 0; font: 500 13px/1.45 var(--text-face);
+                            color: var(--bad-ink); overflow-wrap: anywhere; }
+.field-error::before, .form-error::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--pink);
+                                            box-shadow: 0 0 6px rgba(255, 79, 160, 0.7); transform: translateY(-1px); }
+/* Fields side by side: each field a column (label, slot, words under it), top-aligned so a long error under one never
+   moves its neighbours; a tick's column and the form's key stand in the fields' row (24 px of room above them, a label's
+   height and its gap). A row that runs out of room wraps; on a phone it stacks. */
+.form.row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
+.form.row > :is(.field, label) { flex: 1 1 170px; }
+.form.row > .fit { flex: 0 0 auto; }
+.form.row > .grow { flex: 2 1 260px; }
+.form.row > .btn, .form.row > .form-actions { flex: 0 0 auto; margin: 24px 0 0; }
+.form.row > p { margin: 0; }
+/* The form's own keys under its fields: the main one first, 24 px under the last field (16 + 8). */
+.form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
+.form-actions > form { margin: 0; }
+@media (max-width: 760px) {
+  .form.row { display: grid; }
+  .form.row > .btn, .form.row > .form-actions { margin-top: 8px; }
+  .form-actions > .btn, .form-actions > form, .form-actions > form > .btn, .form.row > .btn { width: 100%; }
+}
+
+/* The slot: every typed field and every list to pick from, square, the well's dark, a 1 px machined edge and a shade along
+   its top inside. The element alone counts toward which rule wins, as a plain input does: a component's own field rule
+   (a slot with a key, a row's small field) always wins over it. */
+:is(input, select, textarea):where(:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"])) {
+  display: block; width: 100%; min-width: 0; height: var(--ctl); margin: 0; padding: 0 12px;
+  font: 400 15px/1.3 var(--text-face); color: var(--chalk);
+  background-color: var(--slot); border: 1px solid var(--slot-edge); border-radius: 0;
+  box-shadow: inset 0 1px 0 var(--slot-shade);
+  -webkit-appearance: none; appearance: none;
+  transition: border-color var(--quick), box-shadow var(--quick), background-color var(--quick);
+}
+/* A finger's field: 16 px words (Safari zooms into a smaller field). */
+@media (pointer: coarse) { :is(input, select, textarea) { font-size: 16px; } }
+/* Example words in an empty field: the faint ink (5:1 on the well), never read as typed. */
+:is(input, textarea)::placeholder { color: var(--faint); opacity: 1; }
+:is(input, select, textarea):where(:not([type="checkbox"], [type="radio"], [type="range"], [type="file"])):hover:not(:disabled):not([readonly]) {
+  border-color: var(--slot-edge-hover); }
+/* Typing in it: the keyboard's cyan, two pixels drawn inward (the field keeps its size). */
+:is(input, select, textarea):where(:not([type="checkbox"], [type="radio"], [type="range"], [type="file"])):focus {
+  outline: none; border-color: var(--cyan); box-shadow: inset 0 0 0 1px var(--cyan); }
+/* Wrong as it is: the problem's pink edge until the field changes. */
+:is(input, select, textarea)[aria-invalid="true"]:not(:focus) {
+  border-color: var(--pink); box-shadow: inset 0 1px 0 var(--slot-shade), 0 0 0 1px rgba(255, 79, 160, 0.18); }
+/* Not usable now: no shade, quieter edge and words, the pointer says no; its label goes quiet with it. */
+:is(input, select, textarea):where(:not([type="checkbox"], [type="radio"], [type="range"], [type="file"])):disabled {
+  color: var(--faint); background-color: var(--slot-off); border-color: var(--slot-off-edge); box-shadow: none; cursor: not-allowed; }
+.field:has(> :disabled) > .label, .field:has(.slot > :disabled) > .label { color: var(--faint); }
+input:disabled::placeholder { color: transparent; }
+/* To read and copy, not to change (a token shown once, a message to send): the well without its edge's light or shade. */
+:is(input, textarea)[readonly] { border-color: var(--slot-off-edge); box-shadow: none; }
+/* The sizes: a table row's and a toolbar's fields, the sign-in's. */
+:is(input, select).sm { height: var(--ctl-sm); padding: 0 10px; font-size: 14px; }
+:is(input, select).lg { height: var(--ctl-lg); padding: 0 14px; font-size: 16px; }
+/* Numbers in figures of one width; the browser's own arrows go (Up and Down step them). */
+input[type="number"] { font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+/* A browser's own extras inside a field go: the site's Show stands there, and a search clears with Esc. */
+input::-ms-reveal, input::-ms-clear { display: none; }
+input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+/* Many lines: the same slot, its words with room, growing with them (site.js) up to twelve lines, then scrolling inside;
+   no browser grip in its corner. */
+textarea { height: auto; min-height: 96px; max-height: calc(12 * 1.6em + 22px); padding: 10px 12px; line-height: 1.6; resize: none; overflow-y: auto; }
+
+/* A slot with something of its own inside: a key at its right end (Show, Copy, a stepper), a mark at its left (search,
+   the sign-in's), a unit. The field keeps room for them, so its words never run under them. */
+.slot { position: relative; display: block; min-width: 0; }
+.slot.keyed > :is(input, textarea) { padding-right: 82px; }
+.slot.keyed.two > input { padding-right: 112px; }
+.slot.marked > input { padding-left: 40px; }
+.slot.marked > input.lg { padding-left: 44px; }
+.slot.united > input { padding-right: 56px; }
+/* A key inside a slot: small quiet metal with the keys' lean (two corners cut), 5 px in from the slot's edge. */
+.slot-key { position: absolute; top: 5px; bottom: 5px; right: 5px; display: inline-flex; align-items: center; justify-content: center;
+            min-width: 64px; padding: 0 10px; border: 0; margin: 0; font: 600 12px/1 var(--text-face); white-space: nowrap;
+            color: var(--ash); background: var(--rail); cursor: pointer;
+            clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+            transition: color var(--quick), background-color var(--quick); }
+.slot-key:hover, .slot-key.on, .slot-key[aria-pressed="true"] { color: var(--chalk); background: var(--rail-up); }
+.slot-key:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+.slot-key:disabled { color: var(--faint); background: var(--slot-off); cursor: not-allowed; }
+/* A key inside a text area stands at its top right. */
+.slot.keyed > textarea + .slot-key { bottom: auto; height: 32px; }
+/* Two keys at the end (a stepper's minus and plus): square, side by side. */
+.slot-key.step { min-width: 0; width: 32px; padding: 0; font: 600 16px/1 var(--text-face); }
+.slot-key.step.minus { right: 41px; }
+/* A unit after a number (MB, points): the hint's ink at the slot's right end, not a key. */
+.slot > .unit { position: absolute; top: 0; bottom: 0; right: 12px; display: flex; align-items: center; color: var(--hint);
+                font-size: 13px; pointer-events: none; }
+/* A mark at the slot's left (a magnifier for search; the sign-in's person and lock): the faint ink, the keyboard's cyan
+   while the field has the focus. */
+.slot > .mark { position: absolute; left: 13px; top: 50%; width: 16px; height: 16px; margin-top: -8px; fill: none; stroke: var(--faint);
+                stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; transition: stroke var(--quick); }
+.slot > .mark.lg { left: 15px; width: 18px; height: 18px; margin-top: -9px; }
+.slot:focus-within > .mark { stroke: var(--cyan); }
+
+/* A list to pick from: closed, a slot with a chevron at its right end, drawn the same on every system. */
+select { padding-right: 38px; cursor: pointer; text-overflow: ellipsis;
+         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23aab4bf' stroke-width='1.8'/%3E%3C/svg%3E");
+         background-repeat: no-repeat; background-position: right 14px center; background-size: 12px 8px; }
+/* Open, where the browser lets the list be drawn (Chrome and Edge 135 on): the launcher's list, opaque under the field,
+   the chosen one in the chalk with a rule in the section's colour along its left edge, the one under the pointer or the
+   keys on a lighter slab. Elsewhere the list is the system's own. */
+@supports (appearance: base-select) {
+  select, select::picker(select) { appearance: base-select; }
+  select { display: flex; align-items: center; justify-content: space-between; background-image: none; padding-right: 12px; }
+  select::picker-icon { content: ""; flex: none; width: 12px; height: 8px; margin-left: 10px; transition: rotate var(--quick);
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23aab4bf' stroke-width='1.8'/%3E%3C/svg%3E") no-repeat center / 12px 8px; }
+  select:open::picker-icon { rotate: 180deg; }
+  select::picker(select) { margin-top: 4px; padding: 4px 0; color: var(--chalk); background: var(--deck); border: 1px solid var(--slot-edge);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.6); }
+  select option { display: flex; align-items: center; min-height: 38px; padding: 0 14px; color: var(--ash); background: transparent;
+    font: 400 15px/1.3 var(--text-face); }
+  select option:hover, select option:focus-visible { color: var(--chalk); background: var(--deck-top); outline: none; }
+  select option:checked { color: var(--chalk); font-weight: 600; box-shadow: inset 2px 0 0 var(--accent); }
+  select option::checkmark { display: none; }
+}
+
+/* A line with a tick box, a round choice or a switch: the box, then its words in the text's own size and ink, as tall as
+   a field so that in a row of fields it stands in their line. */
+.check { display: flex; align-items: center; gap: 10px; min-height: var(--ctl); margin: 0; color: var(--chalk);
+         font: 400 15px/1.4 var(--text-face); cursor: pointer; }
+.check.sub { min-height: 0; }
+.check:has(:disabled) { color: var(--faint); cursor: not-allowed; }
+/* The tick box and the round choice: small square (round) slots, their edge a step lighter than a field's as they are
+   small, taken in the section's colour with the mark in its ink. */
+input[type="checkbox"], input[type="radio"] {
+  flex: none; width: 20px; height: 20px; margin: 0; -webkit-appearance: none; appearance: none; cursor: pointer;
+  background: var(--slot) center / 16px 16px no-repeat; border: 1px solid var(--slot-edge-hover); box-shadow: inset 0 1px 0 var(--slot-shade);
+  transition: background-color var(--quick), border-color var(--quick); }
+input[type="radio"] { border-radius: 50%; }
+:is(input[type="checkbox"], input[type="radio"]):hover:not(:disabled) { border-color: #8a95a1; }
+input[type="checkbox"]:checked { background-color: var(--accent-fill); background-image: var(--tick); border-color: var(--accent-fill); box-shadow: none; }
+input[type="radio"]:checked { border-color: var(--accent-fill); background-image: radial-gradient(circle, var(--accent-fill) 0 4px, transparent 4.5px); }
+:is(input[type="checkbox"], input[type="radio"]):focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+:is(input[type="checkbox"], input[type="radio"]):disabled { background-color: var(--slot-off); border-color: var(--slot-off-edge); box-shadow: none; cursor: not-allowed; }
+input[type="checkbox"]:checked:disabled { background-color: var(--rail-up); border-color: var(--rail-up); }
+
+/* A switch: on or off at once, with no form key of its own (a tick box goes with its form's key). A button that says it
+   is a switch and whether it is on; round, as only switches, lamps and badges are; the knob the ash's grey when off, the
+   section's colour lit under it when on, its knob in the colour's ink. */
+.switch { display: inline-flex; align-items: center; gap: 12px; min-height: var(--ctl); padding: 0; margin: 0; color: var(--chalk);
+          background: none; border: 0; font: 400 15px/1.4 var(--text-face); text-align: left; cursor: pointer; }
+.switch .track { position: relative; flex: none; width: 42px; height: 24px; border-radius: 12px; background: var(--slot);
+                 border: 1px solid var(--slot-edge-hover); box-shadow: inset 0 1px 0 var(--slot-shade);
+                 transition: background-color var(--quick), border-color var(--quick); }
+.switch .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+                        background: var(--ash); transition: left var(--quick), background-color var(--quick); }
+.switch:hover .track { border-color: #8a95a1; }
+.switch[aria-checked="true"] .track { background: var(--accent-fill); border-color: var(--accent-fill); box-shadow: none; }
+.switch[aria-checked="true"] .track::after { left: 21px; background: var(--accent-ink); }
+.switch:focus-visible { outline: none; }
+.switch:focus-visible .track { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.switch:disabled { color: var(--faint); cursor: not-allowed; }
+.switch:disabled .track { background: var(--slot-off); border-color: var(--slot-off-edge); }
+@media (prefers-reduced-motion: reduce) { .switch .track, .switch .track::after { transition: none; } }
+
+/* A key working on what was sent (a sign-in, an upload): its words stay, the game's stripes move across its face, the
+   pointer waits (site.js sets aria-busy as the form goes). */
+.btn[aria-busy="true"] { cursor: progress; filter: saturate(0.85) brightness(0.92);
+  background-image: repeating-linear-gradient(-60deg, rgba(255, 255, 255, 0.16) 0 7px, transparent 7px 14px);
+  background-size: 32px 100%; animation: busy-stripes 0.7s linear infinite; }
+.btn.primary[aria-busy="true"] { background-color: var(--accent-fill); }
+@keyframes busy-stripes { to { background-position: 32px 0; } }
+@media (prefers-reduced-motion: reduce) { .btn[aria-busy="true"] { animation: none; } }
+/* A part that opens (a list as a table, a picker, a licence): its own chevron before its words, turning as it opens,
+   in place of the browser's triangle. */
+details > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: ""; flex: none; width: 10px; height: 10px; transition: rotate var(--quick);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23aab4bf' stroke-width='1.8'/%3E%3C/svg%3E") no-repeat center / 10px 7px;
+  rotate: -90deg; }
+details[open] > summary::before { rotate: 0deg; }
+details > summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { details > summary::before { transition: none; } }
+/* An upload's row: the drop box and its key, the key in the box's middle (the box has no label above it). */
+.form.row.upload > .btn { margin-top: 0; align-self: center; }
+/* A form sent and waiting for its answer: its fields quiet and still. */
+.is-sent :is(input, select, textarea) { color: var(--faint); pointer-events: none; }
+/* A key beside a field (Open beside a path, Rename beside a name): one height with it. */
+.inline { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
 /* Older and newer pages of a long list, under it. */
 .pages { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
 .alert { position: relative; background: var(--glass); box-shadow: var(--glass-rim); padding: 11px 14px 11px 18px; margin: 0 0 16px; }
@@ -276,7 +488,7 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 .table tr[hidden] { display: none; }
 /* The installer's size, date and version under its button. */
 .file-facts { margin: -10px 0 16px; }
-.search input { flex: 1; }
+.search .slot { flex: 1; }
 .songs .by { display: block; color: var(--ash); font-size: 12px; font-weight: 400; }
 /* Two boards a row at most: each needs room for a name, a score and a date on one line. */
 .charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 18px; }
@@ -345,6 +557,41 @@ a.stat:hover { text-decoration: none; }
 a.stat:hover .value { color: var(--accent); }
 .plays .song { color: var(--chalk); }
 .plays a.song:hover { color: var(--accent); }
+
+/* ----------------------------------------------------------------------------------------------- door */
+/* The front door (the sign-in, the first run): the server's mark at twice the bar's size in the middle, its line under it,
+   the card under that, nothing else. The bar keeps only the language, with no plate under it (an empty bar read as a
+   missing menu), and its small mark steps aside for the big one. */
+.bar.door-bar { background: transparent; border-bottom-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.bar.door-bar .brand { visibility: hidden; }
+.door { display: grid; justify-items: center; padding: clamp(20px, 6vh, 64px) 16px 0; text-align: center; }
+/* The mark drawn as the bar's, scaled from its foot so it keeps its own proportions. */
+.door-mark { transform: scale(2); transform-origin: 50% 100%; margin-top: 46px; }
+.door-line { margin: 18px 0 0; color: var(--ash); font: 400 15px/1.5 var(--text-face); }
+.signin { width: min(100% - 32px, 420px); margin: 22px auto 56px; padding: 26px 28px 24px; }
+.signin h2 { margin: 0; font: 700 22px/1.3 var(--text-face); }
+body.lang-en .signin h2 { font: 400 20px/1.3 var(--wide); letter-spacing: 0.01em; }
+.signin .form { margin-top: 18px; }
+/* The first run's one line under its heading. */
+.door-lead { margin: 6px 0 0; color: var(--hint); font-size: 13px; line-height: 1.5; }
+/* Remember my ID: on a line of its own under the password, quieter than the fields. */
+.signin .check.sub { margin-top: -4px; font-size: 14px; color: var(--ash); }
+.signin .form-actions .btn { flex: 1 1 100%; }
+/* The way back when the password is gone: one quiet line under the key, past a seam. */
+.signin .lost { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--seam); color: var(--hint); font-size: 13px; line-height: 1.5; }
+/* What just happened (the owner's account made, an account deleted): a lime lamp and the words. */
+.done-line { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 0; color: var(--chalk); font-size: 14px; }
+.done-line::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--lime);
+                     box-shadow: 0 0 6px rgba(180, 240, 42, 0.7); transform: translateY(-1px); }
+/* A banned account: what the server's owner wrote, on a plate of its own in the card, in place of the form. */
+.held { display: grid; gap: 6px; margin-top: 16px; padding: 14px 16px; background: var(--slot); border: 1px solid rgba(255, 79, 160, 0.55); }
+.held p { margin: 0; }
+.held-head { display: flex; align-items: center; gap: 10px; font: 600 15px/1.4 var(--text-face); color: var(--chalk); }
+.held-head::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--pink); box-shadow: 0 0 8px rgba(255, 79, 160, 0.75); }
+.held-why { color: var(--chalk); font-size: 14px; overflow-wrap: anywhere; }
+.held-why b { color: var(--ash); font-weight: 600; margin-right: 8px; }
+.held-lift { color: var(--hint); font-size: 13px; }
+.signin .held + .form-actions { margin-top: 20px; }
 
 /* --------------------------------------------------------------------------------------------- dialog */
 /* The game's popup over the page: the page blurred and dimmed behind, a glass panel with the cut corner, its title on a
@@ -436,15 +683,11 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
   .ask .answers .btn { min-width: 0; flex: 1; }
 }
 
-/* Admin, Status: the notice's line takes the row's room; its Clear sits under it. */
-.form.row .grow { grid-column: span 2; }
+/* Admin, Status: the notice's Clear sits under its row. */
 .notice-clear { margin-top: 12px; }
-@media (max-width: 760px) { .form.row .grow { grid-column: auto; } }
 
-/* Admin: the message to send a player, text to copy in a well like the form fields. */
-textarea.message { display: block; width: 100%; padding: 10px 12px; resize: vertical; background: var(--well); color: var(--chalk);
-                   border: 1px solid var(--seam); font: 14px/1.6 var(--text-face); }
-textarea.message:focus { outline: none; border-color: var(--cyan); }
+/* Admin: the message to send a player, text to copy, a little smaller than a field's words. */
+textarea.message { font-size: 14px; }
 /* The invite on the Players tab: the QR code (white with its quiet zone, as a phone reads it in either theme) beside
    the address, the address under it on a narrow screen. */
 .invite-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
@@ -454,9 +697,9 @@ textarea.message:focus { outline: none; border-color: var(--cyan); }
 
 /* Admin: a cabinet's name edited in its row; a game message without a handler shows its first bytes. */
 .inline-name { display: flex; gap: 6px; align-items: center; }
-.inline-name input { min-width: 0; width: 160px; }
+.inline-name input { min-width: 0; width: 180px; }
 /* In a table row the name's box is as tall as the row's small buttons, so a row with both keeps one height. */
-.table .inline-name input { height: 34px; font-size: 14px; }
+.table .inline-name input { height: var(--ctl-sm); padding: 0 10px; font-size: 14px; }
 .table .hex { font-size: 12px; color: var(--ash); word-break: break-all; }
 .tag.ok { background: var(--lime); color: var(--ink); }
 

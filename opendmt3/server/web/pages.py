@@ -31,7 +31,8 @@ from opendmt3.server.web import control
 from opendmt3.server.web import session as sess
 from opendmt3.server.web import strings
 # The cookies' names and the helpers the admin pages and the API use too (common.py).
-from opendmt3.server.web.common import (COOKIE, DB_ERRORS, LANG_COOKIE, LICENCE_FACES, MADE_COOKIE, OWNER_COOKIE,
+from opendmt3.server.web.common import (ACCOUNT_FIELDS, COOKIE, DB_ERRORS, LANG_COOKIE, LICENCE_FACES, MADE_COOKIE,
+                                 OWNER_COOKIE,
                                  SIGN_IN_DAYS,
                                  SIGNIN_COOKIE, _accounts_call, _cabinets_for, _card, _check_password, _dj, _dj_places,
                                  _download, _installer, _licence_texts, _local, _local_path, _mode_asked, _mode_name,
@@ -71,16 +72,19 @@ def routes(site):
     """The public site's routes for one Site. The handlers are made here as closures over the Site, as they were in
     create_app; _number above needs no Site, so it is a plain function."""
 
-    def _signin_page(request, target, status=200, error=None, login_id=""):
+    def _signin_page(request, target, status=200, error=None, login_id="", field=None, banned=None):
         """The sign-in page. Its form carries a token kept in a cookie of its own (strict: only this site's own
         pages send it), so a page of another site cannot sign a visitor in to an account of its choosing. After a
-        try that failed, the ID typed stays in its box (never the password)."""
+        try that failed, the ID typed stays in its box (never the password). `field` is the field `error` is about
+        ("id" or "password"; None: the whole form, said above its key); `banned` a banned account's reason, shown in
+        place of the form."""
         token = request.cookies.get(SIGNIN_COOKIE) or secrets.token_urlsafe(24)
         # The owner's account made a moment ago on the first-run page (its cookie, read once): the page says so and
         # has the ID typed, so what is left is the password.
         made = _made_id(request.cookies.get(MADE_COOKIE)) if not error else None
         response = site.render(request, "signin.html", status=status, user=None, target=target, error=error,
-                               signin_token=token, login_id=login_id or made or "", made=made,
+                               field=field, banned=banned, signin_token=token, login_id=login_id or made or "",
+                               made=made,
                                # Right after a player deleted their own account (the account page sends them here).
                                gone=request.query_params.get("gone") == "1" and not error)
         response.set_cookie(SIGNIN_COOKIE, token, max_age=3600, httponly=True, samesite="strict",
@@ -121,6 +125,12 @@ def routes(site):
         if not token or not hmac.compare_digest(form.get("csrf", ""), token):
             # Not posted from this site's own sign-in page: nobody is signed in, the page asks again.
             return await threaded(_signin_page, request, target, 400, w("form.expired"), login_id)
+        # A field left empty (the page's own check stops that first, without scripts it comes here): said under that
+        # field, and no guess at any password, so not counted toward the limits.
+        if not login_id or not form.get("password", ""):
+            return await threaded(_signin_page, request, target, 400,
+                                  w("signin.missing.id" if not login_id else "signin.missing.password"), login_id,
+                                  "id" if not login_id else "password")
         try:
             row, held = await _check_password(site, request, login_id, form.get("password", ""))
         except DB_ERRORS:
@@ -135,8 +145,10 @@ def routes(site):
             # A banned account's own password: the player is told why (anyone else gets the one answer for all).
             reason = await long(control.ban_note, site, login_id, form.get("password", ""))
             if reason is not None:
-                return await threaded(_signin_page, request, target, 403, w("signin.banned", reason=reason), login_id)
-            return await threaded(_signin_page, request, target, 401, w("signin.wrong"), login_id)
+                return await threaded(_signin_page, request, target, 403, w("signin.banned", reason=reason), login_id,
+                                      None, reason)
+            # One sentence for a wrong ID and a wrong password, under the password (the ID stays typed).
+            return await threaded(_signin_page, request, target, 401, w("signin.wrong"), login_id, "password")
         response = _signed_in(request, row, target)
         # The form's token is used up with the sign-in.
         response.delete_cookie(SIGNIN_COOKIE)
@@ -205,7 +217,10 @@ def routes(site):
         form = await request.form() if request.method == "POST" else None
         if not await threaded(_no_account):
             return _redirect("/signin")
-        error = None
+        error, field = None, None
+        # What was typed comes back in its fields after a refusal (never the password).
+        typed = {"login_id": (form.get("login_id", "") if form is not None else "").strip().upper()[:8],
+                 "dj_name": (form.get("dj_name", "") if form is not None else "").strip()[:acc.DJ_NAME_MAX]}
         token = request.cookies.get(OWNER_COOKIE, "")
         if form is not None:
             if not token or not hmac.compare_digest(form.get("csrf", ""), token):
@@ -224,11 +239,14 @@ def routes(site):
                     return response
                 except acc.AccountError as e:
                     error = w.error(e)
+                    # The field the refusal is about, under which it is said (errors.py's keys).
+                    field = ACCOUNT_FIELDS.get(getattr(e, "key", ""))
         if not token:
             token = secrets.token_urlsafe(24)
         response = await threaded(lambda: site.render(
-            request, "owner.html", user=None, error=error, owner_token=token, password_min=acc.PASSWORD_MIN,
-            password_max=acc.PASSWORD_MAX))
+            request, "owner.html", user=None, error=error, field=field, typed=typed, owner_token=token,
+            password_min=acc.PASSWORD_MIN, password_max=acc.PASSWORD_MAX,
+            password_pattern="[A-Za-z0-9]{%d,%d}" % (acc.PASSWORD_MIN, acc.PASSWORD_MAX)))
         # Strict: the browser sends it only with requests that start on this site.
         response.set_cookie(OWNER_COOKIE, token, max_age=3600, httponly=True, samesite="strict")
         return response
@@ -360,6 +378,10 @@ def routes(site):
                 error, made, notice, back = await threaded(_account_change, w, user, form)
                 if back:
                     return _redirect(back)
+                if error and action in ("dj_name", "token_make"):
+                    # Said under the field it is about: the DJ name's, or the token's name.
+                    fields.update({"form": action, "dj_name" if action == "dj_name" else "token_name": error})
+                    error = None
             elif action == "signout_others":
                 # Every other sign-in on the site ends (a new round of sign-ins), this one comes along to the next.
                 fresh = await threaded(_others_out, user)

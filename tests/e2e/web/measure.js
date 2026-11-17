@@ -116,9 +116,11 @@ const layout = page => page.evaluate(() => {
   // A band: a box as wide as the page (the bar, the notice's line, the foot), which meets the next band by design.
   const band = r => r.width >= width - 2;
   // Where words are framed: a box, or a row that scrolls sideways (the phone menu), whose own padding frames them.
+  // The front door's mark and line (the sign-in, the first run) stand on the page's own perforated metal, as the hero's
+  // words stand on its gradient: the door frames them.
   const frames = e => {
     const s = getComputedStyle(e);
-    return ['auto', 'scroll'].includes(s.overflowX);
+    return ['auto', 'scroll'].includes(s.overflowX) || e.matches('.door');
   };
   const outside = 'dialog, dialog *, .shards, .shards *, .tip, svg, svg *, script, style, option, .visually-hidden';
   const boxes = [...document.querySelectorAll('body *')].filter(e => !e.matches(outside) && shown(e) && isBox(e) &&
@@ -130,6 +132,8 @@ const layout = page => page.evaluate(() => {
     // Its next box in the same parent, on the same row or in the same column.
     for (let next = box.nextElementSibling; next; next = next.nextElementSibling) {
       if (!boxed.has(next)) continue;
+      // A key laid inside its field (Show, Copy, a stepper: a .slot's .slot-key) sits over it by design.
+      if (box.parentElement.matches('.slot') && (box.matches('.slot-key') || next.matches('.slot-key'))) continue;
       const n = next.getBoundingClientRect();
       const sideBySide = n.top < r.bottom - 1 && n.bottom > r.top + 1;
       const stacked = n.left < r.right - 1 && n.right > r.left + 1;

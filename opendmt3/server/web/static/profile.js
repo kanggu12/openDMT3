@@ -1,6 +1,6 @@
 // The account area and the admin's page of one player (templates/account.html, admin_player.html): the DJ card's
-// preview follows each choice as it is made, the comment counts its characters as the game does, a password typed can
-// be shown, and the page opens at the section of what was just done. Without this file every form still works.
+// preview follows each choice as it is made, and the page opens at the section of what was just done (a password's Show
+// and the comment's count are the site's own: site.js). Without this file every form still works.
 (function () {
   "use strict";
 
@@ -24,30 +24,12 @@
         });
       }
     });
+    // The comment shows on the plate as it is typed (its count is the site's own: site.js).
     var comment = form.querySelector('input[name="comment"]');
     var shown = preview.querySelector(".cp-comment");
-    var count = form.querySelector("[data-count]");
-    if (comment) {
-      comment.addEventListener("input", function () {
-        // The game counts UTF-16 places, as a string's length here does.
-        if (shown) { shown.textContent = comment.value; }
-        if (count) { count.textContent = comment.value.length + " / " + comment.maxLength; }
-      });
+    if (comment && shown) {
+      comment.addEventListener("input", function () { shown.textContent = comment.value; });
     }
-  });
-
-  // A password box's Show button: shown only where this script runs (it is hidden in the page).
-  document.querySelectorAll("button[data-reveal]").forEach(function (button) {
-    var input = document.getElementById(button.getAttribute("data-reveal"));
-    if (!input) { return; }
-    button.hidden = false;
-    button.addEventListener("click", function () {
-      var show = input.type === "password";
-      input.type = show ? "text" : "password";
-      button.setAttribute("aria-pressed", show ? "true" : "false");
-      button.textContent = show ? button.dataset.hide : button.dataset.show;
-      input.focus();
-    });
   });
 
   // The section rail: the section in view is the lit one; the page opens at the section of what was just done.

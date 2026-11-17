@@ -23,7 +23,8 @@ from opendmt3.server.services import maintenance, notice, songlist, sources
 from opendmt3.server.web.work import long, threaded
 from opendmt3.server.web import strings, upload
 # What the API's twins of these pages show and do too, the error page and a redirect (common.py).
-from opendmt3.server.web.common import (LOG_DAYS, _accounts_call, _delete_backup, _known_cabinets, _log, _log_change,
+from opendmt3.server.web.common import (ACCOUNT_FIELDS, LOG_DAYS, _accounts_call, _delete_backup, _known_cabinets, _log,
+                                 _log_change,
                                  _log_counts, _message, _new_password, _not_found, _plays_file, _plays_log, _plays_wanted,
                                  _redirect, _reset_plays, _set_maintenance, _set_notice, _status, _to_look_at,
                                  _upload_backup, not_found, _song_list_state, _song_list_found,
@@ -33,6 +34,11 @@ from opendmt3.server.web.common import (LOG_DAYS, _accounts_call, _delete_backup
 # two weeks), stopping the server, and the long jobs (insights.py).
 from opendmt3.server.web import insights
 
+
+
+# What the Players page's forms do (any other action is refused in words).
+PLAYER_ACTIONS = ("make", "password", "disable", "enable", "delete", "admin_on", "admin_off", "rename", "reset_plays",
+                  "reset_all")
 
 def routes(site):
     """The admin pages' routes for one Site. The handlers are made here as closures over the Site, as they were in
@@ -44,7 +50,7 @@ def routes(site):
         user = await threaded(site.account, request)
         if not user["is_admin"]:
             return await not_found(site, request)
-        notice, error, message = None, None, None
+        notice, error, message, field, typed = None, None, None, None, None
         if form is not None:
             if not hmac.compare_digest(form.get("csrf", ""), site.csrf(request)):
                 error = w("form.expired")
@@ -52,6 +58,8 @@ def routes(site):
                 action, login_id = form.get("action"), form.get("login_id", "").strip().upper()
                 try:
                     if action == "make":
+                        # What was typed comes back in its fields if the rules refuse it (never the password).
+                        typed = {"login_id": login_id[:8], "dj_name": form.get("dj_name", "").strip()[:acc.DJ_NAME_MAX]}
                         # The password typed, or one the server makes (as the API's twin does).
                         password = form.get("password") or _new_password()
                         # Hashed on a worker thread (Site.hashed), as every password is.
@@ -74,9 +82,23 @@ def routes(site):
                         notice, back = await run(_players_change, w, user, action, login_id, form)
                         if back:
                             return _redirect(back)
+                        if notice is None:
+                            # Nothing was done (one's own account, an ID with no account, a change this page does not
+                            # make): said, as the player's page and the API say it.
+                            error = _players_nothing(w, user, action, login_id)
                 except acc.AccountError as e:
                     error = w.error(e)
-        return await threaded(_players_shown, request, user, notice, error, message)
+                    # The new account's field the refusal is about, under which it is said.
+                    field = ACCOUNT_FIELDS.get(getattr(e, "key", "")) if action == "make" else None
+        return await threaded(_players_shown, request, user, notice, error, message, field, typed)
+
+    def _players_nothing(w, user, action, login_id):
+        """Why a change of the Players page did nothing, in the page's words."""
+        if action == "delete" and login_id == user["login_id"]:
+            return w("admin.nothing.self")
+        if action not in PLAYER_ACTIONS:
+            return w("admin.nothing.action")
+        return w("admin.nothing.account", login_id=login_id)
 
     def _players_change(w, user, action, login_id, form):
         """admin_players' changes that make no password, on a worker thread: (the notice, a page to go to instead).
@@ -113,7 +135,7 @@ def routes(site):
         finally:
             store.db.close()
 
-    def _players_shown(request, user, notice, error, message):
+    def _players_shown(request, user, notice, error, message, field=None, typed=None):
         """The Players page itself, on a worker thread: every account sorted as ?sort= and ?order= ask (by last play
         unless they ask otherwise), each with its last two weeks."""
         rows, sort, order, start, most = insights.players_rows(site, request.query_params.get("sort", ""),
@@ -121,7 +143,8 @@ def routes(site):
         # Each day of the row of cells, for their tips and the column's words.
         days = [start + n * 86400 for n in range(insights.ACTIVITY_DAYS)]
         # With a message whose address only this PC reaches, the page says which address to send in its place.
-        return site.render(request, "admin_players.html", user=user, rows=rows, notice=notice, error=error,
+        return site.render(request, "admin_players.html", user=user, rows=rows, notice=notice, error=error, field=field,
+                           typed=typed,
                            message=message, message_local=_message_local(site, request) if message else None,
                            dj_max=acc.DJ_NAME_MAX, sort=sort, order=order, days=days, most=most,
                            sorts=insights.SORTS, invite=_invite(site, request))

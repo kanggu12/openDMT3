@@ -12,19 +12,32 @@
   {% if message %}
   <div class="card">
     <h3><label for="message">{{ w("admin.message") }}</label></h3>
-    <textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea>
+    <span class="slot keyed"><textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea><button type="button" class="slot-key" data-copy="message" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" hidden>{{ w("form.copy") }}</button></span>
     {# The address in it is one only this PC reaches: which address to send in its place. #}
     {% if message_local %}<p class="alert look message-local">{{ w("admin.message.local", address=message_local) }}</p>{% endif %}
   </div>
   {% endif %}
   <div class="card">
     <h3>{{ w("admin.make") }}</h3>
-    <form method="post" class="form row">
+    {# Each field with its rule under it; what the server refuses goes under the field it is about (field). #}
+    <form method="post" action="/admin/players#make" class="form row" id="make" novalidate>
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="make">
-      <label>{{ w("account.id") }}<input name="login_id" maxlength="8" autocapitalize="characters" required></label>
-      <label>{{ w("account.dj") }}<input name="dj_name" maxlength="8"></label>
-      <label>{{ w("account.password") }}<input name="password" type="password" maxlength="16" placeholder="{{ w('account.password.auto') }}"></label>
-      <label class="check"><input type="checkbox" name="is_admin"> {{ w("account.admin") }}</label>
+      <div class="field">
+        <label class="label" for="make-id">{{ w("account.id") }}</label>
+        <input id="make-id" name="login_id" value="{{ typed.login_id if typed }}" maxlength="8" pattern="[A-Za-z0-9]{1,8}" autocapitalize="characters" autocorrect="off" spellcheck="false" required data-missing="{{ w('owner.missing.id') }}" data-invalid="{{ w('admin.make.hint.id') }}" aria-describedby="{{ 'make-id-error' if field == 'id' else 'make-id-hint' }}"{% if field == "id" %} aria-invalid="true" autofocus{% endif %}>
+        {% if field == "id" %}<span class="field-error" id="make-id-error" role="alert">{{ error }}</span>{% else %}<p class="field-hint" id="make-id-hint">{{ w("admin.make.hint.id") }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label class="label" for="make-dj">{{ w("account.dj") }}<span class="opt">{{ w("form.optional") }}</span></label>
+        <input id="make-dj" name="dj_name" value="{{ typed.dj_name if typed }}" maxlength="8" aria-describedby="{{ 'make-dj-error' if field == 'dj' else 'make-dj-hint' }}"{% if field == "dj" %} aria-invalid="true" autofocus{% endif %}>
+        {% if field == "dj" %}<span class="field-error" id="make-dj-error" role="alert">{{ error }}</span>{% else %}<p class="field-hint" id="make-dj-hint">{{ w("owner.hint.dj") }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label class="label" for="make-password">{{ w("account.password") }}<span class="opt">{{ w("form.optional") }}</span></label>
+        <span class="slot keyed"><input id="make-password" name="password" type="password" maxlength="16" pattern="[A-Za-z0-9]{6,16}" autocomplete="new-password" data-invalid="{{ w('owner.hint.password', min=6, max=16) }}" aria-describedby="{{ 'make-password-error' if field == 'password' else 'make-password-hint' }}"{% if field == "password" %} aria-invalid="true" autofocus{% endif %}><button type="button" class="slot-key" data-reveal="make-password" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w('account.password') }}" hidden>{{ w("me.password.show") }}</button></span>
+        {% if field == "password" %}<span class="field-error" id="make-password-error" role="alert">{{ error }}</span>{% else %}<p class="field-hint" id="make-password-hint">{{ w("admin.make.hint.password") }}</p>{% endif %}
+      </div>
+      <div class="field fit"><span class="label" aria-hidden="true"></span><label class="check"><input type="checkbox" name="is_admin">{{ w("account.admin") }}</label></div>
       <button class="btn primary">{{ w("admin.make") }}</button>
     </form>
   </div>

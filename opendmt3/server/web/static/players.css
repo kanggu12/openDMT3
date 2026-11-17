@@ -63,21 +63,8 @@ body.lang-ko .facts dt { font: 600 12px/1.4 var(--text-face); letter-spacing: 0;
 .comment-field { max-width: 420px; }
 .comment-field [data-count] { justify-self: end; }
 
-/* A field with what is wrong with it said under it, and the button that shows the password typed. */
-.field { display: grid; gap: 6px; font-size: 13px; color: var(--ash); min-width: 0; }
-.field-error { color: #ff9cc8; font-size: 13px; }
-.field-error::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; background: var(--pink);
-                       clip-path: polygon(50% 0, 100% 100%, 0 100%); }
-input[aria-invalid="true"] { border-color: var(--pink); }
-.secret { display: flex; min-width: 0; }
-.secret input { flex: 1; min-width: 0; }
-/* Show stands a step from its field: two boxes side by side never touch. */
-.reveal { flex: none; height: 42px; padding: 0 12px; margin-left: 6px; color: var(--ash); background: var(--rail);
-          border: 1px solid var(--seam); font: 13px var(--text-face); cursor: pointer; }
-.reveal:hover { color: var(--chalk); background: var(--rail-up); }
-.reveal[aria-pressed="true"] { color: var(--chalk); }
-.password-form { max-width: 420px; }
-
+/* The password form at a readable width (its fields and their Show are the site's own: site.css, forms). */
+.password-form { max-width: 440px; }
 /* The DJ page's head: the picture, the DJ card, and on one's own page the way to decorate it. */
 .dj-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 16px; }
 .dj-head .djcard { margin-bottom: 0; }
@@ -90,21 +77,14 @@ input[aria-invalid="true"] { border-color: var(--pink); }
 .player-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
 .player-grid > .card { margin-bottom: 0; }
 .player-grid .wide { grid-column: 1 / -1; }
+/* A card the page's forms come back to after they are sent (#points, #level…), clear of the sticky bar. */
+.player-grid > .card[id] { scroll-margin-top: 84px; }
+/* The account's keys side by side (New password, admin rights, the picture). */
+.key-row { margin-top: 16px; }
 /* A balance or a level beside the forms that change it. */
 .big-value { font: 400 30px/1 var(--wide); letter-spacing: 0.02em; margin: 0 0 4px; }
 .big-value.unlimited { color: var(--amber); }
 .controls { display: grid; gap: 12px; margin-top: 14px; }
-.controls .form.row { grid-template-columns: minmax(0, 1fr) auto; }
-/* The unlimited switch: a button that says it is a switch and whether it is on. */
-.switch { display: inline-flex; align-items: center; gap: 12px; padding: 0; color: var(--chalk); background: none; border: 0;
-          font: 15px var(--text-face); cursor: pointer; }
-.switch .track { position: relative; width: 46px; height: 26px; border-radius: 13px; background: var(--rail-up); flex: none; }
-.switch .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%;
-                        background: var(--chalk); transition: left var(--quick); }
-.switch[aria-checked="true"] .track { background: var(--amber); }
-.switch[aria-checked="true"] .track::after { left: 23px; background: var(--ink); }
-.switch:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
-@media (prefers-reduced-motion: reduce) { .switch .track::after { transition: none; } }
 /* A ban: its reason on a pink rail. */
 .ban-reason { position: relative; margin: 0 0 14px; padding: 10px 14px 10px 18px; background: var(--well); }
 .ban-reason::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--pink); }
@@ -131,5 +111,4 @@ input[aria-invalid="true"] { border-color: var(--pink); }
   .cp-icon { width: 104px; height: 64px; }
   .cp-plate { width: 204px; height: 64px; }
   .cp-comment { font-size: 14px; padding: 0 14px; }
-  .controls .form.row { grid-template-columns: minmax(0, 1fr); }
 }

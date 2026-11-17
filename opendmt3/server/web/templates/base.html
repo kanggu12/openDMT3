@@ -23,8 +23,10 @@
 {# Each section in one of the game's colours: rankings in POP's pink, songs in STAR's lime, the console in amber. #}
 {% set section = 'console' if path.startswith('/admin') or path.startswith('/owner') else ('pop' if path.startswith('/rankings') or path.startswith('/dj/') else ('star' if path.startswith('/songs') else 'technika')) %}
 <body class="lang-{{ lang }}" data-section="{{ section }}">
-<header class="bar">
-  <a class="brand" href="/" aria-label="openDMT3"><span class="logo" aria-hidden="true"><span class="o">OPEN</span><span class="m">DMT<b>3</b></span><span class="s">SERVER</span></span></a>
+{# The front door (sign-in, first run: `door` set by the page) keeps only the language in its bar: no plate under it, and
+   the small mark steps aside for the page's big one. #}
+<header class="bar{{ ' door-bar' if door }}">
+  <a class="brand" href="/" aria-label="openDMT3"{% if door %} tabindex="-1" aria-hidden="true"{% endif %}><span class="logo" aria-hidden="true"><span class="o">OPEN</span><span class="m">DMT<b>3</b></span><span class="s">SERVER</span></span></a>
   {% if user %}
   {# The menu: the item of the page showing is lit and says so to screen readers (aria-current). #}
   <nav class="menu">

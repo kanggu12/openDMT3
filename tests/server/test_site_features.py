@@ -1237,12 +1237,15 @@ class SignInPageTest(SiteBase):
     def test_a_wrong_password_keeps_the_id_but_never_the_password(self):
         self.make()
         page = self.sign_in(self.client, password="wrongpass1").text
-        self.assertIn('<p class="alert bad" role="alert">That ID and password do not match an account.</p>', page)
-        self.assertIn('<input name="login_id" value="NOVA"', page)
+        # One sentence for a wrong ID and a wrong password, under the password's field (FORMS.md: the site never tells
+        # which).
+        self.assertIn('<span class="field-error" id="signin-password-error" role="alert">The ID or the password is '
+                      'wrong.</span>', page)
+        self.assertRegex(page, r'<input [^>]*name="login_id" value="NOVA"')
         self.assertNotIn("wrongpass1", page)
         # The password box takes the focus, the ID being typed already.
-        self.assertRegex(page, r'<input name="password" type="password" [^>]*autofocus>')
-        self.assertNotRegex(page, r'<input name="login_id"[^>]*autofocus')
+        self.assertRegex(page, r'<input [^>]*name="password" type="password" [^>]*autofocus')
+        self.assertNotRegex(page, r'<input [^>]*name="login_id"[^>]*autofocus')
 
     def test_sign_in_is_not_available_while_the_database_cannot_be_opened(self):
         self.make()
@@ -1610,13 +1613,15 @@ class StatesTest(SiteBase):
 
     def test_the_first_run_page_names_the_rules_and_the_sign_in_page_says_the_account_was_made(self):
         page = self.local.get("/owner").text
-        # The rules before one is broken.
-        self.assertIn("ID: up to 8 letters and digits. DJ name: up to 8 characters, shown in the game. Password: 6 "
-                      "to 16 letters and digits.", page)
+        # The rules before one is broken, each under its own field.
+        for hint in ("Up to 8 letters and digits: what the game&#39;s keypad can type.",
+                     "Up to 8 characters, shown in the game. Left empty: the ID.", "6 to 16 letters or digits."):
+            self.assertIn('class="field-hint"', page)
+            self.assertIn(hint, page)
         token = page.split('name="csrf" value="', 1)[1].split('"', 1)[0]
         made = self.local.post("/owner", data={"csrf": token, "login_id": "boss", "password": "pass1234"})
         # The sign-in page that opens next says so once, with the ID typed already.
-        self.assertIn('<p class="alert ok" role="status">Made BOSS. Sign in with it.</p>', made.text)
+        self.assertIn('<p class="done-line" role="status">Made BOSS. Sign in with it.</p>', made.text)
         self.assertIn('name="login_id" value="BOSS"', made.text)
         self.assertNotIn("Made BOSS", self.local.get("/signin").text)
         # Only this site's own first-run page says it: a cookie that is no ID says nothing, and another visitor
@@ -1655,7 +1660,8 @@ class StatesTest(SiteBase):
         import json
         self.admin()
         page = self.client.get("/admin/status").text
-        self.assertNotIn("data-missing", page)
+        # (The line's class: a field's data-missing is the forms' own word for an empty field.)
+        self.assertNotIn("look data-missing", page)
         # A reading that found no jackets and no DJ cards: each said once, with its reason.
         with open(os.path.join(self.tmp, "catalog-read.json"), "w") as f:
             json.dump({"at": 1000, "from": "folder", "path": "/games/made-up", "folder": "/games/made-up", "songs": 1,

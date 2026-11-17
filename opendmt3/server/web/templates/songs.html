@@ -7,7 +7,8 @@
 <section class="page">
   {# Typing hides the rows that do not match at once (site.js, no request); Find asks the server, without script too. #}
   <form class="search" method="get" action="/songs" role="search">
-    <input id="song-filter" type="search" name="q" value="{{ query }}" placeholder="{{ w('songs.search') }}" aria-label="{{ w('songs.search') }}" autocomplete="off">
+    {# The search box says what it is with the site's magnifier at its start (the browser's own clear goes: Esc). #}
+    <span class="slot marked"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/></svg><input id="song-filter" type="search" name="q" value="{{ query }}" placeholder="{{ w('songs.search') }}" aria-label="{{ w('songs.search') }}" autocomplete="off"></span>
     <button class="btn">{{ w("songs.find") }}</button>
   </form>
   <div class="card">

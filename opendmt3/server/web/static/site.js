@@ -1,3 +1,182 @@
+// The forms (FORMS.md), in the site's own look and words instead of the browser's: a form marked novalidate is checked
+// here before it goes (a field it needs left empty, data-missing; one its own rules refuse, data-invalid), and what is
+// wrong is said right under that field (.field-error), the field marked for screen readers and given the focus; the
+// server checks the same again and answers the same way. A form that goes shows it on its key (aria-busy, the game's
+// moving stripes) until the next page comes. Also here: a password's Show inside its field, Copy beside a value to copy,
+// the ID kept for a sign-in form (data-remember), counts of what is typed, and text areas that grow with their words.
+// This runs before the questions' script below: a form with something wrong is never asked about.
+(function () {
+  "use strict";
+  // What is wrong with a field, in the page's words, or "" when nothing is: empty first, then its own rules.
+  function fault(field) {
+    if (field.disabled) { return ""; }
+    if (field.dataset.missing !== undefined && field.value.trim() === "") { return field.dataset.missing; }
+    if (field.dataset.invalid !== undefined && field.value.trim() !== "" && !field.validity.valid) { return field.dataset.invalid; }
+    return "";
+  }
+  // A field's own line of words under it: the server's, or one made here the first time it is needed.
+  function lineOf(field) {
+    var holder = field.closest(".field") || field.closest("label");
+    if (!holder) { return null; }
+    var line = holder.querySelector(".field-error");
+    if (!line) {
+      line = document.createElement("span");
+      line.className = "field-error";
+      line.setAttribute("role", "alert");
+      line.id = (field.id || field.name) + "-error";
+      holder.appendChild(line);
+    }
+    return line;
+  }
+  // A field put right (typed in, or about to be checked again): its mark and its words go.
+  function clear(field) {
+    field.removeAttribute("aria-invalid");
+    var holder = field.closest(".field") || field.closest("label");
+    var line = holder && holder.querySelector(".field-error");
+    if (line) {
+      line.remove();
+      // Its hint (if any) names it again for screen readers.
+      var hint = holder.querySelector(".field-hint");
+      if (hint && hint.id) { field.setAttribute("aria-describedby", hint.id); } else { field.removeAttribute("aria-describedby"); }
+    }
+  }
+  // Its key working on it, until the next page comes (or the browser keeps this page for its Back button).
+  function busy(form, button) {
+    form.classList.add("is-sent");
+    if (button) { button.setAttribute("aria-busy", "true"); }
+  }
+  document.addEventListener("submit", function (event) {
+    var form = event.target;
+    if (!(form instanceof HTMLFormElement)) { return; }
+    // Sent already and waiting for the answer: a second press does nothing.
+    if (form.classList.contains("is-sent")) { event.preventDefault(); event.stopImmediatePropagation(); return; }
+    if (form.noValidate) {
+      var fields = form.querySelectorAll("[data-missing], [data-invalid]"), wrong = null, i;
+      for (i = 0; i < fields.length; i += 1) {
+        if (fault(fields[i]) !== "") { wrong = fields[i]; break; }
+      }
+      if (wrong) {
+        event.preventDefault();
+        // Nothing else hears of this send (the question before it is not asked).
+        event.stopImmediatePropagation();
+        for (i = 0; i < fields.length; i += 1) { if (fields[i].getAttribute("aria-invalid") === "true") { clear(fields[i]); } }
+        var line = lineOf(wrong);
+        if (line) {
+          line.textContent = fault(wrong);
+          wrong.setAttribute("aria-describedby", line.id);
+        }
+        wrong.setAttribute("aria-invalid", "true");
+        wrong.focus();
+        return;
+      }
+    }
+    // A form that asks first goes once it has its answer (the questions' script sends it again, marked asked).
+    if (form.hasAttribute("data-ask") && form.dataset.asked !== "yes") { return; }
+    var button = event.submitter || form.querySelector("button:not([type=button])");
+    busy(form, button);
+  }, true);
+  // Typing into a marked field takes its mark away; what it says is up to the next press.
+  document.addEventListener("input", function (event) {
+    var field = event.target;
+    if (field.getAttribute && field.getAttribute("aria-invalid") === "true") { clear(field); }
+  });
+  // A page the browser kept for Back shows its keys ready again.
+  window.addEventListener("pageshow", function () {
+    document.querySelectorAll("form.is-sent").forEach(function (form) {
+      form.classList.remove("is-sent");
+      form.querySelectorAll("[aria-busy]").forEach(function (button) { button.removeAttribute("aria-busy"); });
+    });
+  });
+
+  // Show, inside a password's field: the password as typed until pressed again. The field keeps the focus and its
+  // caret on a click; Tab reaches Show right after the field. A form that goes takes the password hidden again.
+  document.querySelectorAll("button[data-reveal]").forEach(function (key) {
+    var field = document.getElementById(key.dataset.reveal);
+    if (!field) { return; }
+    key.hidden = false;
+    function set(shown) {
+      field.type = shown ? "text" : "password";
+      key.setAttribute("aria-pressed", shown ? "true" : "false");
+      key.textContent = shown ? key.dataset.hide : key.dataset.show;
+    }
+    key.addEventListener("mousedown", function (event) { event.preventDefault(); });
+    key.addEventListener("click", function () {
+      var at = [field.selectionStart, field.selectionEnd];
+      set(field.type === "password");
+      if (document.activeElement !== key) {
+        field.focus();
+        try { field.setSelectionRange(at[0], at[1]); } catch (ignored) { /* a field that keeps no caret */ }
+      }
+    });
+    if (field.form) { field.form.addEventListener("submit", function (event) { if (!event.defaultPrevented) { set(false); } }); }
+  });
+
+  // Copy, beside a value to copy (a token, a message, an address): the whole value, and the key says so for a while.
+  document.querySelectorAll("button[data-copy]").forEach(function (key) {
+    var field = document.getElementById(key.dataset.copy);
+    if (!field || !navigator.clipboard) { return; }
+    key.hidden = false;
+    key.addEventListener("click", function () {
+      navigator.clipboard.writeText(field.value || field.textContent).then(function () {
+        key.textContent = key.dataset.done;
+        key.classList.add("on");
+        window.setTimeout(function () { key.textContent = key.dataset.word; key.classList.remove("on"); }, 2000);
+      });
+    });
+  });
+
+  // The ID last used to sign in on this browser, back in its field when "Remember my ID" was ticked then: the box ticked
+  // again and the focus on the password. Unticked when the form goes, the ID is forgotten. Browser storage may be off (a
+  // private window): then nothing is kept and nothing breaks.
+  document.querySelectorAll("form[data-remember]").forEach(function (form) {
+    var key = "opendmt3.id." + form.dataset.remember;
+    var id = form.querySelector("input[autocomplete=username]");
+    var password = form.querySelector("input[type=password]");
+    var keep = form.querySelector("input[name=remember]");
+    if (!id || !keep) { return; }
+    var kept = "";
+    try { kept = window.localStorage.getItem(key) || ""; } catch (ignored) { /* storage off */ }
+    if (kept) {
+      keep.checked = true;
+      if (!id.value) { id.value = kept; }
+      // Not where a finger is the pointer (its keyboard would come up over the page), nor over a field the server's
+      // answer chose.
+      if (!window.matchMedia("(pointer: coarse)").matches && !form.querySelector("[autofocus]") && password) { password.focus(); }
+    }
+    form.addEventListener("submit", function (event) {
+      if (event.defaultPrevented) { return; }
+      try {
+        if (keep.checked && id.value.trim()) { window.localStorage.setItem(key, id.value.trim()); } else { window.localStorage.removeItem(key); }
+      } catch (ignored) { /* storage off */ }
+    });
+  });
+
+  // A count of what is typed at its label's right end (a field with a maxlength and a .count naming it): the chalk at the
+  // limit, pink past it (a paste). The game counts UTF-16 places, as a string's length does.
+  document.querySelectorAll(".count[data-count-for]").forEach(function (count) {
+    var field = document.getElementById(count.dataset.countFor);
+    if (!field) { return; }
+    function show() {
+      var most = Number(field.getAttribute("maxlength")) || Number(count.dataset.most) || 0;
+      count.textContent = field.value.length + " / " + most;
+      count.classList.toggle("full", most > 0 && field.value.length === most);
+      count.classList.toggle("over", most > 0 && field.value.length > most);
+    }
+    field.addEventListener("input", show);
+    show();
+  });
+
+  // A text area to type in grows with its words, up to its largest height (site.css), then scrolls inside.
+  function grow(box) {
+    box.style.height = "auto";
+    box.style.height = (box.scrollHeight + box.offsetHeight - box.clientHeight) + "px";
+  }
+  document.querySelectorAll("textarea:not([readonly])").forEach(function (box) {
+    box.addEventListener("input", function () { grow(box); });
+    grow(box);
+  });
+}());
+
 // Questions before something cannot be undone, asked in the site's own dialog (the game's popup: a tab with the
 // title, the question under it, buttons that say what they do) instead of the browser's plain confirm box.
 //

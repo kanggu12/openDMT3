@@ -95,6 +95,12 @@ LICENCE_PARTS = (
 )
 
 
+
+# The field of an account's form (the first run's, the admin's new account) each refusal of the accounts' rules is about
+# (errors.py's keys): said under that field, not at the page's top.
+ACCOUNT_FIELDS = {"error.account.id": "id", "error.account.taken": "id", "error.account.password": "password",
+                  "error.account.dj": "dj"}
+
 def _address(request):
     """The address a request came from (the visitor's, behind a proxy given with --proxy)."""
     return request.client.host if request.client else "?"

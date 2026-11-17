@@ -17,10 +17,11 @@
     <span class="cp-points" title="{{ w('profile.points') }}">{{ w("profile.points.short") }} {{ "{:,}".format(card.max_points) }}</span>
   </span>
 </div>
-<label class="comment-field">{{ w("me.card.comment") }}
-  <input name="comment" value="{{ comment }}" maxlength="{{ comment_max }}" aria-describedby="comment-count">
-  <span class="muted small" id="comment-count" data-count>{{ comment|length }} / {{ comment_max }}</span>
-</label>
+{# The comment: its label with the count of what is typed at its right end (site.js keeps it), the game's limit. #}
+<div class="field comment-field">
+  <label class="label" for="card-comment">{{ w("me.card.comment") }}<span class="count" id="comment-count" data-count-for="card-comment" aria-live="polite">{{ comment|length }} / {{ comment_max }}</span></label>
+  <input id="card-comment" name="comment" value="{{ comment }}" maxlength="{{ comment_max }}" aria-describedby="comment-count">
+</div>
 {% if choices.icon %}
 {% for kind, now in (("icon", card.icon), ("plate", card.plate), ("pattern", card.pattern)) %}
 <details class="picker"><summary>{{ w("me.card." + kind) }} <span class="muted">{{ w("me.card.count", n=choices[kind]|length) }}</span></summary>
