@@ -26,6 +26,10 @@ names as they are), times in ISO 8601 on the server's clock.
 Each row also has a new password, rename, admin rights, disable or enable, reset plays and delete; under the list,
 reset every play. A new password, a reset and a delete ask first; a reset backs the database up first.
 
+A player's ID opens their own page (`/admin/players/<ID>`): MAX points (set, added to, taken from, or unlimited), the
+level the game shows, a ban with its reason, their DJ card and picture, a new password, a new DJ name, and every change
+made to them. Its API twin is `GET /api/v1/players/{login_id}` with a call for each control.
+
 API: `GET /api/v1/players` (with `?sort=` and `?order=`, and each player's `days`, `plays` and `last_play`),
 `GET /api/v1/players.csv`.
 
@@ -71,7 +75,7 @@ on their own, they ask that one, and name the command where they cannot ask.
 | :--- | :--- | :--- |
 | The server's own command, `python -m opendmt3.server` | **Restart the server**: the command ends its server as Ctrl+C would (the site finishes the requests it is answering, the game server closes) and runs itself again in the same process, so the window or service that started it keeps it. **Stop the server**: the same, and the command returns. | **Delete the server's data**: the server stops, the database is copied beside the data folder (`data-last-<date>-<time>.sqlite` next to `data/`), then the data folder goes, with its accounts, plays, backups and song list. |
 | Docker Compose (`./dmt3 up`) | No buttons: Compose starts the server again whenever its process ends. The tab names `./dmt3 restart` and `./dmt3 down`, for the server PC (the data stays in its volume). | The tab names `./dmt3 remove`, and `./dmt3 remove --delete-data` with the data. |
-| The server's program, `opendmt3-server` | Its own `restart` and `stop`, named on the tab. | `opendmt3-server remove`, `--delete-data` with the data. |
+| The server's program, `opendmt3-server` (`run` in a window, or `start` in the background) | **Restart the server**: the running program ends its server and runs it again in the same process, in its window or in the background as before; `opendmt3-server restart` does the same. **Stop the server**: the same as `opendmt3-server stop`. | **Delete the server's data**: as for the server's own command; the firewall rules a Windows PC was given stay (`opendmt3-server remove` takes them out too). |
 | The launcher's built-in server | No buttons: the launcher started it, and its own window stops it. | The launcher's **Help**, **Uninstall**, which asks whether its data goes too. |
 | Anything else (a service manager of your own) | Stop it where it was started. | Remove it where it was installed. |
 
