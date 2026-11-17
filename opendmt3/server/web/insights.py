@@ -203,8 +203,11 @@ def _requests_csv(site, wanted):
         if rows == 0:
             out.seek(0)
             out.truncate()
-        writer.writerow((_iso(line.get("at", 0)), line.get("method"), _csv_cell(line.get("path", "")),
-                         line.get("status"), line.get("ms"), line.get("address"), _csv_cell(line.get("who") or "")))
+        # Every text a request brought (and a line an older server wrote, before it kept only HTTP's own methods) never
+        # read as a formula by a spreadsheet; the moment, the status and the time are the server's own numbers.
+        writer.writerow((_iso(line.get("at", 0)), _csv_cell(line.get("method") or ""), _csv_cell(line.get("path", "")),
+                         line.get("status"), line.get("ms"), _csv_cell(line.get("address") or ""),
+                         _csv_cell(line.get("who") or "")))
         rows += 1
         # A piece every thousand rows: the file is written as it is read.
         if rows == 1000:

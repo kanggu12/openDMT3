@@ -106,6 +106,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   its libraries cannot be had, it says so and the server runs as it was.
 - The Account page's picture form and the admin's upload forms read no further than such a form holds: a body sent in
   chunks without a length, however long, no longer fills the server's memory (any signed-in player could).
+- The requests log keeps HTTP's own methods (any other as `OTHER`) and cuts a long address, and its CSV file never
+  starts a cell as a formula, the method and the address included.
 
 ## [0.3.1] - 2026-11-17
 

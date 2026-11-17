@@ -290,6 +290,41 @@ class AdminPagesTest(ApiBase):
         self.assertGreaterEqual(answer["found"], 3)
         self.refused(self.call("GET", "/api/v1/log/requests?kind=bad", boss), 400, "bad_request")
 
+    def test_the_requests_file_never_gives_a_spreadsheet_a_formula(self):
+        from starlette.testclient import TestClient
+        from opendmt3.server.services import requestlog
+        self.admin()
+        # The review's attack: anonymous requests whose methods are formulas (HTTP's tokens may hold + - ' | !), from
+        # an address that is one too and very long (behind --proxy, what a forwarded header names).
+        odd = TestClient(self.app, client=("=1+2" + "9" * 500, 50000))
+        for method in ("+cmd|calc!A0", "-2+3", "@SUM(1)", "GET"):
+            odd.request(method, "/zz", follow_redirects=False)
+        # A line an older server wrote, before it kept only HTTP's own methods: read as it is, never as a formula.
+        os.makedirs(os.path.join(self.tmp, requestlog.FOLDER), exist_ok=True)
+        with open(os.path.join(self.tmp, requestlog.FOLDER, requestlog.NAME), "a", encoding="utf-8") as f:
+            f.write(json.dumps({"at": time.time(), "method": "=HYPERLINK(1)", "path": "/zz-old", "status": 200,
+                                "ms": 1.0, "address": "+1-1", "who": "-1"}) + "\n")
+        rows = []
+        for path in ("/admin/log/requests.csv?q=zz", "/api/v1/log/requests.csv?q=zz"):
+            r = self.client.get(path) if path.startswith("/admin/") else self.call("GET", path, self.token("BOSS"))
+            # The rows of the requests above (the file's own download matches the filter too, by its query).
+            rows.append([row for row in csv.reader(io.StringIO(r.text.lstrip("﻿"))) if row[2:3] in (["/zz"],
+                                                                                                          ["/zz-old"])])
+        # The page's file and its API twin give the same rows.
+        self.assertEqual(rows[0], rows[1])
+        # No cell of any row starts as a formula does.
+        self.assertEqual([cell for row in rows[0] for cell in row if cell[:1] in ("=", "+", "-", "@", "\t", "\r")], [])
+        by_path = {}
+        for row in rows[0]:
+            by_path.setdefault(row[2], []).append(row)
+        # The methods HTTP has are kept as they came; any other is one word; the old line's, made harmless.
+        self.assertEqual(sorted(row[1] for row in by_path["/zz"]), ["GET", "OTHER", "OTHER", "OTHER"])
+        self.assertEqual([row[1] for row in by_path["/zz-old"]], ["'=HYPERLINK(1)"])
+        # The address cut to a sane length and made harmless; the old line's address and account too.
+        self.assertTrue(all(len(row[5]) <= requestlog.ADDRESS_MOST + 1 and row[5].startswith("'=1+2")
+                            for row in by_path["/zz"]), by_path["/zz"])
+        self.assertEqual(by_path["/zz-old"][0][5:], ["'+1-1", "'-1"])
+
     def test_the_status_tab_shows_the_machine_the_disk_and_when_players_play(self):
         self.admin()
         nova = self.make()

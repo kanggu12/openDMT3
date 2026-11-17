@@ -42,6 +42,13 @@ SLOT = 1800
 SLOTS = 48
 # The longest path kept, in characters: a query can be long, and a line stays one line of a sane length.
 PATH_MOST = 300
+# The methods kept as they came: HTTP's own. Any other (a method is any token, and a token may hold + - ' | !, which a
+# spreadsheet reads as a formula in the CSV file) is kept as one word.
+METHODS = ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+OTHER_METHOD = "OTHER"
+# The longest address kept, in characters: an IPv6 address with its zone fits; behind --proxy the address is what the
+# proxy's forwarded header names, which may be anything.
+ADDRESS_MOST = 64
 # A one-use sign-in link (the launcher's, from this PC) carries its token in its path: kept as this prefix alone.
 SECRET_PATHS = ("/signin/once/",)
 # The statuses a filter can ask for, by their first digit, and the words a program sends for them.
@@ -56,6 +63,17 @@ def kept_path(path):
         if path.startswith(prefix):
             return prefix + "..."
     return path if len(path) <= PATH_MOST else path[:PATH_MOST - 3] + "..."
+
+
+def kept_method(method):
+    """A method as the log keeps it: one of HTTP's own (METHODS) as it came, any other as OTHER_METHOD."""
+    return method if method in METHODS else OTHER_METHOD
+
+
+def kept_address(address):
+    """An address as the log keeps it: as text, cut to ADDRESS_MOST characters."""
+    address = str(address)
+    return address if len(address) <= ADDRESS_MOST else address[:ADDRESS_MOST - 3] + "..."
 
 
 def kind_of(status):
@@ -95,8 +113,10 @@ class RequestLog:
     def add(self, method, path, status, ms, address, who=None, at=None):
         """One request answered (on the event loop: cheap). Kept as a tuple in FIELDS' order: a third of a dict's
         memory, for the RECENT kept."""
-        line = (round(self.clock() if at is None else at, 3), method, kept_path(path), int(status), round(ms, 1),
-                address, who)
+        # The method one of HTTP's, the path and the address cut to a sane length: a line holds nothing a client chose
+        # beyond what it is for.
+        line = (round(self.clock() if at is None else at, 3), kept_method(method), kept_path(path), int(status),
+                round(ms, 1), kept_address(address), who)
         # The file's line made here, once (a few microseconds), so the writer only joins and writes strings.
         self._waiting.append(json.dumps(dict(zip(FIELDS, line)), ensure_ascii=False, separators=(",", ":")) + "\n")
         self._count(line)
