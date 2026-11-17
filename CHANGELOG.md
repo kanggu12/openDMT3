@@ -110,6 +110,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   starts a cell as a formula, the method and the address included.
 - A ban ends the player's sign-ins on the site and in the launcher and their API tokens at once, as a new password
   does, and lifting it brings none back; the card number stays.
+- MAX points and levels take ASCII digits alone (a minus only for a change of MAX points): digits of another script, a
+  plus sign or a line break are refused as any other number that is not one.
 
 ## [0.3.1] - 2026-11-17
 

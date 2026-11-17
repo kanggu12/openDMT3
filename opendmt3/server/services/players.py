@@ -17,6 +17,7 @@ metadata, a script in an SVG, a second frame) is ever served.
 
 import io
 import os
+import re
 
 from opendmt3.core.errors import Worded
 from opendmt3.server.services import accounts as acc
@@ -45,6 +46,10 @@ PICTURE_PIXELS_MOST = 4096 * 4096
 PICTURE_FORMATS = ("PNG", "JPEG", "WEBP", "GIF")
 # Where the pictures are kept in the data folder, one file per account by its number.
 PICTURES = "pictures"
+# A whole number as a form's or JSON's text gives it: ASCII digits alone (never another script's, which int() takes:
+# "\u0663" is 3), a minus first where the number may be below 0, nothing around them (no plus sign, space or line
+# break). Eighteen digits at most: far past any range here, and never a long text for int() to read.
+WHOLE = re.compile(r"-?[0-9]{1,18}")
 
 
 class PlayerError(Worded, ValueError):
@@ -82,13 +87,19 @@ def level_start(tables, level):
 # ------------------------------------------------------------------------------------------ the changes
 
 def _whole(value, low, high):
-    """`value` as a whole number from `low` to `high` (a form's text or JSON's number, never a float or a bool), or
-    None when it is not one: the caller raises its own words."""
+    """`value` as a whole number from `low` to `high` (JSON's number, or a form's or JSON's text of WHOLE: a minus first
+    only when `low` is below 0), or None when it is not one (a float, a bool, digits of another script, a sign or a
+    space around it): the caller raises its own words, the same for every number that is not one."""
     if isinstance(value, bool):
+        # JSON's true and false are no numbers, though Python counts them as 1 and 0.
         return None
-    try:
-        number = int(str(value).strip())
-    except (TypeError, ValueError):
+    if isinstance(value, int):
+        # JSON's whole number as it is.
+        number = value
+    elif isinstance(value, str) and WHOLE.fullmatch(value) and (low < 0 or not value.startswith("-")):
+        # Text of ASCII digits alone, a minus only where the range goes below 0.
+        number = int(value)
+    else:
         return None
     return number if low <= number <= high else None
 

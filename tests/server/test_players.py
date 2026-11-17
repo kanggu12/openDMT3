@@ -90,6 +90,31 @@ class RulesTest(unittest.TestCase):
         self.players.set_unlimited("NOVA", False)
         self.assertEqual(players.points_shown(self.row()), 4200)
 
+    def test_numbers_are_ascii_digits_with_a_minus_only_where_one_may_be_below_0(self):
+        # The review's: digits of another script, a plus sign, a line break; and a space, a minus where none goes.
+        for wrong in ("\u0663", "+7", "42\n", " 42", "4 2", "-0", "\u0661\u0662", "4\u0662"):
+            with self.subTest(wrong=wrong):
+                for change, key in ((lambda: self.players.set_points("NOVA", wrong), "error.player.points"),
+                                    (lambda: self.players.set_level("NOVA", wrong, TABLES, earned=0),
+                                     "error.player.level")):
+                    with self.assertRaises(players.PlayerError) as caught:
+                        change()
+                    # The same words as any other number that is not one.
+                    self.assertEqual(caught.exception.key, key)
+        for wrong in ("\u0663", "+7", "42\n", " -5", "--5", "5-", "-\u0663"):
+            with self.subTest(wrong=wrong):
+                with self.assertRaises(players.PlayerError) as caught:
+                    self.players.add_points(["NOVA"], wrong)
+                self.assertEqual(caught.exception.key, "error.player.points.step")
+        # Nothing changed.
+        self.assertEqual((self.row()["max_points"], self.row()["exp_extra"]), (0, 0))
+        # What a form and JSON send is taken as before: text of digits, a minus to take away, a number.
+        self.assertEqual(self.players.set_points("NOVA", "300"), 300)
+        self.players.add_points(["NOVA"], "-50")
+        self.players.add_points(["NOVA"], 7)
+        self.assertEqual(self.row()["max_points"], 257)
+        self.assertEqual(self.players.set_level("NOVA", "3", TABLES, earned=0), 43)
+
     def test_a_session_earns_up_to_what_a_login_can(self):
         self.assertTrue(self.players.earned(self.nova["id"], 180))
         self.assertFalse(self.players.earned(self.nova["id"], players.EARNED_MOST + 1))
@@ -361,6 +386,27 @@ class AdminPlayerPageTest(ApiBase):
         state = self.call("GET", "/api/v1/players/NOVA", admin).json()
         self.assertEqual(state["history"][0]["what"], "enabled the account NOVA")
         self.assertEqual(state["card_end"], self.site.accounts().by_login("NOVA")["card"][-4:])
+
+    def test_numbers_of_other_scripts_or_with_signs_are_refused_in_the_same_words(self):
+        admin = self.token("BOSS")
+        points = "MAX points are 0 to 999999"
+        step = "a change of MAX points is a whole number from -999999 to 999999, not 0"
+        # The review's: {"amount": "\u0663"} set 3, {"add": "\u0663"} added 3, {"level": "\u0665"} set level 5.
+        for path, body, words in (("max_points", {"amount": "\u0663"}, points), ("max_points", {"amount": "+7"}, points),
+                                  ("max_points", {"amount": "42\n"}, points), ("max_points", {"amount": "abc"}, points),
+                                  ("max_points", {"add": "\u0663"}, step), ("max_points", {"add": "+7"}, step),
+                                  ("level", {"level": "\u0663"}, "a level is 1 to 3"),
+                                  ("level", {"level": "2\n"}, "a level is 1 to 3")):
+            with self.subTest(body=body):
+                r = self.call("POST", "/api/v1/players/NOVA/" + path, admin, json=body)
+                self.refused(r, 400, "refused")
+                self.assertEqual(r.json()["error"]["message"], words)
+        r = self.call("POST", "/api/v1/players/max_points", admin, json={"add": "\u0663", "login_ids": ["NOVA"]})
+        self.refused(r, 400, "refused")
+        # Nothing changed; the page says the same words for the same text.
+        row = self.site.accounts().by_login("NOVA")
+        self.assertEqual((row["max_points"], row["exp_extra"]), (0, 0))
+        self.assertIn(points, self.post("/admin/players/NOVA", action="points_set", amount="\u0663").text)
 
     def test_a_ban_ends_every_sign_in_and_lifting_it_brings_none_back(self):
         from starlette.testclient import TestClient
