@@ -512,7 +512,8 @@ def routes(site):
     return [
         Route("/admin", lambda r: _redirect("/admin/players")),
         Route("/admin/players", admin_players, methods=["GET", "POST"]),
-        Route("/admin/players/download", admin_players_file),
+        # Beside the list, not under it: an ID is letters and digits, so no player's page is the file's.
+        Route("/admin/players.csv", admin_players_file),
         Route("/admin/cabinets", admin_cabinets, methods=["GET", "POST"]),
         Route("/admin/status", admin_status, methods=["GET", "POST"]),
         Route("/admin/server", admin_server, methods=["GET", "POST"]),

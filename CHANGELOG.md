@@ -23,6 +23,21 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   `./dmt3 remove [--delete-data]`.
 - The server says where it is once it is up, with a logo and its addresses in a box.
 - Guides for the internet, a closed network, Kubernetes, and server questions.
+- The admin pages show the server's use: on **Status** the machine's CPU, memory and disk over the last day, what
+  takes the data folder's disk and the hours of the week players play; **Logs**, **Requests**, every page and API call
+  with a chart of the last day, a filter and a CSV file; on **Players** each player's last 14 days, sorting by any
+  column and a CSV file (`/admin/players.csv`, `GET /api/v1/players.csv`). The song list's import and a restore run as
+  jobs whose progress the page shows (`GET /api/v1/jobs`).
+- A **Server** tab restarts, stops and removes the server by asking whoever started it: the server's own command and
+  `opendmt3-server` do it themselves, and under Docker Compose or the launcher the tab names the commands. The API has
+  `POST /api/v1/server/stop`, `/restart` and `/remove`, and `opendmt3-server restart` runs the server again where it
+  ran. [docs/admin.md](docs/admin.md) describes every admin tab.
+- A page of each player for admins, linked from **Players**: MAX points (set, added to, taken from, for one player or
+  many, or unlimited), the level the game shows, a ban with its reason (the game refuses the card, the site and the
+  launcher the sign-in and say why), the DJ card, the picture, a new password, and every change made to them. The game
+  keeps the MAX points a session earns.
+- The account page is one area in three parts: the profile (a picture of the player's own and the DJ card with a
+  preview drawn as the game draws it), the account, and its security. Each control has its API call.
 
 ### Fixed
 

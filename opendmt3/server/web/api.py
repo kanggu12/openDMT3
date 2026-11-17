@@ -1319,8 +1319,8 @@ def routes(site):
         Route("/api/v1/dj_cards", api_dj_cards),
         Route("/api/v1/dj_cards/{kind}/{number:int}.png", api_card_picture),
         Route("/api/v1/players", api_players, methods=["GET", "POST"]),
-        # Before a player's own address (DELETE /api/v1/players/{login_id}): a GET here is the file.
-        Route("/api/v1/players/download", api_players_file),
+        # Beside the list, not under it: an ID is letters and digits, so no player's address is the file's.
+        Route("/api/v1/players.csv", api_players_file),
         Route("/api/v1/cabinets", api_cabinets),
         Route("/api/v1/cabinets/{id:int}/name", api_cabinet_name, methods=["POST"]),
         Route("/api/v1/server", api_server),

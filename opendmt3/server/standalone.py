@@ -3,14 +3,16 @@ and the same commands with Python on Linux or macOS (python -m opendmt3.server.s
 command the one-line install puts on PATH).
 
     opendmt3-server                  run here until this window closes (Ctrl+C, or opendmt3-server stop elsewhere)
-    opendmt3-server start | stop | status | logs
+    opendmt3-server start | stop | restart | status | logs
     opendmt3-server setup [--address A] [--game PATH] [--installer FILE] [--admin ID [--password P]]
     opendmt3-server invite | firewall | expose NAME | add-player ID | backup | backups | restore NAME | catalog PATH
 
 Every command works on one data folder: beside the program in the Windows package (data\\), else --data, or
 OPENDMT3_DATA, else ./data. Whatever starts the server, run or start, its stop is this same program's stop: the
 running server watches its data folder for the request and ends itself (the site finishes its requests, the database
-is closed), so stop works from any window, and a server started in the background has no window to close.
+is closed), so stop works from any window, and a server started in the background has no window to close. Restart is
+asked the same way: the running server ends and runs again in its own process (its window, or none, kept). The
+admin's Server tab asks the running server through the same requests (web/runner.py, "standalone").
 The settings a run starts with (the players' address, the ports, HTTPS behind a proxy) are kept in settings.json in
 the data folder: setup and expose write them, run reads them. The rest is the server's own command line
 (python -m opendmt3.server), run in this same process.
@@ -42,6 +44,8 @@ GAME_PORT, WEB_PORT = 4725, 4730
 # In the data folder: the running server's record (its process and ports), the request to stop it, the settings a run
 # starts with, and the log folder.
 RUNNING, STOP, SETTINGS, LOGS = "server-running.json", "server-stop.request", "settings.json", "logs"
+# The request to restart it: the running server ends and runs again in its own process.
+RESTART = "server-restart.request"
 # The log a run writes: this size, then it starts a new file, keeping this many old ones (8 MB in all at most).
 LOG_BYTES, LOG_KEPT = 2 * 1024 * 1024, 3
 # The installer the site's Download page hands out from the downloads folder, under the name dmt3 copies it as too.
@@ -344,26 +348,40 @@ def cmd_run(args):
     brought = hand_out_bundled(data)
     if brought:
         logging.getLogger("opendmt3.server").info("the Download page hands out %s", brought)
-    stop_file = os.path.join(data, STOP)
-    with contextlib.suppress(FileNotFoundError):
-        # A request left from before is for a server long gone.
-        os.remove(stop_file)
-    write_json(os.path.join(data, RUNNING), {"pid": os.getpid(), "game_port": kept["game_port"],
-                                             "web_port": kept["web_port"], "started": int(time.time()),
-                                             "background": bool(args.background), "version": __version__})
+    stop_file, restart_file = os.path.join(data, STOP), os.path.join(data, RESTART)
+    for name in (stop_file, restart_file):
+        with contextlib.suppress(FileNotFoundError):
+            # A request left from before is for a server long gone.
+            os.remove(name)
+    # What the admin's Server tab asked beyond a stop: the data deleted once the server has stopped.
+    asked = {"delete_data": False}
+
+    def request(path):
+        # The same request file the commands write (stop, restart), so the page and the commands ask alike.
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("%d\n" % os.getpid())
+
+    def remove(delete_data):
+        asked["delete_data"] = bool(delete_data)
+        request(stop_file)
+
+    from opendmt3.server.web import runner as runners
+    # This process started the server, so it is the one the Server tab asks to stop, restart or remove it.
+    run_by = runners.Runner("standalone", stop=lambda: request(stop_file), restart=lambda: request(restart_file),
+                            remove=remove)
 
     async def until_asked():
-        # The stop request, looked for twice a second: then the server ends itself as after Ctrl+C.
-        while not os.path.exists(stop_file):
+        # A stop or restart request, looked for twice a second: then the server ends itself as after Ctrl+C.
+        while not (os.path.exists(stop_file) or os.path.exists(restart_file)):
             await asyncio.sleep(POLL_SECONDS)
 
-    async def serve():
+    async def serve(first):
         # The banner (server/banner.py) comes from the server once its site answers, with how this run stops.
         notes = [] if args.background else [
             "It runs while this window is open. To stop it: close the window, press Ctrl+C, or run %s stop." % PROG]
         task = asyncio.ensure_future(server_cli.serve(server_args_namespace(data), data, until=until_asked,
-                                                      notes=notes))
-        if not args.background and not args.no_browser and first_account_needed(data):
+                                                      notes=notes, runner=run_by))
+        if first and not args.background and not args.no_browser and first_account_needed(data):
             for _ in range(100):
                 # Asked from a thread: the site answers on this same loop, which must not wait on the question.
                 if task.done() or await asyncio.to_thread(health, kept["web_port"], 0.5):
@@ -375,15 +393,37 @@ def cmd_run(args):
                 webbrowser.open("http://127.0.0.1:%d/" % kept["web_port"])
         await task
 
+    first = True
     try:
-        asyncio.run(serve())
+        while True:
+            write_json(os.path.join(data, RUNNING), {"pid": os.getpid(), "game_port": kept["game_port"],
+                                                     "web_port": kept["web_port"], "started": time.time(),
+                                                     "background": bool(args.background), "version": __version__})
+            asyncio.run(serve(first))
+            if not os.path.exists(restart_file) or os.path.exists(stop_file):
+                break
+            # Restart: the same run again in this process (the settings read anew), its window kept.
+            os.remove(restart_file)
+            run_by = runners.Runner("standalone", stop=lambda: request(stop_file),
+                                    restart=lambda: request(restart_file), remove=remove)
+            logging.getLogger("opendmt3.server").info("starting again: asked to restart")
+            kept, first = settings(data), False
     except KeyboardInterrupt:
         pass
     finally:
-        for name in (RUNNING, STOP):
+        for name in (RUNNING, STOP, RESTART):
             with contextlib.suppress(FileNotFoundError):
                 os.remove(os.path.join(data, name))
         logging.getLogger("opendmt3.server").info("stopped")
+    if asked["delete_data"]:
+        # The log is in the data folder: closed first, so the folder can go (Windows keeps an open file).
+        logging.shutdown()
+        for handler in logging.getLogger().handlers[:]:
+            logging.getLogger().removeHandler(handler)
+        kept_copy = server_cli.remove_data(data)
+        say("The server's data in %s is deleted; its last backup is %s" % (data, kept_copy))
+        if os.name == "nt":
+            say("Its firewall rules stay: %s firewall --remove takes them out." % PROG)
     return 0
 
 
@@ -465,6 +505,30 @@ def cmd_stop(args):
             os.remove(os.path.join(data, name))
     say("The server did not stop within %d seconds; its process was ended." % STOP_SECONDS)
     return 0
+
+
+def cmd_restart(args):
+    """Ask the running server to end and run again in its own process (its window, or none, kept); wait until it
+    answers again. Not running: started in the background, as start does."""
+    data = os.path.abspath(args.data)
+    record = running(data)
+    if not record:
+        say("The server was not running; starting it.")
+        return cmd_start(args)
+    with open(os.path.join(data, RESTART), "w", encoding="utf-8") as f:
+        f.write("%d\n" % int(record["pid"]))
+    deadline = time.monotonic() + STOP_SECONDS + 30
+    while time.monotonic() < deadline:
+        now = running(data)
+        if not alive(int(record["pid"])):
+            say("The server stopped instead of starting again; %s logs shows why." % PROG)
+            return 1
+        if now and now.get("started") != record.get("started") and health(int(now["web_port"]), timeout=0.5):
+            say("The server runs again (process %s)." % now["pid"])
+            return 0
+        time.sleep(0.2)
+    say("The server did not answer again within %d seconds; %s logs shows why." % (STOP_SECONDS + 30, PROG))
+    return 1
 
 
 def cmd_status(args):
@@ -826,6 +890,7 @@ COMMANDS = [
     ("run", "run the server in this window until it closes (the default)"),
     ("start", "start the server in the background"),
     ("stop", "stop the running server (started by run or start)"),
+    ("restart", "stop the running server and run it again where it ran (its window, or the background)"),
     ("status", "whether the server runs, its health and its addresses"),
     ("logs", "the last lines of the server's log"),
     ("setup", "the players' address, the ports, the song list, the installer to hand out, the first account"),
@@ -905,7 +970,7 @@ def main(argv=None):
         # The program alone (a double click on opendmt3-server.exe), or with --data only: the server, here.
         args = p.parse_args(list(sys.argv[1:] if argv is None else argv) + ["run"])
         args.data = args.data or default_data()
-    jobs = {"run": cmd_run, "start": cmd_start, "stop": cmd_stop, "status": cmd_status, "logs": cmd_logs,
+    jobs = {"run": cmd_run, "start": cmd_start, "stop": cmd_stop, "restart": cmd_restart, "status": cmd_status, "logs": cmd_logs,
             "setup": cmd_setup, "catalog": cmd_catalog, "invite": cmd_invite, "firewall": cmd_firewall,
             "expose": cmd_expose, "repair": cmd_repair, "remove": cmd_remove}
     try:

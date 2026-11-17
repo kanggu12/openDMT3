@@ -62,7 +62,7 @@ opendmt3-server expose dmt3.example.org --email you@example.org
 ```
 
 It keeps the name, sets the server to listen for the site on this PC only behind the proxy, and writes `Caddyfile`
-into the data folder. Restart the server (`opendmt3-server stop`, then `start`), then run
+into the data folder. Restart the server (`opendmt3-server restart`), then run
 [Caddy](https://caddyserver.com/download) with it: `caddy run --config "<data folder>\Caddyfile"`.
 `opendmt3-server firewall` opens 80, 443 and the game's port on this PC; `expose --off` undoes it.
 

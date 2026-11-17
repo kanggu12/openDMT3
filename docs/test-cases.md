@@ -397,6 +397,9 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 | SERVER-81 | The system's count of a child's written bytes (Linux and Windows) after files of 1 MB and 2 MB | 3 MB and under 4 KB more | `tests/server/test_sources.py#test_the_systems_count_is_what_the_child_wrote` | unit |
 | SERVER-82 | No count of written bytes (another system), or no process yet | The folder measured at every look: over as soon as it holds more than the entries and the margin | `tests/server/test_sources.py#test_the_folder_is_measured_at_every_look_where_there_is_no_count` | unit |
 | SERVER-83 | A file made 4 MB long without a byte written | Not seen by the count; found when the folder is measured again (every second) | `tests/server/test_sources.py#test_a_length_set_without_a_write_is_found_at_the_next_measuring` | unit |
+| SERVER-84 | A session's MAX points earned, more than a login can, a negative count | The first kept; the others refused, the balance unchanged | `tests/server/test_players.py#test_a_session_earns_up_to_what_a_login_can` | unit |
+| SERVER-85 | A banned card at the game's login | Refused with the failed login alone | `tests/server/test_players.py#test_a_banned_card_is_refused_with_the_failed_login_alone` | unit |
+| SERVER-86 | A decorated card with MAX points and a level set by an admin | The game's login answer carries its icon, plate, comment, the level's experience and the points | `tests/server/test_players.py#test_a_decorated_card_with_its_points_and_level_is_served` | unit |
 
 ## TS-SITE: the site and the API
 
@@ -550,6 +553,15 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 | SITE-146 | A restore with `?wait=0`, followed, and a running import's page | `202` with the job; its steps to `done`; the progress card with its step, count and bar while it runs, the tab's line once it ended; the jobs listed | `tests/server/test_observability.py#test_a_restore_is_a_job_the_api_can_follow` | unit |
 | SITE-147 | The Server tab for each runner: one it cannot tell, Docker Compose, the launcher, the server's own command | The commands named where it cannot ask (409 not_here in the API); each button asks first, then the runner is asked once; restart's page comes back by itself; removal with its data asked with it | `tests/server/test_observability.py#test_the_server_tab_asks_whoever_started_the_server` | unit |
 | SITE-148 | The server's own command asked to restart, then to remove its data, through the API | The same process runs again and answers; then it ends with 0, its data folder gone and its database's last copy beside it, its accounts in it | `tests/server/test_observability.py#test_the_command_restarts_and_removes_its_data_when_its_admin_asks` | unit |
+| SITE-149 | A player whose ID is DOWNLOAD, the Players tab, its file and its API twin | The ID links to the player's page, which answers in upper and lower case; the file at `/admin/players.csv` and `GET /api/v1/players.csv` lists the player; `GET /api/v1/players/download` is the player | `tests/server/test_observability.py#test_a_player_named_like_a_word_of_the_players_tab_has_a_page_and_the_file_still_comes` | unit |
+| SITE-150 | `opendmt3-server start`, `restart`, then the Server tab's remove with its data, through the API | The same process runs again; the tab's runner is `standalone` and can stop, restart and remove; the process ends, its data folder gone and its database's last copy beside it | `tests/server/test_standalone.py#test_restart_and_the_server_tab_ask_the_running_server_itself` | unit |
+| SITE-151 | A player's page: each control (MAX points, level, ban, DJ card, rename, password) | The page shows the player; each control changes them and its change is listed | `tests/server/test_players.py#test_the_page_shows_the_player_and_each_control_changes_them` | unit |
+| SITE-152 | A player's page asked by a player who is no admin, and for an ID with no account | 404 for both | `tests/server/test_players.py#test_a_player_page_is_for_admins_and_existing_players_only` | unit |
+| SITE-153 | The API's player calls | Each changes the player as the page does | `tests/server/test_players.py#test_the_api_controls_a_player_as_the_page_does` | unit |
+| SITE-154 | A banned player signing in | Refused with the ban's reason | `tests/server/test_players.py#test_a_banned_player_is_told_the_reason_when_signing_in` | unit |
+| SITE-155 | The account area | Three sections (profile, account, security) and the DJ card's preview | `tests/server/test_players.py#test_the_page_has_three_sections_and_the_card_preview` | unit |
+| SITE-156 | A picture uploaded, then something that is no picture | Saved and served as a PNG, on the DJ page and by the API too; the other refused and said on the page | `tests/server/test_players.py#test_a_picture_is_uploaded_served_and_removed` | unit |
+| SITE-157 | Deleting one's own account with a wrong password, then the right one | The mistake under its field and the account kept; then gone, and the sign-in page says so | `tests/server/test_players.py#test_deleting_ones_own_account_asks_for_its_password` | unit |
 
 ## TS-TEXT: the words
 

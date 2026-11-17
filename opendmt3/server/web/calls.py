@@ -226,7 +226,7 @@ CALLS = [
                  query("order", "string", "asc or desc (each column's own first order when not given).",
                        enum=("asc", "desc"))),
          answer={"players": "array", "sort": "string", "order": "string", "days_from": "integer"}),
-    Call("GET", "/api/v1/players/download", "admin", PLAYERS, "Every account as the Players tab's CSV file.",
+    Call("GET", "/api/v1/players.csv", "admin", PLAYERS, "Every account as the Players tab's CSV file.",
          files="text/csv"),
     Call("POST", "/api/v1/players", "admin", PLAYERS,
          "An account made, with its password (made by the server when none is sent) and the message to send.",

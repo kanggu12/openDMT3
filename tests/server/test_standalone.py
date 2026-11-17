@@ -229,6 +229,48 @@ class StartStopTest(unittest.TestCase):
         with open(os.path.join(data, "logs", "server.log"), encoding="utf-8") as f:
             self.assertTrue(f.read().rstrip().endswith("stopped"))
 
+    def test_restart_and_the_server_tab_ask_the_running_server_itself(self):
+        # Whoever starts the server stops it: the running opendmt3-server is the Server tab's runner ("standalone"),
+        # restart runs it again in its own process, and a remove with the data asked on the tab deletes the folder
+        # once it has stopped, a last copy kept beside it.
+        import time
+        import httpx
+        parent = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, parent, True)
+        data = os.path.join(parent, "data")
+        self.addCleanup(quiet, "--data", data, "stop")
+        quiet("--data", data, "setup", "--admin", "BOSS", "--password", "pass1234")
+        for _ in range(5):
+            game, web = free_port(), free_port()
+            quiet("--data", data, "setup", "--game-port", str(game), "--web-port", str(web))
+            with mock.patch.dict(os.environ, {"PYTHONPATH": os.pathsep.join([os.getcwd()] + sys.path)}):
+                code, said = quiet("--data", data, "start")
+            if "is taken by another program" not in said:
+                break
+        self.assertEqual(code, 0, said)
+        before = standalone.running(data)
+        code, said = quiet("--data", data, "restart")
+        self.assertEqual(code, 0, said)
+        after = standalone.running(data)
+        # The same process, a new run in it.
+        self.assertEqual(after["pid"], before["pid"])
+        self.assertNotEqual(after["started"], before["started"])
+        base = "http://127.0.0.1:%d" % web
+        token = httpx.post(base + "/api/v1/session", json={"login_id": "BOSS", "password": "pass1234"}).json()
+        boss = {"Authorization": "Bearer " + token["token"]}
+        runner = httpx.get(base + "/api/v1/server", headers=boss).json()["runner"]
+        self.assertEqual((runner["kind"], runner["can"]), ("standalone", ["stop", "restart", "remove"]))
+        self.assertEqual(runner["commands"]["restart"], "opendmt3-server restart")
+        r = httpx.post(base + "/api/v1/server/remove", headers=boss, json={"delete_data": True})
+        self.assertEqual(r.status_code, 202, r.text)
+        for _ in range(300):
+            if not standalone.alive(int(before["pid"])):
+                break
+            time.sleep(0.1)
+        self.assertFalse(standalone.alive(int(before["pid"])))
+        self.assertFalse(os.path.exists(data))
+        self.assertEqual(len([n for n in os.listdir(parent) if n.startswith("data-last-")]), 1, os.listdir(parent))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -860,7 +860,7 @@ class RouteDocsTest(ApiBase):
             ("GET", "/api/v1/download", "/api/v1/download", {}),
             ("GET", "/api/v1/download/windows", "/api/v1/download/windows", {}),
             ("GET", "/api/v1/players", "/api/v1/players", {}),
-            ("GET", "/api/v1/players/download", "/api/v1/players/download", {}),
+            ("GET", "/api/v1/players.csv", "/api/v1/players.csv", {}),
             ("POST", "/api/v1/players", "/api/v1/players", {"json": {"login_id": "NEW1"}}),
             ("POST", "/api/v1/players/{login_id}/password", "/api/v1/players/NEW1/password", {}),
             ("POST", "/api/v1/players/{login_id}/dj_name", "/api/v1/players/NEW1/dj_name", {"json": {"dj_name": "N"}}),

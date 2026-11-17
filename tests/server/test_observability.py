@@ -335,15 +335,35 @@ class AdminPagesTest(ApiBase):
         self.assertEqual(order, sorted(order))
         self.assertIn('aria-sort="ascending"', page)
         self.assertIn("/admin/players?sort=dj&amp;order=desc", page)
-        rows = list(csv.DictReader(io.StringIO(self.client.get("/admin/players/download").text.lstrip("﻿"))))
+        rows = list(csv.DictReader(io.StringIO(self.client.get("/admin/players.csv").text.lstrip("﻿"))))
         found = {r["login_id"]: r for r in rows}
         self.assertEqual((found["NOVA"]["plays"], found["NOVA"]["plays_14_days"]), ("4", "4"))
         self.assertEqual((found["RIO"]["plays"], found["RIO"]["plays_14_days"]), ("1", "0"))
         listed = self.call("GET", "/api/v1/players?sort=plays", self.token("BOSS")).json()
         self.assertEqual([p["login_id"] for p in listed["players"]][:2], ["NOVA", "RIO"])
         self.assertEqual(listed["players"][0]["days"][-4:], [1, 1, 1, 1])
-        self.assertEqual(self.call("GET", "/api/v1/players/download", self.token("BOSS")).headers["content-type"],
+        self.assertEqual(self.call("GET", "/api/v1/players.csv", self.token("BOSS")).headers["content-type"],
                          "text/csv; charset=utf-8")
+
+    def test_a_player_named_like_a_word_of_the_players_tab_has_a_page_and_the_file_still_comes(self):
+        # The file's address is beside the list (players.csv), so an ID as DOWNLOAD (letters, as any ID) is a player.
+        self.admin()
+        self.make("DOWNLOAD", dj="DL")
+        page = self.client.get("/admin/players").text
+        self.assertIn('href="/admin/players/DOWNLOAD"', page)
+        self.assertIn('href="/admin/players.csv"', page)
+        mine = self.client.get("/admin/players/DOWNLOAD")
+        self.assertEqual(mine.status_code, 200)
+        self.assertIn("DL", mine.text)
+        self.assertNotIn("text/csv", mine.headers["content-type"])
+        # Lower case too, as an ID is read either way.
+        self.assertNotIn("text/csv", self.client.get("/admin/players/download").headers["content-type"])
+        listed = self.client.get("/admin/players.csv")
+        self.assertIn("text/csv", listed.headers["content-type"])
+        self.assertIn("DOWNLOAD", listed.text)
+        answer = self.call("GET", "/api/v1/players/download", self.token("BOSS"))
+        self.assertEqual(answer.json()["login_id"], "DOWNLOAD")
+        self.assertIn("text/csv", self.call("GET", "/api/v1/players.csv", self.token("BOSS")).headers["content-type"])
 
     def test_a_restore_is_a_job_the_api_can_follow(self):
         from starlette.testclient import TestClient

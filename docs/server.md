@@ -84,7 +84,7 @@ window. The same commands run with Python on Linux and macOS ([With Python](#wit
 | Command | Does |
 | :--- | :--- |
 | `opendmt3-server` or `opendmt3-server run` | Runs the server in this window until it closes (Ctrl+C, or `stop` from another one); `--no-browser` |
-| `opendmt3-server start`, `stop`, `status`, `logs` | In the background; stops the running one, however it was started; whether it runs and answers, with its addresses; the last lines of its log |
+| `opendmt3-server start`, `stop`, `restart`, `status`, `logs` | In the background; stops the running one, however it was started; runs it again where it ran (its window, or the background); whether it runs and answers, with its addresses; the last lines of its log |
 | `opendmt3-server setup [--address A] [--game PATH] [--installer FILE] [--admin ID [--password P]] [--game-port N] [--web-port N]` | The players' address, the song list, the installer to hand out, the first account, the ports; each only when given |
 | `opendmt3-server invite` | The address players open, with its QR code |
 | `opendmt3-server firewall [--remove] [--public] [--print]` | Opens the two ports in Windows' firewall as an administrator; elsewhere prints the commands for ufw and firewalld |

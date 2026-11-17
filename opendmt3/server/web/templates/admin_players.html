@@ -46,7 +46,7 @@
   {% macro sorted(key, label, cls="") %}{% set on = sort == key %}{% set first = "desc" if sorts[key][1] else "asc" %}<th class="{{ cls }}"{% if on %} aria-sort="{{ 'ascending' if order == 'asc' else 'descending' }}"{% endif %}><a class="sort{{ ' on ' + order if on }}" href="/admin/players?sort={{ key }}{% if on and order == first %}&amp;order={{ 'asc' if first == 'desc' else 'desc' }}{% endif %}">{{ label }}</a></th>{% endmacro %}
   {% from "_charts.html" import cells %}
   <div class="card">
-    <p class="players-file"><a class="btn small" href="/admin/players/download" download>{{ w("players.download") }}</a></p>
+    <p class="players-file"><a class="btn small" href="/admin/players.csv" download>{{ w("players.download") }}</a></p>
     <table class="table players">
       <thead><tr>{{ sorted("id", "ID") }}{{ sorted("dj", w("account.dj")) }}<th></th>{{ sorted("days", w("players.days")) }}{{ sorted("played", w("players.played")) }}{{ sorted("last", w("admin.last")) }}<th></th></tr></thead>
       <tbody>

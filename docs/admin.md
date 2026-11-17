@@ -27,7 +27,7 @@ Each row also has a new password, rename, admin rights, disable or enable, reset
 reset every play. A new password, a reset and a delete ask first; a reset backs the database up first.
 
 API: `GET /api/v1/players` (with `?sort=` and `?order=`, and each player's `days`, `plays` and `last_play`),
-`GET /api/v1/players/download`.
+`GET /api/v1/players.csv`.
 
 ## Cabinets
 
