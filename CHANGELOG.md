@@ -56,10 +56,6 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
   step, a drag moves it from where it was, and a column's value or name only chooses it. **SOUND** shows it opens a
   panel, whose title goes back to the menu, and the panel uses the launcher's words (**MASTER**, **MUSIC**, **KEYS**).
 - The overlay bar's X is quiet like the buttons beside it, and the overlay shrinks with the game in a small window.
-- The launcher's and the installer's dialogs follow one rule: the main key is blue and says what it does, a question
-  that changes or removes something starts on **Cancel**, pink is only for what failed, and the tab names the state
-  (**Older version**, **Game open**, **Not installed**, **Done**). **Uninstall** asks **Remove** (settings, players and
-  records stay) or **Remove all**; work under way, an unpacking or an uninstall included, is blue with moving stripes.
 - The launcher's and the installer's dialogs follow one rule: the main key is blue (a page's too; lime on the settings'
   pages) and says what it does, a question that changes or removes something starts on **Cancel**, pink is only for what
   failed, and the tab names the state (**Older version**, **Game open**, **Not installed**, **Done**). **Uninstall**
