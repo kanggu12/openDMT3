@@ -34,6 +34,34 @@ class Ui:
         self.section = theme.SECTION_COLOURS[self.section_name]
 
 
+def later(widget, func, ms=None):
+    """Run func() after `ms` milliseconds (at the window's next idle moment without), while `widget` is still there:
+    scheduled on the window's root, never on `widget` itself. Returns the timer's id, which only cancel() stops (the
+    root keeps the timer's command, and must be the one to let it go).
+
+    A widget's own after() and after_idle() end with the widget: tkinter deletes their callback's Tcl command when the
+    widget is destroyed, while Tcl's timer still names it. A page made again at once (the guide's step after Connect)
+    made commands of its own, and Python, reusing the freed object's id that such a name is made of, could give one of
+    them that very name: the old timer then called the new command with nothing, a link's handler that takes an event
+    ("missing 1 required positional argument: 'e'"), and the launcher said "That did not work" (remote_play under
+    Wine, 2026-11-19). On the root, the callback outlives the widget and finds it gone."""
+    root = widget._root()
+
+    def run():
+        # The widget may be gone by now (its page made again): then nothing to do.
+        if widget.winfo_exists():
+            func()
+
+    return root.after_idle(run) if ms is None else root.after(ms, run)
+
+
+def cancel(widget, job):
+    """Stop a timer later() set for `widget`: on the root that keeps its command. A widget's own after_cancel deletes
+    the command but leaves its name in the root's list, and the root's end then failed on a command already gone
+    ("can't delete Tcl command": the window could not close)."""
+    widget._root().after_cancel(job)
+
+
 def style_ttk(ui):
     """Tk's themed widgets in the launcher's look: none is used any more (the drop-down is the launcher's own, Select),
     and 'clam' stays the theme so that any that comes honours colours on every platform."""
@@ -297,8 +325,9 @@ class RailList(tk.Canvas):
     def _queue(self):
         """Draw again once the size settles (a drag fires many resize events)."""
         if self._job is not None:
-            self.after_cancel(self._job)
-        self._job = self.after(10, self.draw)
+            cancel(self, self._job)
+        # On the root (later): a timer of the list's own would outlive it as a name another command may take.
+        self._job = later(self, self.draw, 10)
 
     def _entries(self):
         return [key for key, _ in self.nav]
@@ -707,7 +736,8 @@ def follow_width(ui, widget, margin=0, beside=()):
     widget.configure(wraplength=ui.px(START_WRAP))
     widget.opendmt3_wrap_set = False
     master.bind("<Configure>", update, add="+")
-    widget.after_idle(update)
+    # On the root (later): the label's own idle call would outlive it, when its page is made again at once.
+    later(widget, update)
 
 
 def label(parent, ui, text, font=None, fg=theme.TEXT, bg=None, wrap_margin=None, beside=(), **kw):
@@ -892,7 +922,7 @@ class Button(tk.Canvas):
         else:
             job = getattr(self, "_busy_job", None)
             if job is not None:
-                self.after_cancel(job)
+                cancel(self, job)
                 self._busy_job = None
             self.enable(True)
 
@@ -902,7 +932,8 @@ class Button(tk.Canvas):
         frame = self._busy_frames[i % len(self._busy_frames)]
         self.itemconfigure(self.face, image=frame)
         self.itemconfigure(self.label, fill=self.text_colour["normal"])
-        self._busy_job = self.after(self.BUSY_STEP, lambda: self._busy_step(i + 1))
+        # On the root (later): the key may go with its page while it is busy (a connect answered).
+        self._busy_job = later(self, lambda: self._busy_step(i + 1), self.BUSY_STEP)
 
 
 class Toggle(tk.Label):
@@ -1965,8 +1996,8 @@ class Field(tk.Canvas):
             self.set_error(False)
             if self.on_typed:
                 self.on_typed()
-        # The example goes with the first key (the entry's words come with the key's release).
-        self.after_idle(self._paint)
+        # The example goes with the first key (the entry's words come with the key's release); on the root (later).
+        later(self, self._paint)
 
     # ---- what the field does
 
@@ -2166,7 +2197,8 @@ class Form(tk.Frame):
             # the fields, at the left, 24 px down (FORMS.md: the form wraps when the card is narrow).
             self._beside = (holder, spacer, row, column)
             tk.Misc.bind(self.master, "<Configure>", lambda e: self._wrap_key(), add="+")
-            self.after_idle(self._wrap_key)
+            # On the root (later): the form may go with its page before the window is idle.
+            later(self, self._wrap_key)
         else:
             self.keys = parent = tk.Frame(self, bg=self.bg)
             parent.pack(anchor="w", fill="x" if fill else None, pady=(px(self.BUTTON_GAP), 0))

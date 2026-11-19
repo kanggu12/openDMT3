@@ -590,5 +590,85 @@ class FinalReviewTest(unittest.TestCase):
         self.assertEqual(same.width, wide.width)
 
 
+class TimerTest(unittest.TestCase):
+    """Every timer is on the window's root (widgets.later), never on a widget a page can destroy: a widget's own
+    after() or after_idle() ends with it while Tcl's timer still names its command, and a page made again at once could
+    give that name to a command of its own, which the old timer then called with nothing (remote_play under Wine,
+    2026-11-19: a link's handler, "missing 1 required positional argument: 'e'")."""
+
+    # Timers on what lives as long as the window: the root by any of its names, and the page area's own (the page area
+    # is made once with the window). A dialog's timers are its canvas's, each cancelled when the dialog closes.
+    ROOTS = ("root.after", "self.root.after", "app.root.after", "self.app.root.after", "root.after_idle",
+             "app.root.after_idle", "self.app.root.after_idle")
+    KEPT = {("widgets.py", "self.after_idle(self._keyboard_moved)"), ("dialogs.py", "self.canvas.after(ms,")}
+
+    def test_every_timer_is_on_the_root(self):
+        import glob
+        import os
+        import re
+        top = os.path.dirname(widgets.__file__)
+        found = []
+        for path in glob.glob(os.path.join(top, "**", "*.py"), recursive=True):
+            with open(path, encoding="utf-8") as f:
+                for number, line in enumerate(f, 1):
+                    code = line.split("#", 1)[0]
+                    for call in re.finditer(r"([\w.\[\]\"()]+)\.(after_idle|after)\(", code):
+                        receiver = call.group(1)
+                        whole = "%s.%s" % (receiver, call.group(2))
+                        if whole.endswith(self.ROOTS) or receiver in ("root", "self.root", "app.root"):
+                            continue
+                        if any(os.path.basename(path) == name and words in code for name, words in self.KEPT):
+                            continue
+                        found.append("%s:%d %s" % (os.path.relpath(path, top), number, code.strip()))
+        self.assertEqual(found, [], "timers on a widget a page can destroy: use widgets.later")
+
+    def test_a_timer_later_set_is_cancelled_on_the_root(self):
+        # A widget's own after_cancel would leave the command's name in the root's list, and the root's end would fail
+        # on it: every after_cancel in opendmt3/client is on a root, a dialog's canvas (its own timers) or cancel().
+        import glob
+        import os
+        import re
+        top = os.path.dirname(widgets.__file__)
+        found = []
+        for path in glob.glob(os.path.join(top, "**", "*.py"), recursive=True):
+            with open(path, encoding="utf-8") as f:
+                for number, line in enumerate(f, 1):
+                    for call in re.finditer(r"([\w.]+)\.after_cancel\(", line.split("#", 1)[0]):
+                        if not call.group(1).endswith(("root", "canvas", "_root()")):
+                            found.append("%s:%d %s" % (os.path.relpath(path, top), number, line.strip()))
+        self.assertEqual(found, [], "a timer later() set is stopped with widgets.cancel")
+
+    def test_later_runs_on_the_root_and_only_while_the_widget_is_there(self):
+        calls = []
+
+        class Root:
+            def after_idle(self, func):
+                calls.append(("idle", func))
+                return "after#1"
+
+            def after(self, ms, func):
+                calls.append((ms, func))
+                return "after#2"
+
+        class Widget:
+            there = True
+
+            def _root(self):
+                return Root()
+
+            def winfo_exists(self):
+                return self.there
+
+        widget, ran = Widget(), []
+        self.assertEqual(widgets.later(widget, lambda: ran.append(1)), "after#1")
+        self.assertEqual(widgets.later(widget, lambda: ran.append(2), 10), "after#2")
+        self.assertEqual([when for when, _ in calls], ["idle", 10])
+        calls[0][1]()
+        widget.there = False
+        calls[1][1]()
+        # The first ran while the widget was there; the second found it gone and did nothing.
+        self.assertEqual(ran, [1])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -76,6 +76,8 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
 
 ### Fixed
 
+- The launcher no longer says "That did not work" now and then when a page is made again at once (in the guide, on
+  connecting to a server): a timer of the page it replaced could run one of the new page's actions.
 - **Copy** works over plain http on the network too (the API token shown once, the message to send a player), where
   the browser gives a page no clipboard.
 - On a phone a date no longer breaks from its time, nor a figure from its unit.

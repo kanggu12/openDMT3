@@ -95,7 +95,8 @@ def player_form(app, parent, on_added, bg=None):
 
     # Adding a player is the card's main action: lit while PLAY waits, quiet beside a lit PLAY; in the fields' row.
     form.button(w("online.add"), add, row=0, column=3, beside=True, main=_main(app))
-    form.fields["online.id"].after_idle(form.fields["online.id"].focus_set)
+    # Typing goes to the ID, once the window is idle (on the root: widgets.later).
+    widgets.later(form.fields["online.id"], form.fields["online.id"].focus_set)
     return form
 
 
@@ -216,7 +217,7 @@ def _server_card(app, parent, rerender, connected, test_link, changing=False):
                     address.entry.select_range(0, "end")
                     address.entry.icursor("end")
 
-        address.after_idle(ready)
+        widgets.later(address, ready)
     return address.get
 
 
@@ -412,7 +413,7 @@ def _sign_in_form(app, parent, remembered, rerender, test_link, banned, change=N
                   ).pack(anchor="w", pady=(ui.px(12), 0))
     # Typing goes to the ID (to the password when the ID is remembered); Tab to the next; Enter signs in.
     first = form.fields["online.password" if remembered else "online.id"]
-    first.after_idle(first.focus_set)
+    widgets.later(first, first.focus_set)
 
 
 def _banned_plate(app, parent, reason, again, change=None):
@@ -453,7 +454,7 @@ def _banned_plate(app, parent, reason, again, change=None):
     keys.pack(fill="x", pady=(ui.px(16), 0))
     other = widgets.Button(keys, ui, w("online.banned.other"), again, size="lg", fill=True)
     other.pack(fill="x")
-    other.after_idle(other.focus_set)
+    widgets.later(other, other.focus_set)
 
 
 def _signed_card(app, parent, remote_state, rerender):
