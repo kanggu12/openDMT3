@@ -804,7 +804,10 @@ unshown), `OPENDMT3_VBLANK=wait` brings each present back at the display's next 
 60 Hz display with VSync), and `OPENDMT3_STALL=MS[,MS...]` stalls a frame that many milliseconds in every song, the
 n-th n times 20 s into its music (four at most), as the game's own hiccups do; `OPENDMT3_LINE_WATCH=FILE` writes a
 row a frame of the score into that file (`line.c`: its clock and ticks, its tempo, the line's place by the game's own
-fields, the music's position), which `tests/e2e/windows/gpu/line.py` reads.
+fields, the music's position), which `tests/e2e/windows/gpu/line.py` reads. `OPENDMT3_POINTER_LOG` logs each
+new point of the pointer in the client with the game pixel the game reads there, and `OPENDMT3_MEMORY_WATCH` the
+32-bit process's address space every ten seconds (free, its largest free block, reserved, committed, walked from a
+thread of its own) and the device's texture memory left as Direct3D counts it.
 
 While the menu, the question or the sound panel is open during a song (the song's music buffer playing), or the game
 is minimised in one, the game is held still:

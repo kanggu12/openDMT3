@@ -1649,6 +1649,28 @@ void engine_note(const EngineReport *r, char *out, int size)
              r->min, r->max, r->before, r->asked, r->got, r->hr);
 }
 
+/* ---------------------------------------------------------------------------------------- the process's room */
+
+void memory_tally_add(MemoryTally *t, unsigned long long size, int state)
+{
+    t->regions++;
+    if (state == MEMORY_FREE) {
+        t->free += size;
+        /* A free region right after a free one grows the same block (the walk is in address order, each region
+         * starting where the last ended): a walk may read one free stretch in pieces. */
+        t->run += size;
+        if (t->run > t->largest_free)
+            t->largest_free = t->run;
+        return;
+    }
+    /* A region in use ends the free block before it. */
+    t->run = 0;
+    if (state == MEMORY_RESERVED)
+        t->reserved += size;
+    else
+        t->committed += size;
+}
+
 /* -------------------------------------------------------------------------------------------- the layer's slides */
 
 /* A share held to 0..1. */

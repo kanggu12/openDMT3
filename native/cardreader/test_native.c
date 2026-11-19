@@ -3269,6 +3269,27 @@ static void test_clock(void)
     VirtualFree(code, 0, MEM_RELEASE);
 }
 
+static void test_memory_tally(void)
+{
+    /* A walk in address order: 64 MB free, 16 MB committed, a free stretch read in two pieces (100 MB and 40 MB),
+     * 8 MB reserved, 120 MB free, and a region in a state the walk does not know (counted as in use, 4 MB). */
+    const unsigned long long MB = 1ull << 20;
+    MemoryTally t;
+    memset(&t, 0, sizeof t);
+    memory_tally_add(&t, 64 * MB, MEMORY_FREE);
+    memory_tally_add(&t, 16 * MB, MEMORY_COMMITTED);
+    memory_tally_add(&t, 100 * MB, MEMORY_FREE);
+    memory_tally_add(&t, 40 * MB, MEMORY_FREE);
+    memory_tally_add(&t, 8 * MB, MEMORY_RESERVED);
+    memory_tally_add(&t, 120 * MB, MEMORY_FREE);
+    memory_tally_add(&t, 4 * MB, 7);
+    check(t.free == 324 * MB && t.reserved == 8 * MB && t.committed == 20 * MB && t.regions == 7,
+          "memory tally: free, reserved and committed summed by region, an unknown state counted as committed");
+    check(t.largest_free == 140 * MB,
+          "memory tally: two free regions next to each other are one 140 MB block, larger than the 120 MB one after");
+    check(t.run == 0, "memory tally: a region in use ends the free block before it");
+}
+
 int main(void)
 {
     test_clock();
@@ -3296,6 +3317,7 @@ int main(void)
     test_bar_clock();
     test_slides();
     test_slot_index();
+    test_memory_tally();
     test_touch();
     test_methods();
     test_sharp();

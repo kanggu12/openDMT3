@@ -774,6 +774,59 @@ static void mark_frame_done(IDirect3DDevice9 *dev)
         g_frame_done_issued = 1;
 }
 
+/* The process's room (OPENDMT3_MEMORY_WATCH, measuring only, never set by the launcher): every ten seconds the 32-bit
+ * process's address space walked region by region from a thread of its own (a walk of its four gigabytes takes
+ * milliseconds no frame of the game waits for), and at the next frame after ten seconds the device's texture memory
+ * left as Direct3D counts it (a call on the device, so made on the game's own thread, in the present). */
+static int g_memory_watch;
+static LONGLONG g_memory_device_at;
+
+static DWORD WINAPI memory_watch(LPVOID unused)
+{
+    (void)unused;
+    /* The space a program's own addresses can take (to 4 GB for the large-address-aware client on a 64-bit system). */
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    for (;;) {
+        MemoryTally t;
+        memset(&t, 0, sizeof t);
+        uintptr_t at = (uintptr_t)si.lpMinimumApplicationAddress, end = (uintptr_t)si.lpMaximumApplicationAddress;
+        MEMORY_BASIC_INFORMATION m;
+        while (at < end && VirtualQuery((const void *)at, &m, sizeof m) == sizeof m) {
+            memory_tally_add(&t, m.RegionSize, m.State == MEM_FREE      ? MEMORY_FREE
+                                               : m.State == MEM_RESERVE ? MEMORY_RESERVED
+                                                                        : MEMORY_COMMITTED);
+            /* The next region starts where this one ends; one that ends at the top of the space wraps to 0. */
+            uintptr_t next = (uintptr_t)m.BaseAddress + m.RegionSize;
+            if (next <= at)
+                break;
+            at = next;
+        }
+        /* Windows' own count of the same, beside the walk's. */
+        MEMORYSTATUSEX ms;
+        ms.dwLength = sizeof ms;
+        int have = GlobalMemoryStatusEx(&ms);
+        ingame_log("memory: address space %lu MB free (the largest free block %lu MB), %lu MB reserved, %lu MB "
+                   "committed, in %lu regions; Windows' count %lu MB free of %lu MB", (unsigned long)(t.free >> 20),
+                   (unsigned long)(t.largest_free >> 20), (unsigned long)(t.reserved >> 20),
+                   (unsigned long)(t.committed >> 20), t.regions,
+                   have ? (unsigned long)(ms.ullAvailVirtual >> 20) : 0UL,
+                   have ? (unsigned long)(ms.ullTotalVirtual >> 20) : 0UL);
+        Sleep(10000);
+    }
+    return 0;
+}
+
+/* The device's texture memory left, every ten seconds while the room is watched (from the present: `now` its count). */
+static void memory_watch_device(IDirect3DDevice9 *dev, LONGLONG now)
+{
+    if (!g_memory_watch || now - g_memory_device_at < 10 * g_frequency.QuadPart)
+        return;
+    g_memory_device_at = now;
+    ingame_log("memory: the device's texture memory %u MB available, as Direct3D counts it",
+               IDirect3DDevice9_GetAvailableTextureMem(dev) >> 20);
+}
+
 /* Input latency (OPENDMT3_LATENCY_WATCH, measuring only): a press's time, the frame the game first saw it in (and
  * when its read saw it), and that frame's present done on the GPU. */
 static int g_latency_watch = -1;
@@ -1712,6 +1765,8 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
                        "unshown in the rest of it", CATCHUP_LATE);
     }
     count_present(now.QuadPart, 1);
+    /* Measuring only: the device's texture memory left, every ten seconds. */
+    memory_watch_device(dev, now.QuadPart);
     /* Counted (and not judged by the safety net): the next is a frame as any. */
     g_after_skip = 0;
     trace_frame();
@@ -2142,6 +2197,14 @@ void ingame_attach(HMODULE module)
     DWORD got_series = GetEnvironmentVariableA("OPENDMT3_INGAME_FRAMES", series, sizeof series);
     if (got_series && got_series < sizeof series)
         g_series = fopen(series, "w");
+    /* Measuring only: the process's room, from the start (before the game has a device) on, from a thread of its own. */
+    char watch[8];
+    if (GetEnvironmentVariableA("OPENDMT3_MEMORY_WATCH", watch, sizeof watch) > 0) {
+        g_memory_watch = 1;
+        HANDLE t = CreateThread(NULL, 0, memory_watch, NULL, 0, NULL);
+        if (t)
+            CloseHandle(t);
+    }
     g_hooked = hook_all() > 0;
     /* The client's file calls: openDMT3's own files in the game's place (files.c), before the client opens any. */
     files_attach();

@@ -9,6 +9,7 @@
  *   wine restore.exe --size W H WINDOW_TITLE  the window sized so its client is W x H, as a drag of its border would
  *                                           (with no window manager, xdotool's size changes only the X window), then
  *                                           "client X,Y WxH": its client's top left on the screen and its size
+ *   wine restore.exe --client WINDOW_TITLE  only "client X,Y WxH" for the window as it is (nothing changed)
  *
  * Prints "minimised: 1" or "minimised: 0". Exit 0 when the window was found.
  */
@@ -23,9 +24,10 @@ int main(int argc, char **argv)
     /* --state first: only say; --size: a new size for its client. */
     int state_only = argc > 2 && !strcmp(argv[1], "--state");
     int size = argc > 4 && !strcmp(argv[1], "--size");
-    const char *title = size ? argv[4] : state_only ? argv[2] : argc > 1 ? argv[1] : NULL;
+    int client_only = argc > 2 && !strcmp(argv[1], "--client");
+    const char *title = size ? argv[4] : state_only || client_only ? argv[2] : argc > 1 ? argv[1] : NULL;
     if (!title) {
-        fprintf(stderr, "usage: restore.exe [--state | --size W H] WINDOW_TITLE\n");
+        fprintf(stderr, "usage: restore.exe [--state | --client | --size W H] WINDOW_TITLE\n");
         return 2;
     }
     /* The top-level window with that title, of any class. */
@@ -34,13 +36,16 @@ int main(int argc, char **argv)
         printf("no window titled %s\n", title);
         return 1;
     }
-    if (size) {
-        /* The whole window's size for that client, by its own style; its place kept. */
-        RECT r = {0, 0, atoi(argv[2]), atoi(argv[3])};
-        AdjustWindowRectEx(&r, (DWORD)GetWindowLongA(w, GWL_STYLE), FALSE, (DWORD)GetWindowLongA(w, GWL_EXSTYLE));
-        SetWindowPos(w, NULL, 0, 0, r.right - r.left, r.bottom - r.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-        /* Its thread takes the change in its turn. */
-        Sleep(500);
+    if (client_only || size) {
+        if (size) {
+            /* The whole window's size for that client, by its own style; its place kept. */
+            RECT r = {0, 0, atoi(argv[2]), atoi(argv[3])};
+            AdjustWindowRectEx(&r, (DWORD)GetWindowLongA(w, GWL_STYLE), FALSE, (DWORD)GetWindowLongA(w, GWL_EXSTYLE));
+            SetWindowPos(w, NULL, 0, 0, r.right - r.left, r.bottom - r.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+            /* Its thread takes the change in its turn. */
+            Sleep(500);
+        }
+        /* Where its client is on the screen, and its size. */
         RECT c;
         POINT o = {0, 0};
         GetClientRect(w, &c);

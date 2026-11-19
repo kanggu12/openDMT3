@@ -618,6 +618,20 @@ int slot_index_put(SlotIndex *x, const void *key, int slot);
 /* `key` out of it (nothing when it is not in it). */
 void slot_index_del(SlotIndex *x, const void *key);
 
+/* ---------------------------------------------------------------------------------------- the process's room */
+
+/* The 32-bit process's address space as a walk of its regions finds it, in address order (OPENDMT3_MEMORY_WATCH,
+ * measuring only): what is free, reserved and committed, the largest free block (the largest piece that can still be
+ * had at once: free regions next to each other are one block), and how many regions the walk read. */
+enum { MEMORY_FREE = 0, MEMORY_RESERVED = 1, MEMORY_COMMITTED = 2 };
+typedef struct {
+    unsigned long long free, reserved, committed, largest_free;
+    unsigned long long run;    /* the free block the walk is in now (0 after a region in use) */
+    unsigned long regions;
+} MemoryTally;
+/* The next region of the walk, `size` bytes in one of the states above (any other state counts as committed: in use). */
+void memory_tally_add(MemoryTally *t, unsigned long long size, int state);
+
 /* ---------------------------------------------------------------------------------- the sound engine's period */
 
 /* What became of asking Windows' shared sound engine for its shortest period on the game's output (engine.c), in the
