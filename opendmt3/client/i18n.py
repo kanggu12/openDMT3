@@ -960,6 +960,15 @@ def plain(text):
     return text.replace(NBSP, " ") if text else text
 
 
+class Said(str):
+    """Words that Words looked up, which keep their own entry's English words: two entries can share their words in
+    one language (업데이트 is both the Updates and the installer's Update; 설치 both Setup and Install), so a name read
+    back to English (english_of) comes from its own entry, not from the first entry with the same words."""
+
+    # The entry's English words, formatted as the words were (None for words that did not come from Words).
+    english = None
+
+
 class Words:
     """Looks words up in the chosen language; a missing Korean entry falls back to English. Korean comes with its
     phrases kept on one line (keep_phrases)."""
@@ -974,7 +983,11 @@ class Words:
         en, ko = TEXT.get(key, (key, key))
         text = ko if self.language == "ko" and ko else en
         text = text.format(**kw) if kw else text
-        return keep_phrases(text) if self.language == "ko" else text
+        said = Said(keep_phrases(text) if self.language == "ko" else text)
+        # The same entry's English, formatted alike, for a name shown in English capitals in both languages: the words
+        # alone may be another entry's too.
+        said.english = en.format(**kw) if kw and en else en
+        return said
 
     def error(self, error):
         """What a raised error says, in this language: the launcher's own words when its key is one of the launcher's
@@ -990,9 +1003,14 @@ _ENGLISH = {}
 
 
 def english_of(text):
-    """The English words of the entry whose words (in either language) are `text`, or the text as it is: a card's and
-    a dialog's name are English capitals in both languages (THEME.md: "이름표는 영어 대문자, 내용은 한국어"), as the
-    menu's and the game's own labels are."""
+    """The English words of `text`'s entry (its own when Words gave it, else the first entry whose words in either
+    language are `text`), or the text as it is: a card's and a dialog's name are English capitals in both languages
+    (THEME.md: "이름표는 영어 대문자, 내용은 한국어"), as the menu's and the game's own labels are."""
+    english = getattr(text, "english", None)
+    if english:
+        # Words from Words: their own entry's English, whichever other entry has the same words.
+        return english
+    # Words from elsewhere: the English of the first entry with these words.
     if not _ENGLISH:
         for en, ko in TEXT.values():
             if en:

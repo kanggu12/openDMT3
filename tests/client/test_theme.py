@@ -569,6 +569,22 @@ class FinalReviewTest(unittest.TestCase):
         # A card's English name is found from its Korean words with their kept phrases.
         self.assertEqual(i18n.english_of(ko("songlist.send.title")), i18n.TEXT["songlist.send.title"][0])
 
+    def test_a_name_is_its_own_entrys_english_in_both_languages(self):
+        # A card's and a dialog's name are English capitals in both languages (THEME.md), read back from the words
+        # they were given. Two entries can share their Korean words (업데이트: Updates and Update; 설치: Setup and
+        # Install; 게임 파일: The game's files and Game files; 플레이: You play and Play): the name is still its own
+        # entry's, so the installer's first step says INSTALL and GAME's card GAME FILES in Korean as in English.
+        from opendmt3.client import i18n
+        for language in ("en", "ko"):
+            w = i18n.Words(language)
+            for key, (english, _) in i18n.TEXT.items():
+                if english:
+                    self.assertEqual(i18n.english_of(w(key)), english, (language, key))
+        # Formatted words keep their entry's English formatted alike.
+        ko = i18n.Words("ko")
+        self.assertEqual(i18n.english_of(ko("setup.install.ask", v="1.2.3")),
+                         i18n.TEXT["setup.install.ask"][0].format(v="1.2.3"))
+
     def test_a_pages_main_key_is_never_pink_or_amber(self):
         # The colour rule: pink is for what failed, amber for something to look at; a page's main key (ONLINE's
         # Connect and Sign in, LAUNCHER's update) is openDMT3's blue, or the settings' lime on their pages.

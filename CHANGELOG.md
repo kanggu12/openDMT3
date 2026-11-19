@@ -30,6 +30,13 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   and dialog (one height, one room either side of its words), its words centred by their ink, and no key is stretched
   across its card.
 
+### Fixed
+
+- In Korean, a name whose Korean words another name shares was that other name's English (since 0.4.0): the
+  installer's first step said SETUP, its update and the launcher's own UPDATES, **Game**'s card THE GAME'S FILES and
+  a quick play that could not start YOU PLAY. Each now says what it says in English: INSTALL, UPDATE, GAME FILES,
+  PLAY.
+
 ## [0.4.1] - 2026-11-20
 
 A song's notes wait with its music while the game is held in it; the in-game layer's buttons keep the pointer's
