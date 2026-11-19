@@ -637,6 +637,11 @@ typedef struct {
 /* The next region of the walk, `size` bytes in one of the states above (any other state counts as committed: in use). */
 void memory_tally_add(MemoryTally *t, unsigned long long size, int state);
 
+/* Whether the n-th of the same thing happening again in a row is said in the log: the first, then the second, the
+ * fourth, the eighth and on (a game that resets a device it cannot reset does so thousands of times a second, and a
+ * line for each would fill the log). */
+int log_repeat_due(long n);
+
 /* ---------------------------------------------------------------------------------- the sound engine's period */
 
 /* What became of asking Windows' shared sound engine for its shortest period on the game's output (engine.c), in the

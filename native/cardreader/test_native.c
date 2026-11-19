@@ -3293,6 +3293,24 @@ static void test_unit_floor(void)
     ui_unit_floor(96);
 }
 
+static void test_log_repeat(void)
+{
+    /* The first and each power of two of a run: 1, 2, 4, 8, 16 of the first 17; nothing at 0 or below. */
+    int said = 0, right = 1;
+    for (long n = 1; n <= 17; n++) {
+        int due = log_repeat_due(n);
+        said += due;
+        right &= due == (n == 1 || n == 2 || n == 4 || n == 8 || n == 16);
+    }
+    check(right && said == 5 && !log_repeat_due(0) && !log_repeat_due(-4),
+          "log repeat: a run of the same line said at its 1st, 2nd, 4th, 8th and 16th, none at 0");
+    /* A million failed resets in a row: twenty lines (1 to 524288), not a million. */
+    long lines = 0;
+    for (long n = 1; n <= 1000000; n++)
+        lines += log_repeat_due(n);
+    check(lines == 20, "log repeat: a million in a row said in 20 lines");
+}
+
 static void test_memory_tally(void)
 {
     /* A walk in address order: 64 MB free, 16 MB committed, a free stretch read in two pieces (100 MB and 40 MB),
@@ -3342,6 +3360,7 @@ int main(void)
     test_slides();
     test_slot_index();
     test_unit_floor();
+    test_log_repeat();
     test_memory_tally();
     test_touch();
     test_methods();

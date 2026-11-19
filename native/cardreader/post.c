@@ -175,6 +175,10 @@ static IDirect3DQuery9 *g_q_idle;
 static long g_sync_frames;
 /* The layer's costs by kind of part since the logger last read them (post_layer_costs). */
 static LayerCosts g_costs;
+/* The game's resets that failed in a row (a game that cannot reset its device tries again at once, thousands of times
+ * a second): its lines said for the first and then at each power of two (logic.c log_repeat_due), and the count when
+ * one works. */
+static long g_resets_failed;
 /* The parts' textures let go (below: they may be in the default pool). */
 static void drop_part_textures(void);
 /* The surface of a texture's only level (below). */
@@ -471,9 +475,11 @@ int post_prepare(D3DPRESENT_PARAMETERS *pp, HWND window, int creating)
     pp->MultiSampleQuality = 0;
     pp->EnableAutoDepthStencil = FALSE;
     pp->Flags &= ~(DWORD)(D3DPRESENTFLAG_DISCARD_DEPTHSTENCIL | D3DPRESENTFLAG_LOCKABLE_BACKBUFFER);
-    ingame_log("post: back buffer %dx%d%s (window %ldx%ld, monitor %dx%d), upscale %s, sharpness %d, anti-aliasing %s",
-               g_bb_w, g_bb_h, g_flip ? " flipped" : "", client.right, client.bottom, mon_w, mon_h,
-               UPSCALE_NAMES[g_upscale], g_sharpness, AA_NAMES[g_aa]);
+    /* Said for the first reset of a run that fails and at each power of two after it (g_resets_failed). */
+    if (!g_resets_failed || log_repeat_due(g_resets_failed + 1))
+        ingame_log("post: back buffer %dx%d%s (window %ldx%ld, monitor %dx%d), upscale %s, sharpness %d, "
+                   "anti-aliasing %s", g_bb_w, g_bb_h, g_flip ? " flipped" : "", client.right, client.bottom, mon_w,
+                   mon_h, UPSCALE_NAMES[g_upscale], g_sharpness, AA_NAMES[g_aa]);
     return 1;
 }
 
@@ -972,7 +978,8 @@ void post_before_reset(IDirect3DDevice9 *dev)
      * openDMT3's own keeps the size: the game's targets made at it live on, and render.c knows them by it. */
     if (!g_keep_render)
         render_set(0, 0);
-    ingame_log("post: the game resets its device: the chain's objects released");
+    if (!g_resets_failed || log_repeat_due(g_resets_failed + 1))
+        ingame_log("post: the game resets its device: the chain's objects released");
 }
 
 int post_after_reset(IDirect3DDevice9 *dev, HRESULT reset)
@@ -982,8 +989,15 @@ int post_after_reset(IDirect3DDevice9 *dev, HRESULT reset)
     /* A reset that failed leaves the device lost: the game resets again, and the chain's objects come back then (until
      * then the getters answer with the real back buffer, and present shows nothing of ours). */
     if (FAILED(reset)) {
-        ingame_log("post: the reset failed (0x%08lx): the chain waits for the next one", (unsigned long)reset);
+        g_resets_failed++;
+        if (log_repeat_due(g_resets_failed))
+            ingame_log("post: the reset failed (0x%08lx): the chain waits for the next one (%ld in a row)",
+                       (unsigned long)reset, g_resets_failed);
         return 0;
+    }
+    if (g_resets_failed) {
+        ingame_log("post: the reset worked after %ld that failed in a row", g_resets_failed);
+        g_resets_failed = 0;
     }
     if (!make_default(dev)) {
         ingame_log("post: the chain could not be made again after a reset: off");

@@ -976,6 +976,13 @@ size (**Drawn at**) the size it is drawn at stays as it was: its targets made at
 and the chain scales its picture to the new window (`logic.c` `render_size_after_reset`). Anything else (another start,
 a Windows with no 9Ex, a device that is not made so) is the copy model, as before.
 
+A lost device (the chain's measuring `reset.now`: a reset made with the game's objects alive, which fails and leaves
+the device to be reset) does not come back in the copy model: the game's own resets all fail, thousands a second,
+while a 128x16 texture of its own in the default pool is alive (Wine's Direct3D 9 names it at each one; none of the
+chain's or the layer's objects is left by then), at 1920x1080 drawn at the game's size as at 3840x2160 drawn at the
+screen's. A run of failed resets is said in the log at its first, second, fourth, eighth try and on
+(`logic.c` `log_repeat_due`), never a line a try. A 9Ex device is not lost that way.
+
 - **No managed pool.** A 9Ex device refuses it: every texture, cube and volume texture, vertex and index buffer asked of
   the managed pool, by the game, its D3DX loader or openDMT3, is made in the default pool as a dynamic one, which can be
   locked as a managed one can. Two things found under Wine make it a managed pool's stand-in: the device and the

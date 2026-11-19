@@ -1662,6 +1662,12 @@ void engine_note(const EngineReport *r, char *out, int size)
 
 /* ---------------------------------------------------------------------------------------- the process's room */
 
+int log_repeat_due(long n)
+{
+    /* The first, and every power of two after it: a run of a million says itself in twenty lines. */
+    return n >= 1 && (n & (n - 1)) == 0;
+}
+
 void memory_tally_add(MemoryTally *t, unsigned long long size, int state)
 {
     t->regions++;

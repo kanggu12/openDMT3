@@ -456,6 +456,13 @@ static void take_parameters(const D3DPRESENT_PARAMETERS *pp)
      * frames too late kept; nothing planned or judged across the reset. */
     catchup_pause(&g_catch);
     g_skip_next = g_after_skip = 0;
+    /* Said when it changes: a game that cannot reset its device asks again with the same, thousands of times a
+     * second. */
+    static int said = -1;
+    int now = (g_vsync ? 1 : 0) | (!g_own_clock ? 0 : g_settings.music_lock ? 4 : 2);
+    if (now == said)
+        return;
+    said = now;
     ingame_log("picture: vsync %s, pacing %s", g_vsync ? "on" : "off",
                !g_own_clock ? "the client's own"
                : g_settings.music_lock ? "even (openDMT3's clock), locked to a song's music while one plays"
