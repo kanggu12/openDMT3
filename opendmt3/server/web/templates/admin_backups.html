@@ -3,33 +3,25 @@
 {% from "_upload.html" import drop with context %}
 {% block title %}{{ w("admin.backups") }} · {{ w("admin.title") }} · {% endblock %}
 {% block main %}
-{% set tab = "backups" %}{% include "_admin_open.html" %}
+{# The page's one main key in its title row: a backup made now (a form of its own: every form names this page, which
+   also shows at the upload's own address, after an upload). #}
+{% set tab = "backups" %}{% set main_form = {"action": "/admin/backups", "value": "make", "words": w("backups.make")} %}{% include "_admin_open.html" %}
   {% include "_job.html" %}
-  {# Every form names this page: the page also shows at the upload's own address, after an upload. #}
-  <div class="card">
-    <h3>{{ w("backups.make") }}</h3>
-    {# The line first, its key under it at the left, as every card's key stands by its form's start. #}
-    <form method="post" action="/admin/backups" class="form">
-      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="make">
-      <p class="muted small">{{ w("backups.hint", keep=keep) }}</p>
-      <div class="form-actions"><button class="btn primary">{{ w("backups.make") }}</button></div>
-    </form>
+  {# The head: how backups are kept, then the last one, how many are kept and what they take. #}
+  <div class="card head k-status">
+    <p class="lead">{{ w("backups.hint", keep=keep) }}</p>
+    <div class="k-screen">
+      <div class="headline">
+        <div class="hf"><span class="value words">{{ backups[0].at|when if backups else "-" }}</span><span class="label">{{ w("status.last_backup") }}</span></div>
+        <div class="hf"><span class="value">{{ backups|length }}</span><span class="label">{{ w("backups.head.kept") }}</span></div>
+        <div class="hf"><span class="value words">{{ (backups|sum(attribute="size"))|size }}</span><span class="label">{{ w("backups.head.size") }}</span></div>
+      </div>
+      {% if not backups %}<p class="muted small head-note">{{ w("backups.none") }}</p>{% endif %}
+    </div>
   </div>
-  {# A database file from elsewhere joins the list, to restore as any other. Its token comes first in the form: the
-     server reads no byte of the file before it. A file past the limit is told here before it is sent (site.js). #}
-  <div class="card">
-    <h3>{{ w("backups.upload") }}</h3>
-    <form method="post" action="/admin/backups/upload" enctype="multipart/form-data" class="form row upload" data-upload-most="{{ upload_most }}">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      {{ drop("backup-file", w("backups.upload.file")) }}
-      <button class="btn send">{{ w("backups.upload.button") }}</button>
-    </form>
-    <p class="field-error upload-too-large" role="alert" hidden>{{ too_large }}</p>
-    <p class="muted small">{{ w("backups.upload.hint", mb=upload_mb) }}</p>
-  </div>
-  <div class="card">
+  {% if backups %}
+  <div class="card k-list">
     <h3>{{ w("backups.list") }}</h3>
-    {% if not backups %}<p class="muted">{{ w("backups.none") }}</p>{% else %}
     <table class="table">
       <thead><tr><th>{{ w("backups.when") }}</th><th>{{ w("backups.kind") }}</th><th class="num wide-only">{{ w("backups.size") }}</th><th></th></tr></thead>
       <tbody>
@@ -48,7 +40,19 @@
       {% endfor %}
       </tbody>
     </table>
-    {% endif %}
+  </div>
+  {% endif %}
+  {# A database file from elsewhere joins the list, to restore as any other. Its token comes first in the form: the
+     server reads no byte of the file before it. A file past the limit is told here before it is sent (site.js). #}
+  <div class="card">
+    <h3>{{ w("backups.upload") }}</h3>
+    <form method="post" action="/admin/backups/upload" enctype="multipart/form-data" class="form row upload" data-upload-most="{{ upload_most }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {{ drop("backup-file", w("backups.upload.file")) }}
+      <button class="btn send">{{ w("backups.upload.button") }}</button>
+    </form>
+    <p class="field-error upload-too-large" role="alert" hidden>{{ too_large }}</p>
+    <p class="muted small">{{ w("backups.upload.hint", mb=upload_mb) }}</p>
   </div>
 {% include "_admin_close.html" %}
 {% endblock %}

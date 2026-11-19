@@ -3,9 +3,11 @@
 {% from "_upload.html" import drop with context %}
 {% block title %}{{ w("me.title") }} · {% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/players.css?v={{ version }}">{% endblock %}
-{% block main %}
+{% block top %}
 {# A page that works rather than shows: the low head (the page's name, no sentence under it). #}
 <section class="page-head"><div class="page-head-text"><h1 class="word">{{ w("me.title") }}</h1></div></section>
+{% endblock %}
+{% block main %}
 {# One account area in three sections: the profile and its decoration, the account, its security. The rail beside them
    (above them on a phone) leads to each; the page opens at the section of what was just done (static/profile.js). #}
 <div class="account-area side-area" data-open="{{ opened }}">
@@ -14,41 +16,47 @@
   </nav>
   <div class="sections side-main">
 
+    {# Each section is one group of rows where it has settings (the name in its column, the value or the control beside
+       it), the section's name its group's heading (no band of its own over a stack of boxes); a section's second group
+       (the DJ card, the API tokens) is an editor or a list of its own. #}
     {# ------------------------------------------------------------------ the profile and its decoration #}
     <section id="profile" class="area-section" aria-labelledby="profile-title">
-      <h2 id="profile-title">{{ w("me.section.profile") }}</h2>
-      <div class="card profile-head">
-        <div class="avatar big" aria-hidden="true">{% if me.picture %}<img src="/pictures/{{ me.id }}.png?v={{ me.picture }}" alt="" width="128" height="128">{% else %}<span>{{ me.dj_name[:1] }}</span>{% endif %}</div>
-        <div class="profile-facts">
-          <p class="profile-name">{{ me.dj_name }}</p>
-          <dl class="facts">
-            <div><dt>{{ w("profile.level") }}</dt><dd>{{ "Lv %d" % card.level if card.level else "-" }}</dd></div>
-            <div><dt>{{ w("profile.exp") }}</dt><dd>{{ "{:,}".format(card.exp) }}</dd></div>
-            <div><dt>{{ w("profile.points") }}</dt><dd>{{ "{:,}".format(card.max_points) }}</dd></div>
-          </dl>
-          <p><a href="/dj/{{ me.id }}">{{ w("me.profile.public") }}</a></p>
-        </div>
-        {# The picture: the site's own (the game shows the icon of its table). Asked for as a file, made a square here. #}
-        <div class="picture-forms">
-          <h3>{{ w("me.picture") }}</h3>
-          {% if pictures_taken %}
-          <form method="post" action="/account/picture" enctype="multipart/form-data" class="form upload" data-upload-most="{{ picture_mb * 1048576 }}">
-            <input type="hidden" name="csrf" value="{{ csrf }}">
-            {{ drop("picture-file", w("me.picture.file"), "image/png,image/jpeg,image/webp,image/gif") }}
-            <p class="field-hint" id="picture-rules">{{ w("me.picture.rules", mb=picture_mb, size=picture_size) }}</p>
-            <p class="field-error upload-too-large" role="alert" hidden>{{ w("me.picture.size", mb=picture_mb) }}</p>
-            <div class="form-actions"><button class="btn" data-send>{{ w("me.picture.upload") }}</button></div>
-          </form>
-          {% if me.picture %}
-          <form method="post" action="/account/picture" data-ask="{{ w('me.picture.clear.ask') }}" data-ask-title="{{ w('me.picture') }}" data-ask-yes="{{ w('me.picture.clear') }}">
-            <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="clear">
-            <button class="btn small danger">{{ w("me.picture.clear") }}</button>
-          </form>
-          {% endif %}
-          {% else %}<p class="muted small">{{ w("me.picture.none") }}</p>{% endif %}
+      <div class="card profile-card">
+        <h2 id="profile-title">{{ w("me.section.profile") }}</h2>
+        <div class="profile-head">
+          <div class="avatar big" aria-hidden="true">{% if me.picture %}<img src="/pictures/{{ me.id }}.png?v={{ me.picture }}" alt="" width="128" height="128">{% else %}<span>{{ me.dj_name[:1] }}</span>{% endif %}</div>
+          <div class="profile-facts">
+            <p class="profile-name">{{ me.dj_name }}</p>
+            <dl class="facts">
+              <div><dt>{{ w("profile.level") }}</dt><dd>{{ "Lv %d" % card.level if card.level else "-" }}</dd></div>
+              <div><dt>{{ w("profile.exp") }}</dt><dd>{{ "{:,}".format(card.exp) }}</dd></div>
+              <div><dt>{{ w("profile.points") }}</dt><dd>{{ "{:,}".format(card.max_points) }}</dd></div>
+            </dl>
+            <p><a href="/dj/{{ me.id }}">{{ w("me.profile.public") }}</a></p>
+          </div>
+          {# The picture: the site's own (the game shows the icon of its table). Asked for as a file, made a square here. #}
+          <div class="picture-forms">
+            <h3>{{ w("me.picture") }}</h3>
+            {% if pictures_taken %}
+            <form method="post" action="/account/picture" enctype="multipart/form-data" class="form upload" data-upload-most="{{ picture_mb * 1048576 }}">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              {{ drop("picture-file", w("me.picture.file"), "image/png,image/jpeg,image/webp,image/gif") }}
+              <p class="field-hint" id="picture-rules">{{ w("me.picture.rules", mb=picture_mb, size=picture_size) }}</p>
+              <p class="field-error upload-too-large" role="alert" hidden>{{ w("me.picture.size", mb=picture_mb) }}</p>
+              <div class="form-actions"><button class="btn" data-send>{{ w("me.picture.upload") }}</button></div>
+            </form>
+            {% if me.picture %}
+            <form method="post" action="/account/picture" data-ask="{{ w('me.picture.clear.ask') }}" data-ask-title="{{ w('me.picture') }}" data-ask-yes="{{ w('me.picture.clear') }}">
+              <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="clear">
+              <button class="btn small danger">{{ w("me.picture.clear") }}</button>
+            </form>
+            {% endif %}
+            {% else %}<p class="muted small">{{ w("me.picture.none") }}</p>{% endif %}
+          </div>
         </div>
       </div>
-      <div class="card">
+      {# The DJ card's editor: the plate holding the member's card (its preview) as an object. #}
+      <div class="card k-member">
         <h3>{{ w("me.card") }}</h3>
         <form method="post" class="form card-form" data-card-editor>
           <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="card">
@@ -61,63 +69,87 @@
 
     {# ------------------------------------------------------------------ the account #}
     <section id="account" class="area-section" aria-labelledby="account-title">
-      <h2 id="account-title">{{ w("me.section.account") }}</h2>
       <div class="card">
-        <h3>{{ w("me.account.facts") }}</h3>
-        <dl class="facts wide">
-          <div><dt>{{ w("account.id") }}</dt><dd><code>{{ me.login_id }}</code></dd></div>
-          <div><dt>{{ w("me.account.since") }}</dt><dd>{{ me.created_at|when }}</dd></div>
-          <div><dt>{{ w("admin.last") }}</dt><dd>{{ me.last_login|when if me.last_login else w("admin.never") }}</dd></div>
-          <div><dt>{{ w("me.account.kind") }}</dt><dd>{{ w("admin.role") if me.is_admin else w("me.account.player") }}</dd></div>
-        </dl>
-        <p class="muted small">{{ w("me.account.id_hint") }}</p>
-      </div>
-      <div class="card">
-        <h3>{{ w("account.dj") }}</h3>
-        {% set wrong = fields.dj_name if fields.form == "dj_name" else None %}
-        {# One rule for the page's forms (FORMS.md): fields stacked, at most 440 px, the key under them at the left. #}
-        <form method="post" action="/account#account" class="form stack" novalidate>
-          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="dj_name">
-          <div class="field">
-            <label class="label" for="dj-name">{{ w("me.dj.new") }}</label>
-            <input id="dj-name" name="dj_name" value="{{ me.dj_name }}" maxlength="{{ dj_max }}" required data-missing="{{ w('me.dj.missing') }}" aria-describedby="{{ 'dj-name-error' if wrong else 'dj-rules' }}"{% if wrong %} aria-invalid="true" autofocus{% endif %}>
-            {% if wrong %}<span class="field-error" id="dj-name-error" role="alert">{{ wrong }}</span>{% else %}<p class="field-hint" id="dj-rules">{{ w("me.dj.hint", max=dj_max) }}</p>{% endif %}
+        <h2 id="account-title">{{ w("me.section.account") }}</h2>
+        <div class="rows">
+          <div class="row">
+            <p class="row-label">{{ w("account.id") }}</p>
+            <div class="row-value"><p><code>{{ me.login_id }}</code></p><p class="row-note">{{ w("me.account.id_hint") }}</p></div>
           </div>
-          <div class="form-actions"><button class="btn">{{ w("me.dj.save") }}</button></div>
+          <div class="row"><p class="row-label">{{ w("me.account.since") }}</p><p class="row-value">{{ me.created_at|when }}</p></div>
+          <div class="row"><p class="row-label">{{ w("admin.last") }}</p><p class="row-value">{{ me.last_login|when if me.last_login else w("admin.never") }}</p></div>
+          <div class="row"><p class="row-label">{{ w("me.account.kind") }}</p><p class="row-value">{{ w("admin.role") if me.is_admin else w("me.account.player") }}</p></div>
+          {# The DJ name: its row's name is its field's label; the field as wide as a name, its key on the field's line. #}
+          {% set wrong = fields.dj_name if fields.form == "dj_name" else None %}
+          <div class="row ctl">
+            <label class="row-label" for="dj-name">{{ w("account.dj") }}</label>
+            <div class="row-value">
+              <form method="post" action="/account#account" class="form line" novalidate>
+                <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="dj_name">
+                <div class="field w-id">
+                  <input id="dj-name" name="dj_name" value="{{ me.dj_name }}" maxlength="{{ dj_max }}" required data-missing="{{ w('me.dj.missing') }}" aria-describedby="{{ 'dj-name-error' if wrong else 'dj-rules' }}"{% if wrong %} aria-invalid="true" autofocus{% endif %}>
+                  {% if wrong %}<span class="field-error" id="dj-name-error" role="alert">{{ wrong }}</span>{% else %}<p class="field-hint" id="dj-rules">{{ w("me.dj.hint", max=dj_max) }}</p>{% endif %}
+                </div>
+                <button class="btn">{{ w("me.dj.save") }}</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      {# The account deleted: a danger tray of its own (colour only on its key), asked first in the site's own dialog. #}
+      <div class="card k-danger" id="delete-account">
+        <h3>{{ w("me.delete") }}</h3>
+        {% set wrong = fields.current if fields.form == "delete_me" else None %}
+        <form method="post" action="/account#delete-account" class="form line" novalidate data-ask="{{ w('me.delete.ask') }}" data-ask-title="{{ w('me.delete') }}" data-ask-detail="{{ w('me.delete.detail') }}" data-ask-yes="{{ w('me.delete.yes') }}">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="delete_me">
+          <div class="field w-pass">
+            <label class="label" for="delete-current">{{ w("me.password.current") }}</label>
+            <span class="field-slot keyed"><input id="delete-current" name="current" type="password" maxlength="{{ password_max }}" autocomplete="current-password" required data-missing="{{ w('me.password.missing') }}" {% if wrong %} aria-describedby="delete-current-error"{% endif %}{% if wrong %} aria-invalid="true" autofocus{% endif %}><button type="button" class="slot-key" data-reveal="delete-current" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w('me.password.current') }}" hidden>{{ w("me.password.show") }}</button></span>
+            {% if wrong %}<span class="field-error" id="delete-current-error" role="alert">{{ wrong }}</span>{% endif %}
+          </div>
+          <button class="btn danger">{{ w("me.delete.yes") }}</button>
         </form>
       </div>
     </section>
 
     {# ------------------------------------------------------------------ security #}
     <section id="security" class="area-section" aria-labelledby="security-title">
-      <h2 id="security-title">{{ w("me.section.security") }}</h2>
       <div class="card">
-        <h3>{{ w("me.password") }}</h3>
-        {# A mistake is said under its own field; the rules under the new password; Enter sends the form from any of its
-           boxes; Show inside each field (site.js). #}
-        {% set mine = fields.form == "password" %}
-        <form method="post" action="/account#security" class="form stack" novalidate>
-          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="password">
-          {# The ID rides along so browsers file the new password under this account. #}
-          <input type="hidden" name="username" value="{{ me.login_id }}" autocomplete="username">
-          {% for key, label, auto in (("current", "me.password.current", "current-password"), ("new", "me.password.new", "new-password"), ("again", "me.password.again", "new-password")) %}
-          {% set wrong = fields[key] if mine and key in fields else None %}
-          <div class="field">
-            <label class="label" for="pw-{{ key }}">{{ w(label) }}</label>
-            <span class="field-slot keyed"><input id="pw-{{ key }}" name="{{ key }}" type="password" maxlength="{{ password_max }}" autocomplete="{{ auto }}" required data-missing="{{ w('me.password.missing') }}"{% if key != "current" %} minlength="{{ password_min }}" data-invalid="{{ w('me.password.rules', min=password_min, max=password_max) }}"{% endif %}{% if wrong %} aria-invalid="true" autofocus aria-describedby="pw-{{ key }}-error"{% elif key == "new" %} aria-describedby="password-rules"{% endif %}><button type="button" class="slot-key" data-reveal="pw-{{ key }}" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w(label) }}" hidden>{{ w("me.password.show") }}</button></span>
-            {% if wrong %}<span class="field-error" id="pw-{{ key }}-error" role="alert">{{ wrong }}</span>{% elif key == "new" %}<p class="field-hint" id="password-rules">{{ w("me.password.hint", min=password_min, max=password_max) }}</p>{% endif %}
+        <h2 id="security-title">{{ w("me.section.security") }}</h2>
+        <div class="rows">
+          <div class="row">
+            <p class="row-label">{{ w("me.password") }}</p>
+            <div class="row-value">
+              {# A mistake is said under its own field; the rules under the new password; Enter sends the form from any of its
+                 boxes; Show inside each field (site.js). #}
+              {% set mine = fields.form == "password" %}
+              <form method="post" action="/account#security" class="form" novalidate>
+                <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="password">
+                {# The ID rides along so browsers file the new password under this account. #}
+                <input type="hidden" name="username" value="{{ me.login_id }}" autocomplete="username">
+                {% for key, label, auto in (("current", "me.password.current", "current-password"), ("new", "me.password.new", "new-password"), ("again", "me.password.again", "new-password")) %}
+                {% set wrong = fields[key] if mine and key in fields else None %}
+                <div class="field w-pass">
+                  <label class="label" for="pw-{{ key }}">{{ w(label) }}</label>
+                  <span class="field-slot keyed"><input id="pw-{{ key }}" name="{{ key }}" type="password" maxlength="{{ password_max }}" autocomplete="{{ auto }}" required data-missing="{{ w('me.password.missing') }}"{% if key != "current" %} minlength="{{ password_min }}" data-invalid="{{ w('me.password.rules', min=password_min, max=password_max) }}"{% endif %}{% if wrong %} aria-invalid="true" autofocus aria-describedby="pw-{{ key }}-error"{% elif key == "new" %} aria-describedby="password-rules"{% endif %}><button type="button" class="slot-key" data-reveal="pw-{{ key }}" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w(label) }}" hidden>{{ w("me.password.show") }}</button></span>
+                  {% if wrong %}<span class="field-error" id="pw-{{ key }}-error" role="alert">{{ wrong }}</span>{% elif key == "new" %}<p class="field-hint" id="password-rules">{{ w("me.password.hint", min=password_min, max=password_max) }}</p>{% endif %}
+                </div>
+                {% endfor %}
+                <div class="form-actions"><button class="btn">{{ w("me.password.save") }}</button></div>
+              </form>
+            </div>
           </div>
-          {% endfor %}
-          <div class="form-actions"><button class="btn">{{ w("me.password.save") }}</button></div>
-        </form>
-      </div>
-      <div class="card">
-        <h3>{{ w("me.signins") }}</h3>
-        <form method="post" class="form stack" data-ask="{{ w('me.signins.ask') }}" data-ask-title="{{ w('me.signins') }}" data-ask-detail="{{ w('me.signins.detail') }}" data-ask-yes="{{ w('me.signins.out') }}" data-ask-tone="warn">
-          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="signout_others">
-          <p class="muted small">{{ w("me.signins.hint") }}</p>
-          <div class="form-actions"><button class="btn">{{ w("me.signins.out") }}</button></div>
-        </form>
+          <div class="row ctl">
+            <p class="row-label">{{ w("me.signins") }}</p>
+            <div class="row-value">
+              <form method="post" class="form line" data-ask="{{ w('me.signins.ask') }}" data-ask-title="{{ w('me.signins') }}" data-ask-detail="{{ w('me.signins.detail') }}" data-ask-yes="{{ w('me.signins.out') }}" data-ask-tone="warn">
+                <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="signout_others">
+                <p class="line-words">{{ w("me.signins.hint") }}</p>
+                <button class="btn">{{ w("me.signins.out") }}</button>
+              </form>
+            </div>
+          </div>
+        </div>
       </div>
       {# The API's named tokens: made here for a program of the player's own, shown once (selected whole on focus, site.js),
          listed with when each was made and last used, revoked after the site's own question. #}
@@ -132,12 +164,12 @@
         {% set wrong = fields.token_name if fields.form == "token_make" else None %}
         <form method="post" action="/account#tokens" class="form stack" novalidate>
           <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="token_make">
-          <div class="field">
+          <div class="field w-name">
             <label class="label" for="token-name">{{ w("me.tokens.name") }}</label>
             <input id="token-name" name="name" maxlength="{{ token_name_max }}" required data-missing="{{ w('me.tokens.missing') }}"{% if wrong %} aria-invalid="true" aria-describedby="token-name-error" autofocus{% endif %}>
             {% if wrong %}<span class="field-error" id="token-name-error" role="alert">{{ wrong }}</span>{% endif %}
           </div>
-          <div class="field">
+          <div class="field w-name">
             <label class="label" for="token-scope">{{ w("me.tokens.scope") }}</label>
             <select id="token-scope" name="scope"><option value="read">{{ w("me.tokens.read") }}</option><option value="write">{{ w("me.tokens.write") }}</option></select>
           </div>
@@ -160,19 +192,6 @@
           </tbody>
         </table>
         {% else %}<p class="muted">{{ w("me.tokens.none") }}</p>{% endif %}
-      </div>
-      <div class="card">
-        <h3>{{ w("me.delete") }}</h3>
-        {% set wrong = fields.current if fields.form == "delete_me" else None %}
-        <form method="post" action="/account#security" class="form stack" novalidate data-ask="{{ w('me.delete.ask') }}" data-ask-title="{{ w('me.delete') }}" data-ask-detail="{{ w('me.delete.detail') }}" data-ask-yes="{{ w('me.delete.yes') }}">
-          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="delete_me">
-          <div class="field">
-            <label class="label" for="delete-current">{{ w("me.password.current") }}</label>
-            <span class="field-slot keyed"><input id="delete-current" name="current" type="password" maxlength="{{ password_max }}" autocomplete="current-password" required data-missing="{{ w('me.password.missing') }}" {% if wrong %} aria-describedby="delete-current-error"{% endif %}{% if wrong %} aria-invalid="true" autofocus{% endif %}><button type="button" class="slot-key" data-reveal="delete-current" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w('me.password.current') }}" hidden>{{ w("me.password.show") }}</button></span>
-            {% if wrong %}<span class="field-error" id="delete-current-error" role="alert">{{ wrong }}</span>{% endif %}
-          </div>
-          <div class="form-actions"><button class="btn danger">{{ w("me.delete.yes") }}</button></div>
-        </form>
       </div>
     </section>
   </div>

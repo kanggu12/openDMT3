@@ -2,10 +2,25 @@
 {% block title %}{{ w("admin.connected") }} · {{ w("admin.title") }} · {% endblock %}
 {% block main %}
 {% set tab = "cabinets" %}{% include "_admin_open.html" %}
-  {# How many are connected now is the rail's, over every admin page; here, each of them. #}
-  <div class="card" id="cabinets">
+  {# The head: the cabinets connected now, every cabinet seen, the launchers heard since the server started; a list that
+     has nothing in it yet says so here, not on a box of its own. #}
+  {% set connected = cabinets|selectattr("connected")|list|length %}
+  <div class="card head k-status">
+    <div class="k-screen">
+      <div class="headline">
+        <div class="hf"><span class="value">{{ connected }}</span><span class="label">{{ w("status.connected") }}</span></div>
+        <div class="hf"{% if not cabinets %} id="cabinets"{% endif %}><span class="value">{{ cabinets|length }}</span><span class="label">{{ w("status.cabinets") }}</span></div>
+        <div class="hf"{% if not launchers %} id="launchers"{% endif %}><span class="value">{{ launchers|length }}</span><span class="label">{{ w("connected.launchers.title") }}</span></div>
+      </div>
+      {% if not cabinets %}<p class="muted small head-note">{{ w("cabinets.none") }}</p>{% endif %}
+      {% if not launchers %}<p class="muted small head-note">{{ w("connected.launchers.none", since=(launchers_since|when)) }}</p>{% endif %}
+      {% if anonymous.count and not launchers %}<p class="muted small head-note">{{ w("connected.anonymous", n=anonymous.count) }}</p>{% endif %}
+    </div>
+  </div>
+  {# Each cabinet seen: its name (kept by this server), who plays on it now, its client, when last seen, its counts. #}
+  {% if cabinets %}
+  <div class="card k-list" id="cabinets">
     <h3>{{ w("admin.cabinets") }}</h3>
-    {% if not cabinets %}<p class="muted">{{ w("cabinets.none") }}</p>{% else %}
     <table class="table">
       <thead><tr><th>{{ w("cabinets.name") }}</th><th>{{ w("admin.cabinet.player") }}</th><th class="wide-only">{{ w("admin.cabinet.client") }}</th><th class="wide-only">{{ w("cabinets.last") }}</th><th class="num">{{ w("cabinets.sessions") }}</th><th class="num">{{ w("cabinets.plays") }}</th></tr></thead>
       <tbody>
@@ -29,14 +44,14 @@
       {% endfor %}
       </tbody>
     </table>
-    {% endif %}
   </div>
+  {% endif %}
   {# The launchers that signed in to this server since it started: whose, from which PC, which version, when last
      heard; lit while heard within the last ten minutes. Calls that named a launcher without a sign-in (anyone can send
      that name) are a count under them, never rows. #}
-  <div class="card" id="launchers">
+  {% if launchers %}
+  <div class="card k-list" id="launchers">
     <h3>{{ w("connected.launchers.title") }}</h3>
-    {% if not launchers %}<p class="muted">{{ w("connected.launchers.none", since=(launchers_since|when)) }}</p>{% else %}
     <table class="table launchers">
       <thead><tr><th>{{ w("connected.who") }}</th><th>{{ w("connected.pc") }}</th><th>{{ w("connected.version") }}</th><th>{{ w("connected.last") }}</th></tr></thead>
       <tbody>
@@ -51,8 +66,8 @@
       </tbody>
     </table>
     <p class="muted small cut">{{ w("connected.since", since=(launchers_since|when)) }}</p>
-    {% endif %}
     {% if anonymous.count %}<p class="muted small">{{ w("connected.anonymous", n=anonymous.count) }}</p>{% endif %}
   </div>
+  {% endif %}
 {% include "_admin_close.html" %}
 {% endblock %}

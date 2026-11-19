@@ -4,17 +4,9 @@
 {% block main %}
 {% set tab = "players" %} {% set heading = p.dj_name %}{% include "_admin_open.html" %}
   <p><a class="btn small" href="/admin/players">{{ w("player.back") }}</a></p>
-  {# After a new password: what the player needs, as text to copy (selected whole on focus, site.js). #}
-  {% if message %}
-  <div class="card">
-    <h3><label for="message">{{ w("admin.message") }}</label></h3>
-    <span class="field-slot keyed"><textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea><button type="button" class="slot-key" data-copy="message" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" data-selected="{{ w('form.selected') }}" hidden>{{ w("form.copy") }}</button></span>
-    {% if message_local %}<p class="alert look message-local">{{ w("admin.message.local", address=message_local) }}</p>{% endif %}
-  </div>
-  {% endif %}
 
   {# The player at a glance: the picture, the state, the DJ card as the game shows it, and what the game is sent. #}
-  <div class="card player-head">
+  <div class="card player-head k-member">
     <div class="avatar big" aria-hidden="true">{% if p.picture %}<img src="/pictures/{{ p.player }}.png?v={{ p.picture }}" alt="" width="128" height="128">{% else %}<span>{{ p.dj_name[:1] }}</span>{% endif %}</div>
     <div>
       <p class="tags">
@@ -96,7 +88,7 @@
     </div>
 
     {# ---------------------------------------------------------------- the ban #}
-    <div id="ban" class="card">
+    <div id="ban" class="card k-danger">
       <h3>{{ w("player.ban") }}</h3>
       {% if p.banned %}
       <p class="ban-reason">{{ p.ban_reason }}</p>
@@ -127,18 +119,26 @@
     {# ---------------------------------------------------------------- the account #}
     <div id="account" class="card">
       <h3>{{ w("me.section.account") }}</h3>
+      {# After a new password: what the player needs, as text to copy (selected whole on focus, site.js), the group's
+         first part (never a box of its own for one text). #}
+      {% if message %}
+      <div class="made-message field">
+        <label class="label" for="message">{{ w("admin.message") }}</label>
+        <span class="field-slot keyed"><textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea><button type="button" class="slot-key" data-copy="message" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" data-selected="{{ w('form.selected') }}" hidden>{{ w("form.copy") }}</button></span>
+        {% if message_local %}<p class="alert look message-local">{{ w("admin.message.local", address=message_local) }}</p>{% endif %}
+      </div>
+      {% endif %}
       <form method="post" action="#account" class="form row" novalidate>
         <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="rename">
-        <div class="field grow">
+        <div class="field w-id">
           <label class="label" for="player-dj">{{ w("account.dj") }}</label>
           <input id="player-dj" name="dj_name" value="{{ p.dj_name }}" maxlength="{{ dj_max }}" required data-missing="{{ w('me.dj.missing') }}">
         </div>
         <button class="btn">{{ w("admin.rename") }}</button>
       </form>
-      {# The account's other changes, one key a row with its own line under it (the ones that cannot be undone ask first
-         in the site's own dialog). #}
+      {# The account's other changes, one key a row with its own line under it (the picture's removal asks first in the
+         site's own dialog). #}
       <div class="key-row">
-        <form method="post" data-ask="{{ w('admin.newpass.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.newpass') }}" data-ask-detail="{{ w('admin.newpass.detail') }}" data-ask-yes="{{ w('admin.newpass') }}" data-ask-tone="warn"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="password"><button class="btn small">{{ w("admin.newpass") }}</button><span class="muted small key-hint">{{ w("player.newpass.hint") }}</span></form>
         <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ 'admin_off' if p.is_admin else 'admin_on' }}"><button class="btn small">{{ w("admin.rights.take") if p.is_admin else w("admin.rights.give") }}</button></form>
         {% if p.picture %}
         <form method="post" data-ask="{{ w('player.picture.clear.ask', login_id=p.login_id) }}" data-ask-title="{{ w('me.picture') }}" data-ask-yes="{{ w('me.picture.clear') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="picture_clear"><button class="btn small danger">{{ w("me.picture.clear") }}</button></form>
@@ -147,7 +147,7 @@
     </div>
 
     {# ---------------------------------------------------------------- the DJ card #}
-    <div id="card" class="card wide">
+    <div id="card" class="card wide k-member">
       <h3>{{ w("me.card") }}</h3>
       <form method="post" action="#card" class="form card-form" data-card-editor>
         <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="card">
@@ -157,7 +157,7 @@
     </div>
 
     {# ---------------------------------------------------------------- the records #}
-    <div class="card">
+    <div class="card k-list">
       <h3>{{ w("dj.recent") }}</h3>
       {% if not p.recent %}<p class="muted">{{ w("dj.none") }}</p>{% endif %}
       <ul class="plays compact">
@@ -167,11 +167,10 @@
           <span class="score">{{ "{:,}".format(r.score) }}</span></li>
       {% endfor %}
       </ul>
-      <form method="post" data-ask="{{ w('admin.reset.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.reset.title') }}" data-ask-detail="{{ w('admin.reset.detail') }}" data-ask-yes="{{ w('admin.reset') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="reset_plays"><button class="btn small danger">{{ w("admin.reset") }}</button></form>
     </div>
 
     {# ---------------------------------------------------------------- what admins and the player changed #}
-    <div class="card">
+    <div class="card k-list">
       <h3>{{ w("player.history") }}</h3>
       {% if p.history %}
       <table class="table history">
@@ -181,15 +180,24 @@
       {% else %}<p class="muted">{{ w("player.history.none") }}</p>{% endif %}
     </div>
 
-    {% if p.login_id != user.login_id %}
-    <div class="card wide">
-      <h3>{{ w("admin.delete.title") }}</h3>
-      <form method="post" class="form row" data-ask="{{ w('admin.delete.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.delete.title') }}" data-ask-detail="{{ w('admin.delete.detail') }}" data-ask-yes="{{ w('admin.delete') }}">
-        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="delete">
-        <button class="btn danger">{{ w("admin.delete") }}</button>
-      </form>
+    {# ---------------------------------------------------------------- what ends sign-ins, takes plays away or removes #}
+    {# A danger tray across the page (colour only on its keys): a new password (the account's sign-ins end; shown once),
+       the plays reset, the player deleted; each asks first in the site's own dialog. #}
+    <div id="danger" class="card wide k-danger">
+      <h3>{{ w("player.danger") }}</h3>
+      <div class="key-row">
+        <form method="post" action="#account" data-ask="{{ w('admin.newpass.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.newpass') }}" data-ask-detail="{{ w('admin.newpass.detail') }}" data-ask-yes="{{ w('admin.newpass') }}" data-ask-tone="warn"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="password"><button class="btn small">{{ w("admin.newpass") }}</button><span class="muted small key-hint">{{ w("player.newpass.hint") }}</span></form>
+        <form method="post" data-ask="{{ w('admin.reset.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.reset.title') }}" data-ask-detail="{{ w('admin.reset.detail') }}" data-ask-yes="{{ w('admin.reset') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="reset_plays"><button class="btn small danger">{{ w("admin.reset") }}</button></form>
+        {# The player deleted, asked first in the site's own dialog (never one's own account: that is My account's). #}
+        {% if p.login_id != user.login_id %}
+        <form method="post" data-ask="{{ w('admin.delete.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.delete.title') }}" data-ask-detail="{{ w('admin.delete.detail') }}" data-ask-yes="{{ w('admin.delete') }}">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="delete">
+          <button class="btn small danger">{{ w("admin.delete") }}</button>
+        </form>
+        {% endif %}
+      </div>
     </div>
-    {% endif %}
+
   </div>
 {% include "_admin_close.html" %}
 <script src="/static/profile.js?v={{ version }}"></script>

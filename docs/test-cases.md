@@ -749,6 +749,13 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 | SITE-227 | Every call of the OpenAPI document and its row in the guide | `405`, `429` and `500` for each, `413` for a JSON body, `202` with `{"job": string}` for `?wait=0`, a status other than 200 in the row; the guide's Errors name them | `tests/server/test_api.py#test_every_call_says_every_status_it_may_answer_as_the_guide_does` | unit |
 | SITE-228 | A JSON body in UTF-8 with a byte order mark, and bytes that are no text | Read as before (the sign-in answers); `400 bad_request` | `tests/server/test_api_edge.py#test_a_body_json_reads_is_read_as_before` | unit |
 | SITE-229 | The launcher told the server's `429 too_many_requests` | Its own words, in English and in Korean | `tests/client/test_remote.py#test_a_caller_past_its_share_is_told_in_their_language` | unit |
+| SITE-241 | The players' pages with a notice and maintenance on | The page's head first in the page, then the notices | `tests/server/test_web_compose.py#test_the_notices_stand_under_the_stage_inside_the_page` | unit |
+| SITE-242 | Each admin page | Its head's figures first; Status's groups in two pairs, its notice and maintenance rows of one group, the disk in the machine's group; Back up now the Backups page's title row's key | `tests/server/test_web_compose.py#class AdminHeadsTest` | unit |
+| SITE-243 | Every play reset, the invite, a player deleted, the connected cabinets, empty lists | Each a line of the group it belongs to (the accounts, Make an account, the account's keys, the home page's head, the page's head), never a box of its own | `tests/server/test_web_compose.py#class NoBoxOfOneThingTest` | unit |
+| SITE-244 | My account | Each section one group of rows, its name the group's heading; the DJ name's row names its field | `tests/server/test_web_compose.py#class AccountRowsTest` | unit |
+| SITE-245 | The style sheets and the pages' keys | No taller kind of the main key and no rule that stretches a key; every size of words a step of the scale | `tests/server/test_web_compose.py#class KeysAndTypeTest` | unit |
+| SITE-246 | Each card of both sites | Its kind by one class (status, member, result, list, info, danger; none: a settings plate) as _work/theme/CARDS.md gives each page's cards; the Status page's head and machine on a sunken screen, the home's DJ a member's plate, a DJ's figures and weeks results | `tests/server/test_web_compose.py#class CardKindsTest` | unit |
+| SITE-247 | The admin's page of a player | A new password, the plays reset and the player deleted on one danger tray, the ban a tray of its own, the account's group without them | `tests/server/test_web_compose.py#test_what_ends_sign_ins_or_removes_is_one_danger_tray` | unit |
 
 ## TS-TEXT: the words
 

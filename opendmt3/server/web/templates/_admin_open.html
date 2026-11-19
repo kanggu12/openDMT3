@@ -1,11 +1,13 @@
 {# An admin page's opening, in the console (base.html's frame for the admin site): the page's title row (its name in
    chrome, a player's page their name: `heading`; its one main key at the right when it has one: `main_key`, (address,
-   words)), then the column its cards stand in. No hero, no shards: the band and the rail above say where one is.
-   `tab` names the page; closed by _admin_close.html. #}
+   words), or a key that sends a form of its own: `main_form`, {action, value, words}), then the column its cards stand
+   in. No hero, no shards: the band and the rail above say where one is. `tab` names the page; closed by
+   _admin_close.html. #}
 {# The Cabinets page shows every client on the server, the launchers too: its name says so. #}
 {% set names = {"cabinets": "admin.connected"} %}
 <section class="console-head">
   <h1 class="word">{{ heading or w(names.get(tab, "admin." + tab)) }}</h1>
   {% if main_key %}<a class="btn primary" href="{{ main_key[0] }}">{{ main_key[1] }}</a>{% endif %}
+  {% if main_form %}<form method="post" action="{{ main_form.action }}" class="head-key"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ main_form.value }}"><button class="btn primary">{{ main_form.words }}</button></form>{% endif %}
 </section>
 <div class="console-main">

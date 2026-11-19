@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ w("licenses.title") }} · {% endblock %}
-{% block main %}
+{% block top %}
 {# The admin site's console has its title row (no hero, no shards); the players' site its hero. #}
 {% if console %}
 <section class="console-head"><h1 class="word">{{ w("licenses.title") }}</h1></section>
@@ -9,6 +9,8 @@
   <div class="hero-text"><h1 class="word">{{ w("licenses.title") }}</h1></div>
 </section>
 {% endif %}
+{% endblock %}
+{% block main %}
 <section class="narrow wide-ish">
   {# openDMT3's own licence first, as OpenDMTQ's page has it: what it covers, what it does not, and its text in full
      when the server has it beside the package. #}

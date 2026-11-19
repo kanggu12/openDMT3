@@ -5,26 +5,27 @@
 {% set tab = "log" %}{% include "_admin_open.html" %}
   {% set view = "requests" %}{% include "_log_views.html" %}
   {# The last day by half hours: what was answered, and what was refused or failed. #}
-  <div class="card">
+  <div class="card k-status">
     <h3>{{ w("requests.chart") }}</h3>
-    <p class="muted small">{{ w("requests.day", ok="{:,}".format(log.day.ok), bad="{:,}".format(log.day.bad)) }}</p>
-    {{ requests_chart(log, w) }}
-    <details class="as-table"><summary>{{ w("requests.table") }}</summary>
-      <table class="table"><thead><tr><th>{{ w("requests.half") }}</th><th class="num">{{ w("requests.key.ok") }}</th><th class="num">{{ w("requests.key.bad") }}</th></tr></thead>
-        <tbody>{% for s in log.chart %}<tr><td>{{ s.at|clock }}</td><td class="num" data-label="{{ w('requests.key.ok') }}">{{ s.ok }}</td><td class="num" data-label="{{ w('requests.key.bad') }}">{{ s.bad }}</td></tr>{% endfor %}</tbody></table>
-    </details>
+    <div class="k-screen">
+      <p class="muted small">{{ w("requests.day", ok="{:,}".format(log.day.ok), bad="{:,}".format(log.day.bad)) }}</p>
+      {{ requests_chart(log, w) }}
+      <details class="as-table"><summary>{{ w("requests.table") }}</summary>
+        <table class="table"><thead><tr><th>{{ w("requests.half") }}</th><th class="num">{{ w("requests.key.ok") }}</th><th class="num">{{ w("requests.key.bad") }}</th></tr></thead>
+          <tbody>{% for s in log.chart %}<tr><td>{{ s.at|clock }}</td><td class="num" data-label="{{ w('requests.key.ok') }}">{{ s.ok }}</td><td class="num" data-label="{{ w('requests.key.bad') }}">{{ s.bad }}</td></tr>{% endfor %}</tbody></table>
+      </details>
+    </div>
   </div>
-  {# The filter: a word, a kind of answer; and all the log keeps as a file. #}
-  <div class="card">
-    <form class="form row" method="get" action="/admin/log/requests" role="search">
+  {# The lines, under their filter (a word, a kind of answer) and what the log keeps, with all of it as a file: one
+     group. #}
+  <div class="card k-list">
+    <h3>{{ w("log.lines") }}</h3>
+    <form class="form row log-filter" method="get" action="/admin/log/requests" role="search">
       <label class="grow">{{ w("requests.word") }}<input name="q" value="{{ wanted.q }}" maxlength="64"></label>
       <label>{{ w("requests.kind") }}<select name="kind"><option value="">{{ w("requests.kind.all") }}</option>{% for k in kinds %}<option value="{{ k }}"{{ " selected" if k == wanted.kind }}>{{ w("requests.kind." + k) }}</option>{% endfor %}</select></label>
       <button class="btn primary">{{ w("log.plays.show") }}</button>
     </form>
     <p class="requests-file"><a class="btn small" href="{{ csv }}" download>{{ w("requests.csv") }}</a> <span class="muted small">{{ w("requests.kept", mb=log_mb, days=log_days, size=log.bytes|size) }}</span></p>
-  </div>
-  <div class="card">
-    <h3>{{ w("log.lines") }}</h3>
     {% if not log.requests and log.past %}<p class="muted">{{ w("requests.past") }} <a href="{{ links.last }}">{{ w("requests.last", n=log.last_page) }}</a></p>{% elif not log.requests %}<p class="muted">{{ w("requests.none") }}</p>{% else %}
     <p class="muted small">{{ w("requests.found", n="{:,}".format(log.found), kept=log.kept, shown=log.requests|length) }}</p>
     <table class="table requests">

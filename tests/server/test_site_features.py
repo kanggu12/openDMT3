@@ -81,7 +81,7 @@ class NewRecordsTest(SiteBase):
         self.disable("GHOST")
         self.sign_in(self.client)
         page = self.client.get("/").text
-        records = page.split('class="card records wide"', 1)[1].split("</ul>", 1)[0]
+        records = page.split('class="card records wide k-result"', 1)[1].split("</ul>", 1)[0]
         # Newest first: 900 (+200 over 700), then 700 (+200 over 500).
         self.assertEqual(re.findall(r'class="score">([\d,]+)<span class="gain"', records), ["900", "700"])
         self.assertEqual(re.findall(r">\+([\d,]+)</span>", records), ["200", "200"])
@@ -101,7 +101,7 @@ class NewRecordsTest(SiteBase):
             self.play(nova, 1, 1, 100 + n, at=1000 + n)
         self.sign_in(self.client)
         page = self.client.get("/").text
-        records = page.split('class="card records wide"', 1)[1].split("</ul>", 1)[0]
+        records = page.split('class="card records wide k-result"', 1)[1].split("</ul>", 1)[0]
         self.assertEqual(records.count("<li>"), 10)
         mine = page.split("Your recent plays", 1)[1].split("</div>", 1)[0]
         self.assertEqual(mine.count("<li>"), 15)
@@ -115,7 +115,8 @@ class NewRecordsTest(SiteBase):
         self.play(nova, 1, 1, 500)
         self.sign_in(self.client)
         page = self.client.get("/").text
-        self.assertIn("No new record yet", page)
+        # No record yet: the list is left out (no box that says only "nothing yet").
+        self.assertNotIn('<h3 lang="en">New records</h3>', page)
         self.assertNotIn(">NEW</span>", page)
         # A list that is not cut says nothing about it.
         self.assertNotIn("The latest", page)
@@ -239,7 +240,7 @@ class SongListPagesTest(SiteBase):
     def card(self):
         """The Song list card's HTML on the Status page."""
         page = self.client.get("/admin/status").text
-        return page.split('<div class="card game-data">', 1)[1].split("</div>", 1)[0]
+        return page.split('<div class="card game-data k-list">', 1)[1].split("</div>", 1)[0]
 
     def reading(self, report=None, error=None):
         """sources.read made up: the report it gives, or the error it raises (the reading itself is
@@ -439,10 +440,8 @@ class LookTest(SiteBase):
     """Item 3: the Status page's list of what to look at, each line only when it is so."""
 
     def looks(self):
-        """The lines of the list on the Status page (none when there is no list)."""
+        """The lines of what to look at on the Status page (the head's own lines; none when there is nothing)."""
         page = self.client.get("/admin/status").text
-        if "To look at" not in page:
-            return []
         return re.findall(r'<p class="alert look">(.*?)</p>', page, re.S)
 
     def test_each_line_shows_only_while_it_is_so(self):
@@ -1036,13 +1035,16 @@ class HomeSongsDownloadTest(SiteBase):
         self.assertNotIn("DJ6", top)
         self.assertIn('<a href="/rankings?mode=0">The whole ranking</a>', page)
 
-    def test_home_without_a_play_says_the_ranking_is_empty(self):
+    def test_home_without_a_play_says_so_once_in_ones_own_dj(self):
         self.make()
         self.sign_in(self.client)
         page = self.client.get("/").text
-        self.assertIn("No cleared stage yet.", page)
-        # The card is named in the page's words, as its other cards are (not by the menu's capitals).
-        self.assertIn('<h3 lang="en">Rankings</h3>', page)
+        # Nothing played yet: one's own DJ alone across the page, saying so once; no list that would hold only
+        # "nothing yet" (the ranking, the records, the plays).
+        self.assertIn('<div class="card dj k-member wide">', page)
+        self.assertEqual(page.count("No play yet."), 1)
+        for name in ("Top DJs", "New records", "Your recent plays", "Recent plays on this server"):
+            self.assertNotIn('<h3 lang="en">%s' % name, page)
 
     def test_the_songs_page_counts_the_songs_shown_and_marks_rows_for_the_filter(self):
         self.catalog([{"number": 1, "title": "Made-up Opening", "composer": "Someone"},
@@ -1080,8 +1082,10 @@ class HomeSongsDownloadTest(SiteBase):
         page = browser.get("/download").text
         # The date whole on its line: a word joiner after each hyphen (app._when).
         # The size with its unit, the moment whole: a word joiner after each hyphen, no break before the time (app._when).
-        self.assertIn("3.0\u00a0MB, added 2026-\u206011-\u206002\u00a009:30", page)
-        self.assertNotIn("Version", page.split('class="muted small file-facts"', 1)[1].split("</p>", 1)[0])
+        # The facts as rows of the page's group: the size, its unit kept with it, and when it was added.
+        self.assertIn('Size</p><p class="row-value">3.0\u00a0MB</p>', page)
+        self.assertIn('Added</p><p class="row-value">2026-\u206011-\u206002\u00a009:30</p>', page)
+        self.assertNotIn(">Version</p>", page)
         # Step 1 names the file as it comes, with this server's address in it.
         # The key and its facts only: what to do after the download is the guides' (no steps, no Windows tip).
         self.assertNotIn("Run anyway", page)
@@ -1092,12 +1096,11 @@ class HomeSongsDownloadTest(SiteBase):
         # A program with a version resource: its version too.
         with open(path, "wb") as f:
             f.write(windows_program((1, 2, 3, 0)))
-        self.assertIn("Version 1.2.3, 0.0\u00a0MB", browser.get("/download").text)
+        self.assertIn('Version</p><p class="row-value">1.2.3</p>', browser.get("/download").text)
         browser.cookies.set("opendmt3_lang", "ko")
         page = browser.get("/download").text
-        self.assertIn("버전 1.2.3", page)
         # The facts in Korean too, and no step to follow.
-        self.assertIn("버전 1.2.3", page)
+        self.assertIn('버전</p><p class="row-value">1.2.3</p>', page)
         self.assertNotIn("실행하세요", page)
 
     def test_the_installers_name_keeps_letters_digits_dots_and_dashes_only(self):
@@ -1649,13 +1652,14 @@ class StatesTest(SiteBase):
         # No file of this server's to run, and no launcher that knows this server: where the launcher comes from, and
         # this server's address to type into it.
         self.assertIn("The launcher comes from the project&#39;s releases on GitHub", page)
-        self.assertIn("This server&#39;s address: <code>192.168.0.5:4730</code>", page)
+        # A row of the page's group: its name, then the address.
+        self.assertIn("This server&#39;s address</p><p class=\"row-value file-facts\"><code>192.168.0.5:4730</code>", page)
         self.assertNotIn("-192.168.0.5-4730.exe", page)
         self.assertNotIn("opens on this server", page)
         browser.cookies.set("opendmt3_lang", "ko")
         page = browser.get("/download").text
         self.assertIn("런처는 GitHub의 프로젝트 릴리스(openDMT3, Releases)에서 받습니다.", page)
-        self.assertIn("이 서버 주소: <code>192.168.0.5:4730</code>", page)
+        self.assertIn("이 서버 주소</p><p class=\"row-value file-facts\"><code>192.168.0.5:4730</code>", page)
 
     def test_the_first_run_page_names_the_rules_and_the_sign_in_page_says_the_account_was_made(self):
         page = self.local.get("/owner").text
@@ -1681,13 +1685,13 @@ class StatesTest(SiteBase):
         self.make()
         # On the player's own page, where every change to a player is.
         page = self.client.get("/admin/players/NOVA").text
-        form = re.search(r'<form method="post" data-ask="Give NOVA a new password\?"[^>]*>', page)
+        form = re.search(r'<form method="post" action="#account" data-ask="Give NOVA a new password\?"[^>]*>', page)
         self.assertIsNotNone(form)
         self.assertIn('data-ask-detail="Their sign-ins end. The new password is shown once."', form.group(0))
         self.assertIn('data-ask-yes="New password"', form.group(0))
         # Every form that changes an account's sign-in or takes plays away asks (enable and admin rights do not).
-        self.assertEqual(len(re.findall(r'<form method="post" data-ask="[^"]*"[^>]*><input type="hidden" name="csrf" '
-                                        r'value="[^"]*"><input type="hidden" name="action" value="password">', page)), 1)
+        self.assertEqual(len(re.findall(r'<form method="post"(?: action="#account")? data-ask="[^"]*"[^>]*><input type="hidden" '
+                                        r'name="csrf" value="[^"]*"><input type="hidden" name="action" value="password">', page)), 1)
 
     def test_the_installers_line_names_the_command_where_the_folder_is_out_of_reach(self):
         from unittest import mock
@@ -1788,11 +1792,10 @@ class StatesTest(SiteBase):
         self.make()
         self.sign_in(self.client)
         page = self.client.get("/").text
-        # The way to the launcher is the page's one main key, in its head; then Your DJ before the lists. No card says
-        # how to play (the guides do).
+        # The way to the launcher is the page's one main key, in its head with the cabinets connected now (a live line,
+        # never a box of one fact); then Your DJ before the lists. No card says how to play (the guides do).
         # (The cards' names are in the game's English on both languages' pages: lang="en".)
-        order = [page.index(words) for words in ('<p class="hero-key">', '<h3 lang="en">Your DJ</h3>',
-                                                 '<h3 lang="en">Connected cabinets</h3>', '<h3 lang="en">New records</h3>')]
+        order = [page.index(words) for words in ('<p class="hero-key">', '<p class="hero-live">', '<h3 lang="en">Your DJ</h3>')]
         self.assertEqual(order, sorted(order))
         self.assertIn('<a class="btn primary" href="/download">Get the launcher</a>', page)
         self.assertEqual(page.count('class="btn primary"'), 1)

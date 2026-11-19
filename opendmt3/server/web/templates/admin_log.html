@@ -3,7 +3,7 @@
 {% block main %}
 {% set tab = "log" %}{% include "_admin_open.html" %}
   {% set view = "changes" %}{% include "_log_views.html" %}
-  <div class="card">
+  <div class="card k-list">
     <h3>{{ w("log.changes") }}</h3>
     {% if not log.changes %}<p class="muted">{{ w("log.changes.none") }}</p>{% else %}
     <table class="table">
@@ -14,9 +14,10 @@
     </table>
     {% if counts.changes > log.changes|length %}<p class="muted small cut">{{ w("list.latest", n=log.changes|length, of="{:,}".format(counts.changes)) }}</p>{% endif %}
     {% endif %}
-  </div>
-  <div class="card">
-    <h3>{{ w("log.messages") }}</h3>
+    {# The game's messages: a part of the same group, under a hairline (two short lists of one page, never two boxes of
+       a line each). #}
+    <div class="sub-part">
+    <h4>{{ w("log.messages") }}</h4>
     <p class="muted small">{{ w("log.messages.hint") }}</p>
     {% if not log.messages %}<p class="muted">{{ w("log.messages.none") }}</p>{% else %}
     <table class="table">
@@ -25,6 +26,7 @@
     </table>
     {% if counts.messages > log.messages|length %}<p class="muted small cut">{{ w("list.latest", n=log.messages|length, of="{:,}".format(counts.messages)) }}</p>{% endif %}
     {% endif %}
+    </div>
   </div>
 {% include "_admin_close.html" %}
 {% endblock %}

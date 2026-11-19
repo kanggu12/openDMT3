@@ -1,19 +1,23 @@
 {% extends "base.html" %}
 {% block title %}{{ w("title.rankings") }} · {% endblock %}
-{% block main %}
+{% block top %}
 <section class="hero small"><div class="shards" aria-hidden="true">{{ stage() }}</div>
   <div class="hero-text"><h1 class="word">{{ w("nav.rankings") }}</h1></div>
 </section>
+{% endblock %}
+{% block main %}
 <section class="page">
   {# Each mode's key lit in its own mode's colour (STAR's lime, POP's pink; the others the title screen's blue). #}
   {% if modes %}<nav class="tabs modes">{% for m, name in modes %}<a href="/rankings?mode={{ m }}&amp;by={{ by }}" class="mode-{{ m }}{{ ' on' if m == mode }}">{{ name }}</a>{% endfor %}</nav>
   <nav class="tabs quiet">{% for key in ("total", "best30", "month") %}<a href="/rankings?mode={{ mode }}&amp;by={{ key }}" class="{{ 'on' if by == key }}">{{ w("rankings.by." + key, n=best_of) }}</a>{% endfor %}</nav>
-  {% if by == "best30" %}<p class="page-note muted small">{{ w("rankings.best30.hint", n=best_of) }}</p>{% endif %}
-  {% if by == "month" %}<p class="page-note muted small">{{ w("rankings.month.hint", month=month.name) }}</p>{% endif %}{% endif %}
+  {% endif %}
+  {# The view's own line (how best 30 and the month are made), and an empty board said on it too: one strip, never a
+     card for one line. #}
+  {% set empty_words = (w("rankings.month.none") if by == "month" and modes else w("rankings.none")) if not rows else "" %}
+  {% set note = w("rankings.best30.hint", n=best_of) if modes and by == "best30" else w("rankings.month.hint", month=month.name) if modes and by == "month" else "" %}
+  {% if note or empty_words %}<p class="page-note muted small">{{ note }}{% if note and empty_words %}<span class="note-more">{{ empty_words }}</span>{% else %}{{ empty_words }}{% endif %}</p>{% endif %}
   {% set value_label = w("rankings.by.best30", n=best_of) if by == "best30" else w("rankings.total") %}
-  {% if not rows %}
-  <div class="card"><p class="muted">{{ w("rankings.month.none") if by == "month" and modes else w("rankings.none") }}</p></div>
-  {% else %}
+  {% if rows %}
   {# The first three on plates, their places in chrome like the game's big digits. #}
   <div class="podium">
     {# Every player placed first, second or third: equal totals share a place and its look. #}
@@ -24,7 +28,7 @@
     </a>
     {% endfor %}
   </div>
-  <div class="card">
+  <div class="card k-list">
     <table class="table board">
       <thead><tr><th class="num">#</th><th>{{ w("rankings.dj") }}</th><th class="num wide-only">{{ w("rankings.charts") }}</th><th class="num">{{ value_label }}</th></tr></thead>
       <tbody>
@@ -38,7 +42,7 @@
   {% endif %}
   {# This month's view: under it, each month before with its first three (equal totals share a place). #}
   {% if by == "month" and month.past %}
-  <div class="card">
+  <div class="card k-list">
     <h3 lang="en">{{ w("rankings.past") }}</h3>
     <div class="past-months">
       {% for past in month.past %}

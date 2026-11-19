@@ -1,12 +1,16 @@
 {% extends "base.html" %}
 {% block title %}{{ dj.dj_name }} · {% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/players.css?v={{ version }}">{% endblock %}
-{% block main %}
+{% block top %}
 <section class="hero small"><div class="shards" aria-hidden="true">{{ stage() }}</div>
   <div class="hero-text"><p class="kicker">{{ w("dj.kicker") }}</p><h1 class="word">{{ dj.dj_name }}</h1></div>
 </section>
+{% endblock %}
+{% block main %}
 <section class="grid">
-  <div class="card wide">
+  {# The DJ's figures and the last weeks are results (the game's black glass); the short lists are lists; the best scores
+     a result. #}
+  <div class="card wide k-result">
     {# The player's picture on the site beside the DJ card the game shows; a way to change both on one's own page. #}
     <div class="dj-head">
       {# At the size the admin's page of the player shows it (128 px; 96 on a phone), its top level with the card's. #}
@@ -27,7 +31,7 @@
     </div>
     {% endif %}
   </div>
-  <div class="card wide">
+  <div class="card wide k-result">
     <h3 lang="en">{{ w("dj.activity") }}</h3>
     {% set weeks = dj.activity.weeks %}{% set top = weeks|map(attribute="plays")|max %}
     <p class="weeks-max">{{ w("dj.activity.max", n=top) }}</p>
@@ -52,7 +56,7 @@
   {# Two columns that grow apart: the short lists stacked on the left, the long best scores on the right. #}
   <div class="column">
     {% if dj.activity.songs %}
-    <div class="card">
+    <div class="card k-list">
       <h3 lang="en">{{ w("dj.top") }}</h3>
       <ul class="plays">
       {% for t in dj.activity.songs %}
@@ -62,7 +66,7 @@
       {% if dj.summary.songs > dj.activity.songs|length %}<p class="muted small cut">{{ w("list.top", n=dj.activity.songs|length, of="{:,}".format(dj.summary.songs)) }}</p>{% endif %}
     </div>
     {% endif %}
-    <div class="card">
+    <div class="card k-list">
       <h3 lang="en">{{ w("dj.recent") }}</h3>
       {% if not dj.recent %}<p class="muted">{{ w("dj.none") }}</p>{% endif %}
       <ul class="plays">
@@ -76,7 +80,7 @@
     </div>
   </div>
   <div class="column">
-    <div class="card">
+    <div class="card k-result">
       <h3 lang="en">{{ w("dj.bests") }}</h3>
       {% if not dj.bests %}<p class="muted">{{ w("dj.none") }}</p>{% endif %}
       <ul class="plays">

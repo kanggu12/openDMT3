@@ -29,6 +29,15 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - A card's and a dialog's name are as large as the words under them; every key of one role is one size on every page
   and dialog (one height, one room either side of its words), its words centred by their ink, and no key is stretched
   across its card.
+- Both sites' pages are composed rather than stacked: each admin page opens on its head's figures, groups that go
+  together stand side by side at one height, settings and facts are rows of their group (**Status**'s notice and
+  maintenance, **Server**, **My account**), and no box holds a single key or fact. The notices stand under a page's
+  head, its stage flush under the bar. Keys of one kind have one size and are as wide as their words (the sign-in's
+  too), fields as wide as what they take, and every text is on one scale, a group's name never smaller than its rows.
+- Each box of both sites has the shape and face of what it holds: figures on a status panel's sunken screen, lists as
+  sheets under a dark band, scores and results on the game's black glass cut at two corners, the DJ card a platinum
+  card held on its plate, facts on a quiet plate, and what removes or resets for good on a sunken tray where only its
+  key is pink. A choice, a page's main key and one's own row are openDMT3's blue on every page.
 
 ### Fixed
 

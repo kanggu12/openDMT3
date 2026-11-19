@@ -69,6 +69,11 @@
   --text-face: "DMT3 Text", system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --cut: 14px;
   --quick: 0.14s;
+  /* The type scale: every word on a page is set at one of these steps, by its role (the site check holds to it): 11 the
+     wide capitals' marks (a tag, a lamp, the language keys, a kicker, a table's head in English), 12 fine print, 13 small
+     (a label, a hint, a line under a value), 14 a key's words, 15 the text and a group's name, 17 a line read first (a
+     name, a score), 20 and 24 figures, 28 a page's title and its head's figures, 32 and 40 the stage's titles, 48 to 64
+     the podium's figures. A heading is never smaller than the words under it. */
   color-scheme: dark;
 }
 /* The game's colours by section: rankings in POP's pink, songs in STAR's lime (the rest, the admin site too, in the title
@@ -109,17 +114,18 @@ body { overflow-wrap: break-word; }
 body.lang-ko { word-break: keep-all; overflow-wrap: anywhere; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-code { font-family: ui-monospace, Consolas, monospace; font-size: 0.9em; background: rgba(255, 255, 255, 0.07); padding: 0.05em 0.3em; }
+code { font-family: ui-monospace, Consolas, monospace; font-size: 13px; background: rgba(255, 255, 255, 0.07); padding: 0.05em 0.3em; }
 .muted { color: var(--ash); }
 .small { font-size: 13px; }
 h1, h2, h3 { margin: 0 0 10px; font-weight: 700; }
 h2 { font-size: 20px; }
-/* Card headings: small wide capitals standing alone, like the launcher's card tabs. */
-h3 { display: flex; align-items: center; gap: 12px; font: 400 11px/1.4 var(--wide); letter-spacing: 0.08em;
-     text-transform: uppercase; color: var(--ash); margin-bottom: 14px; }
-body.lang-ko h3 { font: 600 14px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
+/* A group's name: wide capitals as the launcher's card tabs, at the text's own size (a name smaller than the rows under
+   it read as a footnote), in the chalk. */
+h3 { display: flex; align-items: center; gap: 12px; font: 400 15px/1.3 var(--wide); letter-spacing: 0.04em;
+     text-transform: uppercase; color: var(--chalk); margin-bottom: 16px; }
+body.lang-ko h3 { font: 700 15px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
 /* A card's name kept in the game's English on a Korean page (the showcase pages' names, as the menu's): the wide capitals. */
-body.lang-ko h3[lang="en"] { font: 400 11px/1.4 var(--wide); letter-spacing: 0.08em; text-transform: uppercase; }
+body.lang-ko h3[lang="en"] { font: 400 15px/1.3 var(--wide); letter-spacing: 0.04em; text-transform: uppercase; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
 /* ------------------------------------------------------------------------------------------------ bar */
@@ -156,9 +162,9 @@ body.lang-ko h3[lang="en"] { font: 400 11px/1.4 var(--wide); letter-spacing: 0.0
 .menu a.on::after { background: var(--accent); }
 .tools { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 .langs { display: inline-flex; gap: 2px; }
-.langs a { padding: 5px 9px; font: 400 10px/1 var(--wide); letter-spacing: 0.06em; color: var(--ash); background: var(--rail);
+.langs a { padding: 6px 10px; font: 400 11px/1 var(--wide); letter-spacing: 0.06em; color: var(--ash); background: var(--rail);
            clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%); }
-.langs a.on { background: var(--accent-fill); color: var(--accent-ink); }
+.langs a.on { background: var(--blue); color: #fff; }
 .langs a:hover { text-decoration: none; color: var(--chalk); }
 .langs a.on:hover { color: var(--accent-ink); }
 .who { display: flex; align-items: center; gap: 8px; color: var(--chalk); text-decoration: none; }
@@ -173,20 +179,21 @@ a.who:hover .who-name, a.who.on .who-name { color: var(--accent); }
    for a notice, the site's word for "look"; pink for maintenance, what is refused), the words in the text's ink. */
 .site-notice { display: flex; gap: 12px; align-items: baseline; padding: 10px 32px; background: var(--deck);
                border-bottom: 1px solid var(--seam); }
-.site-notice .label { flex: none; display: inline-flex; align-items: center; gap: 8px; font: 400 10px/1.4 var(--wide);
+.site-notice .label { flex: none; display: inline-flex; align-items: center; gap: 8px; font: 400 11px/1.4 var(--wide);
                       letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber); }
 .site-notice .label::before { content: ""; width: 11px; height: 7px; border-radius: 1px; transform: translateY(-1px) skewX(-24deg); box-shadow: var(--lamp-light); background: var(--lamp-amber); }
 .site-notice.maintenance .label::before { background: var(--lamp-pink); }
 body.lang-ko .site-notice .label { font: 600 13px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
 .site-notice .text { min-width: 0; overflow-wrap: anywhere; }
-.notices { position: relative; box-sizing: border-box; width: 100%; max-width: 1180px; margin: 12px auto; padding: 0 32px; }
-/* The notices' sheet: glass, with the game's cut corner and its seam as every cut part has it (the ring of .card::after
-   below: one line along the top, down the cut and round the rest), never a box's own edge cut off by the corner. */
-.notices-sheet { position: relative; background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0, transparent 38%),
-                                                 rgba(20, 24, 30, 0.74);
-                 -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
-.notices .site-notice { background: transparent; border-bottom: 1px solid rgba(255, 255, 255, 0.07); padding: 11px 18px; }
+/* The notices: the page's first group, under its head (base.html), in the page's column: one opaque sheet with the
+   game's cut corner and its seam as every cut part has it (the ring of .card::after below), a row each, the lamp and
+   the label in a column of their own so the words of both rows start on one line. */
+.notices { position: relative; box-sizing: border-box; width: 100%; max-width: 1180px; margin: 24px auto 0; padding: 0 32px; }
+.notices-sheet { position: relative; background: var(--plate-sheen), var(--plate); }
+.notices .site-notice { background: transparent; border-bottom: 1px solid var(--seam); padding: 12px 24px; gap: 16px; }
 .notices .site-notice:last-child { border-bottom: 0; }
+.notices .site-notice .label { flex: 0 0 132px; }
+body.lang-ko .notices .site-notice .label { flex-basis: 56px; }
 /* On a phone a long notice keeps to two lines until it is opened (site.js: the strip itself is the key). */
 .site-notice .more { display: none; }
 
@@ -194,7 +201,7 @@ body.lang-ko .site-notice .label { font: 600 13px/1.4 var(--text-face); letter-s
 /* The phone's bar: the mark, where one is, and MENU (the word, never an icon alone). Both stay hidden on a wide screen. */
 .where, .menu-key { display: none; }
 .menu-key { align-items: center; gap: 8px; height: 36px; padding: 0 14px; margin: 0 0 0 auto; border: 0; cursor: pointer;
-            font: 400 11px/1 var(--wide); letter-spacing: 0.08em; color: var(--chalk); background: var(--rail);
+            font: 400 12px/1 var(--wide); letter-spacing: 0.08em; color: var(--chalk); background: var(--rail);
             clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
 body.lang-ko .menu-key { font: 600 14px/1 var(--text-face); letter-spacing: 0; }
 .menu-key:hover, .menu-key[aria-expanded="true"] { background: var(--rail-up); }
@@ -225,7 +232,6 @@ body.lang-ko .menu-key { font: 600 14px/1 var(--text-face); letter-spacing: 0; }
 .who-sub { color: var(--ash); font-size: 12px; }
 .sheet-tools .langs a { padding: 9px 14px; font-size: 11px; }
 .sheet-tools form { margin: 0; }
-.sheet-tools .btn { width: 100%; }
 
 /* A toast: what a change just did (a lime lamp, gone by itself) or why it did not (a pink lamp, until closed), in the
    bar's own glass. It stands inside the bar where its words fit (site.js measures), else on a strip of the bar's glass
@@ -240,7 +246,7 @@ body.lang-ko .menu-key { font: 600 14px/1 var(--text-face); letter-spacing: 0; }
 .toast-words { flex: 1; min-width: 0; margin: 0; font: 500 14px/1.4 var(--text-face); overflow-wrap: anywhere; }
 .toast-go { flex: none; font-weight: 600; }
 .toast-go:empty { display: none; }
-.toast-close { flex: none; width: 36px; height: 36px; padding: 0; border: 0; cursor: pointer; font: 400 22px/1 var(--text-face);
+.toast-close { flex: none; width: 36px; height: 36px; padding: 0; border: 0; cursor: pointer; font: 400 24px/1 var(--text-face);
                color: var(--ash); background: transparent; }
 .toast-close:hover { color: var(--chalk); }
 .toast-close:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
@@ -251,7 +257,7 @@ body.lang-ko .menu-key { font: 600 14px/1 var(--text-face); letter-spacing: 0; }
 
 /* ----------------------------------------------------------------------------------------------- hero */
 /* The head of a page: shards in the section's colour cutting in from the right, the title in chrome. */
-.hero { position: relative; overflow: hidden; height: 220px;
+.hero { position: relative; overflow: hidden; height: auto; min-height: 220px;
         background: linear-gradient(90deg, var(--field) 38%, transparent 70%); }
 /* The section's colour as a thin tube along a head's foot (the Platinum Crew site's line over its pages): light, full,
    light, and a shade under it; the page itself is never tinted. */
@@ -262,27 +268,32 @@ body.lang-ko .menu-key { font: 600 14px/1 var(--text-face); letter-spacing: 0; }
    keeps its genre and composer under it (a fixed height cut them off). */
 .hero.small { height: auto; min-height: 172px; }
 .hero.small .hero-text { padding-bottom: 26px; }
-.hero-text { position: relative; z-index: 1; padding: 42px 32px 0; max-width: 1180px; margin: 0 auto; }
+.hero-text { position: relative; z-index: 1; padding: 42px 32px 28px; max-width: 1180px; margin: 0 auto; }
 .hero-text > * { max-width: 62%; }
-.kicker { font: 400 10px/1.4 var(--wide); letter-spacing: 0.1em; color: var(--accent); margin: 0 0 8px; }
+.kicker { font: 400 11px/1.4 var(--wide); letter-spacing: 0.1em; color: var(--accent); margin: 0 0 8px; }
 .hero h1 { font: 400 40px/1.05 var(--wide); letter-spacing: -0.01em; margin: 0 0 10px; padding-bottom: 2px;
            background: var(--chrome); -webkit-background-clip: text; background-clip: text; color: transparent;
            filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7)); }
-body.lang-ko .hero h1.word { font: 700 38px/1.15 var(--text-face); letter-spacing: -0.02em; }
+body.lang-ko .hero h1.word { font: 700 40px/1.15 var(--text-face); letter-spacing: -0.02em; }
 .hero h1 b { font-weight: 400; background: linear-gradient(180deg, #fff 0%, #e9eefc 38%, var(--accent) 60%, var(--accent) 100%);
              -webkit-background-clip: text; background-clip: text; color: transparent; }
 .hero .sub { color: var(--ash); margin: 0; }
 .shards { position: absolute; inset: 0; z-index: 0; }
 .shards .stage { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 
-/* A page that is not there: its code big in the wide chrome, on the page's own metal above the card. */
+/* A page that is not there: its code big in the wide chrome on the page's own metal, then what it means and the one way
+   on, in the page's middle as the front door's are (no card around one line and one key). */
+.lost { text-align: center; }
+.lost-title { margin: 8px 0 8px; font: 700 24px/1.3 var(--text-face); color: var(--chalk); }
+.lost-line { margin: 0; }
+.lost-key { margin: 24px 0 56px; }
 .lost-code { margin: 0 0 8px; padding-top: 12px; text-align: center; font: 400 clamp(72px, 16vw, 132px)/1 var(--wide);
              letter-spacing: -0.02em; background: linear-gradient(180deg, var(--rail-up), var(--field) 92%);
              -webkit-background-clip: text; background-clip: text; color: transparent; user-select: none; }
 /* Facts as label over value, in a row that wraps (the home page's DJ, the account area, a player's page). */
 .facts { display: flex; flex-wrap: wrap; gap: 10px 26px; margin: 0 0 8px; }
 .facts div { min-width: 0; }
-.facts dt { font: 400 10px/1.4 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash); }
+.facts dt { font: 400 11px/1.4 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash); }
 body.lang-ko .facts dt { font: 600 12px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
 .facts dd { margin: 2px 0 0; font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
 .facts.wide { gap: 14px 40px; }
@@ -291,16 +302,22 @@ body.lang-ko .facts dt { font: 600 12px/1.4 var(--text-face); letter-spacing: 0;
 .table.launchers .dot { display: inline-block; vertical-align: 1px; margin-right: 6px; }
 /* The home page's one main key, under its hero's words. */
 .hero-key { margin: 16px 0 0; }
+/* The home page's live line under its key: a cabinet's lamp, the cabinets connected, and who plays on them. */
+.hero-live { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 18px 0 0; color: var(--ash);
+             font-size: 13px; }
+.hero-live b { color: var(--chalk); font-weight: 700; }
+.hero-live .who-plays { color: var(--chalk); }
+.hero-live .who-plays::before { content: "·"; margin-right: 12px; color: var(--faint); }
 
 /* ------------------------------------------------------------------------------------------ page head */
 /* A page that works rather than shows (one's own account, the download): a low head, the kicker and the page's name in
    chrome, no sentence under it, the section's colour only in the kicker and a faint wash at the end. (The admin site's
    pages have the console's title row: .console-head.) */
-.page-head { position: relative;
+.page-head { position: relative; overflow: hidden;
              background: linear-gradient(90deg, var(--field) 45%, color-mix(in srgb, var(--accent-deep) 40%, var(--field)) 100%); }
 .page-head-text { max-width: 1180px; margin: 0 auto; padding: 24px 32px 20px; }
 .page-head .kicker { margin-bottom: 6px; }
-.page-head h1 { margin: 0; padding-bottom: 2px; font: 400 30px/1.05 var(--wide); letter-spacing: -0.01em; overflow-wrap: anywhere;
+.page-head h1 { margin: 0; padding-bottom: 2px; font: 400 28px/1.05 var(--wide); letter-spacing: -0.01em; overflow-wrap: anywhere;
                 background: var(--chrome); -webkit-background-clip: text; background-clip: text; color: transparent;
                 filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7)); }
 body.lang-ko .page-head h1 { font: 700 28px/1.2 var(--text-face); letter-spacing: -0.02em; }
@@ -316,7 +333,7 @@ body.lang-ko .page-head h1 { font: 700 28px/1.2 var(--text-face); letter-spacing
 .side-nav { position: sticky; top: calc(var(--bar-h, 62px) + 16px); align-self: start; display: grid; gap: 2px; padding: 6px;
             background: var(--plate); box-shadow: var(--raise); }
 .side-nav a { position: relative; display: flex; align-items: center; min-height: 40px; padding: 0 14px 0 18px; color: var(--ash);
-              font: 400 11px/1.2 var(--wide); letter-spacing: 0.08em; text-transform: uppercase; }
+              font: 400 12px/1.2 var(--wide); letter-spacing: 0.08em; text-transform: uppercase; }
 body.lang-ko .side-nav a { font: 600 14px/1.2 var(--text-face); letter-spacing: 0; text-transform: none; }
 .side-nav a:hover { color: var(--chalk); background: var(--deck); text-decoration: none; }
 .side-nav a.on { color: var(--chalk); background: var(--deck-top); }
@@ -342,21 +359,141 @@ body.lang-ko .side-nav a { font: 600 14px/1.2 var(--text-face); letter-spacing: 
 @media (max-width: 760px) {
   .page-head-text { padding: 18px 16px 14px; }
   .page-head h1 { font-size: 24px; }
-  body.lang-ko .page-head h1, .page-head h1:not(.word) { font-size: 22px; }
+  body.lang-ko .page-head h1, .page-head h1:not(.word) { font-size: 24px; }
 }
 
 /* ---------------------------------------------------------------------------------------------- pages */
 main { flex: 1; }
+/* ---------------------------------------------------------------------------------------------- card kinds */
+/* Each box takes the kind that fits what it holds (_work/theme/CARDS.md, the owner's "each card's shape and colour fitting
+   its content"): one modifier class on the card (k-<kind>), its face and its shape; the family stays (the seam ring
+   drawn by the shape, the cut, light from above, opaque reading faces). A card with no kind is a settings plate. */
+:root {
+  /* A sunken screen (an instrument panel's), the shade along its top inside and the light caught at its foot. */
+  --k-screen: #0c0f13; --k-shade: #06080a; --k-catch: #2a313a;
+  /* The game's black glass (its result frames), a gloss in its top third. */
+  --k-glass: linear-gradient(180deg, #1b2129 0, #0e1115 36%, #08090c 100%);
+  /* A quiet face a step off the page (it says, it does not ask), and a list's band (the slots' dark). */
+  --k-quiet: #14181d; --k-band: #0d1014;
+  /* The member's card as an object on the dark page: a mid platinum that does not glare. */
+  --k-platinum: linear-gradient(180deg, #d9dfe3 0%, #c5ccd2 46%, #b3bbc2 50%, #c1c8ce 72%, #cfd5da 100%);
+}
+/* status: the plate holding a sunken screen, its rows and figures on the screen (the cabinet's perforation faint in it),
+   shade along the screen's top inside, light caught at its foot. */
+.card.k-status .k-screen { margin: 4px -10px 0; padding: 14px 14px;
+  background: radial-gradient(circle at 2px 2px, rgba(170, 180, 191, 0.06) 0.8px, transparent 1.2px) 0 0 / 6px 6px, var(--k-screen);
+  box-shadow: inset 0 1px 0 var(--k-shade), inset 0 2px 4px rgba(0, 0, 0, 0.55), inset 0 -1px 0 var(--k-catch); }
+/* A head's plate is all screen but its edge: the screen starts at its top. */
+.card.head.k-status .k-screen { margin-top: 0; }
+/* member: the box stays the dark plate; the card in it is the object, in a mid platinum (the DJ card, the card's preview). */
+.card.k-member :is(.djcard, .card-preview) {
+  background: radial-gradient(circle at 2px 2px, rgba(20, 28, 36, 0.08) 0.85px, transparent 1.25px) 0 0 / 8px 8px,
+              radial-gradient(circle at 6px 6px, rgba(20, 28, 36, 0.08) 0.85px, transparent 1.25px) 0 0 / 8px 8px, var(--k-platinum); }
+/* result: the game's black glass, cut at two opposite corners (top right and foot left, its result frames), the seam
+   ring following both cuts (its inner shape moved 0.4142 px across each, as the one cut's); figures in the display face,
+   scores in the score colour. */
+/* (Each kind's face is said for the admin site's console too, whose cards' own face is set by a longer rule.) */
+.card.k-result, body.console .card.k-result { background: var(--k-glass);
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut))); }
+.card.k-result::after { background: linear-gradient(180deg, #3a434e 0, #20262e 30%, #20262e 100%);
+  clip-path: polygon(evenodd, 0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 0,
+                     1px 1px, 1px calc(100% - var(--cut) - 0.4142px), calc(var(--cut) + 0.4142px) calc(100% - 1px), calc(100% - 1px) calc(100% - 1px),
+                     calc(100% - 1px) calc(var(--cut) + 0.4142px), calc(100% - var(--cut) - 0.4142px) 1px, 1px 1px); }
+.card.k-result :is(.score, td.num, .stat .value) { font-family: var(--wide); font-weight: 400; letter-spacing: 0.02em; }
+.card.k-result .score { color: var(--score); }
+/* list: one sheet, its name on a band across its whole top (the slots' dark) in place of a tab, rows edge to edge. */
+.card.k-list > h3:first-child, body.console .card.k-list > h3:first-child {
+  position: static; display: flex; height: auto; margin: -22px calc(-1 * var(--pad-x)) 16px; padding: 12px var(--pad-x);
+  clip-path: none; background: var(--k-band); box-shadow: inset 0 -1px 0 var(--deck-top); }
+body.console .card.k-list:has(> h3:first-child) { padding-top: 22px; }
+/* info: quiet and flat, a step off the page, no light along its top; its name quiet in the ash (as large as its words:
+   a name never smaller than what it names). */
+.card.k-info, body.console .card.k-info { background: var(--k-quiet); }
+.card.k-info::after { background: var(--seam); }
+.card.k-info > h3:first-child, body.console .card.k-info > h3:first-child { position: static; display: flex; height: auto;
+  margin: 0 0 14px; padding: 0; clip-path: none; background: none; color: var(--ash); }
+body.console .card.k-info:has(> h3:first-child) { padding-top: 22px; }
+/* danger: a sunken tray, darker than the page, shade along its top inside and light at its foot (lit the other way from
+   a plate); its name grey on the tray's dark; colour only on its destructive key. */
+.card.k-danger, body.console .card.k-danger { background: var(--k-screen);
+  box-shadow: inset 0 2px 0 var(--k-shade), inset 0 3px 6px rgba(0, 0, 0, 0.6), inset 0 -1px 0 var(--k-catch); }
+.card.k-danger::after { background: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0, var(--seam) var(--cut), var(--seam) 100%); }
+.card.k-danger > h3:first-child { color: var(--ash); }
+body.console .card.k-danger > h3:first-child { background: #1d2228; color: var(--ash); }
+/* One's own row in a list: openDMT3's blue, a flat tint (never a section's pink). */
+.card .rows > .row.me { background: rgba(42, 95, 240, 0.14); }
+/* ------------------------------------------------------------------------------------------ composition */
+/* A page is composed, not a stack of boxes (the owner's rule, 11-19): its head's facts large on one plate under its
+   title, the groups that go together side by side at one height, a group's settings and facts as rows (the name in a
+   column of its own, the value or the control beside it, a hairline between two rows), and never a box that holds one
+   key or one fact. */
+/* Two groups side by side, of one height (the taller sets the row's); one under the other below a laptop's width. */
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: stretch; margin-bottom: 18px; }
+.pair > .card, .pair > .column > .card:last-child { margin-bottom: 0; }
+/* A side of a pair that holds two groups one over the other: the lower one takes what is left of the row's height. */
+.pair > .column { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.pair > .column > .card { margin-bottom: 0; }
+.pair > .column > .card:last-child { flex: 1; }
+@media (max-width: 1000px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+/* A group's rows: the name's column and the value's (a fact, or the control that changes it), a hairline between two;
+   the name on the first line's baseline of a fact, on the middle of a control. (A row of a .rows group: a form's
+   fields side by side are .form.row, its own kind.) */
+.rows { display: grid; }
+.rows > .row { display: grid; grid-template-columns: var(--row-label, 176px) minmax(0, 1fr); column-gap: 24px;
+                align-items: baseline; padding: 14px 0; border-top: 1px solid var(--seam); }
+.rows > .row:first-child { border-top: 0; padding-top: 0; }
+.rows > .row:last-child { padding-bottom: 0; }
+.row-label { margin: 0; font: 600 14px/1.5 var(--text-face); color: var(--ash); }
+.row-value { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.row-value > p { margin: 0; }
+.row-value > p + p, .row-value > p + form, .row-value > form + p { margin-top: 8px; }
+/* A row whose value starts with a control of a line's height (a field, a key): the name on the control's middle, the
+   control's hint or error under it moving nothing. */
+.rows > .row.ctl { align-items: start; }
+.rows > .row.ctl > .row-label { padding-top: calc((var(--ctl) - 21px) / 2); }
+/* Under a row's value: what it means, in the hint's ink. */
+.row-note { margin: 6px 0 0; font-size: 13px; line-height: 1.45; color: var(--hint); }
+@media (max-width: 760px) {
+  .rows > .row { grid-template-columns: minmax(0, 1fr); row-gap: 6px; padding: 12px 0; }
+  .rows > .row:first-child { padding-top: 0; }
+}
+/* A page's head: what it is read for first, large, side by side with a hairline between, on one plate under its title
+   (a line about the page above them when it has one). */
+.card.head { padding-top: 22px; padding-bottom: 22px; }
+.head .lead { margin: 0 0 18px; color: var(--ash); }
+.headline { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); row-gap: 18px; }
+.hf { display: grid; align-content: start; gap: 6px; min-width: 0; padding: 0 24px; border-left: 1px solid var(--seam); }
+.hf:first-child { padding-left: 0; border-left: 0; }
+.hf .value { font: 800 28px/1.15 var(--text-face); letter-spacing: -0.01em; font-variant-numeric: tabular-nums;
+             color: var(--chalk); overflow-wrap: anywhere; }
+/* A value of words or a moment rather than a count: a step smaller, on the counts' baseline grid still. */
+.hf .value.words { font: 700 20px/1.6 var(--text-face); letter-spacing: 0; }
+.hf .label { font-size: 13px; line-height: 1.45; color: var(--ash); }
+.hf .value.bad { color: var(--pink); }
+.hf .value.look { color: var(--amber); }
+@media (max-width: 760px) {
+  /* Two a row on a phone, without the hairlines between them; a moment in words has its row to itself (two columns are
+     narrower than a date and its time). */
+  .headline { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
+  .hf { padding: 0; border-left: 0; }
+  .hf:has(> .value.words) { grid-column: 1 / -1; }
+}
+/* A group's key in its head row, at the right of its name (a list's CSV): the name's line, the key's height. */
+.card > .group-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.card > .group-head h3 { margin: 0; }
+
 .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; padding: 24px 32px 40px; max-width: 1180px; margin: 0 auto; }
 .grid .wide { grid-column: 1 / -1; }
-/* A column of cards in a grid cell (a DJ's page): its cards keep their own heights. */
-.grid .column { display: grid; gap: 18px; align-content: start; min-width: 0; }
+/* A column of cards in a grid cell (a DJ's page): the column as tall as the one beside it, its last card taking what is
+   left, so the two columns end on one line. */
+.grid .column { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .grid .column .card { margin-bottom: 0; }
+.grid .column > .card:last-child { flex: 1; }
 .narrow { max-width: 520px; margin: 32px auto; padding: 0 16px; }
 .narrow.wide-ish { max-width: 760px; }
 .page { padding: 24px 32px 40px; max-width: 1180px; margin: 0 auto; }
 /* A panel: gunmetal glass, a shade lighter at its head, the top-right corner cut like the game's plates. */
-.card { position: relative; margin-bottom: 18px; padding: 22px 24px; background: var(--plate-sheen), var(--plate); }
+.card { --pad-x: 24px; position: relative; margin-bottom: 18px; padding: 22px var(--pad-x); background: var(--plate-sheen), var(--plate); }
 /* The game's cut corner, one shape for every part that has it (a card, the podium's plates, a dialog's panel, a
    player's picture: players.css): the part is clipped to it (--cut, the corner's size), and its seam is a ring of
    1 px drawn by the same shape over the part (::after: the shape less the one 1 px inside it, even-odd). So one line
@@ -370,7 +507,7 @@ main { flex: 1; }
   clip-path: polygon(evenodd, 0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%, 0 0,
                      1px 1px, 1px calc(100% - 1px), calc(100% - 1px) calc(100% - 1px),
                      calc(100% - 1px) calc(var(--cut) + 0.4142px), calc(100% - var(--cut) - 0.4142px) 1px, 1px 1px); }
-.dj-name { font: 700 30px/1.15 var(--text-face); margin: 0; }
+.dj-name { font: 700 28px/1.15 var(--text-face); margin: 0; }
 body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 .cardline { display: flex; gap: 12px; align-items: baseline; margin: 14px 0 6px; }
 .cardline .label { color: var(--ash); font-size: 13px; }
@@ -386,7 +523,7 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 .plays li:last-child { border-bottom: 0; }
 .plays .song { font-weight: 600; overflow-wrap: anywhere; }
 .plays .muted { grid-column: 1; font-size: 13px; }
-.plays .score { grid-column: 2; grid-row: 1 / span 2; align-self: center; font: 800 16px/1 var(--text-face);
+.plays .score { grid-column: 2; grid-row: 1 / span 2; align-self: center; font: 800 17px/1 var(--text-face);
                 font-variant-numeric: tabular-nums; color: var(--score); }
 /* A new record's gain over the best it beat, small under its score. */
 .plays .gain { display: block; margin-top: 5px; text-align: right; font: 600 12px/1 var(--text-face);
@@ -408,15 +545,13 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 .btn:hover { background: linear-gradient(180deg, #4a5461, var(--rail-up)); color: #fff; text-decoration: none; }
 .btn:active { transform: translateY(1px); }
 .btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: -3px; }
-.btn.primary { color: var(--accent-ink); background: var(--accent-fill); }
-.btn.primary:hover { color: var(--accent-ink); background: var(--accent-fill); filter: brightness(1.12); }
+.btn.primary { color: #fff; background: var(--blue); }
+.btn.primary:hover { color: #fff; background: var(--blue); filter: brightness(1.12); }
 .btn.primary:focus-visible { outline-color: var(--accent-ink); }
-.btn.big { height: 52px; font-size: 17px; padding: 0 30px; margin-bottom: 18px; }
-/* On a phone the big key takes the row and its words wrap (a long name ran past a 360 px screen). */
-@media (max-width: 760px) { .btn.big { width: 100%; height: auto; min-height: 52px; padding: 10px 18px; white-space: normal; text-align: center; } }
+/* Keys by their role, one height and one side padding each on every page of both sites (the site check holds them): a
+   main key and an ordinary one at a page's controls' height, a small one at a table row's; each as wide as its words
+   and its padding (never stretched across its card or its row, on a phone too). */
 .btn.small { height: var(--ctl-sm); min-width: 76px; font-size: 13px; padding: 0 12px; }
-/* The sign-in's key, as tall as its fields. */
-.btn.lg { height: var(--ctl-lg); font-size: 16px; }
 .btn.danger { color: #ffb8d9; background: linear-gradient(180deg, #5a3a52, #4b3044); }
 .btn.danger:hover { color: var(--ink); background: var(--pink); }
 .btn.danger.fill { color: var(--ink); background: var(--pink); }
@@ -431,7 +566,8 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 .form { display: grid; gap: 16px; }
 .form.stack { max-width: 440px; }
 /* A field: its label, the slot, then a hint or what is wrong, 6 px apart. A label that wraps its field reads the same. */
-.field, .form label:not(.check):not(.drop):not(.choice):not(.label) { display: grid; gap: 6px; min-width: 0; align-content: start; }
+.field, .form label:not(.check):not(.drop):not(.choice):not(.label) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px;
+                                                                      min-width: 0; align-content: start; }
 /* The label: what goes in, 13 px semibold in the ash's grey, a sentence's case in English (never capitals). */
 .field > .label, .form label:not(.check):not(.drop):not(.choice):not(.label) { font: 600 13px/18px var(--text-face); color: var(--ash); }
 .field > .label { display: flex; align-items: baseline; gap: 8px; min-height: 18px; margin: 0; }
@@ -457,6 +593,22 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
 .form.row > .grow { flex: 2 1 260px; }
 .form.row > .btn, .form.row > .form-actions { flex: 0 0 auto; margin: 24px 0 0; }
 .form.row > p { margin: 0; }
+/* A field as wide as what it takes (a control sized for its use): an ID or a DJ name of 8 letters, a password of 16 with
+   its Show, a number, a level; a field for long words (an address, a path, a notice, a reason) takes its column. In a
+   row of fields side by side the field's column is its slot's width. */
+.field.w-id { --w: 216px; } .field.w-pass { --w: 320px; } .field.w-num { --w: 216px; } .field.w-short { --w: 120px; }
+.field.w-name { --w: 320px; }
+.field:is(.w-id, .w-pass, .w-num, .w-short, .w-name) > :is(input, select, .field-slot) { width: var(--w); max-width: 100%; }
+.form.row > .field:is(.w-id, .w-pass, .w-num, .w-short, .w-name) { flex: 0 1 var(--w); }
+/* A field and its key on one line (a group's row names the field), or a line of words and its key: the key on the
+   slot's line (past the field's label when it has one), the field's hint or error under the slot. */
+.form.line { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; }
+.form.line > .field { flex: 0 1 auto; min-width: 0; }
+.form.line > .btn { flex: none; }
+.form.line:has(> .field > .label) > .btn { margin-top: 24px; }
+.form.line > .line-words { flex: 1 1 240px; margin: 0; align-self: center; }
+/* A key standing in a form of its own (no row of keys around it) keeps its width: a grid's item stretches by itself. */
+.form > .btn, .form.row > .btn { justify-self: start; }
 /* The form's own keys under its fields: the main one first, 24 px under the last field (16 + 8). */
 .form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
 .form-actions > form { margin: 0; }
@@ -465,7 +617,6 @@ body.lang-en .dj-name { font: 400 28px/1.15 var(--wide); }
   /* Stacked, a tick needs no label's room above it (the row it lined up with is gone). */
   .form.row > .fit > .label:empty { display: none; }
   .form.row > .btn, .form.row > .form-actions { margin-top: 8px; }
-  .form-actions > .btn, .form-actions > form, .form-actions > form > .btn, .form.row > .btn { width: 100%; }
 }
 
 /* The slot: every typed field and every list to pick from, square, the well's dark, a 1 px machined edge and a shade along
@@ -534,7 +685,7 @@ textarea[readonly] { min-height: 0; overflow-y: hidden; }
 /* A key inside a text area stands at its top right. */
 .field-slot.keyed > textarea + .slot-key { bottom: auto; height: 32px; }
 /* Two keys at the end (a stepper's minus and plus): square, side by side. */
-.slot-key.step { min-width: 0; width: 32px; padding: 0; font: 600 16px/1 var(--text-face); }
+.slot-key.step { min-width: 0; width: 32px; padding: 0; font: 600 17px/1 var(--text-face); }
 .slot-key.step.minus { right: 41px; }
 /* A unit after a number (MB, points): the hint's ink at the slot's right end, not a key. */
 .field-slot > .unit { position: absolute; top: 0; bottom: 0; right: 12px; display: flex; align-items: center; color: var(--hint);
@@ -643,18 +794,21 @@ details > summary:focus-visible { outline: 2px solid var(--cyan); outline-offset
 .alert.bad::before { background: var(--lamp-pink); }
 /* Tabs lean like the mode bar on the game's mode select. */
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
-.tabs a { padding: 9px 22px; font: 400 11px/1 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash);
+.tabs a { padding: 9px 22px; font: 400 12px/1 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash);
           background: var(--rail); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
 body.lang-ko .tabs a { font: 600 13px/1 var(--text-face); text-transform: none; letter-spacing: 0; }
 .tabs a:hover { color: var(--chalk); background: var(--rail-up); text-decoration: none; }
-.tabs a.on { color: var(--accent-ink); background: var(--accent-fill); }
+.tabs a.on { color: #fff; background: var(--blue); }
 /* The modes' keys (Rankings): each mode lit in its own colour, whatever the page's section: STAR MIXING's lime, POP
    MIXING's pink, the other modes the title screen's blue. */
 .tabs.modes a.on { color: #fff; background: var(--blue); }
 .tabs.modes a.on.mode-0 { color: var(--ink); background: var(--lime); }
 .tabs.modes a.on.mode-1 { color: var(--ink); background: var(--pink); }
 .table { width: 100%; border-collapse: collapse; }
-.table th { text-align: left; font: 400 10px/1.4 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash);
+/* In a group the table's words start on the group's own edge, as its rows' and its lines' do: the table runs into the
+   group's padding by its cells' own (10 px), so its rules and a row's wash reach a little past the words. */
+.card .table { width: calc(100% + 20px); margin-left: -10px; margin-right: -10px; }
+.table th { text-align: left; font: 400 11px/1.4 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash);
             padding: 8px 10px; border-bottom: 1px solid var(--seam); }
 body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: none; letter-spacing: 0; }
 .table td { padding: 10px; border-bottom: 1px solid var(--seam); vertical-align: middle; }
@@ -668,8 +822,10 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
    .btn sets its words in its middle as a flex box, and as a plain inline block they rose to its top. */
 .table .actions > form { display: inline-block; }
 /* A tag is one word or two on one line (a scope's "Read and write" broke in two inside its own chip). */
-.tag { display: inline-block; font: 400 9px/1.6 var(--wide); letter-spacing: 0.06em; padding: 1px 7px; margin-right: 4px;
+.tag { display: inline-block; font: 400 11px/1.5 var(--wide); letter-spacing: 0.06em; padding: 1px 8px; margin-right: 4px;
        color: var(--accent-ink); background: var(--accent-fill); white-space: nowrap; }
+/* A tag in Korean words: the text face, bold, a step up (its syllables are drawn larger than the wide capitals). */
+body.lang-ko .tag:not([lang="en"]) { font: 700 12px/1.4 var(--text-face); letter-spacing: 0; }
 .tag.bad { color: var(--ink); background: var(--pink); }
 
 /* ------------------------------------------------------------------------------------ rankings, songs */
@@ -683,7 +839,7 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 /* My row: the section's colour as a faint wash and on my place (no bar down its side: the "You" tag says it). */
 /* One's own row: openDMT3's own blue (one's own, never a colour that reads as a refusal or a section's), a faint wash
    and the place in it; its tag says You. */
-.table tr.me td { background: color-mix(in srgb, var(--blue-hi) 10%, transparent); }
+.table tr.me td { background: rgba(42, 95, 240, 0.14); }
 .table tr.me .place { color: var(--blue-hi); }
 .tag.you { color: #fff; background: var(--blue); }
 .table tr.quiet td { color: var(--faint); }
@@ -714,8 +870,11 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 .song-count { margin: 0 0 12px; }
 /* A row the filter hides stays hidden whatever else sets its display. */
 .table tr[hidden] { display: none; }
-/* The installer's size, date and version under its button. */
-.file-facts { margin: -10px 0 16px; }
+/* The Download page: its key, then the installer's facts as rows, in one group no wider than its rows want, on the
+   head's left edge. */
+.card.download { max-width: 760px; }
+.group-lead { margin: 0 0 22px; }
+.card.download > .alert { margin-bottom: 22px; }
 .search .slot { flex: 1; }
 .songs .by { display: block; color: var(--ash); font-size: 12px; font-weight: 400; }
 /* Two boards a row at most: each needs room for a name, a score and a date on one line. */
@@ -724,7 +883,7 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
    break it (Korean pages let a word break anywhere it must: a moment is not such a word). */
 .board td.when, .table td.when { white-space: nowrap; }
 .charts .card { margin-bottom: 0; }
-.hero h1.title { font: 700 34px/1.2 var(--text-face); letter-spacing: -0.02em; background: none; color: var(--chalk);
+.hero h1.title { font: 700 32px/1.2 var(--text-face); letter-spacing: -0.02em; background: none; color: var(--chalk);
                  filter: none; overflow-wrap: anywhere; }
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 /* The DJ card as the member's card it was on the Platinum Crew service: one platinum card in a card's proportions
@@ -813,7 +972,7 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 .choice input:focus-visible + img { outline-color: var(--cyan); }
 .stat { display: grid; gap: 4px; }
 .stat .value { font: 800 28px/1.1 var(--text-face); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; color: var(--chalk); }
-.stat .value.small-value { font: 600 16px/1.6 var(--text-face); }
+.stat .value.small-value { font: 600 17px/1.6 var(--text-face); }
 .stat .label { color: var(--ash); font-size: 13px; }
 /* A DJ's weeks: one thin bar per week, this week last, grown from one hairline; the numbers live in each bar's tip
    (hover or keyboard focus) and in the table under it. The bar is the section's deeper accent (checked against
@@ -859,15 +1018,14 @@ a.stat:hover .value { color: var(--accent); }
 /* The card's name hangs from its top edge on a platinum tab with 45 degree sides (the Platinum Crew login page's). */
 .signin h2, body.lang-en .signin h2 { position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 1; margin: 0;
   height: 30px; padding: 0 46px; display: grid; place-items: center; white-space: nowrap;
-  font: 400 11px/1 var(--wide); letter-spacing: 0.12em; text-transform: uppercase; color: #12171c;
+  font: 400 15px/1 var(--wide); letter-spacing: 0.08em; text-transform: uppercase; color: #12171c;
   background: linear-gradient(180deg, #d3dde0 0, #b6c5c9 100%); clip-path: polygon(0 0, 100% 0, calc(100% - 30px) 100%, 30px 100%); }
-body.lang-ko .signin h2 { font: 700 13px/1 var(--text-face); letter-spacing: 0; text-transform: none; }
+body.lang-ko .signin h2 { font: 700 15px/1 var(--text-face); letter-spacing: 0; text-transform: none; }
 .signin .form { margin-top: 18px; }
 /* The first run's one line under its heading. */
 .door-lead { margin: 6px 0 0; color: var(--hint); font-size: 13px; line-height: 1.5; }
 /* Remember my ID: on a line of its own under the password, quieter than the fields. */
 .signin .check.sub { margin-top: -4px; font-size: 14px; color: var(--ash); }
-.signin .form-actions .btn { flex: 1 1 100%; }
 /* The way back when the password is gone: one quiet line under the key, past a seam. */
 .signin .lost { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--seam); color: var(--hint); font-size: 13px; line-height: 1.5; }
 /* What just happened (the owner's account made, an account deleted): a lime lamp and the words. */
@@ -896,7 +1054,7 @@ body.console { background-image: none; background-color: #0e1114; }
 .bar.console.door-bar { background: transparent; border-bottom-color: transparent; }
 /* The keys: leaning metal tabs side by side, the page showing lit in TECHNIKA 3's blue with white words. */
 .console .menu { gap: 2px; }
-.console .menu a { height: 34px; padding: 0 16px; font: 400 11px/1 var(--wide); letter-spacing: 0.06em;
+.console .menu a { height: 34px; padding: 0 16px; font: 400 12px/1 var(--wide); letter-spacing: 0.06em;
                    text-transform: uppercase; white-space: nowrap; color: var(--ash); background: var(--rail);
                    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
 body.lang-ko .console .menu a { font: 600 13px/1 var(--text-face); letter-spacing: 0; text-transform: none; }
@@ -907,7 +1065,7 @@ body.lang-ko .console .menu a { font: 600 13px/1 var(--text-face); letter-spacin
 /* The rail: the server's state in one line of small capitals, the values in the chalk (pink while something is off
    that should be on, or on that keeps players out), the players' site's address at its right end. */
 .rail { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 24px; padding: 8px 32px; background: #101317;
-        border-bottom: 1px solid var(--seam); font: 400 10px/1.4 var(--wide); letter-spacing: 0.08em;
+        border-bottom: 1px solid var(--seam); font: 400 11px/1.4 var(--wide); letter-spacing: 0.08em;
         text-transform: uppercase; color: var(--ash); }
 body.lang-ko .rail { font: 600 12px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
 .rail .item { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; color: var(--ash); }
@@ -921,29 +1079,29 @@ body.lang-ko .rail .item b { font-weight: 700; }
 /* The cabinet's lamps with their words (the game's ID CARD and NET at its foot, measured): a small plate rounded as
    the game's lamps are; lit, its body dark at the top and lit from below, a light rim and white words (5.2:1 and more);
    off, black glass, a grey rim and grey words (5.2:1). Nothing round them. */
-.lampchip { flex: none; display: inline-grid; place-items: center; height: 16px; padding: 0 7px; border-radius: 3px;
-            font: 400 8px/1 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: #7a8592;
+.lampchip { flex: none; display: inline-grid; place-items: center; height: 20px; padding: 0 8px; border-radius: 3px;
+            font: 400 11px/1 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: #7a8592;
             background: #0b0d10; box-shadow: inset 0 0 0 1px #464f5a; }
 .lampchip.on { color: #fff; box-shadow: inset 0 0 0 1px rgba(238, 244, 246, 0.85); }
 .lampchip.net.on { background: linear-gradient(180deg, #0f4a1a, #25841b); }
 .lampchip.bad.on { background: linear-gradient(180deg, #6a1240, #c42a73); }
-body.lang-ko .lampchip { font: 700 10px/1 var(--text-face); letter-spacing: 0; }
+body.lang-ko .lampchip { font: 700 12px/1 var(--text-face); letter-spacing: 0; }
 /* A page's title row: its name in chrome, its one main key at the right. */
 .console-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; width: 100%;
                 max-width: 1180px; margin: 0 auto; padding: 26px 32px 0; }
 .console-head h1 { flex: 1; min-width: 0; margin: 0; padding-bottom: 2px; font: 400 28px/1.1 var(--wide);
                    letter-spacing: -0.01em; overflow-wrap: anywhere; background: var(--chrome); -webkit-background-clip: text;
                    background-clip: text; color: transparent; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7)); }
-body.lang-ko .console-head h1 { font: 700 26px/1.25 var(--text-face); letter-spacing: -0.02em; }
+body.lang-ko .console-head h1 { font: 700 28px/1.25 var(--text-face); letter-spacing: -0.02em; }
 .console-main { width: 100%; max-width: 1180px; margin: 0 auto; padding: 18px 32px 40px; }
 .console-main > .card:last-child { margin-bottom: 0; }
 /* The cards are opaque (a control room's panels), with a tab head: the card's name on a dark leaning tab at its top left. */
 body.console .card { background: var(--deck); -webkit-backdrop-filter: none; backdrop-filter: none; }
-body.console .card:has(> h3:first-child) { padding-top: 42px; }
-body.console .card > h3:first-child { position: absolute; left: 0; top: 0; height: 24px; margin: 0; padding: 0 26px 0 12px;
-                                      font: 400 10px/1 var(--wide); letter-spacing: 0.1em; color: var(--chalk);
-                                      background: var(--rail); clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%); }
-body.lang-ko.console .card > h3:first-child { font: 600 12px/1 var(--text-face); letter-spacing: 0; }
+body.console .card:has(> h3:first-child) { padding-top: 52px; }
+body.console .card > h3:first-child { position: absolute; left: 0; top: 0; height: 32px; margin: 0; padding: 0 30px 0 16px;
+                                      font: 400 15px/1 var(--wide); letter-spacing: 0.04em; color: var(--chalk);
+                                      background: var(--rail); clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%); }
+body.lang-ko.console .card > h3:first-child { font: 700 15px/1 var(--text-face); letter-spacing: 0; }
 body.console .card > h3:first-child::after { display: none; }
 body.console .foot { background: #0a0c0f; }
 /* Between a laptop and a phone: the name beside the badge goes, the keys come closer, then they take a row of their own
@@ -964,9 +1122,9 @@ body.console .foot { background: #0a0c0f; }
   .rail .addr { display: none; }
   .console-head { padding: 18px 16px 0; }
   .console-head h1 { font-size: 24px; }
-  body.lang-ko .console-head h1 { font-size: 22px; }
+  body.lang-ko .console-head h1 { font-size: 24px; }
   .console-main { padding: 14px 16px 32px; }
-  body.console .card { padding-left: 18px; padding-right: 18px; }
+  body.console .card { --pad-x: 18px; }
 }
 
 /* --------------------------------------------------------------------------------------------- dialog */
@@ -987,11 +1145,11 @@ body.console .foot { background: #0a0c0f; }
               background: linear-gradient(135deg, color-mix(in srgb, var(--tone) 18%, transparent) 0, transparent 38%),
                           var(--glass-sheen), rgba(26, 31, 37, 0.94); }
 .ask .tab { position: absolute; top: 0; left: 50%; transform: translateX(-50%); padding: 0 40px; height: 30px; display: grid;
-            place-items: center; white-space: nowrap; font: 400 10px/1 var(--wide); letter-spacing: 0.08em; text-transform: uppercase;
+            place-items: center; white-space: nowrap; font: 400 11px/1 var(--wide); letter-spacing: 0.08em; text-transform: uppercase;
             color: var(--ink); background: linear-gradient(180deg, var(--tone-top), var(--tone-bottom));
             clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 14px 100%); }
 body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
-.ask .question { margin: 0 0 8px; font: 600 18px/1.4 var(--text-face); text-wrap: balance; overflow-wrap: anywhere; }
+.ask .question { margin: 0 0 8px; font: 600 20px/1.4 var(--text-face); text-wrap: balance; overflow-wrap: anywhere; }
 .ask .detail { margin: 0; color: var(--ash); font-size: 14px; text-wrap: balance; }
 .ask .answers { display: flex; justify-content: center; gap: 12px; margin-top: 26px; }
 .ask .answers .btn { min-width: 132px; }
@@ -1036,7 +1194,7 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
   .hero { height: auto; min-height: 128px; }
   .hero.small { min-height: 120px; }
   .hero-text { padding: 26px 16px 22px; max-width: 100%; }
-  .hero h1 { font-size: 30px; }
+  .hero h1, body.lang-ko .hero h1.word { font-size: 32px; }
   .shards { opacity: 0.45; }
   .foot { padding: 16px; }
   .hero-text > * { max-width: 100%; }
@@ -1045,6 +1203,8 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
   .table:not(.board):not(.songs) thead { display: none; }
   .table:not(.board):not(.songs), .table:not(.board):not(.songs) tbody, .table:not(.board):not(.songs) tr,
   .table:not(.board):not(.songs) td { display: block; width: 100%; }
+  /* Stacked, a row's lines start on the group's edge with no cell padding to run into it by. */
+  .card .table:not(.board):not(.songs) { margin-left: 0; margin-right: 0; }
   .table:not(.board):not(.songs) tr { padding: 10px 0; border-bottom: 1px solid var(--seam); }
   .table:not(.board):not(.songs) td { border: 0; padding: 2px 0; }
   /* The headers are gone, so each cell under its row's name says what it is (its column's name, from the page): a
@@ -1059,21 +1219,44 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
   /* The tables that stay tables (the boards, the songs) go without their less needed columns. */
   .table .wide-only { display: none; }
   .board td, .board th, .songs td, .songs th { padding: 8px 6px; }
+  .card .table.board, .card .table.songs { width: calc(100% + 12px); margin-left: -6px; margin-right: -6px; }
   .podium { grid-template-columns: 1fr; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* A date's figure has the row to itself: two columns are narrower than a date and its time. */
   .stats .stat.date { grid-column: 1 / -1; }
   .tabs a { padding: 9px 14px; }
   .charts { grid-template-columns: 1fr; }
-  .hero h1.title { font-size: 26px; }
+  .hero h1.title { font-size: 24px; }
   .ask .panel { padding: 54px 22px 24px; }
-  .ask .answers .btn { min-width: 0; flex: 1; }
+  /* The door's tab on a phone: its name in the text face, at the same size (a long name in the wide capitals, the first
+     run's, was wider than the card). */
+  .signin h2, body.lang-en .signin h2 { padding: 0 36px; font: 700 15px/1 var(--text-face); letter-spacing: 0; text-transform: none;
+                                        clip-path: polygon(0 0, 100% 0, calc(100% - 24px) 100%, 24px 100%); }
+  /* A board's column head may take two lines on a phone, so the board keeps to the card's width. */
+  .table.board th.num { white-space: normal; }
+  .ask .answers .btn { min-width: 0; }
 }
 
-/* Admin, Status: the notice's Clear sits under its row. */
-.notice-clear { margin-top: 12px; }
+/* Admin, Status: the machine's charts on the left under its figures, what takes its disk on the right (one under the
+   other below a laptop's width). */
+.machine-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 40px; align-items: start; }
+.disk-part h4 { margin: 14px 0 4px; font: 600 15px/1.4 var(--text-face); color: var(--chalk); }
+@media (max-width: 1000px) { .machine-split { grid-template-columns: minmax(0, 1fr); } }
+/* A second short list of a group (the game's messages under the changes): under a hairline, its name a step under the
+   group's. */
+.sub-part { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--seam); }
+.sub-part > h4 { margin: 0 0 6px; font: 600 15px/1.4 var(--text-face); color: var(--chalk); }
+/* A group's way on to the page that holds more of it (the song list's tab), under the group's list. */
+.group-key { margin: 16px 0 0; }
+/* Admin, Status: the notice and maintenance as rows of one group, each row's key at the end of its line (the notice's
+   Save after its field, maintenance's key after its state), the notice's Clear and since under its field. */
+.announce .maintenance { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.announce .maintenance > p { flex: 1 1 220px; margin: 0; }
+.notice-clear { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
 
-/* Admin: the message to send a player, text to copy, a little smaller than a field's words. */
+/* Admin: the message to send a player, text to copy, a little smaller than a field's words; the first part of the group
+   that made it (Make an account, a player's Account), a hairline under it. */
+.made-message { margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--seam); }
 textarea.message { font-size: 14px; }
 /* The invite on the Players tab: the QR code (white with its quiet zone, as a phone reads it in either theme) beside
    the address, the address under it on a narrow screen. */
@@ -1103,7 +1286,7 @@ textarea.message { font-size: 14px; }
 /* Past months under this month's ranking: each month's first three in a block, the blocks side by side as room
    allows; the first place in the section's colour. */
 .past-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 14px 22px; }
-.past-month h4 { margin: 0 0 4px; font: 600 14px/1.4 var(--text-face); color: var(--chalk); }
+.past-month h4 { margin: 0 0 4px; font: 600 15px/1.4 var(--text-face); color: var(--chalk); }
 .past-top { list-style: none; margin: 0; padding: 0; }
 .past-top li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: baseline; gap: 8px; padding: 6px 0;
                border-bottom: 1px solid var(--seam); }
@@ -1163,14 +1346,18 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 /* Admin, Status: maintenance's state and its one button, on one row like the notice's. */
 .form.maintenance p { margin: 0; }
 
-/* Admin, Song list: the lead under the title, then the song list's state part by part with a lamp (lime for ready,
-   amber for not yet). */
-.song-list .lead { color: var(--ash); max-width: 760px; margin: 0 0 16px; }
-.states { display: flex; flex-wrap: wrap; gap: 10px 26px; margin-bottom: 12px; }
-.state-item { display: grid; gap: 4px; }
-.state-item .label { font-size: 12px; color: var(--ash); }
-.state-item .state { display: inline-flex; align-items: center; gap: 7px; margin: 0; font-weight: 600; }
+/* Admin, Song list: the head's line, then the song list's state part by part as the head's figures, each with a lamp
+   (lime for ready, amber for not yet), the part and its count under it. */
+.state-item .state { display: inline-flex; align-items: center; gap: 10px; margin: 0; }
 .state-item .state.wait { color: var(--amber); }
+.head .head-note { margin: 16px 0 0; }
+/* A head with its own key at the right (a list's file): the figures, then the key on their line. */
+.head-split { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
+.head-split > .headline { flex: 1 1 420px; }
+.head-tools { flex: none; margin: 0; }
+/* A list's filter at the head of its group, a hairline between it and the list. */
+.log-filter { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--seam); }
+.head .alert { margin: 16px 0 0; }
 .state-item .state .dot { background: var(--lamp-amber); }
 .state-item .state .dot.on { background: var(--lamp-net); }
 /* Found on the server PC: each path in the well's mono letters, its one line under it (lime with a check when it is
@@ -1203,7 +1390,6 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 .browser form { margin: 0; }
 @media (max-width: 760px) {
   .found-row { flex-direction: column; align-items: stretch; }
-  .found-row form .btn { width: 100%; }
   .form.path-row { grid-template-columns: 1fr; }
 }
 
@@ -1227,7 +1413,7 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 .trend .guide { stroke: var(--seam); stroke-width: 1; stroke-dasharray: 2 3; }
 .trend .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
 .trend .wash { fill: var(--accent); opacity: 0.14; }
-.trend-y { position: absolute; right: 0; font-size: 11px; color: var(--faint); line-height: 1; padding-left: 4px;
+.trend-y { position: absolute; right: 0; font-size: 12px; color: var(--faint); line-height: 1; padding-left: 4px;
            background: linear-gradient(90deg, transparent, var(--deck) 30%); }
 .trend-y.top { top: 0; }
 .trend-y.mid { top: calc(52% - 6px); }
@@ -1262,7 +1448,7 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 /* Twenty-four hours fit a phone too: on its width a cell is 10 px or so wide, the hours' labels every third. */
 .heat { display: grid; grid-template-columns: 30px repeat(24, minmax(0, 1fr)); gap: 2px; }
 /* An hour's figure stands whole over its column, running into the two empty ones after it (it never breaks in two). */
-.heat-hour { font-size: 11px; color: var(--faint); line-height: 1.6; white-space: nowrap; overflow: visible; }
+.heat-hour { font-size: 12px; color: var(--faint); line-height: 1.5; white-space: nowrap; overflow: visible; }
 .heat-day { font-size: 12px; color: var(--ash); line-height: 18px; }
 .heat i, .heat-key i, .daycells i { position: relative; display: block; height: 18px; border-radius: 2px; background: var(--rail); outline: none; }
 .heat i:focus-visible { box-shadow: 0 0 0 2px var(--cyan); }
@@ -1288,6 +1474,24 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 .daycells i { width: 9px; height: 14px; }
 .table.players td.days { white-space: nowrap; }
 .players-file, .requests-file { margin: 0 0 12px; }
+/* A list's file (the Players page's CSV): its key at the right end of the list's first line, over the list's last
+   column, as a list's tools stand. */
+.players-file { display: flex; justify-content: flex-end; }
+/* A group's last line, under a hairline: what acts on all of the group's list at once (every play reset). */
+.group-foot { margin: 16px 0 0; padding-top: 16px; border-top: 1px solid var(--seam); }
+/* Make an account and the invite in one group: the form, then a hairline, then the invite's code and address. The form's
+   tick and key on a line of their own under its fields. */
+.form.row > .form-actions.make-actions { flex: 1 1 100%; margin: 0; gap: 16px 24px; }
+.make-split { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px 32px; align-items: start; }
+.make-split > .invite { padding-left: 32px; border-left: 1px solid var(--seam); }
+.invite h4 { margin: 0 0 12px; font: 600 15px/1.4 var(--text-face); color: var(--chalk); }
+.invite .invite-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+.invite .invite-row > div:last-child { flex: none; }
+.invite .invite-row p { margin: 0; }
+@media (max-width: 1000px) {
+  .make-split { grid-template-columns: minmax(0, 1fr); }
+  .make-split > .invite { padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--seam); }
+}
 .requests-file { margin: 14px 0 0; }
 /* A column's header that sorts: its words, and an arrow for the order once it is the one sorted by. */
 .table th a.sort { color: inherit; font-weight: inherit; }
@@ -1326,6 +1530,8 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 /* A line that says how a list is made (the rankings' best 30 and month), on a glass strip of its own as every word
    of a page sits on something. */
 .page-note { background: var(--glass); box-shadow: var(--glass-rim); padding: 10px 14px; margin: 0 0 16px; }
+/* An empty board's line under the view's own, in the text's ink (what there is to see now). */
+.page-note .note-more { display: block; margin-top: 4px; color: var(--chalk); }
 /* The line under the message to send (an address only this PC reaches) keeps a step from the message's box. */
 .alert.message-local { margin: 12px 0 0; }
 /* A chart with nothing kept yet says so in the middle of its plot. */
