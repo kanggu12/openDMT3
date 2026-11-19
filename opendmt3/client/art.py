@@ -677,21 +677,6 @@ def field_mark(kind, size, colour, scale=1.0):
     return img.resize((px, px), Image.LANCZOS)
 
 
-def chevron(width, height, colour, scale=1.0, up=False):
-    """A drop-down's arrow: a small chevron pointing down (up while its list is open above it), in `colour`, on
-    nothing (a picture with transparency)."""
-    k = SS
-    w, h = width * k, height * k
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    # 8 by 4.5 logical pixels round the middle, 1.6 thick.
-    half, drop = 4 * scale * k, 2.25 * scale * k
-    cx, cy = w / 2.0, h / 2.0
-    tip, base = (cy - drop, cy + drop) if up else (cy + drop, cy - drop)
-    ImageDraw.Draw(img).line([(cx - half, base), (cx, tip), (cx + half, base)], fill=_rgb(colour) + (255,),
-                             width=max(k, int(round(1.6 * scale * k))), joint="curve")
-    return img.resize((width, height), Image.LANCZOS)
-
-
 # A card's tab and a section's plate: a few on each page, the same each visit.
 @_kept(64)
 def name_plate(text, scale=1.0, fill=None, colour=None):
@@ -873,35 +858,6 @@ def busy_frames(face, scale=1.0, count=8):
         frame.paste(Image.new("RGB", (w, h), (255, 255, 255)), (0, 0), alpha)
         frames.append(frame)
     return frames
-
-
-def toggle(on, width, height, enabled=True, colour=None, knob=None):
-    """An on/off switch: a pill with a round knob, in the section's colour when on (the knob dark on a bright
-    colour, light on blue)."""
-    w, h = width * SS, height * SS
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    track = (colour or theme.BLUE) if on else theme.RAIL
-    if not enabled:
-        track = "#20262e"
-    draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=h // 2, fill=_rgb(track) + (255,))
-    pad = int(h * 0.16)
-    d = h - 2 * pad
-    x = w - pad - d if on else pad
-    face = (knob if on and knob else theme.TEXT) if enabled else theme.FAINT
-    draw.ellipse([x, pad, x + d, pad + d], fill=_rgb(face) + (255,))
-    return img.resize((width, height), Image.LANCZOS)
-
-
-def knob(size, colour=theme.TEXT, ring=theme.BLUE):
-    """A slider knob: a light disc with a ring in the section's colour."""
-    s = size * SS
-    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    draw.ellipse([0, 0, s - 1, s - 1], fill=_rgb(ring) + (255,))
-    inset = int(s * 0.22)
-    draw.ellipse([inset, inset, s - 1 - inset, s - 1 - inset], fill=_rgb(colour) + (255,))
-    return img.resize((size, size), Image.LANCZOS)
 
 
 # An unlit lamp: quiet metal, dark at its top and a step lighter at its foot.
