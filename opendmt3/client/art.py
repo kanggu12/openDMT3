@@ -298,6 +298,46 @@ def chrome_text(parts, size, scale=1.0):
     return img, baseline
 
 
+# PLAY's discs made to the head's size, with their shadows, by disc and size (_disc_at): PLAY's head is drawn at every
+# visit of the page and after every resize, and the discs stay the same all day. Four discs at two sizes.
+_DISCS = collections.OrderedDict()
+DISCS_KEPT = 8
+
+
+def _disc_at(disc, size):
+    """`disc` (a song's round art, RGBA) at `size` pixels and its shadow, a blurred dark copy that lifts it off the
+    head: (disc, shadow), kept by the disc and the size. The disc itself is kept with them, so another disc that
+    Python gives the same id later never takes its place."""
+    key = (id(disc), size)
+    with _kept_lock:
+        found = _DISCS.get(key)
+        if found is not None and found[0] is disc:
+            _DISCS.move_to_end(key)
+            return found[1], found[2]
+    d = disc.resize((size, size), Image.LANCZOS)
+    # Three quarters of the disc's own shape in black, blurred.
+    shadow = Image.new("RGBA", d.size, (0, 0, 0, 0))
+    shadow.putalpha(d.getchannel("A").point(lambda a: a * 0.75))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(max(2, size // 22)))
+    with _kept_lock:
+        _DISCS[key] = (disc, d, shadow)
+        while len(_DISCS) > DISCS_KEPT:
+            # Another day's discs, or another window size's, go first.
+            _DISCS.popitem(last=False)
+    return d, shadow
+
+
+# The shade over the discs at the head's size: the window's size now and the last one.
+@_kept(2)
+def _discs_shade(width, height):
+    """The shade over PLAY's discs, the window's colour from nothing at the head's right edge to 55 % at its left, so
+    that the title keeps its contrast: an RGBA picture of the head's size."""
+    fade = Image.linear_gradient("L").rotate(90, expand=True).resize((width, height))
+    shade = Image.new("RGBA", (width, height), _rgb(theme.BG) + (0,))
+    shade.putalpha(fade.point(lambda v: int((255 - v) * 0.55)))
+    return shade
+
+
 def header(width, height, discs=(), seed=None, colours=None, title=None, title_tail=None, scale=1.0,
            title_at=(32, 98)):
     """The page header: the stage (one composition on every page, `seed` no longer used) with its section's colour, the
@@ -316,11 +356,8 @@ def header(width, height, discs=(), seed=None, colours=None, title=None, title_t
         x = width - size - int(height * 0.18)
         y = (height - size) // 2
         for disc in discs:
-            d = disc.resize((size, size), Image.LANCZOS)
-            # A blurred dark copy under each disc lifts it off the background.
-            shadow = Image.new("RGBA", d.size, (0, 0, 0, 0))
-            shadow.putalpha(d.getchannel("A").point(lambda a: a * 0.75))
-            shadow = shadow.filter(ImageFilter.GaussianBlur(max(2, size // 22)))
+            # The disc at its size and its shadow, kept from the last head of this size (_disc_at).
+            d, shadow = _disc_at(disc, size)
             img.alpha_composite(shadow, (x + size // 30, y + size // 24))
             img.alpha_composite(d, (x, y))
             x -= step
@@ -328,10 +365,7 @@ def header(width, height, discs=(), seed=None, colours=None, title=None, title_t
                 # Never under the title on the left.
                 break
         # Darken the discs a little towards the left so the title keeps the contrast.
-        fade = Image.linear_gradient("L").rotate(90, expand=True).resize((width, height))
-        shade = Image.new("RGBA", (width, height), _rgb(theme.BG) + (0,))
-        shade.putalpha(fade.point(lambda v: int((255 - v) * 0.55)))
-        img.alpha_composite(shade)
+        img.alpha_composite(_discs_shade(width, height))
     if title:
         parts = [(title, CHROME)]
         if title_tail and title.endswith(title_tail):

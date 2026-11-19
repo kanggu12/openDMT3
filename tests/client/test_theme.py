@@ -196,6 +196,39 @@ class PictureTest(unittest.TestCase):
         self.assertEqual(sum(stage.coloured(p) for p in stage.pieces()), 4)
         self.assertEqual(stage.pieces(), stage.pieces())
 
+    def test_plays_head_drawn_again_takes_its_discs_at_their_size(self):
+        from unittest import mock
+        from PIL import Image, ImageDraw
+        # Two round discs, as the player's archives give them.
+        discs = []
+        for colour in ((200, 40, 90), (40, 160, 220)):
+            disc = Image.new("RGBA", (64, 64), colour + (0,))
+            mask = Image.new("L", (64, 64), 0)
+            ImageDraw.Draw(mask).ellipse([0, 0, 63, 63], fill=255)
+            disc.putalpha(mask)
+            discs.append(disc)
+        resized = []
+        real = Image.Image.resize
+
+        def counted(picture, *a, **k):
+            # A disc made to a size (by itself, never by its pixels: any picture may be resized here).
+            if any(picture is disc for disc in discs):
+                resized.append(picture)
+            return real(picture, *a, **k)
+
+        fresh = type(art._DISCS)
+        with mock.patch.object(art, "_DISCS", fresh()), mock.patch.object(Image.Image, "resize", counted):
+            first = art.header(400, 80, discs, title="TECHNIKA 3", title_tail="3")
+            again = art.header(400, 80, discs, title="TECHNIKA 3", title_tail="3")
+            # The same head, each disc made to its size once.
+            self.assertEqual(again.tobytes(), first.tobytes())
+            self.assertEqual(resized, discs)
+            # Another disc that comes where one was (another day, another folder) is drawn as itself.
+            other = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+            self.assertNotEqual(art.header(400, 80, [other, discs[1]], title="TECHNIKA 3").tobytes(),
+                                first.tobytes())
+            self.assertLessEqual(len(art._DISCS), art.DISCS_KEPT)
+
     def test_a_head_ends_in_its_sections_tube(self):
         for page in ("play", "screen", "online", "help"):
             colours = theme.section_colours(page)
