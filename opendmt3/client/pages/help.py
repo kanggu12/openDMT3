@@ -13,28 +13,24 @@ log = logging.getLogger("opendmt3.launcher")
 # How long Uninstall's last step stays, to be read, before the window closes (as the installer's last one).
 LAST_STEP_MS = 2200
 
-from opendmt3.client.pages.common import CARD_GAP, card
+from opendmt3.client.pages.common import Pair, pair_card
 from opendmt3.client.pages.play import refresh_checks
 
 
 def build_help(app, parent):
-    """The checks (Check again at the title's right end) beside what to try when the game closes by itself (each line
-    with the setting it names one press away), the two as tall as each other; then the tools (a report, the
-    launcher's log, Repair), and what puts back and takes away, from the least to the most (the client data's files
-    an older openDMT3 changed, then openDMT3 itself), each a group of rows."""
+    """Two pairs of groups, each pair as tall as each other (one under the other in a small window: Pair): the checks
+    (Check again at the title's right end) beside what to try when the game closes by itself (each line with the
+    setting it names one press away); then the tools (a report, the launcher's log, Repair) beside what puts back and
+    takes away, from the least to the most (the client data's files an older openDMT3 changed, then openDMT3
+    itself), each a group of rows."""
     ui, w = app.ui, app.words
-    pair = tk.Frame(parent, bg=theme.BG)
-    pair.pack(fill="x", pady=(0, ui.px(CARD_GAP)))
-    pair.columnconfigure(0, weight=1, uniform="cards")
-    pair.columnconfigure(1, weight=1, uniform="cards")
-    checks = widgets.Card(pair, ui, title=w("help.checks"))
-    checks.grid(row=0, column=0, sticky="nsew", padx=(0, ui.px(CARD_GAP)))
+    pair = Pair(app, parent)
+    checks = pair_card(pair.left, ui, w("help.checks"))
     checks.action(w("help.recheck"), app.refresh_checks)
     app.check_box = tk.Frame(checks.body, bg=theme.PANEL)
     app.check_box.pack(fill="x")
     refresh_checks(app)
-    crash = widgets.Card(pair, ui, title=w("help.crash"))
-    crash.grid(row=0, column=1, sticky="nsew")
+    crash = pair_card(pair.right, ui, w("help.crash"))
     lines = (("help.crash.1", "screen", "screen.mode"), ("help.crash.2", "screen", "screen.videos"),
              ("help.crash.3", None, None))
     for i, (key, page, setting) in enumerate(lines):
@@ -53,7 +49,9 @@ def build_help(app, parent):
             beside = (to,)
         # The sentence wraps at the card's width less its link's.
         widgets.follow_width(ui, said, margin=12, beside=beside)
-    tools = card(parent, ui, w("help.tools"))
+    # The tools beside what puts back and takes away: the page's second pair.
+    second = Pair(app, parent, last=True)
+    tools = pair_card(second.left, ui, w("help.tools"))
     # Each row is named by what it is about, its button by what it does (never the same words twice on a line).
     widgets.setting_row(tools.body, ui, w("help.report"),
                         lambda p: widgets.Button(p, ui, w("help.report.save"), app.save_report),
@@ -85,8 +83,8 @@ def build_help(app, parent):
         app.set_status(w("help.restore.done", n=len(done)) if done else w("help.restore.nothing"), "ok")
         app.refresh_checks()
 
-    # What puts back and takes away, on a card of its own as OpenDMTQ's "Reset and remove": the least first.
-    remove = card(parent, ui, w("help.remove"), last=True)
+    # What puts back and takes away, a group of its own as OpenDMTQ's "Reset and remove": the least first.
+    remove = pair_card(second.right, ui, w("help.remove"))
     widgets.setting_row(remove.body, ui, w("help.restore"),
                         lambda p: widgets.Button(p, ui, w("help.restore.confirm"), restore),
                         w("help.restore.hint")).pack(fill="x")

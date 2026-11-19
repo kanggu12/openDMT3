@@ -65,9 +65,13 @@ def _records_failed(app, box, error):
         # A guest has no records: the player is chosen on the PLAY page.
         widgets.link(why.body, ui, TITLES["play"], lambda: app.go("play")).pack(anchor="w", pady=(ui.px(10), 0))
     else:
-        # A server that did not answer may answer now.
-        widgets.Button(why.body, ui, w("records.again"), lambda: app.go("records")).pack(anchor="w",
-                                                                                       pady=(ui.px(10), 0))
+        # A server that did not answer may answer now: Try again; on another server, beside it the page that has its
+        # address and its connection test (a card for one key said little but the key).
+        ways = tk.Frame(why.body, bg=theme.PANEL)
+        ways.pack(fill="x", pady=(ui.px(10), 0))
+        widgets.Button(ways, ui, w("records.again"), lambda: app.go("records")).pack(side="left")
+        if app.state.mode == "server":
+            widgets.link(ways, ui, TITLES["online"], lambda: app.go("online")).pack(side="left", padx=(ui.px(16), 0))
 
 
 def _records_open_site(app, player):

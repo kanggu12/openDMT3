@@ -95,13 +95,13 @@ finds your client data. Everything in it can be changed later:
 | **Offline** | None: everyone plays with **NO ID CARD** | Nothing else |
 
 The **Online** page switches between them. On this PC, it also adds and removes players; the **Play** page chooses who
-plays next. On another server, you sign in once on its **Sign in** card, which comes first once the server is connected,
-naming it with **Change** to connect to another (**Remember my ID on this PC** keeps the ID for the next time, never the
-password); the launcher asks the server for your card at every PLAY, and when that server does
+plays next. On another server, its address, the sign-in and the **Connection test** are parts of **Where you play**:
+once the server answers it is said under the choice, with **Change** to connect to another, and you sign in once under
+it (**Remember my ID on this PC** keeps the ID for the next time, never the password); the launcher asks the server for your card at every PLAY, and when that server does
 not answer, PLAY stops and says so (choose **Offline** to play without it). A wrong ID or password is said under the
 password in one sentence (the server never tells which), a server that does not answer with the way to the
 **Connection test**. When the server no longer takes the sign-in (a new password, a signed-out token), the launcher
-forgets it and the card asks for the password again. **Sign out** ends the sign-in there, on this PC only.
+forgets it and the sign-in asks for the password again. **Sign out** ends the sign-in there, on this PC only.
 
 ## In the game
 

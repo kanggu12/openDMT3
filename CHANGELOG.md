@@ -10,9 +10,14 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 - The launcher's pages are composed, not stacked boxes: **Play** sets the ready check beside the player (who plays,
   their records, their last game), as tall as each other, under a head that says where PLAY plays in large words;
-  **Help** sets its checks beside what to try when the game closes; **Online**'s switch for the other PCs, the form
-  that adds a player and **Launcher**'s look for updates are rows of the group they belong to, and the first-start
-  guide's steps are one group each. No box holds a single control or a single key.
+  **Help** sets its checks beside what to try when the game closes and its tools beside what puts back and takes
+  away; **Launcher** sets playing without the window beside what openDMT3 is, under one General group with the
+  language, the guide and the look for updates. On **Online**, another server's address, the sign-in (or who is
+  signed in) and the connection test are parts of **Where you play**: once the server answers it is said under the
+  choice with **Change**, the test's key stands at the group's title and its steps are on a card only once it runs.
+  This PC's switch for the other PCs and the form that adds a player are rows of their groups, and the first-start
+  guide's steps are one group each. No box holds a single control or a single key. In a small window a pair stands
+  one under the other.
 - A card's and a dialog's name are as large as the words under them; every key of one role is one size on every page
   and dialog (one height, one room either side of its words), its words centred by their ink, and no key is stretched
   across its card.

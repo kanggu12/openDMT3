@@ -502,8 +502,9 @@ def on_screen(widget):
 
 
 def sign_in_card_whole(inside, label, problems):
-    """The sign-in's card that holds `inside` (its form, or a banned account's key), whole on the screen with its page
-    at the top: its fields, what it says, Remember my ID and its key seen without scrolling, at every size."""
+    """The card that holds the sign-in (`inside`: its form, or a banned account's key; Where you play's group), whole
+    on the screen with its page at the top: its fields, what it says, Remember my ID and its key seen without
+    scrolling, at every size."""
     made = inside
     while made is not None and not isinstance(made, widgets.Card):
         made = made.master
@@ -573,17 +574,17 @@ def signin_states_check(app, out, tag, problems):
                 problems.append("%s: no sign-in form on ONLINE while connected and not signed in" % label)
                 return
             if name == "busy":
-                # Tab goes as the screen reads (review round 2, #6): the sign-in's key, then Where you play under it,
-                # then the connection test's key.
-                walk = tab_walk(form.fields["online.id"].entry, 40)
+                # Tab goes as the screen reads (review round 2, #6): the connection test's key at the group's title,
+                # the choice of where you play under it, then the sign-in's ID and its key.
+                tests = [x for x in widgets_of(app.root) if isinstance(x, widgets.Button) and x.winfo_ismapped()
+                         and x.words in (w("server_test.run"), w("server_test.again"))]
+                walk = tab_walk(tests[0], 60) if tests else []
                 seg = [x for x in walk if isinstance(x, widgets.Segmented)]
-                test = [x for x in walk if isinstance(x, widgets.Button) and x.words in (w("server_test.run"),
-                                                                                       w("server_test.again"))]
-                key = form.submit_button
-                if key not in walk or not seg or not test or not (
-                        walk.index(key) < walk.index(seg[0]) < walk.index(test[0])):
-                    problems.append("%s: Tab from the ID does not go as the screen reads: the sign-in's key, Where you "
-                                    "play, the connection test (%s)" % (label, [x.winfo_class() for x in walk]))
+                key, entry = form.submit_button, form.fields["online.id"].entry
+                if not tests or key not in walk or entry not in walk or not seg or not (
+                        walk.index(seg[0]) < walk.index(entry) < walk.index(key)):
+                    problems.append("%s: Tab from the connection test's key does not go as the screen reads: Where you "
+                                    "play, the sign-in's ID, its key (%s)" % (label, [x.winfo_class() for x in walk]))
             form.fields["online.id"].delete(0, "end")
             form.fields["online.id"].insert(0, "NOVA")
             form.fields["online.password"].delete(0, "end")
@@ -666,9 +667,8 @@ def signin_states_check(app, out, tag, problems):
                 if (form.line.link is not None) != server_trouble:
                     problems.append("%s: the way to the connection test is %s" % (
                         label, "missing" if server_trouble else "offered for an account's trouble"))
-        # Connected with nobody signed in, the server's own card is folded into the sign-in's first line: Change there
-        # opens it as it is before connecting, the keyboard on its address chosen whole, and no sign-in until a server
-        # answers.
+        # Connected with nobody signed in, the address is folded into the sign-in's first line: Change there opens it
+        # as it is before connecting, the keyboard on the address chosen whole, and no sign-in until a server answers.
         app.go("online")
         settle(app)
         label = "%s_online-signin-change" % tag
@@ -677,7 +677,7 @@ def signin_states_check(app, out, tag, problems):
         change = [x for x in widgets_of(app.root) if isinstance(x, widgets.tk.Label) and x.winfo_ismapped()
                   and x.cget("text") == w("online.server.change")]
         if servers or not change:
-            problems.append("%s: the server's card is not folded into the sign-in's line, or that line has no Change"
+            problems.append("%s: the address is not folded into the sign-in's line, or that line has no Change"
                             % label)
         else:
             change[0].event_generate("<Button-1>")
@@ -688,7 +688,7 @@ def signin_states_check(app, out, tag, problems):
                        and x.winfo_ismapped()]
             if not servers or app.root.focus_get() is not servers[0].fields["address"].entry \
                     or not servers[0].fields["address"].entry.selection_present():
-                problems.append("%s: Change does not open the server's card with the keyboard on its address, chosen "
+                problems.append("%s: Change does not open the address with the keyboard on it, chosen "
                                 "whole" % label)
             if sign_in_form() is not None:
                 problems.append("%s: the sign-in to the server being changed still shows" % label)
@@ -728,7 +728,14 @@ def server_test_check(app, out, tag, problems):
                 app.go("online")
                 settle(app)
                 if name == "passed":
-                    # Before a test: the card says what it checks.
+                    # Before a test: its key at Where you play's title, no card of its own yet.
+                    from opendmt3.client import i18n
+                    named = i18n.english_of(app.words("server_test")).upper()
+                    cards = [x for x in widgets_of(app.root) if isinstance(x, widgets.Card) and x.winfo_ismapped()
+                             and x.tab is not None and x.tab.words == named]
+                    if cards:
+                        problems.append("%s_online-test-idle: the connection test has a card before any test ran"
+                                        % tag)
                     shot(app, out, "%s_online-test-idle" % tag)
                     measure(app, "%s_online-test-idle" % tag, problems)
                 run = [b for b in widgets_of(app.root) if isinstance(b, widgets.Button)
@@ -2782,11 +2789,13 @@ def at_smallest(app, out, name, problems):
 
 
 def planted_composition_check(app, out, tag, problems):
-    """compose.py tried on a page made up to fail it, at this run's own fonts and scale, before it is trusted with the
+    """compose.py tried on pages made up to fail it, at this run's own fonts and scale, before it is trusted with the
     real ones: a key two pixels short, a key whose words stand three pixels low, a key stretched across its card, a
     label in a size that is none of the type's steps, a setting whose control stands off its name's line, a slider too
-    short to set a value by, a card off the page's left edge, and the stage's colour in the gap beside a card. Each must
-    be said; the run's own page must be said of nothing."""
+    short to set a value by, a card off the page's left edge, and the stage's colour in the gap beside a card; then, on
+    a short page, a card for one key and its line, and three cards across the whole column one under another (said
+    where the column is wide enough for two side by side). Each must be said; the run's own page must be said of
+    nothing."""
     import tkinter as tk
     from opendmt3.client import theme
     app.go("controls")
@@ -2827,6 +2836,32 @@ def planted_composition_check(app, out, tag, problems):
     wanted = (("Short key", "tall"), ("Low words", "off the key's middle"), ("Across", "stretched"),
               ("seven points", "type's steps"), ("Made-up setting", "one line"), ("too short", ""),
               ("MADE-UP OFFSIDE", "left edge"), ("left of", "page's colour"))
+    for first, second in wanted:
+        if not any(first in p and second in p for p in said):
+            problems.append("%s: the composition check missed a planted %r (%s): it said %s"
+                            % (tag, first, second, said))
+    # A short page of boxes: a card for one key and its line, then two cards of a line each, all across the column.
+    from opendmt3.client.pages.common import PAIR_FROM
+    for child in content.winfo_children():
+        child.destroy()
+    lone = widgets.Card(content, app.ui, title="Made-up lone key")
+    lone.pack(fill="x", pady=(0, app.ui.px(16)))
+    tk.Label(lone.body, text="A made-up line", font=app.fonts.body, bg=theme.PANEL, fg=theme.TEXT).pack(anchor="w")
+    widgets.Button(lone.body, app.ui, "Made-up key", lambda: None).pack(anchor="w")
+    for i, title in enumerate(("Made-up list one", "Made-up list two")):
+        listed = widgets.Card(content, app.ui, title=title)
+        listed.pack(fill="x", pady=(0, app.ui.px(16) if i == 0 else 0))
+        tk.Label(listed.body, text="Made-up words", font=app.fonts.body, bg=theme.PANEL, fg=theme.TEXT).pack(
+            anchor="w")
+        tk.Label(listed.body, text="More made-up words", font=app.fonts.body, bg=theme.PANEL, fg=theme.TEXT).pack(
+            anchor="w")
+    settle(app)
+    label = "%s_planted-boxes" % tag
+    shot(app, out, label)
+    said = compose.check(app, label, screen_reader())
+    wanted = [("MADE-UP LONE KEY", "one control")]
+    if content.winfo_width() >= app.ui.px(PAIR_FROM):
+        wanted.append(("3 cards across the whole column", "list of boxes"))
     for first, second in wanted:
         if not any(first in p and second in p for p in said):
             problems.append("%s: the composition check missed a planted %r (%s): it said %s"
@@ -2938,7 +2973,7 @@ def guide_states_check(app, out, tag, problems):
             problems.append("%s_guide4-server: Next is %s and the step %s what lets it go on" % (
                 tag, "lit" if guide.next_button.enabled else "off",
                 "says" if w("guide.login.need.server") in labels(app) else "does not say"))
-        # Connected with nobody signed in: the sign-in leads the step, whole on the screen at every size.
+        # Connected with nobody signed in: the sign-in's group whole on the screen at every size.
         app.state.server_url = "http://192.168.0.10:4730"
         app.state.remote = {"game": "192.168.0.10:4725", "version": "0.3.0"}
         guide.show(guide.index)

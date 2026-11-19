@@ -313,7 +313,6 @@ TEXT = {
     "online.mode.server": ("Another server", "다른 서버"),
     "online.mode.hint.server": ("A server someone runs: its owner gives you the address, your ID and a password. Sign-ins and records are kept there.",
                                 "누군가 운영하는 서버입니다. 운영자가 주소와 ID, 비밀번호를 줍니다. 로그인과 기록은 그 서버에 남습니다."),
-    "online.server": ("Server", "서버"),
     "online.address": ("The site's address", "사이트 주소"),
     "online.connect": ("Connect", "연결"),
     "online.connecting": ("Connecting...", "연결하는 중..."),
@@ -343,8 +342,8 @@ TEXT = {
                        "{max}자까지."),
     # The sign-in (FORMS.md's door): the server it signs in to, Remember my ID, a wrong ID or password in one sentence
     # (as the site says it), the way back when the password is gone, a banned account's plate, signed in.
-    "online.signin.to": ("Signing in to", "로그인할 서버"),
-    # On the server's line of the sign-in: the folded server's card opened again, to connect to another one.
+    # Under the choice of another server, after the server connected to: its address opened again, to connect to
+    # another one.
     "online.server.change": ("Change", "변경"),
     "online.remember": ("Remember my ID on this PC", "이 PC에 ID 저장"),
     "online.signin.wrong": ("ID or password does not match.", "ID 또는 비밀번호가 맞지 않습니다."),
@@ -355,7 +354,6 @@ TEXT = {
     "online.banned.lift": ("The server's owner can lift the ban.", "서버 운영자가 정지를 풀 수 있습니다."),
     "online.banned.other": ("Sign in with another ID", "다른 ID로 로그인"),
     "online.signing_out": ("Signing out...", "로그아웃하는 중..."),
-    "online.signed.title": ("Signed in", "로그인됨"),
     "online.signed.on": ('The game logs in with this card.', '게임은 이 카드로 로그인합니다.'),
     "error.signin.no_id": ("Type your ID.", "ID를 입력하세요."),
     "unpack.password.none": ("Type the archive's password.", "압축 파일의 암호를 입력하세요."),
@@ -366,8 +364,6 @@ TEXT = {
     "server_test.again": ("Test again", "다시 테스트"),
     "server_test.copy": ("Copy the result", "결과 복사"),
     "server_test.copied": ("The connection test's result is copied.", "연결 테스트 결과를 복사했습니다."),
-    "server_test.idle": ("Checks the address, the site, the game's port and your sign-in, one after another.",
-                         "주소, 사이트, 게임 포트, 로그인을 차례로 확인합니다."),
     "server_test.running": ("Testing...", "테스트 중..."),
     "server_test.address": ("Address", "주소"),
     "server_test.site": ("Site and version", "사이트와 버전"),

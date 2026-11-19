@@ -1,19 +1,20 @@
-"""LAUNCHER: the language, playing without this window, updates, the first-start guide and what openDMT3 is, each on a
-card as OpenDMTQ's LAUNCHER page has them."""
+"""LAUNCHER: the language, the first-start guide, the version and its updates in one group; under it, playing without
+this window beside what openDMT3 is, as OpenDMTQ's LAUNCHER page has its General and About."""
 
 import os
 import threading
 import tkinter as tk
 
 from opendmt3.client import playing, theme, updates, updating, widgets
-from opendmt3.client.pages.common import card, main_button
+from opendmt3.client.pages.common import Pair, card, main_button, pair_card
 
 
 def _play_without_window(app, parent):
-    """A desktop shortcut that plays at once, and playing when Windows starts (client/shortcuts.py), on their card."""
+    """A desktop shortcut that plays at once, and playing when Windows starts (client/shortcuts.py), a group of their
+    own on one side of a pair (`parent`)."""
     from opendmt3.client import shortcuts
     ui, w = app.ui, app.words
-    quick = card(parent, ui, w("about.quick"))
+    quick = pair_card(parent, ui, w("about.quick"))
 
     def make():
         try:
@@ -80,7 +81,10 @@ def build_about(app, parent):
     # room taken while there is nothing to say.
     found = tk.Frame(general.body, bg=theme.PANEL)
     found.pack(fill="x")
-    _play_without_window(app, parent)
+    # Playing without this window beside what openDMT3 is: two short groups, one pair (one under the other in a small
+    # window).
+    pair = Pair(app, parent, last=True)
+    _play_without_window(app, pair.left)
 
     def say(text, fg=theme.MUTED, result=None):
         """Show `text` under the version; with a `result` that has an update, its button below."""
@@ -126,7 +130,7 @@ def build_about(app, parent):
         # the new launcher (client/updating.py).
         updating.run(app, result)
 
-    legal = card(parent, ui, w("about.legal"), last=True)
+    legal = pair_card(pair.right, ui, w("about.legal"))
     for i, key in enumerate(("about.license", "about.notice")):
         if i:
             widgets.divider(legal.body, ui, pady=8)

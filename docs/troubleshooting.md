@@ -99,8 +99,8 @@ after the game.
 
 ## The game does not log in
 
-On another server, **Online**, **Connection test**, **Test the connection** (or `openDMT3-cmd.exe --test-server`)
-checks each step in turn and says the first one that fails with what to do:
+On another server, **Online**, **Test the connection** at the title of **Where you play** (or
+`openDMT3-cmd.exe --test-server`) checks each step in turn and says the first one that fails with what to do:
 
 | Step | Checks | When it fails |
 | --- | --- | --- |

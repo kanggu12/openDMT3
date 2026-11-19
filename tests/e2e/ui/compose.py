@@ -16,6 +16,10 @@ What it holds, on every page, guide step and dialog it is given:
   name on its tab, a dialog's tab: their capitals at least the body's);
 - a setting's name and its control on one line (their middles), the controls of one group at one edge;
 - a control sized for its use: a slider long enough to set a value by;
+- a page composed, not a list of boxes: no card that holds one control (a key, a switch, a choice, a field) and at
+  most one line of words (fold it into the group it belongs to), and no run of three or more cards each across the
+  whole column, one under another, on a page wide enough for two (pages.PAIR_FROM) that leaves a quarter of its view
+  empty under them;
 - the decoration (the head's stage) never at a card's edge: the page's own colour round every card, in the gaps
   between cards and beyond each cut corner, read from the screen's pixels.
 """
@@ -32,6 +36,89 @@ CENTRED = 0.75
 SLIDER_LEAST = 200
 # How far a page's colour may differ in a channel and still be the page's colour (anti-aliasing at an edge).
 SAME_COLOUR = 6
+# The controls a card can hold: a card with one of them and at most one line of words is a box for one control.
+CONTROLS = (widgets.Button, widgets.Toggle, widgets.Segmented, widgets.Select, widgets.Slider, widgets.Field,
+            widgets.Tick)
+# How many full-width cards one under another make a list of boxes, and the share of the page's view left empty under
+# them that makes it a short one.
+STACK, EMPTY_SHARE = 3, 0.25
+
+
+def _shown(widget):
+    """True when `widget` and every widget round it are on the screen (mapped)."""
+    return bool(widget.winfo_ismapped())
+
+
+def _inside_control(widget, card):
+    """True when `widget` is part of a control (a tick's words, a field's own parts), below `card`."""
+    parent = widget.master
+    while parent is not None and parent is not card:
+        if isinstance(parent, CONTROLS):
+            return True
+        parent = parent.master
+    return False
+
+
+def single_controls(root, ui, name):
+    """No card holds one control and at most one line of words: a card for one key, one switch or one choice said
+    little but its name (fold it into the group it belongs to, or the page's head)."""
+    problems = []
+    for card in _walk(root):
+        if not isinstance(card, widgets.Card) or not _shown(card):
+            continue
+        parts = [w for w in _walk(card) if w is not card and _shown(w)]
+        controls = [w for w in parts if isinstance(w, CONTROLS) and not _inside_control(w, card)]
+        # Words: labels with words of their own (a switch or a row of choices is a label holding a picture).
+        lines = [w for w in parts if isinstance(w, tk.Label) and not isinstance(w, CONTROLS)
+                 and str(w.cget("text")).strip() and not _inside_control(w, card)]
+        if len(controls) == 1 and len(lines) <= 1:
+            named = card.tab.words if card.tab is not None else ""
+            problems.append("%s: the card %r holds one control and %s: a box for one control"
+                            % (name, named, "one line" if lines else "no words"))
+    return problems
+
+
+def short_stack(root, ui, name):
+    """No list of boxes: three or more cards each across the whole column, one under another, on a page whose column
+    is wide enough for two side by side and that leaves a quarter of its view empty under its last card."""
+    from opendmt3.client.pages.common import PAIR_FROM
+    problems = []
+    page = next((w for w in _walk(root) if isinstance(w, widgets.ScrollArea)), None)
+    if page is None or not page.inner.winfo_children():
+        return problems
+    content = page.inner.winfo_children()[0]
+    width = content.winfo_width()
+    if width < ui.px(PAIR_FROM):
+        # A narrow column has its groups one under another: nothing to set side by side.
+        return problems
+    cards = sorted((c for c in _walk(content) if isinstance(c, widgets.Card) and _shown(c)
+                    # The page's own groups, not a card inside another card.
+                    and not any(isinstance(a, widgets.Card) for a in _above(c, content))),
+                   key=lambda c: c.winfo_rooty())
+    if not cards:
+        return problems
+    # The page's empty view under its last card, scrolled to its top.
+    seen = page.canvas.winfo_height()
+    used = page.head_height + max(c.winfo_rooty() + c.winfo_height() for c in cards) - page.inner.winfo_rooty()
+    empty = seen - used
+    run = longest = 0
+    for c in cards:
+        whole = abs(c.winfo_width() - width) <= 2
+        run = run + 1 if whole else 0
+        longest = max(longest, run)
+    if longest >= STACK and empty > EMPTY_SHARE * seen:
+        problems.append("%s: %d cards across the whole column one under another, %d px empty under them: a list of "
+                        "boxes where two fit side by side" % (name, longest, empty))
+    return problems
+
+
+def _above(widget, top):
+    """The widgets between `widget` and `top`."""
+    found, parent = [], widget.master
+    while parent is not None and parent is not top:
+        found.append(parent)
+        parent = parent.master
+    return found
 
 
 def _walk(widget):
@@ -285,4 +372,5 @@ def check(app, name, screen_pixel=None):
     ui, root = app.ui, app.root
     root.update_idletasks()
     return (keys(root, ui, name) + words_and_headings(root, ui, name) + rows(root, ui, name)
-            + left_line(root, ui, name) + decoration(root, ui, name, screen_pixel))
+            + left_line(root, ui, name) + single_controls(root, ui, name) + short_stack(root, ui, name)
+            + decoration(root, ui, name, screen_pixel))

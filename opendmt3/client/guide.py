@@ -284,9 +284,9 @@ class Guide:
 
     def _screen(self, parent):
         app, ui, w = self.app, self.app.ui, self.app.words
-        # The same rows as the SCREEN, CONTROLS and SOUND pages, the ones a first start needs, in one group (cards of one
-        # or two rows said little but their names); a choice makes its own row again with its new hint and no other
-        # (pages.Sections).
+        # The same rows as the SCREEN, CONTROLS and SOUND pages, the ones a first start needs, in one group (cards of
+        # one or two rows said little but their names); a choice makes its own row again with its new hint and no
+        # other (pages.Sections).
         group = card(parent, ui, last=True)
         sections = pages.Sections(app, group.body, pages.rows_that_come("guide:3"))
 
@@ -351,16 +351,19 @@ class Guide:
             self.show(self.index)
 
         # Where you play, on the ONLINE page's own card; on this PC the players and the form that adds one are rows of
-        # the same group (a card for one choice said little but its name).
-        where = card(parent, ui, w("online.where"), last=mode != "server")
-        widgets.setting_row(where.body, ui, w("online.mode"),
-                            lambda p: widgets.Segmented(p, ui, [("this_pc", w("online.mode.this_pc")),
-                                                                ("server", w("online.mode.server")),
-                                                                ("offline", w("online.mode.offline"))], mode, set_mode),
-                            w("online.mode.hint." + mode)).pack(fill="x")
+        # the same group, with another server its address, its sign-in and its test (a card for one choice said little
+        # but its name). The test's card, when it shows, keeps its own gap above it.
+        where = card(parent, ui, w("online.where"), last=True)
+        choice = widgets.setting_row(where.body, ui, w("online.mode"),
+                                     lambda p: widgets.Segmented(p, ui, [("this_pc", w("online.mode.this_pc")),
+                                                                         ("server", w("online.mode.server")),
+                                                                         ("offline", w("online.mode.offline"))], mode,
+                                                                 set_mode),
+                                     w("online.mode.hint." + mode))
+        choice.pack(fill="x")
         if mode == "server":
-            # Connected with nobody signed in, the sign-in's card leads the step, before Where you play.
-            last = pages.server_panel(app, parent, lambda: self.show(self.index), lead=where)
+            # The server's rows in the same group; what lets the guide go on at its foot.
+            last = pages.server_panel(app, where, parent, lambda: self.show(self.index), choice)
             self._needed(last.body, "guide.login.need.server")
             return
         if mode != "this_pc":

@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 from opendmt3.client import actions, hosting, theme, widgets
 
-from opendmt3.client.pages.common import CARD_GAP, TITLES, Sections, database_trouble, main_button
+from opendmt3.client.pages.common import TITLES, Pair, Sections, database_trouble, main_button, pair_card
 
 
 def where_play_plays(app):
@@ -90,25 +90,21 @@ def _who_plays(app, parent, changed):
 
 
 def build_play(app, parent):
-    """Two groups side by side, as tall as each other: the ready check (what PLAY will do, and what stops it) and the
-    player (who plays, their records, how their last game went). Where PLAY plays is the head's (pages.HEADERS). No
-    card of instructions: how the game plays is the game's and the guides' (docs); no card for one choice."""
+    """Two groups side by side, as tall as each other (one under the other in a small window: Pair): the ready check
+    (what PLAY will do, and what stops it) and the player (who plays, their records, how their last game went). Where
+    PLAY plays is the head's (pages.HEADERS). No card of instructions: how the game plays is the game's and the
+    guides' (docs); no card for one choice."""
     ui, w = app.ui, app.words
-    row = tk.Frame(parent, bg=theme.BG)
-    row.pack(fill="x")
-    row.columnconfigure(0, weight=1, uniform="cards")
-    row.columnconfigure(1, weight=1, uniform="cards")
+    row = Pair(app, parent, last=True)
     # The ready check, filled in when the worker thread finishes it; Check again at its title's right end, as
     # OpenDMTQ's has it (the check is made again, the server asked again).
-    ready = widgets.Card(row, ui, title=w("play.ready"))
-    ready.grid(row=0, column=0, sticky="nsew", padx=(0, ui.px(CARD_GAP)))
+    ready = pair_card(row.left, ui, w("play.ready"))
     ready.action(w("help.recheck"), app.refresh_checks)
     app.check_box = tk.Frame(ready.body, bg=theme.PANEL)
     app.check_box.pack(fill="x")
     # Beside it, the player: who plays (made again on its own when the player changes: Sections), then, under the
     # card's faint line, how their last game went, to the ready check's foot.
-    last = widgets.Card(row, ui, title=w("play.player"))
-    last.grid(row=0, column=1, sticky="nsew")
+    last = pair_card(row.right, ui, w("play.player"))
     sections = Sections(app, last.body)
     sections.add("who", lambda holder: _who_plays(app, holder, lambda: sections.redo("who")))
     widgets.divider(last.body, ui, pady=14)

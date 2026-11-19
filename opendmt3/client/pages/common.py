@@ -59,6 +59,60 @@ def group_names(page):
     return names
 
 
+# The page column's width (logical pixels) from which two groups that belong together stand side by side, as tall as
+# each other; in a narrower column (the small window, 960x640) the second stands under the first with the whole width,
+# so that neither squeezes its rows (OpenDMTQ's 760).
+PAIR_FROM = 760
+
+
+class Pair(tk.Frame):
+    """Two groups that belong together (the ready check and the player; the checks and what to try; the tools and what
+    puts back and takes away): side by side and as tall as each other where the page's column is PAIR_FROM wide or
+    wider, the first over the second in a narrower one. Each group is made in `left` or `right` (pair_card). Packed
+    under what is before it, with the gap between cards under it unless `last`."""
+
+    def __init__(self, app, parent, last=False):
+        super().__init__(parent, bg=parent.cget("bg"))
+        self.ui, self.wide = app.ui, None
+        self.pack(fill="x", pady=(0, 0 if last else app.ui.px(CARD_GAP)))
+        # The two sides, on the page's colour: the gap between them is the page's own field.
+        self.left = tk.Frame(self, bg=self.cget("bg"))
+        self.right = tk.Frame(self, bg=self.cget("bg"))
+        # Laid out for the column the page has now (known once the window shows), then again whenever the column
+        # crosses PAIR_FROM: its width comes from the page, never from the groups, so a new layout never loops.
+        self._lay(app.content_width())
+        self.bind("<Configure>", lambda e: self._lay(e.width), add="+")
+
+    def _lay(self, width):
+        # Before the window has a width: side by side, as at the launcher's own size.
+        wide = width <= 1 or width >= self.ui.px(PAIR_FROM)
+        if wide == self.wide:
+            # Only a change of side: the same layout again would ask the page to lay itself out for nothing.
+            return
+        self.wide = wide
+        gap = self.ui.px(CARD_GAP)
+        if wide:
+            # Two columns of one width, the gap between cards between them.
+            self.columnconfigure(0, weight=1, uniform="pair")
+            self.columnconfigure(1, weight=1, uniform="pair")
+            self.left.grid(row=0, column=0, sticky="nsew", padx=(0, gap), pady=0)
+            self.right.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
+        else:
+            # One column with the whole width (the second column given nothing), the second group under the first.
+            self.columnconfigure(0, weight=1, uniform="")
+            self.columnconfigure(1, weight=0, uniform="")
+            self.left.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+            self.right.grid(row=1, column=0, sticky="nsew", padx=0, pady=(gap, 0))
+
+
+def pair_card(holder, ui, title=None):
+    """A group's card on one side of a Pair: it fills its side, so that the two stand as tall as each other."""
+    from opendmt3.client import widgets
+    made = widgets.Card(holder, ui, title=title)
+    made.pack(fill="both", expand=True)
+    return made
+
+
 def card(parent, ui, title=None, last=False):
     """A card with its title, stacked under the ones before it with the gap between cards."""
     from opendmt3.client import widgets
