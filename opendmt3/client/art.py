@@ -9,6 +9,7 @@ import collections
 import functools
 import io
 import itertools
+import logging
 import math
 import random
 import threading
@@ -17,6 +18,8 @@ import time
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 from opendmt3.client import theme
+
+log = logging.getLogger("opendmt3.launcher")
 
 # Draw at this many times the final size, then scale down: smooth edges without a drawing library.
 SS = 3
@@ -249,6 +252,8 @@ def read_discs(game, count=4, seed=None):
             picks = rng.sample(entries, min(count, len(entries)))
             return [Image.open(io.BytesIO(pak.read(e))).convert("RGBA") for e in picks]
     except Exception:  # noqa: BLE001  (a header picture must never stop the launcher)
+        # The head shows the stage alone; why is in the log (a damaged or missing archive was said nowhere).
+        log.warning("the song discs for PLAY's head could not be read", exc_info=True)
         return []
 
 

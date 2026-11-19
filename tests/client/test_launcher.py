@@ -1193,6 +1193,28 @@ class LauncherTest(FolderCase):
             self.assertEqual(actions.records(self.state, host), {"dj_name": "X"})
         asked.assert_called_once_with("http://192.0.2.1:4730", "t", 4)
 
+    def test_records_without_the_song_list_say_why_in_the_log(self):
+        from opendmt3.client import hosting
+        host = hosting.BuiltinServer(path=os.path.join(self.config, "server", "openDMT3.sqlite"), port=0, web_port=0)
+        store = host.accounts()
+        store.create("NOVA", "pass1234", "DJ NOVA")
+        store.db.close()
+        self.state.mode, self.state.player = "this_pc", "NOVA"
+        # A song list that cannot be read (a damaged file): the records still come, with song numbers, and why the
+        # titles are missing is in the log, as PLAY's own reading says it.
+        with mock.patch.object(host, "import_catalog", side_effect=OSError("damaged")), \
+                self.assertLogs("opendmt3.launcher", "WARNING") as said:
+            self.assertEqual(actions.records(self.state, host)["dj_name"], "DJ NOVA")
+        self.assertIn("song list", said.output[0])
+        self.assertIn("damaged", said.output[0])
+        # The records' link on this PC's site too, which goes on to say what stops it.
+        host.site = None
+        with mock.patch.object(host, "start"), mock.patch.object(host, "import_catalog", side_effect=OSError("cut")), \
+                self.assertLogs("opendmt3.launcher", "WARNING") as said, self.assertRaises(g.GameError) as e:
+            actions.records_link(self.state, host)
+        self.assertEqual(e.exception.key, "error.records.no_site")
+        self.assertIn("cut", said.output[0])
+
     # ----------------------------------------------------------------------------- removing openDMT3
 
     def _played(self):

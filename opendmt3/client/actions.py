@@ -726,7 +726,8 @@ def records(state, host):
             # Titles and levels instead of song numbers (read once from this player's own game files).
             host.import_catalog(state.game().root)
         except Exception:  # noqa: BLE001  (the numbers still show)
-            pass
+            # Why the titles are missing, in the log as PLAY's own reading says it (it was dropped without a word).
+            log.warning("the song list could not be read for the records page", exc_info=True)
         found = profile.dj(host.path, os.path.dirname(host.path), row["id"])
         if found is None:
             raise g.GameError("%s is not a player on this PC" % state.player, "error.records.no_player",
@@ -759,7 +760,8 @@ def records_link(state, host):
         # Titles instead of song numbers, from this player's own game files.
         host.import_catalog(state.game().root)
     except Exception:  # noqa: BLE001  (the pages still work with song numbers)
-        pass
+        # Why the site shows song numbers, in the log as PLAY's own reading says it (it was dropped without a word).
+        log.warning("the song list could not be read for the records' site", exc_info=True)
     if host.site is None:
         raise g.GameError("this launcher cannot show the records page (its web libraries are missing)",
                           "error.records.no_site")

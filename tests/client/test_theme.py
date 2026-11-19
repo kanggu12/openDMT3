@@ -196,6 +196,19 @@ class PictureTest(unittest.TestCase):
         self.assertEqual(sum(stage.coloured(p) for p in stage.pieces()), 4)
         self.assertEqual(stage.pieces(), stage.pieces())
 
+    def test_discs_that_cannot_be_read_leave_the_head_bare_and_say_why_in_the_log(self):
+        class Game:
+            # A game folder whose discs' archive cannot be opened (damaged, cut short).
+            def pak_path(self, name):
+                return name + ".pak"
+
+            def open_pak(self, path):
+                raise OSError("%s is cut short" % path)
+
+        with self.assertLogs("opendmt3.launcher", "WARNING") as said:
+            self.assertEqual(art.read_discs(Game()), [])
+        self.assertIn("DiscImg.pak is cut short", "\n".join(said.output))
+
     def test_plays_head_drawn_again_takes_its_discs_at_their_size(self):
         from unittest import mock
         from PIL import Image, ImageDraw
