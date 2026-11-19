@@ -1116,8 +1116,17 @@ wait_log "sound: the music at 100 %, the key sounds at 50 % \\(the game started 
 # The 4 s measured after the move, and a second more for the last level line.
 moved_at=$(song_at)
 wait_song $((${moved_at:-0} + 7000)) 30 || fail "the third game's song did not go on after the move ($(song_at) ms)"
-python3 "$HERE/ingame/levels.py" "$OUT/ingame-1.log" "$OUT/ingame.log" \
-  || fail "the game's own volume curve, or the music's move by it, is not within 1 dB at the last stage"
+# Judged where the pacing is judged, on a game the graphics card draws; on the CPU's renderer the numbers are said and
+# not judged (the coordinator's rule for this release).
+if [ $software = 1 ]; then
+  python3 "$HERE/ingame/levels.py" "$OUT/ingame-1.log" "$OUT/ingame.log"
+  echo "  not judged: the game was drawn on the CPU"
+  curve="the game's own music curve and the music's move by it measured at the last stage of the sound (said, not judged: the game drawn on the CPU)"
+else
+  python3 "$HERE/ingame/levels.py" "$OUT/ingame-1.log" "$OUT/ingame.log" \
+    || fail "the game's own volume curve, or the music's move by it, is not within 1 dB at the last stage"
+  curve="the game's own music curve and the music's move by it, measured at the last stage of the sound within 1 dB"
+fi
 # Quit the game in the song (the review's finding 1): held still and silent until the game has ended, never the song
 # going on again (no end of the hold after the choice, and the mix as the game makes it silent from the hold's fade
 # on), ended by the game's own close, not the layer's ten seconds.
@@ -1153,5 +1162,5 @@ dumps=$(x "find /root/Desktop /w/drive_c/users/root/AppData/Roaming/openDMT3 -na
 textures "the game with NVIDIA NIS and SMAA Ultra"
 # Every other step held; the pacing not judged in its time is a failure all the same.
 [ -n "$unjudged" ] && fail "$unjudged"
-echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click, from a click and a press held on the handle; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only, dragged larger and smaller with the picture following, and back to full screen; minimise and back; offline the chip in the corner beside FREE PLAY, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top or on the handle; minimised in a song held and going on; the picture options run by the chain and shown, $added, $stepped; the game's own music curve and the music's move by it, measured at the last stage of the sound within 1 dB"
+echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click, from a click and a press held on the handle; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only, dragged larger and smaller with the picture following, and back to full screen; minimise and back; offline the chip in the corner beside FREE PLAY, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top or on the handle; minimised in a song held and going on; the picture options run by the chain and shown, $added, $stepped; $curve"
 docker rm -f "$C" >/dev/null

@@ -20,8 +20,12 @@ import sys
 # counted (s), the level, the samples, and the song's place (-1 with no song playing).
 LEVEL = re.compile(r"^(\d+) mix: level of the stream written by (\S+) over its last ([0-9.]+) s of sound: "
                    r"rms ([0-9.]+) .*, (\d+) samples, the song at (-?\d+) ms")
-# The tutorial's song starting (sound.c with the watch: its music in one buffer, played once).
-SONG = re.compile(r"^(\d+) sound: stream \S+ \(41943040 bytes, \d+ a second, once\) plays")
+# The tutorial's song starting (sound.c with the watch: its music in one buffer, played once), and a stream stopping:
+# the lines counted are the tutorial's own play's, from its start to its buffer's stop (a later screen's music in one
+# buffer has places of its own from 0, which in a game left running after the tutorial fell into the windows: a CPU run
+# compared the first game's reference with another song's seconds, -9.22 dB for the curve, +1.24 for the move).
+SONG = re.compile(r"^(\d+) sound: stream (\S+) \(41943040 bytes, \d+ a second, once\) plays")
+STOPS = re.compile(r"^(\d+) sound: stream (\S+) stops at frame")
 # The values the game started with (soundset.c), and a move of the volumes while it runs (sound.c sound_volumes).
 START = re.compile(r"^\d+ sound: master \d+ %, music (\d+) %, key sounds (\d+) %")
 MOVED = re.compile(r"^(\d+) sound: the music at (\d+) %, the key sounds at (\d+) %")
@@ -49,7 +53,7 @@ def read(path):
     """The song's start (the log's clock), the music's percent the game started with, its first move after the song
     started (clock, percent) or None, and the level lines after the song started (clock, rms, the sound's length in
     ms, place), of the stream with the most of them (DirectSound's mix: one stream)."""
-    song = start = moved = None
+    song = start = moved = buffer = None
     lines = {}
     for line in open(path, errors="replace"):
         m = START.match(line)
@@ -58,8 +62,12 @@ def read(path):
             continue
         m = SONG.match(line)
         if m and song is None:
-            song = int(m.group(1))
+            song, buffer = int(m.group(1)), m.group(2)
             continue
+        m = STOPS.match(line)
+        if m and buffer is not None and m.group(2) == buffer:
+            # The tutorial's song stopped: nothing after it is its.
+            break
         m = MOVED.match(line)
         if m and song is not None and moved is None:
             moved = (int(m.group(1)), int(m.group(2)))
