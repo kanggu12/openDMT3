@@ -149,6 +149,18 @@ STEPS = [
     [
         "ALTER TABLE accounts ADD COLUMN token_generation INTEGER NOT NULL DEFAULT 0",
     ],
+    # 11: the plays and sessions of a stretch of time, read as a range of their own (measured on a made-up history of
+    # 300,000 plays). The admin's numbers of the day, the week and the month (activity.status, on the Status and
+    # Server pages at every visit) read every play's entry of the index on (account, time) for each stretch, 6 to 8 ms
+    # each, and a month's sessions' ends from the table, 8 ms: 31 ms a visit, growing with the history. On (time,
+    # account) a stretch's plays are a range that holds what the count needs (today 0.08 ms, the week 1.8), and the
+    # sessions' index on their start also holds their end (the month 0.46 ms). Every other query's plan stays as it
+    # was (the plays log, the rankings, the newest plays and records, a song's boards: compared one by one).
+    [
+        "CREATE INDEX plays_by_time ON plays (played_at, account_id)",
+        "DROP INDEX sessions_by_time",
+        "CREATE INDEX sessions_by_time ON sessions (started_at, ended_at)",
+    ],
 ]
 VERSION = len(STEPS)
 # How long a statement waits for another connection's write to end before it gives up with "database is locked", in

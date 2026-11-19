@@ -71,6 +71,41 @@ class ActivityTest(unittest.TestCase):
         self.assertEqual(weeks[-2], 1)
         self.assertEqual(sum(weeks), 1)
 
+    def test_the_numbers_of_the_day_week_and_month_read_their_own_plays_not_the_whole_history(self):
+        # The admin's Status and Server pages ask for these on every visit: they read the whole history's index for
+        # each stretch (50 ms a visit on 300,000 plays, more as the history grows) where the stretch's own plays and
+        # sessions are a range of an index on their time. Counted in SQLite's own steps (a progress handler called
+        # every 1,000 of them), whatever this PC's speed: 20,000 plays of half a year ago, 10 of today.
+        now = activity._day_start(time.time()) + 12 * 3600
+        old = now - 180 * activity.DAY
+        # In one transaction: one write of the file, not one each.
+        with db.immediate(self.db):
+            self.db.executemany(
+                "INSERT INTO plays (account_id, cabinet, mode, song, pattern, score, counts, record, played_at)"
+                " VALUES (?, 'x', 0, 1, 1, 1, '0,0,0,0,0,0,0', x'00', ?)",
+                [(self.nova["id"], old + i) for i in range(20000)]
+                + [(self.nova["id"], now - 60 - i) for i in range(10)])
+            self.db.executemany(
+                "INSERT INTO sessions (cabinet, account_id, started_at, ended_at) VALUES ('x', ?, ?, ?)",
+                [(self.nova["id"], old + i, old + i + 60) for i in range(5000)]
+                + [(self.nova["id"], now - 600 - i, now - 300) for i in range(5)])
+        steps = [0]
+
+        def counted():
+            steps[0] += 1
+            # Go on (a true value would stop the statement).
+            return 0
+        self.db.set_progress_handler(counted, 1000)
+        try:
+            status = self.act.status(now=now)
+        finally:
+            self.db.set_progress_handler(None, 1000)
+        self.assertEqual((status["today"]["plays"], status["week"]["plays"], status["month"]["plays"]), (10, 10, 10))
+        self.assertEqual((status["today"]["sessions"], status["month"]["seconds"]), (5, sum(300 + i for i in range(5))))
+        # Reading the 20,000 plays' index three times took 150 thousand steps and more here; the stretches' own
+        # entries take a few hundred.
+        self.assertLess(steps[0], 20, "%d thousand steps for the numbers" % steps[0])
+
     def test_a_session_a_stopped_server_left_open_is_closed_at_its_start(self):
         session = self.act.start("198.51.100.7", self.nova["id"], at=1000)
         self.act.close_left_open()
