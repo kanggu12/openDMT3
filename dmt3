@@ -1897,8 +1897,9 @@ def main(argv=None):
     if args.command == "setup" and asked_nothing(argv) and sys.stdin.isatty() and sys.stdout.isatty():
         # ./dmt3 setup alone, at a terminal: the wizard. With options, or from a script, it runs as before.
         return wizard().run(FrontDoor())
-    # The release's server package holds the server alone (packaging/release_files.py): the tests and the launcher's
-    # build are a clone's, and saying so beats Python's word for a missing folder.
+    # A folder of the server's files alone (as releases up to 0.4.1 packed them for Linux and macOS, or a copy made
+    # by hand): the tests and the launcher's build are a clone's, and saying so beats Python's word for a missing
+    # folder.
     clone_only = {"test": "tests", "build": os.path.join("packaging", "windows")}
     if args.command in clone_only and not os.path.isdir(os.path.join(ROOT, clone_only[args.command])):
         say("./dmt3 %s runs in a clone of the repository (git clone https://github.com/kanggu12/openDMT3.git): this "

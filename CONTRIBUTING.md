@@ -41,7 +41,7 @@ One package, `opendmt3`, in three parts ([docs/architecture.md](docs/architectur
 | `native/cardreader/` | The card reader library with the in-game overlay, 32-bit C built with MinGW | `crt_r1.c`, then `layer.c` | `test_native.c`, run by `test.sh` |
 | `native/openal/` | DSOAL and OpenAL Soft for the Sound page's mixer, built for 32-bit Windows from their pinned source archives, with their notices | `build.sh` | `tests/test_launcher_licences.py`, `tests/core/test_card_reader_notices.py` |
 | `dmt3`, `packaging/docker/` | `./dmt3`: the server with Docker Compose, the build and the tests; the server's image and the setup wizard | `dmt3` (`main`), `wizard.py` | `tests/test_front_door.py`, `tests/test_setup_wizard.py` |
-| `packaging/windows/`, `packaging/release.sh`, `packaging/release_files.py`, `packaging/server/` | The launcher's and the installer's build on Linux, and a release with its files (the server package's README in `packaging/server/`) | `build.sh` | `tests/test_windows_build.py`, `tests/test_launcher_licences.py`, `tests/test_release_files.py` |
+| `packaging/windows/`, `packaging/release.sh`, `packaging/release_files.py`, `packaging/server/` | The launcher's and the installer's build on Linux, the server's packages for Linux and macOS and the one-line installers (`packaging/server/`), and a release with its files | `build.sh`, `bundle.sh` | `tests/test_windows_build.py`, `tests/test_launcher_licences.py`, `tests/test_release_files.py` |
 | `tests/e2e/` | The suites beyond unit tests: the launcher's screens, the site's, the real client under Wine, the load test, an upgrade | [docs/testing.md](docs/testing.md) | |
 
 The version is written once, as `__version__` in `opendmt3/__init__.py`; the server, the launcher, the installer and
@@ -246,18 +246,18 @@ release. A release, by a maintainer:
 
 What a release publishes (`packaging/release_files.py` gathers them into `OUT_DIR/files`, checks every name and
 lists them in `OUT_DIR/FILES.md` for a look; the notes carry no table, the names say which file is whose). Every name
-is lowercase: the tool, the part and the version, then the systems it runs on or what it holds. The update files are
-the exception: an installed launcher takes an update only from a feed naming its package exactly
-`openDMT3-X.Y.Z-full.nupkg`, so those keep Velopack's names, and the notes' second line says installed launchers
-fetch them by themselves. The guides' download lines name the version too: after raising it,
+is lowercase: the tool, the part and the version, then the system and processor it runs on or what it holds. The
+update files are the exception: an installed launcher takes an update only from a feed naming its package exactly
+`openDMT3-X.Y.Z-full.nupkg`, and the package's signature is over that name, so those keep Velopack's names, and the
+notes' second line says installed launchers fetch them by themselves, and why the names differ. The guides' download lines name the version too: after raising it,
 `python3 packaging/doc_versions.py --write` puts it in them, and the tests fail until it has:
 
 | What | Files |
 | :--- | :--- |
 | The launcher's installer | `opendmt3-launcher-X.Y.Z-windows-x64-installer.exe` |
-| The server alone on Linux and macOS, for Docker Compose or Python, with its guides | `opendmt3-server-X.Y.Z-linux-macos.zip` |
 | The server on Windows, without Docker or Python | `opendmt3-server-X.Y.Z-windows-x64.zip` (`packaging/windows/server.sh`) |
-| The one-line install without Docker | `opendmt3-server-X.Y.Z-linux-installer.sh` and `opendmt3-server-X.Y.Z-macos-installer.sh`: `packaging/server/install.sh` with the version put in |
+| The server on Linux and macOS, on x64 and arm64, without Docker or Python | `opendmt3-server-X.Y.Z-linux-x64.tar.gz`, `-linux-arm64.tar.gz`, `-macos-x64.tar.gz` and `-macos-arm64.tar.gz` (`packaging/server/bundle.sh`: put together on Linux from pinned files, the same bytes for the same tree, and run on each system by CI's package job) |
+| The one-line install | `opendmt3-server-X.Y.Z-windows-installer.ps1`: `packaging/server/install.ps1` with the version put in; `opendmt3-server-X.Y.Z-linux-installer.sh` and `opendmt3-server-X.Y.Z-macos-installer.sh`: `packaging/server/install.sh` with the version put in, which takes the package for the machine it runs on |
 | The Helm chart | `opendmt3-server-X.Y.Z-helm-chart.tgz`: `deploy/helm/opendmt3`, packaged by Helm |
 | The source of the two LGPL libraries the launcher brings for the Sound page's OpenAL Soft mixer | `opendmt3-launcher-X.Y.Z-openal-sources.zip`: the archives `native/openal/build.sh` builds them from, with its `SHA256SUMS` |
 | The update packages, each with the project's signature | `openDMT3-X.Y.Z-full.nupkg` and its `.sig`; with `OPENDMT3_PREVIOUS_RELEASE` naming the last release's build (its `OUT_DIR/build/releases`), a delta package from that release too, so a launcher of that version downloads only what changed (`packaging/windows/previous.py`) |

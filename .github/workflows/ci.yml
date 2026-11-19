@@ -255,6 +255,83 @@ jobs:
       - name: The site over HTTPS with ./dmt3 expose
         run: tests/e2e/expose/run.sh "$RUNNER_TEMP/expose" opendmt3-server:ci
 
+  # The server's packages for Linux and macOS (packaging/server/bundle.sh): each put together on this Linux runner from
+  # its pinned files alone (python-build-standalone's Python, the site's libraries' wheels, the official 7-Zip) in a
+  # container with no network, twice, into two folders: the same bytes both times. They bring no launcher's installer
+  # here (the release machine builds it and puts it in each); the package job runs each on its own system.
+  packages:
+    runs-on: ubuntu-24.04
+    # The pinned files, some 150 MB, then four packages twice: several times what this job takes is a stalled job.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: The four packages, twice, the same bytes
+        env:
+          # One cache of the pinned files for both builds: the second fetches nothing.
+          OPENDMT3_BUNDLE_CACHE: ${{ runner.temp }}/package-cache
+        run: |
+          packaging/server/bundle.sh "$RUNNER_TEMP/packages"
+          packaging/server/bundle.sh "$RUNNER_TEMP/again"
+          cat "$RUNNER_TEMP/packages/packages.sha256"
+          # Four packages, each the same bytes from the second folder.
+          test "$(wc -l < "$RUNNER_TEMP/packages/packages.sha256")" = 4
+          diff "$RUNNER_TEMP/packages/packages.sha256" "$RUNNER_TEMP/again/packages.sha256"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: server-packages
+          path: ${{ runner.temp }}/packages/opendmt3-server-*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  # Each package on its own system and processor, with nothing of the runner's (tests/e2e/package/check.sh): unpacked,
+  # its version, the owner's account, started, /health and the admin pages', its 7-Zip, repair, stopped; then the
+  # one-line install from a folder of its files, again while it runs, and --uninstall. Linux's in a bare Debian 10
+  # (glibc 2.28, no Python, no curl), on an x64 runner and an arm64 one; macOS's on an Intel Mac and on Apple silicon.
+  package:
+    needs: packages
+    strategy:
+      # Each system's result is seen, whichever fails first.
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - target: macos-x64
+            runner: macos-15-intel
+          - target: macos-arm64
+            runner: macos-15
+    runs-on: ${{ matrix.runner }}
+    # A start and an install take seconds: several times what this job takes is a stalled job.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: server-packages
+          path: packages
+
+      - name: Unpacked and run, then the one-line install from a folder of its files
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          archive=$(ls packages/opendmt3-server-*-"$TARGET".tar.gz)
+          if [ "$RUNNER_OS" = Linux ]; then
+            docker run --rm --network none -v "$PWD:/w:ro" -w /w \
+              debian:buster-slim@sha256:bb3dc79fddbca7e8903248ab916bb775c96ec61014b3d02b4f06043b604726dc \
+              sh tests/e2e/package/check.sh "$archive"
+          else
+            sh tests/e2e/package/check.sh "$archive"
+          fi
+
   # The launcher on Windows itself: the unit tests of what runs on a player's PC (the game folder and its setup, the
   # launcher, the server it runs for playing on that PC, the licenses gathered for it) on Windows' own paths, files and
   # processes; then the launcher built with PyInstaller as a release builds it, with the card reader library and 7-Zip
@@ -298,3 +375,11 @@ jobs:
 
       - name: The launcher built and started
         run: python tests/e2e/windows/built_launcher.py windows-parts _work/windows-ci
+
+      # The server's one-line install for Windows (packaging/server/install.ps1) in Windows PowerShell 5.1, as irm | iex
+      # runs it, from a folder holding this tree's Windows server package (frozen here by server.spec): for the
+      # runner's user with no administrator's rights, on its PATH, by name in a new PowerShell, started, installed
+      # again while it runs, a later release's zip that is not the release's refused, and removed with the data kept
+      # (tests/e2e/windows/server_install.py, which runs on a CI runner alone).
+      - name: The server's one-line install for Windows
+        run: python tests/e2e/windows/server_install.py windows-parts _work/windows-server

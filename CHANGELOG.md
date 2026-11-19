@@ -38,6 +38,17 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   sheets under a dark band, scores and results on the game's black glass cut at two corners, the DJ card a platinum
   card held on its plate, facts on a quiet plate, and what removes or resets for good on a sunken tray where only its
   key is pink. A choice, a page's main key and one's own row are openDMT3's blue on every page.
+- The release's files are named as the project's others are. The launcher's installer is
+  `opendmt3-launcher-<version>-windows-x64-installer.exe` (it was `-windows-x64-setup.exe`). The server's
+  `-linux-macos.zip`, which needed Docker or Python, is now a package for each system and processor,
+  `opendmt3-server-<version>-linux-x64.tar.gz`, `-linux-arm64.tar.gz`, `-macos-x64.tar.gz` and `-macos-arm64.tar.gz`,
+  each bringing its own Python, 7-Zip and the launcher's installer, as the Windows package does. The one-line installs
+  on Linux and macOS take the package for the machine, with no Python needed, and take over a server an older line
+  installed; Windows has one too, `opendmt3-server-<version>-windows-installer.ps1`, for the user, without an
+  administrator. With Docker, `./dmt3` runs from a clone of the repository or the release's source archive. The
+  launcher's update files keep their names, `openDMT3-<version>-full.nupkg`: every launcher installed so far takes an
+  update under that name alone. A server of 0.4.1 or older takes the newly named installer through
+  `setup --installer FILE`.
 
 ### Fixed
 

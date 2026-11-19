@@ -483,8 +483,9 @@ class ReleasePackageTest(unittest.TestCase):
                 self.assertEqual(os.path.basename(dmt3.default_installer()),
                                  "opendmt3-launcher-0.4.10-windows-x64-installer.exe")
 
-    def test_the_clone_s_own_commands_say_so_in_the_server_package(self):
-        # The server package has no tests/ and no packaging/windows/: ./dmt3 test and build say where they run.
+    def test_the_clone_s_own_commands_say_so_in_a_folder_of_the_server_alone(self):
+        # A folder of the server's files alone (the Linux and macOS zip of the releases up to 0.4.1) has no tests/ and
+        # no packaging/windows/: ./dmt3 test and build say where they run.
         with tempfile.TemporaryDirectory() as package, mock.patch.object(dmt3, "ROOT", package), \
                 mock.patch.dict(os.environ):
             # The package's own code is there (its version names the image ./dmt3 runs); the image is not chosen yet,

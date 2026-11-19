@@ -15,19 +15,23 @@ From a PC with internet, onto a USB stick or a share:
 - **The server**, one of these:
   - **Windows**: the release's `opendmt3-server-0.4.1-windows-x64.zip`. It needs nothing else: it brings its own
     Python, 7-Zip and the launcher's installer.
+  - **Linux or macOS**: the release's package for the server's machine, `opendmt3-server-0.4.1-linux-x64.tar.gz`
+    (or `-linux-arm64`, `-macos-x64`, `-macos-arm64`). It needs nothing else either.
   - **Docker**: the server's image as a file. Pull it there and save it:
     `docker pull ghcr.io/kanggu12/opendmt3-server:0.4.1` then
     `docker save ghcr.io/kanggu12/opendmt3-server:0.4.1 -o opendmt3-server.tar`; with HTTPS, Caddy's too:
-    `docker pull caddy:2.10.2-alpine` and `docker save caddy:2.10.2-alpine -o caddy.tar`. Bring the release's
-    server package (`opendmt3-server-0.4.1-linux-macos.zip`) or a copy of the repository beside them.
-  - **Python**: the release's server package, and the site's libraries as files, downloaded there on the same system
-    and Python version as the server:
+    `docker pull caddy:2.10.2-alpine` and `docker save caddy:2.10.2-alpine -o caddy.tar`. Bring a copy of the
+    repository beside them (the release's source archive, or a clone).
+  - **Python**: a copy of the repository, and the site's libraries as files, downloaded there on the same system and
+    Python version as the server:
     `pip download -d wheels starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0 python-multipart==0.0.20 pillow==11.3.0`.
 
 ## Setting it up
 
 - **Windows**: unpack the zip and start `opendmt3-server.exe`, as its `README.txt` says.
-- **Docker**: `docker load -i opendmt3-server.tar` (and `caddy.tar`), then in the package's folder
+- **Linux or macOS**: unpack the package and run `./opendmt3-server setup --admin BOSS`, then
+  `./opendmt3-server start`, as its `README.txt` says.
+- **Docker**: `docker load -i opendmt3-server.tar` (and `caddy.tar`), then in the copy of the repository
   `./dmt3 setup --address 192.168.0.5`: the image is there already, so it is neither pulled nor built. `./dmt3 up
   --no-build` starts the server from it later on.
 - **Python**: `python3 -m venv .venv`, then

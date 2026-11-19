@@ -61,21 +61,22 @@ On Linux the same installer runs under Wine ([how](docs/install.md#on-linux-with
 
 ### Run a server
 
-For players on their own PCs. On Linux, macOS or Windows in WSL 2, with Docker (Compose v2) and Python 3, from the
-release's server package (or a clone of the repository: `git clone`, then `./dmt3 setup` in it):
+For players on their own PCs. On Linux, macOS or Windows in WSL 2, with Docker (Compose v2) and Python 3, from a
+copy of the repository (a clone, or the release's source archive):
 
 ```sh
-curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-linux-macos.zip
-unzip opendmt3-server-0.4.1-linux-macos.zip
-cd opendmt3-server-0.4.1-linux-macos
+git clone https://github.com/kanggu12/openDMT3.git
+cd openDMT3
 ./dmt3 setup
 ```
 
 The wizard asks where your client data is (for the song list) and which installer to hand out, then gives the site's
 address and the admin's password. A server also runs [in the launcher](docs/server.md#in-the-launcher), from the
-[Windows server package](docs/server.md#on-windows) without Docker, from a
-[one-line install](docs/server.md#with-python) on Linux or macOS, or [on Kubernetes](docs/kubernetes.md);
-`./dmt3 expose` puts it on [HTTPS for the internet](docs/internet.md). More in [the server guide](docs/server.md).
+release's package for [Windows](docs/server.md#on-windows) or for [Linux and macOS](docs/server.md#on-linux-or-macos)
+without Docker or Python (each with a one-line install,
+`opendmt3-server-0.4.1-windows-installer.ps1` and `opendmt3-server-0.4.1-linux-installer.sh`), or
+[on Kubernetes](docs/kubernetes.md); `./dmt3 expose` puts it on [HTTPS for the internet](docs/internet.md). More in
+[the server guide](docs/server.md).
 
 ## What it does
 

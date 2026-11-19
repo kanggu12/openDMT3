@@ -1,6 +1,7 @@
 """The server on a PC of its own, without Docker or the launcher: the Windows server package's opendmt3-server.exe,
-and the same commands with Python on Linux or macOS (python -m opendmt3.server.standalone, or the opendmt3-server
-command the one-line install puts on PATH).
+the Linux and macOS packages' opendmt3-server (their own Python running this module), the opendmt3-server command the
+one-line installs put on PATH, and the same commands with Python in a copy of the repository
+(python -m opendmt3.server.standalone).
 
     opendmt3-server                  run here until this window closes (Ctrl+C, or opendmt3-server stop elsewhere)
     opendmt3-server start | stop | restart | status | logs
@@ -8,12 +9,13 @@ command the one-line install puts on PATH).
     opendmt3-server invite | firewall | expose NAME [--admin-public] | add-player ID | backup | backups | restore NAME
     opendmt3-server catalog PATH
 
-Every command works on one data folder: beside the program in the Windows package (data\\), else --data, or
-OPENDMT3_DATA, else ./data. Whatever starts the server, run or start, its stop is this same program's stop: the
-running server watches its data folder for the request and ends itself (the site finishes its requests, the database
-is closed), so stop works from any window, and a server started in the background has no window to close. Restart is
-asked the same way: the running server ends and runs again in its own process (its window, or none, kept). The
-admin's Server tab asks the running server through the same requests (web/runner.py, "standalone").
+Every command works on one data folder: --data, or OPENDMT3_DATA, else beside the program in a release's package
+(data\\ in the Windows one, data/ in the Linux and macOS ones), else ./data. Whatever starts the server, run or
+start, its stop is this same program's stop: the running server watches its data folder for the request and ends
+itself (the site finishes its requests, the database is closed), so stop works from any window, and a server started
+in the background has no window to close. Restart is asked the same way: the running server ends and runs again in
+its own process (its window, or none, kept). The admin's Server tab asks the running server through the same
+requests (web/runner.py, "standalone").
 The settings a run starts with (the players' address, the ports, HTTPS behind a proxy) are kept in settings.json in
 the data folder: setup and expose write them, run reads them. The rest is the server's own command line
 (python -m opendmt3.server), run in this same process.
@@ -39,8 +41,12 @@ from opendmt3.server import __main__ as server_cli
 from opendmt3.server import edge
 from opendmt3.server.services import qr
 
-# The command's name, as people type it (the Windows package's program, the install's command).
+# The command's name, as people type it (the Windows package's program, the Linux and macOS packages' program, the
+# install's command).
 PROG = "opendmt3-server"
+# The variable a Linux or macOS package's program sets to its own folder for the package's Python (packaging/server/
+# opendmt3-server.sh), so the server knows the package it runs from.
+PACKAGE_ENV = "OPENDMT3_SERVER_PACKAGE"
 # The two ports the server listens on by default: the game's, then the site's (server/__main__.py).
 GAME_PORT, WEB_PORT = 4725, 4730
 # The admin pages, a site of their own (docs/admin.md): their port, and the address they listen on (this PC alone
@@ -82,16 +88,30 @@ def say(text=""):
 
 # ---------------------------------------------------------------------------------------------- the data folder
 
+def unix_package():
+    """The folder of the Linux or macOS package this runs from, or None: its program (a shell script, opendmt3-server)
+    names its own folder in OPENDMT3_SERVER_PACKAGE before it starts the package's Python, and that folder holds that
+    program. The variable alone, left over in a terminal or set by hand where no package is, counts for nothing."""
+    folder = os.environ.get(PACKAGE_ENV)
+    if folder and os.path.isfile(os.path.join(folder, PROG)):
+        return os.path.abspath(folder)
+    return None
+
+
 def frozen():
-    """True in the Windows package (PyInstaller's program), where the data folder is beside the program."""
-    return bool(getattr(sys, "frozen", False))
+    """True in a release's server package: the Windows one (PyInstaller's program) or a Linux or macOS one (its own
+    Python, started by its program): the data folder is then beside the program, the package's list of its files is
+    what repair checks, and the program is what starts the server again."""
+    return bool(getattr(sys, "frozen", False)) or unix_package() is not None
 
 
 def package_folder():
-    """The folder the program is in: the Windows package's top (opendmt3-server.exe is there), else this repository's
-    top, two folders above this file's package."""
-    if frozen():
+    """The folder the program is in: the Windows package's top (opendmt3-server.exe is there), a Linux or macOS
+    package's (its opendmt3-server is), else this repository's top, two folders above this file's package."""
+    if getattr(sys, "frozen", False):
         return os.path.dirname(os.path.abspath(sys.executable))
+    if unix_package():
+        return unix_package()
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -564,9 +584,12 @@ def server_args_namespace(data):
 
 
 def self_command():
-    """How this program starts itself again: the Windows package's program, or this Python with this module."""
-    if frozen():
+    """How this program starts itself again: the Windows package's program, a Linux or macOS package's (which starts
+    its Python as it did this time), or this Python with this module."""
+    if getattr(sys, "frozen", False):
         return [sys.executable]
+    if unix_package():
+        return [os.path.join(unix_package(), PROG)]
     return [sys.executable, "-m", "opendmt3.server.standalone"]
 
 
@@ -1134,7 +1157,8 @@ def write_caddyfile(data):
 
 # ---------------------------------------------------------------------------------------------- repair, remove
 
-# The Windows package's list of its own files with their SHA-256 (server.sh writes it), which repair checks.
+# A release's server package's list of its own files with their SHA-256 (packaging/windows/server.sh and
+# packaging/server/bundle.py write it), which repair checks.
 MANIFEST = "files.sha256"
 
 
@@ -1161,8 +1185,8 @@ def damaged(folder):
 
 
 def cmd_repair(args):
-    """The program's files against the package's list (the Windows package), the libraries the server needs (a copy
-    run with Python), and the data folder: what is wrong, and the one thing that fixes it. 0 when nothing is."""
+    """The program's files against the package's list (a release's server package), the libraries the server needs (a
+    copy run with Python), and the data folder: what is wrong, and the one thing that fixes it. 0 when nothing is."""
     folder = package_folder()
     bad = damaged(folder)
     problems = 0
@@ -1176,16 +1200,17 @@ def cmd_repair(args):
                 missing.append(module)
         if missing:
             problems += 1
-            say("missing libraries: %s (fix: the one-line install again, or pip install -r its list)" % ", ".join(
-                missing))
+            say("missing libraries: %s (fix: install them as docs/server.md says, With Python)" % ", ".join(missing))
         else:
             say("ok    the server's libraries are there")
     elif bad:
         problems += 1
         say("damaged or missing in %s: %s" % (folder, ", ".join(bad[:10]) + (" and %d more" % (len(bad) - 10)
                                                                            if len(bad) > 10 else "")))
-        say("        fix: stop the server, unpack the zip of this version again over this folder (the data folder "
-            "stays as it is)")
+        # The archive the package came in: the Windows package is a zip, the Linux and macOS ones a .tar.gz.
+        archive = "zip" if getattr(sys, "frozen", False) else ".tar.gz"
+        say("        fix: stop the server, unpack the %s of this version again over this folder (the data folder "
+            "stays as it is)" % archive)
     else:
         say("ok    the package's files are as they were made")
     data = os.path.abspath(args.data)

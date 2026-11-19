@@ -143,10 +143,47 @@ class SettingsTest(unittest.TestCase):
             f.write("%s  opendmt3-server.exe\n%s  _internal/gone.dll\n" % (hashlib.sha256(b"MZ as built").hexdigest(),
                                                                          "0" * 64))
         self.assertEqual(standalone.damaged(package), ["_internal/gone.dll"])
-        with mock.patch.object(standalone, "package_folder", return_value=package):
+        # The Windows package (PyInstaller's program) came as a zip; the Linux and macOS ones as a .tar.gz.
+        with mock.patch.object(standalone, "package_folder", return_value=package), \
+                mock.patch.object(standalone.sys, "frozen", True, create=True):
             code, said = quiet("--data", self.data, "repair")
         self.assertEqual(code, 1)
         self.assertIn("unpack the zip of this version again", said)
+        with mock.patch.object(standalone, "package_folder", return_value=package):
+            code, said = quiet("--data", self.data, "repair")
+        self.assertEqual(code, 1)
+        self.assertIn("unpack the .tar.gz of this version again", said)
+
+    def test_a_linux_or_macos_package_is_the_folder_its_program_names(self):
+        package = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, package)
+        program = os.path.join(package, standalone.PROG)
+        with mock.patch.dict(os.environ):
+            # No variable a package's program sets, no data folder named: this copy of the repository, ./data, and
+            # this Python with the module to start the server again.
+            os.environ.pop(standalone.PACKAGE_ENV, None)
+            os.environ.pop("OPENDMT3_DATA", None)
+            self.assertIsNone(standalone.unix_package())
+            self.assertFalse(standalone.frozen())
+            self.assertEqual(standalone.default_data(), "data")
+            self.assertEqual(standalone.self_command()[1:], ["-m", "opendmt3.server.standalone"])
+            # The variable naming a folder with no program in it (left over in a terminal): still no package.
+            os.environ[standalone.PACKAGE_ENV] = package
+            self.assertIsNone(standalone.unix_package())
+            self.assertFalse(standalone.frozen())
+            self.assertEqual(standalone.default_data(), "data")
+            # The folder holding the package's program: the package, its data folder beside the program, and the
+            # program to start the server again (it starts the package's Python as it did this time).
+            with open(program, "w") as f:
+                f.write("#!/bin/sh\n")
+            self.assertEqual(standalone.unix_package(), os.path.abspath(package))
+            self.assertTrue(standalone.frozen())
+            self.assertEqual(standalone.package_folder(), os.path.abspath(package))
+            self.assertEqual(standalone.default_data(), os.path.join(os.path.abspath(package), "data"))
+            self.assertEqual(standalone.self_command(), [program])
+            # A data folder named still wins over the one beside the program.
+            os.environ["OPENDMT3_DATA"] = self.data
+            self.assertEqual(standalone.default_data(), self.data)
 
     def test_remove_keeps_the_data_unless_asked(self):
         quiet("--data", self.data, "setup", "--admin", "BOSS", "--password", "pass1234")
