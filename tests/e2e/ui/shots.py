@@ -1490,6 +1490,7 @@ def dialogs_check(app, out, tag, problems):
         problems.append("%s: clicking Put back answered %r" % (tag, answer))
     if app.status_tone != "ok":
         problems.append("%s: putting files back did not report (status %r)" % (tag, app.status_text))
+    put_back_said = app.status_text
     # What the look for updates says, under the version: nothing newer, then an update with its button.
     from opendmt3.client import updates
     real_check = updates.check
@@ -1505,6 +1506,9 @@ def dialogs_check(app, out, tag, problems):
             updates.check = real_check
         shot(app, out, "%s_about-%s" % (tag, name))
         measure(app, "%s_about-%s" % (tag, name), problems)
+        if app.status_text == put_back_said:
+            # Another page: HELP's result left the foot (the final review's C-12, B-15).
+            problems.append("%s_about-%s: the foot still says HELP's result %r" % (tag, name, put_back_said))
     # The update's button sits right under the words about it, not at the end of the page.
     said = [x for x in widgets_of(app.root) if x.winfo_class() == "Label" and x.cget("text") == w("about.available", v="9.9.9")]
     press = button(app, w("about.update_now", v="9.9.9"))

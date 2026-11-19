@@ -240,6 +240,7 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 | LAUNCHER-164 | An update that was not put in (not signed, not downloaded) | The fact as the heading, what to do under it: never "failed" twice in one sentence | `tests/client/test_updates.py#test_an_update_that_is_refused_is_told_in_the_launchers_own_dialog` | unit |
 | LAUNCHER-165 | **Help**'s links after its lines (**Window mode**, **Background videos**) | Each opens **Screen** with that setting's row in sight and the keyboard on its control | `tests/e2e/ui/shots.py#led to a row out of sight` | ui |
 | LAUNCHER-166 | An error under **Password** on **Online**'s **Add a player** (a long sentence), and a long line of the form's own | The fields beside it and the form's width stay where they were: the words wrap at the field's (the form's) width | `tests/e2e/ui/shots.py#the error under Password moved the form` | ui |
+| LAUNCHER-167 | An action's result in the foot (**Help**'s **Put back**), then another page while the check is made again | The result leaves the foot, which says how **PLAY** stands | `tests/e2e/ui/shots.py#the foot still says HELP's result` | ui |
 
 ## TS-INSTALL: the installer and updates
 

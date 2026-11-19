@@ -690,7 +690,9 @@ class LauncherApp:
         content.pack(fill="both", expand=True, padx=self.ui.px(32), pady=(self.ui.px(4), self.ui.px(FOOT)))
         if moved and self.status_tone in ("ok", "bad"):
             # Another page: an earlier action's result (done, or failed) leaves the foot, which says how PLAY stands
-            # (the final review's B-15, C-12); a line about how things stand stays, and the page may say its own.
+            # (the final review's B-15, C-12); a line about how things stand stays, and the page may say its own. While
+            # the check is still being made, its answer takes the line's place (_checked).
+            self.status_from_check = True
             self._status_from_checks()
         pages.BUILDERS[page](self, content)
         # One column for the names of the page's settings, as wide as the widest in either language and of the rows a
