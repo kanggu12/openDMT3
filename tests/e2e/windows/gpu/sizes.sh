@@ -48,7 +48,8 @@
 # (openDMT3).exe; copied for each start, links stay links, the one given is never written); BUILD_DIR is ./dmt3 build's
 # output or native/cardreader/build.sh's (its CRT_R1.dll is the layer, with multiDLL.dll beside it when there is one).
 # SIZES is WIDTHxHEIGHT@DPI words, the dots an inch Windows gives a program aware of its scaling (96 is 100 %).
-# KINDS names the kinds of start each size has (game, display: both by default), to run one part again. HEAVY_BUILD is
+# KINDS names the kinds of start each size has (game, display: both by default), to run one part again; HEAVY=display
+# or HEAVY=game runs one of the two heavy starts, HEAVY=0 neither. HEAVY_BUILD is
 # the build the two heavy starts take, BUILD_DIR by default (a release's build measured as it is, with the room's
 # lines from a build that has them: a layer without OPENDMT3_MEMORY_WATCH logs none).
 set -u
@@ -554,8 +555,11 @@ heavy() {
   finish
   DLL=$keep
 }
-if [ "$HEAVY" = 1 ]; then
+# HEAVY=1 both, display or game the one, 0 none.
+if [ "$HEAVY" = 1 ] || [ "$HEAVY" = display ]; then
   heavy heavy-display 192 OPENDMT3_RENDER=display OPENDMT3_ANTIALIASING=smaa-ultra OPENDMT3_FLIP_MODEL=on
+fi
+if [ "$HEAVY" = 1 ] || [ "$HEAVY" = game ]; then
   heavy heavy-game 96 OPENDMT3_RENDER=game OPENDMT3_UPSCALE=anime4k
 fi
 

@@ -519,12 +519,11 @@ def report(out):
     starts = [judge_start(d, clocks) for d in dirs]
     fails, unjudged = [], []
     # Every start the run meant to make (its run.txt: "sizes A@D B@D ...; heavy N"), and in each what it must have.
-    plan = re.search(r"^sizes (.*?);(?: kinds (.*?);)? heavy (\d)", read(os.path.join(out, "run.txt")), re.M)
+    plan = re.search(r"^sizes (.*?);(?: kinds (.*?);)? heavy (\w+)", read(os.path.join(out, "run.txt")), re.M)
     if plan:
         kinds = (plan.group(2) or "game display").split()
         wanted = ["%s/%s" % (spec.split("@")[0], kind) for spec in plan.group(1).split() for kind in kinds]
-        if plan.group(3) == "1":
-            wanted += ["heavy-display", "heavy-game"]
+        wanted += ["heavy-" + k for k in ("display", "game") if plan.group(3) in ("1", k)]
         have = {os.path.relpath(d, out) for d in dirs}
         unjudged += ["%s: the start did not run" % w for w in wanted if w not in have]
     for r in starts:
