@@ -28,7 +28,7 @@ The other guides for server owners: [Playing from outside your home](internet.md
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/ways-to-host-dark.svg">
-    <img alt="Three ways to run a server, each the same server: in the launcher, by turning on Open this PC's server on its Online page, for the other PCs on its network while the launcher is open; with Docker Compose, ./dmt3 setup, a wizard in the terminal, on Linux, macOS or Windows in WSL 2; with Python 3.10 or newer on Linux, python -m opendmt3.server. Each way it is the game on port 4725, the site and its API on port 4730, one SQLite file and its backups in a data folder, and the song list read once from the client data" src="images/ways-to-host-light.svg" width="100%">
+    <img alt="Three ways to run a server, each the same server: in the launcher, by turning on Open this PC's server on its Online page, for the other PCs on its network while the launcher is open; the server's package for Windows, Linux or macOS, on x64 or arm64, without Docker or Python, opendmt3-server start, or its one-line install; the published image, with Docker Compose from a copy of this repository, ./dmt3 setup, a wizard in the terminal, or with the Helm chart on Kubernetes. Each way it is the game on port 4725, the site and its API on port 4730, one SQLite file and its backups in a data folder, and the song list read once from the client data." src="images/ways-to-host-light.svg" width="100%">
   </picture>
 </p>
 
