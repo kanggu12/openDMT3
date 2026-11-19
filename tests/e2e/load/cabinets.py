@@ -372,10 +372,16 @@ def site_main(web, seconds, logins, pages, out):
             while time.monotonic() < until:
                 path = pages[n % len(pages)]
                 started = time.monotonic()
-                r = await client.get(path)
+                try:
+                    r = await client.get(path)
+                    status = r.status_code
+                except httpx.TimeoutException:
+                    # No answer within the client's minute: a failure the run says with the rest (any status but 200
+                    # fails it), never one that ends the visitors and loses the run's summary.
+                    status = "timeout"
                 took = time.monotonic() - started
-                statuses[r.status_code] = statuses.get(r.status_code, 0) + 1
-                if r.status_code == 200:
+                statuses[status] = statuses.get(status, 0) + 1
+                if status == 200:
                     times.setdefault(path, []).append(took)
                 n += 1
                 await asyncio.sleep(THINK)
@@ -406,8 +412,15 @@ def hog_main(web, seconds, login, out):
             async def loop():
                 while time.monotonic() < until:
                     started = time.monotonic()
-                    r = await client.get("/api/v1/log/plays.csv", headers=auth)
-                    statuses[r.status_code] = statuses.get(r.status_code, 0) + 1
+                    try:
+                        r = await client.get("/api/v1/log/plays.csv", headers=auth)
+                        status = r.status_code
+                    except httpx.TimeoutException:
+                        # No answer within the client's two minutes (a call waits its turn behind the program's
+                        # others; on a PC busy with other work, past them): a failure the run says with the rest,
+                        # never one that ends the program and loses the run's summary (two runs on a loaded PC).
+                        status = "timeout"
+                    statuses[status] = statuses.get(status, 0) + 1
                     took.append(time.monotonic() - started)
             await asyncio.gather(*[loop() for _ in range(HOG_AT_ONCE)])
         return statuses, took
@@ -549,9 +562,13 @@ def main():
         if not 3 * (stats["logins"] - good) <= kept <= 3 * stats["logins"]:
             problems.append("%d stages kept for %d sessions" % (kept, stats["logins"]))
         site_line = ""
-        if args.site:
+        # A helper that ended without its file (it failed before writing it) is a failure the run says, the summary
+        # still printed.
+        visited = {"times": {}, "statuses": {"no file: the visitors ended early": 1}}
+        if args.site and os.path.isfile(os.path.join(data, "visitors.json")):
             with open(os.path.join(data, "visitors.json")) as f:
                 visited = json.load(f)
+        if args.site:
             refused = {k: v for k, v in visited["statuses"].items() if k not in ("200", "signin 303")}
             if refused:
                 problems.append("the visitors got %s" % refused)
@@ -563,9 +580,11 @@ def main():
                     problems.append("95 %% of %s within %.3f s (at most %.3f)" % (path, p95, SITE_P95))
             site_line = "; ".join(worst)
         hog_line = ""
-        if args.hog:
+        hog = {"statuses": {"no file: the program ended early": 1}}
+        if args.hog and os.path.isfile(os.path.join(data, "hog.json")):
             with open(os.path.join(data, "hog.json")) as f:
                 hog = json.load(f)
+        if args.hog:
             hog_line = "the program's calls: %s" % hog["statuses"]
             # Its share is one call answered at a time (the others wait their turn) and its seconds a minute: the
             # visitors' pages and the cabinets above show it took no more. Here: every call answered (none failed),
