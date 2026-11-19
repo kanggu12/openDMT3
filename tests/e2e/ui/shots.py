@@ -2176,7 +2176,17 @@ def installer_check(out, tag, problems):
         def __init__(self, root):
             self.root = root
 
-    for name, have, running in (("fresh", None, False), ("update", "0.4.1", True), ("same", __version__, False),
+    # The question each case asks (installer.plan's words), so a case whose versions no longer make its state is
+    # said, not shot as another case under its name.
+    questions = {"fresh": ("setup.install.ask", {"v": __version__}), "update": ("setup.update.ask", {"v": __version__}),
+                 "same": ("setup.installed", {"v": __version__}), "newer": ("setup.back.ask", {})}
+    # The version the update finds installed: the one just before this one (0.4.1: 0.4.0, 0.5.0: 0.4.0, 1.0.0:
+    # 0.0.0), made from this version so it stays older as the launcher's version grows (a fixed 0.4.1 made the update
+    # the newer case until 0.4.1 and the same case at it).
+    major, minor, patch = installer.version_key(__version__)[0]
+    older = ("%d.%d.%d" % (major, minor, patch - 1) if patch else "%d.%d.0" % (major, minor - 1) if minor
+             else "%d.0.0" % (major - 1))
+    for name, have, running in (("fresh", None, False), ("update", older, True), ("same", __version__, False),
                                 ("newer", "9.0.0", False)):
         installed(have)
         installer.launcher_open = lambda running=running: running
@@ -2184,6 +2194,11 @@ def installer_check(out, tag, problems):
         run_until(inst, 0.6)
         shot(Shot(inst.root), out, "%s_setup-%s" % (tag, name), root=inst.root)
         problems.extend("%s_setup-%s: %s" % (tag, name, p) for p in inst.dialog.layout_problems())
+        # The case's own question, in the installer's language (the words the dialog was given).
+        key, values = questions[name]
+        if inst.dialog.message != inst.words(key, **values):
+            problems.append("%s_setup-%s: the installer asks %r, not this case's question"
+                            % (tag, name, inst.dialog.message))
         inst.dialog.canvas.event_generate("<Escape>")
         run_until(inst, 0.3)
     # This version installed: Uninstall beside Repair and Open, then the launcher's HELP choices (Cancel first, Keep
@@ -2288,8 +2303,9 @@ def installer_check(out, tag, problems):
         problems.append("%s: a failure without a log offers %r" % (tag, words))
     inst.dialog.canvas.event_generate("<Return>")
     run_until(inst, 0.3)
-    # A game running on this PC: the installer waits instead of closing the launcher and its server.
-    installed("0.4.1")
+    # A game running on this PC: the installer waits instead of closing the launcher and its server (here before the
+    # update from the version before this one).
+    installed(older)
     installer.game_running = lambda: True
     inst = installer.Installer()
     run_until(inst, 0.5)
