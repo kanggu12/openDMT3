@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include "ingame.h"
+#include "logfile.h"
 
 #define API __declspec(dllexport) __stdcall
 
@@ -38,13 +39,14 @@ static BYTE g_store[16][4][16];
 static void trace(const char *fmt, ...)
 {
     WCHAR path[MAX_PATH * 4];
-    /* No variable: no log (the normal case). A value too long for the buffer comes back as the size it needs,
-       with nothing written: not a path to open. */
-    DWORD got = GetEnvironmentVariableW(L"OPENDMT3_CARD_LOG", path, MAX_PATH * 4);
-    if (!got || got >= MAX_PATH * 4)
+    /* No variable: no log (the normal case). A value too long for the buffer is not a path to open
+       (logfile_variable). */
+    int got = logfile_variable(L"OPENDMT3_CARD_LOG", path, MAX_PATH * 4);
+    if (got == LOG_UNSET)
         return;
-    /* An empty value means the default name beside this DLL (openDMT3's folder). */
-    if (!path[0] && !ingame_beside(L"openDMT3-card.log", path, MAX_PATH * 4))
+    /* An empty value means the default name beside this DLL (openDMT3's folder). Windows answers an empty value as it
+       answers none, so only logfile_variable's look at the error reaches this name. */
+    if (got == LOG_DEFAULT && !ingame_beside(L"openDMT3-card.log", path, MAX_PATH * 4))
         return;
     FILE *f = _wfopen(path, L"a");
     if (!f)
