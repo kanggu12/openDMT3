@@ -23,12 +23,13 @@
 #             window sized to a 16:9 client 0.6 of the screen tall (bars beside the picture) and to the layer's
 #             smallest unit (960x576), each shot, the smallest with its menu from its chip and TOUCH to START pressed
 #             in it; back to full screen by its chip; minimise and back; (display) a window, a phase in it, and back
-#   resets    (3840x2160, display) five switches to a window and back, then the chain's measuring lost device
-#             (reset.now: the game must reset the device itself), the game alive 15 s after
+#   switches  (3840x2160, display) five switches to a window and back
 #   tutorial  TOUCH to START at its place; in the guest's tutorial (its song has no title, jacket or video): the
 #             defaults and the heaviest choice measured (game: FSR 1, Anime4K; display: none, SMAA Ultra), plain frames
 #             shot, the bar called and shot, the question with its line and Keep playing (Enter), the 3, 2, 1 shot,
-#             then the X's Quit the game, its bar shot as it quits, the game's end timed
+#             then (3840x2160, display) the chain's measuring lost device (reset.now: the game must reset the device
+#             itself; the game alive 15 s after), then the X's Quit the game, its bar shot as it quits, the game's end
+#             timed
 # Then (HEAVY=1, the default) two starts at 3840x2160 with the heaviest choices as a player has them (no measuring
 # folder, so only the passes chosen are made): drawn at the screen's size with SMAA Ultra and the flip model (a reset
 # of the device at every change of the window's size) at 200 %, and at 1280x768 with Anime4K at 100 %: 20 s of the
@@ -409,31 +410,41 @@ window_part() {
   wait_s 3.5
   minimise
 }
-# Five switches to a window and back, then the measuring lost device: the game must reset its device itself.
-resets() {
-  local i made back
+# Five switches to a window and back.
+switches() {
+  local i
   for i in 1 2 3 4 5; do
     to_window "switch-$i-window" || break
     wait_s 3
     to_full "switch-$i-full" || break
     wait_s 3
   done
+}
+# The measuring lost device (reset.now: a reset made with the game's objects alive, which fails and leaves the device
+# to be reset): the game must reset its device itself; 0 when it did. Last in its start: a game that cannot reset it
+# draws nothing more.
+lost_device() {
+  local made back
   made=$(seen "post: measuring reset made")
-  back=$(seen "post: back buffer")
+  # The device back: the chain made again after a reset that worked (a reset that fails says so, and the game tries
+  # again; its first try's lines come before the reset is made, so they say nothing of whether it worked).
+  back=$(seen "post: the chain's objects made again after the reset")
   touch "$D/reset.now"
   if wait_more "post: measuring reset made" "$made" 6; then
     step lost-device ok "$(grep -oE 'post: measuring reset made.*' "$LOG" | tail -1 | cut -c7-)"
-    if wait_more "post: back buffer" "$back" 15; then
-      step device-back ok "$(grep -oE 'post: back buffer.*' "$LOG" | tail -1 | cut -c7-)"
+    if wait_more "post: the chain's objects made again after the reset" "$back" 15; then
+      step device-back ok "$(grep -oE "post: the chain's objects made again.*" "$LOG" | tail -1 | cut -c7-)"
     else
-      step device-back fail "the game did not reset its device in 15 s"
+      step device-back fail "the game's own reset did not work in 15 s ($(grep -oE 'post: the reset failed.*' "$LOG" | tail -1 | cut -c7-))"
+      return 1
     fi
   else
     step lost-device fail "the measuring reset was not made"
+    return 1
   fi
   wait_s 15
-  if game_alive; then step alive-after-resets ok; else step alive-after-resets fail "the game ended"; fi
-  card "$SIZE $NAME after the resets"
+  if game_alive; then step alive-after-resets ok; else step alive-after-resets fail "the game ended"; return 1; fi
+  card "$SIZE $NAME after the lost device"
 }
 # TOUCH to START at its place (unless it was pressed in a window already), then the guest's screens count down to
 # the tutorial by themselves.
@@ -525,8 +536,13 @@ for spec in $SIZES; do
       && { wait_s 0.6; shot menu; focus; x "xdotool key Escape"; }
     away
     to_window window && { measure window:off "smooth 50 off keep"; shot window; to_full full-again; }
-    [ "$size" = 3840x2160 ] && resets
-    to_tutorial && { tutorial_part "smooth 50 off keep" "smooth 50 smaa-ultra keep" off smaa-ultra; quit_part; }
+    [ "$size" = 3840x2160 ] && switches
+    if to_tutorial; then
+      tutorial_part "smooth 50 off keep" "smooth 50 smaa-ultra keep" off smaa-ultra
+      # At 3840x2160 the lost device last (a game that cannot reset its device draws nothing more), the quit after it
+      # when the device came back.
+      if [ "$size" != 3840x2160 ] || lost_device; then quit_part; fi
+    fi
   fi
   finish
 done
