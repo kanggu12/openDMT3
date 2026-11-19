@@ -523,10 +523,15 @@ def cmd_run(args):
                 os.remove(os.path.join(data, name))
         logging.getLogger("opendmt3.server").info("stopped")
     if asked["delete_data"]:
-        # The log is in the data folder: closed first, so the folder can go (Windows keeps an open file).
+        # The log is in the data folder: closed first, so the folder can go (Windows keeps an open file). Each handler
+        # taken off before it is closed, and no record made after: a file handler that is closed opens its file again
+        # for the next record, which a thread still ending could write.
+        root = logging.getLogger()
+        for handler in root.handlers[:]:
+            root.removeHandler(handler)
+            handler.close()
+        logging.disable(logging.CRITICAL)
         logging.shutdown()
-        for handler in logging.getLogger().handlers[:]:
-            logging.getLogger().removeHandler(handler)
         if args.background:
             # Started in the background, this run writes what it prints to data/logs/output.txt (cmd_start), a file
             # Windows will not delete while it is open: its output goes nowhere from here, so the folder can go.
