@@ -267,6 +267,7 @@ Three settings of the image keep the frame times and the layer's costs the game'
 | `OPENDMT3_WINE_GPU=1 tests/e2e/windows/ingame.sh ...` | The test as in the table above, on the GPU (the same for `install_and_play.sh` and `play_a_song.sh`; the containers are named `odt3-gpu-*`, so they never take a CPU run's) |
 | `[OPENDMT3_WINE_GPU=1] [SCREEN=WxH] tests/e2e/windows/gpu/measure.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS] [RUN...]` | The same scenes on either renderer at one screen size, the real client started as a guest on its title screen: what draws it, what showing a frame costs by itself, the game alone (its own limiter, and as fast as it goes), openDMT3 at each picture choice, each part of the layer in turns, the picture's GPU time by pass at every choice, kept and filled, in one start of the game (`passes`; 35 minutes in all up to here), and the frame rate chip with the limiter out, where its number changes at every count (`chip`, a minute and a half: its uploads' times, and the layer's textures made at its first frame). `python3 tests/e2e/windows/gpu/measure.py compare OUT_DIR` puts the sessions side by side; `measure.py passes OUT_DIR [BEFORE_DIR]` tables the passes runs, or two builds' before and after |
 | `[OPENDMT3_WINE_GPU=1] [PRESSES=80] tests/e2e/windows/gpu/song.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS] [VAR=VALUE...]` | A whole song as a guest, the layer at a player's defaults (locked to the music, FSR 1 at 50) and the variables given, on an image whose sound goes to PulseAudio's null sink (`gpu/sound/Dockerfile`), which plays in real time, so the music lock holds the song at 60 a second (ALSA's null device, the other tests' sound, runs its play cursor ahead of real time): every frame's length, the music against the frames at its stop, and PRESSES presses (none after the song) timed from each press's message to its frame done on the GPU, with the parts the layer gives (to the game's read of it, from the read to the present, from the present to done); `song.py OUT_DIR` turns a run into its numbers (`results.json`), and `song.py compare A_DIR[,A_DIR...] B_DIR[,B_DIR...]` pools two sides' presses for their medians and the difference's 95 % interval; 7 minutes a run |
+| `[OPENDMT3_WINE_GPU=1] [HOLDS="32 50"] [MINIMISE=68] tests/e2e/windows/gpu/holds.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS] [VAR=VALUE...]` | `song.sh`'s tutorial and song with no presses, held still under the question and minimised at those seconds into each music, the score watched (`OPENDMT3_LINE_WATCH`): `line.py holds` judges each hold (the score counted no more time across it than the music played, and a tick) and gives how far it moved the score against the music over 2 s each side; 10 minutes a run |
 | `OPENDMT3_WINE_GPU=1 tests/e2e/windows/gpu/measure.sh ... pictures:keep pictures:fill` with one build, again with the other and `PICTURE_SOURCE=` the first run's session, then `python3 tests/e2e/windows/gpu/pictures.py A_DIR B_DIR` | The chain's measuring dump of frames of the title screen (`PICTURE_FRAMES`, 1800 and 2400 by default) with every filter and anti-aliasing, kept and filled. The title's animation is not at the same picture at a frame number in two runs, so the second run takes the first's game picture of each frame in place of its own (`OPENDMT3_POSTFX_SOURCE`); `pictures.py` holds the two runs' dumps against each other: the game's own frame must be the same in both, then each picture's pixels that differ, the largest difference and the PSNR (exit 0 only when all are the same) |
 
 What a player's PC does not have, and so what the numbers below hold besides the game's and openDMT3's own work:
@@ -628,6 +629,41 @@ readings run long now and then, so the next frame was judged not ready more ofte
 tutorial were shown after all, and its 100 ms took 4.2 s to win back. In that run's song the music's own cursor
 twice stood still, for 1.7 and 1.9 s. The lock held the frames back for it (48 frames a second for some seconds: the
 14.9 % over 20 ms), and both stalls fell into those stretches, so it needed only 15 frames left unshown.
+
+#### The chart across a hold, before and after
+
+On 2026-11-19, `gpu/holds.sh` at 1280x768 with no presses and `OPENDMT3_STALL=200`, the layer at a player's defaults
+with the score watched (`OPENDMT3_LINE_WATCH`), on the sound image of `song.sh` (PulseAudio's null sink, real time):
+the guest's tutorial, then a song, each held still under the question for 5 s at 32 s and 50 s into its music (8.0 to
+8.4 s in all with the 3, 2, 1), the song also minimised for 5 s at 68 s and brought back by the taskbar's restore
+(7.8 s), and the layer's own stall of 200 ms 20 s into each music. 0.4.0's layer was measured with the watch added
+and nothing else changed, by the same steps before they were this script (its tutorial on the GPU image, its song on
+the CPU's); 0.4.1's by the script, on the CPU's. "Score" is the score player's time across a hold, its ticks times
+one tick's length (a tick was 2.54 and 2.65 ms here), "music" the music's move across it, and "moved" how far the
+score went ahead of the music over the hold, from the means of the music's position less the score's time over 2 s
+on each side (the music's cursor moves in 10 ms steps).
+
+| Hold | 0.4.0: score, music, moved | 0.4.1: score, music, moved |
+|---|---|---|
+| Tutorial, question at 32 s | +8442.8, +30.0, +8420.7 ms | +7.9, +30.0, -13.6 ms |
+| Tutorial, question at 50 s | +8339.5, +20.1, +8314.1 ms | +15.9, +20.0, -0.2 ms |
+| Song, question at 32 s | +8257.1, +20.0, +8236.5 ms | +17.8, +20.0, -3.6 ms |
+| Song, question at 50 s | +8234.2, +30.0, +8215.7 ms | +12.7, +20.0, -0.9 ms |
+| Song, minimised at 68 s | +7771.8, +20.0, +7766.8 ms | +2.5, +20.0, -2.9 ms |
+
+With 0.4.0 the score counted each hold's whole length at the next frame: after the tutorial's two holds its chart
+was 16.7 s ahead of its music and the tutorial's music stopped at 63.1 s of its 79.8; the song's music stopped at
+99.0 s of its 123.2. With 0.4.1 the score counted only the time between its two frames that was not held (2.5 to
+17.8 ms, where 11.6 to 23.0 ms were not held), and both musics played to their end (79.9 and 123.2 s). The largest
+move, -13.6 ms at the tutorial's first hold, is the clock's own step: a hold is measured on the interrupt time the
+score reads, which Wine moves in steps of its own, and the score counted 7.9 ms there where 17.8 ms were not held.
+The stall of 200 ms moved neither (the score against the music -0.8 and +0.9 ms across it), and the score's place
+of the line, its row and its sixteenth matched the game's own fields in every one of the 12,526 frames the score
+counted. `ingame.sh` judges each hold of its own play by the clocks alone: the score counts only the time between
+its two frames that was not held, within a tick and 20 ms (its sound is ALSA's null device, whose clock runs fast:
+there the music's position moved 8.5 s across a minimised hold of 3.75 s). Its play on 0.4.0's layer with the watch
+failed there, the score having counted 9.9 and 3.8 s across the question's hold and the minimised one; on 0.4.1's it
+passed, the score counting 15.9 and 21.2 ms.
 
 ## Before a release
 

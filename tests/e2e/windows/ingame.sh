@@ -23,7 +23,10 @@
 #      targets (ingame/costs.py); the chip is in the bottom right corner beside the game's FREE PLAY, the menu's Show
 #      FPS hides and shows it; in the tutorial's song, the X's question (with its line) holds the game still (two
 #      screenshots 2 s apart the same in the middle half, the chip hidden, the sound faded out, held, and played again
-#      from where it stopped with a fade in), Keep playing lets it go on; Esc does nothing; a minute of the song played
+#      from where it stopped with a fade in), Keep playing lets it go on; across that hold and the one minimised below
+#      the song's chart holds with the game (the score's watch, OPENDMT3_LINE_WATCH: across a hold the score counted only
+#      the time between its two frames that was not held, within a tick and 20 ms: gpu/line.py holds); Esc does
+#      nothing; a minute of the song played
 #      all over the screen (ingame/player.py: the top band and its edge included, the pointer resting at the top edge
 #      between notes a little under the 1.5 s of quiet) never brings the bar on the screen, and a call on purpose
 #      after 1.6 s of quiet brings it, gone 0.9 s after the pointer leaves it; minimised, the song is held and goes on
@@ -49,6 +52,10 @@
 #   OPENDMT3_WINE_GPU=1 draws on this PC's graphics card through WSL instead of the CPU (gpu.sh): the game's process
 #   must then draw through WSL's D3D12, and in 4 the heaviest choice is not heavy for a GPU: the net must leave it as
 #   it is (no step, no note) while the game holds 60 evenly.
+#   OPENDMT3_E2E_NAME=NAME names its container (opendmt3-ingame by default; odt3-gpu-NAME on the GPU).
+#   OPENDMT3_E2E_CARD_READER=PATH (a CRT_R1.dll on this machine) gives the offline plays (2 to 4) that layer in place of
+#   the installer's, through the launcher's OPENDMT3_CARD_READER: a check tried on another build's layer (an older
+#   release's with the watch, to see the check fail) with this installer; the first play keeps the installer's own.
 #   Screenshots of each stage land in OUT_DIR; the run fails at the first stage that does not happen.
 #
 #   tests/e2e/windows/ingame.sh GAME_PARENT RELEASES_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]
@@ -67,6 +74,16 @@ LINKS=${4:-}
 DLLS=${5:-}
 HERE=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$OUT"
+# Another layer for the offline plays, when one is given: copied beside the outputs, where the container sees it.
+layer_env=()
+if [ -n "${OPENDMT3_E2E_CARD_READER:-}" ]; then
+  [ -f "$OPENDMT3_E2E_CARD_READER" ] || { echo "FAIL: no layer at $OPENDMT3_E2E_CARD_READER"; exit 1; }
+  mkdir -p "$OUT/card-reader"
+  cp "$OPENDMT3_E2E_CARD_READER" "$OUT/card-reader/CRT_R1.dll"
+  chmod 0644 "$OUT/card-reader/CRT_R1.dll"
+  layer_env=(-e 'OPENDMT3_CARD_READER=Z:\out\card-reader\CRT_R1.dll')
+  echo "  the offline plays' layer: $OPENDMT3_E2E_CARD_READER ($(sha256sum "$OUT/card-reader/CRT_R1.dll" | cut -c1-16))"
+fi
 # The renderer: the CPU image by default, the GPU image with OPENDMT3_WINE_GPU=1 (gpu.sh).
 . "$HERE/gpu.sh"
 # A fresh copy of the test game for this run.
@@ -86,9 +103,11 @@ docker image inspect opendmt3-mingw:local >/dev/null 2>&1 || {
   docker build -q -t opendmt3-mingw:local "$ctx" >/dev/null
   rm -rf "$ctx"
 }
-docker run --rm --network none -v "$HERE/ingame:/src:ro" -v "$OUT:/out" opendmt3-mingw:local \
+# Its container: opendmt3-ingame (odt3-gpu-opendmt3-ingame on the GPU), or OPENDMT3_E2E_NAME's name, so a run beside
+# another of this test (another worker's) never takes that one's container; the helper's build is named after it.
+C=$(wine_name "${OPENDMT3_E2E_NAME:-opendmt3-ingame}")
+docker run --rm --network none --name "$C-build" -v "$HERE/ingame:/src:ro" -v "$OUT:/out" opendmt3-mingw:local \
   i686-w64-mingw32-gcc -O2 -o /out/restore.exe /src/restore.c -luser32 || { echo "FAIL: the restore helper did not build"; exit 1; }
-C=$(wine_name opendmt3-ingame)
 docker rm -f "$C" >/dev/null 2>&1
 mounts=(-v "$PARENT:/root/Desktop/$NAME" -v "$REL:/rel:ro" -v "$OUT:/out" -v "$HERE/ingame:/probe:ro")
 [ -n "$LINKS" ] && mounts+=(-v "$LINKS:$LINKS:ro")
@@ -550,11 +569,15 @@ GUID=$(grep -oE "\{[0-9A-F-]{36}\}" "$OUT/sound-devices.txt" | tail -1)
 textures "the game the launcher started"
 rm -f "$OUT/ingame.log"
 # The sound watched (OPENDMT3_SOUND_WATCH, the tests only): its log says when the tutorial's song starts.
+# The score watched too (OPENDMT3_LINE_WATCH, the tests only): a row a frame for the holds' check in the tutorial's song.
 docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' \
-  -e OPENDMT3_SOUND_WATCH=1 -e OPENDMT3_SOUND_LEVELS=1 "$C" sh -c \
+  -e OPENDMT3_SOUND_WATCH=1 -e OPENDMT3_SOUND_LEVELS=1 -e 'OPENDMT3_LINE_WATCH=Z:\out\line.csv' "${layer_env[@]}" "$C" sh -c \
   "wine '$APP' --mode offline --set vsync=off --set frame_pacing=music --set show_fps=on --set 'sound_device=$GUID' --set upscale=fsr1 --set sharpness=50 --set antialiasing=off --set master_volume=80 --set eq_60=4 --set eq_1k=3 --play > /out/play-offline.txt 2>&1; echo \"exit \$?\" >> /out/play-offline.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline"
+# Whether the client's read of the score's clock was turned (clock.c), said before the layer attaches: kept for the
+# holds' check in the tutorial's song (this log is started again below).
+clock_turned=$(grep -c "clock: the score's clock read turned to openDMT3's" "$OUT/ingame.log")
 grep -q "picture: vsync off, pacing even (openDMT3's clock), locked to a song's music" "$OUT/ingame.log" \
   || fail "the layer did not take pacing locked to the music"
 # Said at the first frame the chain draws, which comes a few seconds after the layer attaches (its pictures made then).
@@ -795,6 +818,13 @@ win_state ClientApp | sed 's/^/  /'
 wait_more "hold: the game goes on" "$went" 5 || fail "brought back, the song did not go on"
 wait_s 2; shot 11d-back-in-song
 game_alive || fail "the game ended after minimise in a song"
+# The chart held with the game across both holds (the question's and the minimised one): from the score's watch, the
+# score counted only the time between its two frames that was not held, within a tick and 20 ms (gpu/line.py holds,
+# by the clocks alone: this container's ALSA null device takes the music faster than real time and its cursor jumps;
+# the rows reach the file half a second at a time, so the frames after the hold are in it by now). Before 0.4.1 it
+# counted every second of the hold, and the chart ran that far ahead of its music.
+python3 "$HERE/gpu/line.py" holds "$OUT/line.csv" "$OUT/ingame.log" || fail "the chart ran on while the game was held"
+[ "$clock_turned" -gt 0 ] || fail "the layer's log did not say the score's clock read was turned"
 # A click on the handle in a song is the game's: after a quiet as long as the bar's own, no press of the handle's, and
 # the bar stays away (the press takes the pointer's rest back, as any press on the game).
 x "xdotool mousemove 960 700"; wait_s 1.6
@@ -934,7 +964,7 @@ rm -f "$OUT/ingame.log"
 # frame's chain and layer work timed whole (OPENDMT3_LAYER_TIMING=frame, the tests only: it stalls each frame), the
 # chip on.
 docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' \
-  -e 'OPENDMT3_POSTFX_DUMP=Z:\out' -e OPENDMT3_SAFETY=off -e OPENDMT3_LAYER_TIMING=frame "$C" sh -c \
+  -e 'OPENDMT3_POSTFX_DUMP=Z:\out' -e OPENDMT3_SAFETY=off -e OPENDMT3_LAYER_TIMING=frame "${layer_env[@]}" "$C" sh -c \
   "wine '$APP' --mode offline --set upscale=fsr1 --set sharpness=80 --set antialiasing=smaa-high --set show_fps=on --set sound_path=openal --set eq_12k=-2 --set music_volume=50 --play > /out/play-picture.txt 2>&1; echo \"exit \$?\" >> /out/play-picture.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline the second time"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline the second time"
@@ -1040,7 +1070,7 @@ echo "== offline with NVIDIA NIS and SMAA Ultra on the GPU: the heaviest choice 
 textures "the game with sharpness 80 and SMAA High"
 rm -f "$OUT/ingame.log"
 docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' \
-  -e OPENDMT3_SAFETY=on -e OPENDMT3_SOUND_WATCH=1 -e OPENDMT3_SOUND_LEVELS=1 "$C" sh -c \
+  -e OPENDMT3_SAFETY=on -e OPENDMT3_SOUND_WATCH=1 -e OPENDMT3_SOUND_LEVELS=1 "${layer_env[@]}" "$C" sh -c \
   "wine '$APP' --mode offline --set upscale=nis --set sharpness=50 --set antialiasing=smaa-ultra --play > /out/play-heavy.txt 2>&1; echo \"exit \$?\" >> /out/play-heavy.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline the third time"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline the third time"
@@ -1070,7 +1100,7 @@ textures "the game with sharpness 80 and SMAA High"
 rm -f "$OUT/ingame.log"
 # The net on for this play (the container has it off for the others).
 docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_INGAME_LOG=Z:\out\ingame.log' \
-  -e OPENDMT3_SAFETY=on -e OPENDMT3_SOUND_WATCH=1 -e OPENDMT3_SOUND_LEVELS=1 "$C" sh -c \
+  -e OPENDMT3_SAFETY=on -e OPENDMT3_SOUND_WATCH=1 -e OPENDMT3_SOUND_LEVELS=1 "${layer_env[@]}" "$C" sh -c \
   "wine '$APP' --mode offline --set upscale=nis --set sharpness=50 --set antialiasing=smaa-ultra --play > /out/play-heavy.txt 2>&1; echo \"exit \$?\" >> /out/play-heavy.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline the third time"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline the third time"
@@ -1157,5 +1187,5 @@ dumps=$(x "find /root/Desktop /w/drive_c/users/root/AppData/Roaming/openDMT3 -na
 textures "the game with NVIDIA NIS and SMAA Ultra"
 # Every other step held; the pacing not judged in its time is a failure all the same.
 [ -n "$unjudged" ] && fail "$unjudged"
-echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click, from a click and a press held on the handle; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only, dragged larger and smaller with the picture following, and back to full screen; minimise and back; offline the chip in the corner beside FREE PLAY, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top or on the handle; minimised in a song held and going on; the picture options run by the chain and shown, $added, $stepped; the game's own music curve and the music's move by it, measured at the last stage of the sound within 1 dB"
+echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click, from a click and a press held on the handle; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only, dragged larger and smaller with the picture following, and back to full screen; minimise and back; offline the chip in the corner beside FREE PLAY, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top or on the handle; minimised in a song held and going on, the song's chart held with the game across both holds; the picture options run by the chain and shown, $added, $stepped; the game's own music curve and the music's move by it, measured at the last stage of the sound within 1 dB"
 docker rm -f "$C" >/dev/null

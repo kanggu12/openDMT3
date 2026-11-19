@@ -218,6 +218,8 @@ the cabinet's touch screen library, which hands the game every finger through th
 | `look.c`, `paint.c`, `logic.c` | The pictures (anti-aliased polygons after the game's own panels: its dialogs' title tab and metal frame, its notice's glass, its glossy buttons; the bar's chips in the launcher's leaning button shape) and the decisions (the settings, the frame clock, the keys the game may see, the panels' answers and keys, the layout, when a rest may bring the bar), with no Windows calls |
 | `mark.py` | The product's mark for the bar, drawn by the launcher's own code (`opendmt3/client/art.py` logo) when the DLL is built and carried in it as a resource: the bar shows the launcher's picture of the mark, never letters set in its face |
 | `trace.c` | With `OPENDMT3_INGAME_TRACE` set, how the game draws (its device, its draws' vertex formats, transforms, render targets, copies), into the log; never set by the launcher |
+| `clock.c` | The score's clock: the client's one read of the system's interrupt time, which its score player counts a song's ticks on, turned to openDMT3's, which leaves out the time the game was held still ([holding the game still](#frame-pacing-and-the-music)) |
+| `line.c` | With `OPENDMT3_LINE_WATCH` naming a file, the score watched: a row a frame of the score player's clock, its ticks and tempo, the line's place by the game's own fields and the music's position (`tests/e2e/windows/gpu/line.py` reads it); never set by the launcher |
 | `test_native.c`, `test.sh` | The tests of the files with no Windows calls (the touch screen's rules read back the way the game reads them), and of the methods' watch, built with the same compiler and run under Wine |
 
 ### The five hooks
@@ -235,10 +237,13 @@ the cabinet's touch screen library, which hands the game every finger through th
     ([below](#frame-pacing-and-the-music)), that clock follows a song's music while one plays; with VSync on, its
     ticks are kept in the middle of a display refresh, and on a display that shows no frame sooner than its refresh
     (60 Hz) frames behind the music are left unshown now and then instead. The game's logic runs once a frame, so 60
-    a second is its speed: its timers count frames.
+    a second is its speed: its timers count frames (a song's chart runs on the system's interrupt time).
   - It keeps at most one frame queued: an event query after each present, waited for before the next.
   - The post-process chain's safety net reads each frame's length here.
-  - While the menu or the question is open during a song, it holds the game still.
+  - While the menu, the question or the sound panel is open during a song, or the game is minimised in one, it holds
+    the game still; the client's read of the interrupt time, which its score player counts a song's chart on, is
+    turned to openDMT3's when the device is made, so the chart holds too
+    ([holding the game still](#frame-pacing-and-the-music)).
 - **`GetKeyboardState`**: the game reads every key and the mouse's buttons with it once a frame, so it sees none of
   those that answer the layer, and never Esc (the game's own Esc ends it at once).
 - **`GetCursorPos`**: the display fix's helper reads the pointer with it; the point it is handed is turned so that the
@@ -675,8 +680,10 @@ The same parts measured on the PC's own graphics card are in [Testing](testing.m
 
 ## Frame pacing and the music
 
-The game runs its logic once a frame, so its notes move by frames, and its music plays by the sound card's clock. A
-frame late is a game slower than its music. Three pacings:
+The game runs its logic once a frame: its menus' countdowns and its animations move by frames, its music plays by the
+sound card's clock, and a song's chart (its notes, the judgement line and their judging) runs on the system's
+interrupt time, which its score player reads at each frame (`clock.c`), so a frame late shows the chart where it is
+then. The frames are paced against the music all the same, so the frames and the music stay together. Three pacings:
 
 - **The game's own**: the client's limiter, 17, 17 and 16 ms.
 - **Even**: openDMT3's clock at exactly 60.0 a second. A frame more than a frame late (a load) starts the count again
@@ -795,9 +802,12 @@ none, `OPENDMT3_STROBE_WATCH` reads motion clarity's sub-frames back, one frame 
 unshown), `OPENDMT3_VBLANK=wait` brings each present back at the display's next refresh by its raster position (with
 `OPENDMT3_REFRESH=60`, Wine's virtual screen, which shows every present at once, then shows no frame sooner, as a
 60 Hz display with VSync), and `OPENDMT3_STALL=MS[,MS...]` stalls a frame that many milliseconds in every song, the
-n-th n times 20 s into its music (four at most), as the game's own hiccups do.
+n-th n times 20 s into its music (four at most), as the game's own hiccups do; `OPENDMT3_LINE_WATCH=FILE` writes a
+row a frame of the score into that file (`line.c`: its clock and ticks, its tempo, the line's place by the game's own
+fields, the music's position), which `tests/e2e/windows/gpu/line.py` reads.
 
-While the menu or the question is open during a song (the song's music buffer playing), the game is held still:
+While the menu, the question or the sound panel is open during a song (the song's music buffer playing), or the game
+is minimised in one, the game is held still:
 
 - **The picture.** After the frame that opened the panel, the present does not hand control back to the game. It
   presents the game's last frame again through the chain at 60 a second with the layer over it, and pumps the
@@ -809,7 +819,18 @@ While the menu or the question is open during a song (the song's music buffer pl
 - **Going on.** When the panel closes, each buffer is set back to the place the hold found it, played again and faded
   in over the next eight frames; the sounds the game starts in those frames (a song's first frames back start several
   at once) come in at the same share, and a volume the game sets meanwhile becomes the fade's goal. The game's next
-  frame is due a frame after the music starts, so music and notes go on from the moment they stopped together.
+  frame is due a frame after the music starts.
+- **The chart.** The score player reads the system's interrupt time in one place
+  of the client's code, the only read of it there (when a score starts and at each frame's update); that read is
+  turned to openDMT3's (`clock.c`), which gives the interrupt time less the time the game was held. Each hold adds its
+  length to that time when it ends, so the next frame's update counts only its own frame and the chart goes on from
+  where it stopped, with its music. Before 0.4.1 the update counted every second of the hold at once: the chart ran
+  that far ahead of its music and the song ended early by as much. The read is turned only when it holds exactly
+  what it held in the build measured (the log says which: `clock: the score's clock read turned...` or `...left
+  alone`); openDMT3's read changes nothing but its result (every other register and the flags as the client's own
+  leaves them) and reads Windows' shared page as Windows does. The client reads it on a thread of its own too, while
+  its eye-catch screens load a song, so the held time is published as Windows publishes its own times, never read
+  half written.
 - **Quitting** ends the hold before the game's own close is taken.
 - **With no chain** (its back buffer is not kept from one present to the next) the game goes on under the panel.
 

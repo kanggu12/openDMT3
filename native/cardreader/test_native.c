@@ -3156,8 +3156,122 @@ static void test_slot_index(void)
     check(slot_index_get(&x, base + 16 * 5000) == -1, "slot index: a key never put is not found");
 }
 
+/* The score's clock (clock.c). openDMT3's read is called the way the client calls its own, from a probe in assembly
+ * that first puts known values in every register and known flags (CF, SF and OF set, ZF clear), then keeps what the
+ * read left in each: the read may change EDX:EAX alone. */
+uint32_t g_probe_flags_in, g_probe_flags_out, g_probe_lo, g_probe_hi, g_probe_ecx, g_probe_ebx, g_probe_esi,
+    g_probe_edi, g_probe_ebp, g_probe_esp_in, g_probe_esp_out;
+void clock_score_read(void);
+__attribute__((naked)) void clock_probe(void)
+{
+    __asm__(
+        "    pushl %ebp\n"
+        "    pushl %ebx\n"
+        "    pushl %esi\n"
+        "    pushl %edi\n"
+        /* Known values in every register the read must leave alone, and in the two it gives its result in. */
+        "    movl $0x11223344, %ecx\n"
+        "    movl $0x55667788, %ebx\n"
+        "    movl $0x99aabbcc, %esi\n"
+        "    movl $0xddeeff00, %edi\n"
+        "    movl $0x0badf00d, %ebp\n"
+        "    movl $0x7fffffff, %eax\n"
+        "    movl $0x9abcdef0, %edx\n"
+        /* Flags with something in them: 0x7fffffff + 1 sets SF and OF and clears ZF, then CF set too. */
+        "    addl $1, %eax\n"
+        "    stc\n"
+        "    pushfl\n"
+        "    popl _g_probe_flags_in\n"
+        "    pushl _g_probe_flags_in\n"
+        "    popfl\n"
+        "    movl %esp, _g_probe_esp_in\n"
+        "    call _clock_score_read\n"
+        /* What the read left: the flags first (nothing before them changes any). */
+        "    pushfl\n"
+        "    popl _g_probe_flags_out\n"
+        "    movl %esp, _g_probe_esp_out\n"
+        "    movl %eax, _g_probe_lo\n"
+        "    movl %edx, _g_probe_hi\n"
+        "    movl %ecx, _g_probe_ecx\n"
+        "    movl %ebx, _g_probe_ebx\n"
+        "    movl %esi, _g_probe_esi\n"
+        "    movl %edi, _g_probe_edi\n"
+        "    movl %ebp, _g_probe_ebp\n"
+        "    popl %edi\n"
+        "    popl %esi\n"
+        "    popl %ebx\n"
+        "    popl %ebp\n"
+        "    ret\n");
+}
+
+static void test_clock(void)
+{
+    /* The read from the probe: every register but EDX:EAX, the stack and the flags as they were. */
+    int64_t before = clock_interrupt_now() - clock_held_total();
+    clock_probe();
+    int64_t after = clock_interrupt_now() - clock_held_total();
+    int64_t got = ((int64_t)g_probe_hi << 32) | g_probe_lo;
+    check(g_probe_ecx == 0x11223344 && g_probe_ebx == 0x55667788 && g_probe_esi == 0x99aabbcc &&
+              g_probe_edi == 0xddeeff00 && g_probe_ebp == 0x0badf00d && g_probe_esp_out == g_probe_esp_in,
+          "clock: the read leaves every register but EDX:EAX, and the stack, as they were");
+    check(g_probe_flags_out == g_probe_flags_in && (g_probe_flags_in & 0x881) == 0x881 && !(g_probe_flags_in & 0x40),
+          "clock: the read leaves the flags as they were (CF, SF and OF set, ZF clear here)");
+    check(got >= before && got <= after, "clock: the read is the interrupt time less the held total");
+    /* A hold of a second: the read is a second behind the interrupt time from then on; none, or a clock gone back,
+     * adds nothing. */
+    int64_t held = clock_held_total();
+    clock_held(10000000);
+    clock_held(0);
+    clock_held(-5);
+    before = clock_interrupt_now() - 10000000 - held;
+    clock_probe();
+    after = clock_interrupt_now() - 10000000 - held;
+    got = ((int64_t)g_probe_hi << 32) | g_probe_lo;
+    check(clock_held_total() == held + 10000000 && got >= before && got <= after,
+          "clock: a hold's length is taken off the read from then on, nothing for none");
+    /* A total past 32 bits (a held time over seven minutes): its high word published with it. */
+    clock_held(0x100000000LL);
+    check(clock_held_total() == held + 10000000 + 0x100000000LL, "clock: the held total carries into its high word");
+
+    /* The turn, on a copy of the client's read in memory of this program's own that may run code. */
+    static const BYTE read[18] = {0x55, 0x8b, 0xec, 0x3e, 0x8b, 0x15, 0x0c, 0x00, 0xfe,
+                                  0x7f, 0x3e, 0xa1, 0x08, 0x00, 0xfe, 0x7f, 0x5d, 0xc3};
+    BYTE *code = VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!code) {
+        check(0, "clock: memory for the client's read");
+        return;
+    }
+    memcpy(code, read, sizeof read);
+    typedef uint64_t (*ReadFn)(void);
+    ReadFn f = (ReadFn)(void *)code;
+    /* As the client has it: the interrupt time itself. */
+    before = clock_interrupt_now();
+    int64_t own = (int64_t)f();
+    after = clock_interrupt_now();
+    int own_ok = own >= before && own <= after;
+    int turned = clock_turn(code) == CLOCK_TURNED && code[0] == 0xe9;
+    BYTE once[18];
+    memcpy(once, code, sizeof once);
+    /* Turned: the held total taken off; turned again (a reset, a second device): nothing changes. */
+    before = clock_interrupt_now() - clock_held_total();
+    int64_t ours = (int64_t)f();
+    after = clock_interrupt_now() - clock_held_total();
+    int again = clock_turn(code) == CLOCK_TURNED && !memcmp(code, once, sizeof once);
+    check(own_ok && turned && ours >= before && ours <= after && again,
+          "clock: the client's read turned to openDMT3's once, the same after a second turn");
+    /* Any other bytes (another build of the client): left alone, nothing written. */
+    memcpy(code, read, sizeof read);
+    code[11] = 0xa0;
+    BYTE other[18];
+    memcpy(other, code, sizeof other);
+    check(clock_turn(code) == CLOCK_LEFT && !memcmp(code, other, sizeof other),
+          "clock: a read with other bytes is left as it is");
+    VirtualFree(code, 0, MEM_RELEASE);
+}
+
 int main(void)
 {
+    test_clock();
     test_settings();
     test_engine();
     test_render_size();

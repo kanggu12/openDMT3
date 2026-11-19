@@ -1397,6 +1397,8 @@ static void hold_still(IDirect3DDevice9 *dev, HWND window, const RECT *dst, cons
     long frame = ingame_frame();
     LARGE_INTEGER t, from;
     QueryPerformanceCounter(&from);
+    /* The score's clock (clock.c) leaves out the time the game is held: the hold's start on that clock's own time. */
+    int64_t held_from = clock_interrupt_now();
     sound_hold();
     layer_holding(1);
     ingame_log("hold: the game held still at frame %ld (%s)", frame,
@@ -1441,6 +1443,9 @@ static void hold_still(IDirect3DDevice9 *dev, HWND window, const RECT *dst, cons
         mix_frame();
     }
     layer_holding(0);
+    /* The hold's length taken off the score's clock from now: the game's next update counts its frame's own time, so
+     * its chart goes on from where it stopped, with its music (every way out of the hold comes past here). */
+    clock_held(clock_interrupt_now() - held_from);
     /* Quitting: the sound only let go; otherwise played again from where it stopped. */
     sound_resume(!layer_quitting());
     QueryPerformanceCounter(&t);
@@ -1604,6 +1609,9 @@ static HRESULT STDMETHODCALLTYPE our_present(IDirect3DDevice9 *dev, const RECT *
                                              const RGNDATA *dirty)
 {
     LARGE_INTEGER t0, now;
+    /* Measuring only: the game's frame just made, a row of the score's watch (line.c), before anything of the
+     * present's own. */
+    line_present(ingame_frame() + 1);
     /* Measuring only: a stall of the game's own, where one is asked for. */
     stall_for_measuring();
     /* Catching up with the music where the display shows no frame sooner than its refresh: a frame planned to be left
@@ -1864,6 +1872,8 @@ static HRESULT STDMETHODCALLTYPE our_create_device(IDirect3D9 *d3d, UINT adapter
     /* Even pacing takes the client's own limiter out only now, when our clock is sure to run at each present. */
     if (g_settings.even_pacing && !g_own_clock)
         g_own_clock = take_out_limiter();
+    /* The score's clock read turned to openDMT3's (clock.c), which a hold holds: once, at the first device. */
+    clock_attach();
     if (pp)
         take_parameters(pp);
     take_refresh(*out);
@@ -1878,6 +1888,8 @@ static HRESULT STDMETHODCALLTYPE our_create_device(IDirect3D9 *d3d, UINT adapter
         post_flip(0);
         reset_device(*out, &back);
     }
+    /* The game's score watched, when asked (line.c, measuring only). */
+    line_attach(*out);
     /* How the game draws, for study, when asked (after ours, so it sees the game's own calls). */
     trace_attach(*out, pp, flags);
     ingame_log("picture: device made for window %p", (void *)game);

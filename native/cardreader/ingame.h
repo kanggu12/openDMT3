@@ -152,6 +152,24 @@ void render_summary(void);
  * on into them, and NULL after, so they judge the game's call and not the trace's. */
 void render_from(const void *ret);
 
+/* The score's clock (clock.c): the client's one read of the interrupt time, which its score player counts a song's
+ * ticks on, turned to openDMT3's, which takes off the time the game was held still. clock_turn turns the read at `at`
+ * when it holds the bytes measured (CLOCK_TURNED, also when it was turned already; CLOCK_LEFT: other bytes, nothing
+ * changed); clock_attach turns the client's own, once, with a line in the log. clock_interrupt_now reads the interrupt
+ * time as Windows does (100 ns units); clock_held adds a hold's length to the total taken off (from the game's thread
+ * only); clock_held_total reads that total. */
+enum { CLOCK_LEFT = 0, CLOCK_TURNED = 1 };
+int clock_turn(void *at);
+void clock_attach(void);
+int64_t clock_interrupt_now(void);
+void clock_held(int64_t held);
+int64_t clock_held_total(void);
+/* The game's score watched (line.c, measuring only: OPENDMT3_LINE_WATCH names a file): once the device is made, the
+ * score player's update followed when it is where it was measured; at each of the game's presents, before anything of
+ * the present's own, a row of the frame (its number) into the file. */
+void line_attach(struct IDirect3DDevice9 *dev);
+void line_present(long frame);
+
 /* The game's sound, watched when OPENDMT3_SOUND_WATCH is set (sound.c): its DirectSound object as made, each frame's
  * cursor reading, and the counts into the log every two seconds. */
 void sound_attach(void *direct_sound);

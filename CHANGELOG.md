@@ -6,6 +6,12 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+### Fixed
+
+- After the in-game menu, the quit question or the sound panel was open during a song, or the game was minimised in
+  one, the song's notes ran ahead of its music by as long as the game was held, and the song ended early by as much
+  (in every release since 0.1.0). The notes now wait with the music and go on with it.
+
 ## [0.4.0] - 2026-11-19
 
 The admin pages on a site of their own with a page for each player, a master volume and an equalizer in the launcher
