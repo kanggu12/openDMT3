@@ -443,8 +443,12 @@ def logo(width, scale=1.0, label="LAUNCHER", accent=theme.BLUE_HI, version=None)
         draw.text((x, o_base), ch, font=small, fill=_rgb(theme.TEXT) + (255,), anchor="ls")
         x += small.getlength(ch) + 0.2 * o_size
     # The slab: after OPEN by 0.86 of its height, as thick as half of it along its top, to the right edge, its end cut
-    # on the slant of the game's plates; grey turning into the accent.
+    # on the slant of the game's plates; grey turning into the accent. With nothing beside DMT3 (no label, no version:
+    # the in-game bar's mark) it ends over the 3's last pixel, never running on over nothing.
     left, right = x - 0.2 * o_size + 0.86 * o_cap, width - 1
+    if not label and not shown:
+        # The 3's own edge: its pixels more than half covered (its rim's faint fringe left out).
+        right = big.getchannel("A").point(lambda v: 255 if v > 128 else 0).getbbox()[2] - 1
     top, foot = o_top + 0.03 * o_cap, o_top + 0.52 * o_cap
     mask = _mask(img.size, lambda d, k: d.polygon([(left * k, top * k), (right * k, top * k),
                                                    ((right - (foot - top)) * k, foot * k), (left * k, foot * k)],

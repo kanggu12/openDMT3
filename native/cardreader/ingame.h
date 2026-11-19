@@ -181,6 +181,9 @@ int soundset_write_file(const WCHAR *path, const char *old, const SoundValues *v
 /* The equaliser's bands a live stream leaves off at its sample rate (bit b: the band's middle at or above half the
  * rate): the in-game panel shows them off. */
 unsigned mix_bands_off(void);
+/* The game ending (the player chose Quit the game): from now the last stage fades the mix out over QUIET_MS and keeps it
+ * silent to the end, whatever the game's code still plays. */
+void mix_quiet(void);
 void sound_summary(void);
 /* The song's music as it plays (the music lock): how far it is in ms and the frame it started at; 0 when none plays. */
 int sound_music_position(double *ms, long *started_frame);
@@ -224,7 +227,7 @@ void layer_toast(const char *words);
  * blur under it), the glass panels over a live blur of the game (the bar, its chips, the menu or the question, the
  * toast), and the mark at the top centre (no glass). The chip and the mark are no panels: frames with them are judged
  * by the safety net, and they need no live blur. */
-enum { PART_FPS, PART_BAR, PART_BAR_CHIPS, PART_PANEL, PART_TOAST, PART_MARK, PART_KINDS };
+enum { PART_FPS, PART_BAR, PART_BAR_CHIPS, PART_PANEL, PART_TOAST, PART_MARK, PART_RESUME, PART_KINDS };
 /* Whether a kind is a glass panel over a live blur. */
 #define PART_IS_PANEL(kind) ((kind) != PART_FPS && (kind) != PART_MARK)
 /* One part of the layer to draw this frame: its pictures (look.h), which change version whenever they are drawn
@@ -279,7 +282,7 @@ typedef struct {
 void post_layer_costs(LayerCosts *out);
 /* The most parts in a frame (the chip, the mark, the bar and its chips, a panel, the toast), and the layer's sprites,
  * each with its own textures. */
-#define LAYER_PARTS 6
+#define LAYER_PARTS 8
 /* The parts to draw this frame on a target of w x h pixels (the window's client area as the chain draws it, or the
  * game's own back buffer without the chain), in the order they are drawn; how many. Their motion (slides and fades)
  * is worked out here, once a frame. */

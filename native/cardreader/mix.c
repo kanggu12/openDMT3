@@ -68,6 +68,7 @@ typedef struct {
     double level_sum;      /* measuring (OPENDMT3_SOUND_LEVELS): the squares of its samples as they came, before the */
     double level_peak;     /* stage, their largest, and how many, since the game's thread last read them */
     LONGLONG level_samples;
+    LONGLONG quiet_frames;  /* the game ending: its frames faded so far (mix_quiet) */
 } Stream;
 /* Room for every stream a game opens and opens again (a device change, an OpenAL Soft reopen); a stream torn down
  * leaves it, and a full table hands the longest unused place to a new stream (said in the log). */
@@ -90,6 +91,9 @@ static LARGE_INTEGER g_frequency;
  * second (the game's own loudness, before the master and the equaliser), for ingame.sh's measure of the game's volume
  * curve. */
 static int g_levels = -1;
+/* The game ending (mix_quiet): every stream fades to silence over this long, then stays silent. */
+static volatile LONG g_quiet;
+#define QUIET_MS 30
 
 /* ------------------------------------------------------------------------------------------------ the streams */
 
@@ -291,6 +295,32 @@ static HRESULT STDMETHODCALLTYPE our_release_buffer(IAudioRenderClient *r, UINT3
             s->level_peak = peak;
             s->level_samples += n;
         }
+        /* The game ending: faded out over QUIET_MS (a straight fall, no click), then nothing (a float or 16-bit mix;
+         * any other at once). After the levels, so the measure still says what the game played. */
+        if (g_quiet && s->rate > 0) {
+            LONGLONG ramp = (LONGLONG)s->rate * QUIET_MS / 1000;
+            UINT32 ch = (UINT32)s->channels;
+            for (UINT32 f = 0; f < frames; f++) {
+                LONGLONG done = s->quiet_frames + f;
+                float g = done >= ramp ? 0.0f : 1.0f - (float)done / (float)ramp;
+                for (UINT32 k = 0; k < ch; k++) {
+                    UINT32 at = f * ch + k;
+                    if (s->kind == KIND_FLOAT)
+                        ((float *)s->data)[at] *= g;
+                    else if (s->kind == KIND_S16)
+                        ((int16_t *)s->data)[at] = (int16_t)lroundf((float)((int16_t *)s->data)[at] * g);
+                }
+            }
+            /* A 24- or 32-bit integer mix silent at once (its zero is silence); a format the stage does not know is left
+             * as it is. */
+            int bytes = s->kind == KIND_S24 ? 3 : s->kind == KIND_S32 ? 4 : 0;
+            if (bytes)
+                memset(s->data, 0, (size_t)frames * ch * (size_t)bytes);
+            s->quiet_frames += frames;
+            s->data = NULL;
+            ReleaseSRWLockShared(&g_lock);
+            return real_release_buffer(r, frames, flags);
+        }
         if (s->kind != KIND_NONE && s->shape.on) {
             LARGE_INTEGER t0, t1;
             QueryPerformanceCounter(&t0);
@@ -432,6 +462,13 @@ void mix_set(const SoundValues *v)
     InterlockedIncrement(&g_version);
 }
 
+void mix_quiet(void)
+{
+    /* Read by every stream's next buffer (each counts its own fade from there). */
+    InterlockedExchange(&g_quiet, 1);
+    ingame_log("mix: the game is ending: its sound fades out over %d ms and stays silent", QUIET_MS);
+}
+
 unsigned mix_bands_off(void)
 {
     /* The bands any live stream leaves off at its rate (the in-game panel shows them off). */
@@ -470,34 +507,36 @@ void mix_frame(void)
         }
     }
     ReleaseSRWLockShared(&g_lock);
-    /* Measuring: each stream's level over the last second, said and started again. */
+    /* Measuring: each stream's level over each second of its own sound (counted in its samples, not by the clock: a
+     * device may take the mix faster or slower than the clock runs, as ALSA's null output does in the tests, 3.6 times),
+     * said with where the song's music is then, and started again. */
     if (g_levels < 0) {
         char v[8];
         g_levels = GetEnvironmentVariableA("OPENDMT3_SOUND_LEVELS", v, sizeof v) > 0;
     }
-    static double next_level;
-    if (g_levels > 0 && now >= next_level) {
-        next_level = now + 1000.0;
+    if (g_levels > 0) {
         /* Where the song's music is (the same content in two games is the same place in the song, whatever holds came
          * between): its position as the sound follows it, or none. */
         double song_ms = -1;
         long song_frame = 0;
         if (!sound_music_position(&song_ms, &song_frame))
             song_ms = -1;
-        /* Each stream's sums taken and started again under the lock, said after it (the log's write never holds up a
-         * mixer's thread waiting on the lock). */
-        struct { char writer[48]; double sum, peak; LONGLONG samples; } got[STREAMS];
+        /* Each stream with a second of its sound counted: its sums taken and started again under the lock, said after
+         * it (the log's write never holds up a mixer's thread waiting on the lock). */
+        struct { char writer[48]; double sum, peak, seconds; LONGLONG samples; } got[STREAMS];
         int n = 0;
         AcquireSRWLockExclusive(&g_lock);
         for (int i = 0; i < STREAMS; i++) {
             Stream *s = &g_streams[i];
-            if (!s->used || !s->level_samples)
+            LONGLONG second = (LONGLONG)s->rate * (s->channels > 0 ? s->channels : 1);
+            if (!s->used || s->rate <= 0 || s->level_samples < second)
                 continue;
             memcpy(got[n].writer, s->writer[0] ? s->writer : "?", sizeof got[n].writer);
             got[n].writer[sizeof got[n].writer - 1] = 0;
             got[n].sum = s->level_sum;
             got[n].peak = s->level_peak;
             got[n].samples = s->level_samples;
+            got[n].seconds = (double)s->level_samples / (double)second;
             n++;
             s->level_sum = 0;
             s->level_peak = 0;
@@ -506,9 +545,9 @@ void mix_frame(void)
         ReleaseSRWLockExclusive(&g_lock);
         for (int i = 0; i < n; i++) {
             double rms = sqrt(got[i].sum / (double)got[i].samples);
-            ingame_log("mix: level of the stream written by %s over the last second: rms %.6f (%.2f dBFS), peak %.6f, "
-                       "%lld samples, the song at %.0f ms", got[i].writer, rms, rms > 0 ? 20.0 * log10(rms) : -200.0,
-                       got[i].peak, (long long)got[i].samples, song_ms);
+            ingame_log("mix: level of the stream written by %s over its last %.3f s of sound: rms %.6f (%.2f dBFS), "
+                       "peak %.6f, %lld samples, the song at %.0f ms", got[i].writer, got[i].seconds, rms,
+                       rms > 0 ? 20.0 * log10(rms) : -200.0, got[i].peak, (long long)got[i].samples, song_ms);
         }
     }
     LONG recycled = InterlockedExchange(&g_recycled, 0);

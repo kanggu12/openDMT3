@@ -183,7 +183,8 @@ TEXT = {
     # sounds; the rows say what that leaves to the player.
     "sound.music.hint": ("A song's music, as the game's own setting has it; the menus' music follows Master.",
                          "곡의 음악으로, 게임 자체 설정과 같습니다. 메뉴 음악은 전체 음량을 따릅니다."),
-    "sound.keys": ("Keysounds", "키음"),
+    # The in-game sound panel's word for the same row (its column has room for KEYS, not KEYSOUNDS): both say Keys.
+    "sound.keys": ("Keys", "키음"),
     "sound.keys.hint": ("openDMT3's own: the game never applied its setting to the key sounds, so a value set before "
                         "0.4.0 had no effect and they start at 100 %.",
                         "openDMT3가 맞추는 음량입니다. 게임은 자체 키음 설정을 적용한 적이 없어 0.4.0 전의 값은 효과가 "

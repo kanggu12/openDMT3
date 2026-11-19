@@ -48,11 +48,12 @@ def zones(w, h, fill=False):
     menu_left = x_right - (4 * 50 + 2 * 6 + 16) * u
     return {
         "bar": (px, py, px + pw, py + (70 + 10) * u),
-        # They hang from the bar's foot (70 lines), at most 114 tall, with room for their shadows and the keys' ring;
-        # the sound panel 340 wide, under the X too.
+        # They hang from the bar's foot (70 lines), the question and the sound panel at most 114 tall, the menu 128 (its
+        # rows a finger's size), with room for their shadows and the keys' ring; the sound panel 350 wide, under the X
+        # too.
         "question": (x_right - 300 * u - 10 * u, py + 70 * u, px + pw, py + (70 + 114 + 12) * u),
-        "sound": (x_right - 340 * u - 10 * u, py + 70 * u, px + pw, py + (70 + 114 + 12) * u),
-        "menu": (menu_left - 10 * u, py + 70 * u, px + pw, py + (70 + 114 + 12) * u),
+        "sound": (x_right - 350 * u - 10 * u, py + 70 * u, px + pw, py + (70 + 114 + 12) * u),
+        "menu": (menu_left - 10 * u, py + 70 * u, px + pw, py + (70 + 128 + 12) * u),
         "toast": (px + pw * 0.15, py, px + pw * 0.85, py + (40 + 12) * u),
         # The rail 72 wide along the top edge, the tab 12 deep lit, with a little room.
         "mark": (px + pw / 2 - 38 * u, py, px + pw / 2 + 38 * u, py + 14 * u),

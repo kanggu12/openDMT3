@@ -317,7 +317,8 @@ enum { CARD_NONE = 0, CARD_MENU = 1, CARD_QUIT = 2, CARD_SOUND = 3 };
 /* What a key or a choice does. */
 enum { ACT_NONE = 0, ACT_REDRAW = 1, ACT_CLOSE = 2, ACT_QUIT = 3, ACT_FPS = 4,
        ACT_SOUND_OPEN = 5,  /* the menu's Sound: the sound panel in its place */
-       ACT_SOUND = 6 };     /* the keys moved the focused value of the sound panel by c->step steps */
+       ACT_SOUND = 6,       /* the keys moved the focused value of the sound panel by c->step steps */
+       ACT_SOUND_BACK = 7 }; /* the sound panel's way back (Esc, its title tab): the menu again, its ring on Sound */
 
 typedef struct {
     int open;              /* CARD_NONE, CARD_MENU, CARD_QUIT or CARD_SOUND */
@@ -339,7 +340,8 @@ int card_count(const Card *c);
 /* The words of answer i, in the card's language (UTF-8, in capitals as the game writes its buttons); whether it is the
  * one that quits. */
 const char *card_label(const Card *c, int i, int *danger);
-/* The state a row shows at its right (Show FPS: ON or OFF), a sound column's value over it (80, +3), or NULL. */
+/* The state a row shows at its right (Show FPS: ON or OFF; Sound: a › for the panel it opens), a sound column's value
+ * over it (80, +3), or NULL. */
 const char *card_state(const Card *c, int i);
 /* The question's title and its one line (as the game writes its own: a sentence); NULL for the menu, which has
  * neither. The line is there only while a song plays (c->song): NULL on the game's menus. */
@@ -364,7 +366,9 @@ typedef struct {
 
 /* Output pixels per game pixel for a game area this many pixels tall: the game draws 768 lines, so everything of the
  * layer keeps the game's own proportions and type sizes at every size of the window, as the game's own panels do
- * (Windows' scaling sizes the pointer, which Windows draws). */
+ * (Windows' scaling sizes the pointer, which Windows draws). In a window shorter than the game's picture the layer
+ * shrinks with the game down to UI_UNIT_MIN, where its chips are still a mouse's size; below that it keeps that size. */
+#define UI_UNIT_MIN 0.75f
 float ui_unit(int area_h);
 
 /* Where the layer's parts go in a game area w x h (output pixels, (0, 0) its top left), with the menu or the question
@@ -383,7 +387,11 @@ typedef struct {
     Box tab;               /* the question's title tab, hanging from the panel's top edge */
     float line_y;          /* the question's one line, its capitals' middle (with no line: none) */
     Box rows[8];           /* the menu's rows, the question's answers side by side, or the sound panel's columns */
+    Box hit[8];            /* where a press is taken for each (the menu's rows reach over their gaps and sides, so a
+                            * press anywhere in the menu is the nearest row's; the others as drawn) */
     Box track[8];          /* the sound panel's columns' tracks: a value's place, its highest at the top */
+    Box back;              /* the sound panel's way back to the menu: its title tab and the room under it (w 0: none) */
+    float sound_value_y, sound_name_y; /* the sound panel's columns' values' and names' middles (their capitals') */
     int count;
     float px_name, px_title, px_line, px_button, px_small;   /* type sizes, output pixels */
 } UiLayout;
@@ -391,12 +399,43 @@ void ui_layout(const Card *c, int area_w, int area_h, UiLayout *out);
 
 /* What a point of the game area is on while the bar shows: a chip (the menu's, minimise, full screen, the X), an
  * answer (0 to 3), the open panel elsewhere, the bar elsewhere, or nothing of the layer's. */
-enum { HIT_NONE = -1, HIT_MENU = 100, HIT_X = 101, HIT_PANEL = 102, HIT_BAR = 103, HIT_MIN = 104, HIT_FULL = 105 };
+enum { HIT_NONE = -1, HIT_MENU = 100, HIT_X = 101, HIT_PANEL = 102, HIT_BAR = 103, HIT_MIN = 104, HIT_FULL = 105,
+       HIT_BACK = 106 };
 int ui_hit(const UiLayout *l, float x, float y);
-/* The sound panel's value at height y on column i's track (a press or a drag there sets it), and the height a value
- * stands at on it. */
+/* The sound panel's value at height y on column i's track, and the height a value stands at on it. */
 int ui_sound_value_at(const UiLayout *l, int i, float y);
 float ui_sound_y(const UiLayout *l, int i, int value);
+/* What a press at height y in sound column i is on: its track (with room for the knob at either end), which a tap or a
+ * drag moves, or its value or name, which only choose the column (a tap on MUSIC never mutes it). */
+enum { SOUND_ZONE_CHOOSE = 0, SOUND_ZONE_TRACK = 1 };
+int ui_sound_zone(const UiLayout *l, int i, float y);
+/* A tap on column i's track (pressed and let go without drawing): one step towards the tap, +1 above the knob's middle,
+ * -1 below it (sound_step's size), 0 on it. */
+int ui_sound_tap(const UiLayout *l, int i, int value, float y);
+/* A press on the track drawn from `press_y` to `y`: whether it is a drag yet (drawn far enough that a finger's tap is
+ * not one), and the value it sets: the value it had at the press moved by the drawn length on the track's scale (the
+ * knob never jumps to where the finger landed), in the column's steps, within its range. */
+int ui_sound_dragging(const UiLayout *l, float press_y, float y);
+int ui_sound_drag(const UiLayout *l, int i, int value_at_press, float press_y, float y);
+/* The wheel's travel over the sound panel: `delta` (WHEEL_DELTA, 120, a notch) added to what is left in *rest, the
+ * whole notches it makes (each a step), the rest kept (a touchpad's small pieces add up to a step). */
+int wheel_notches(int *rest, int delta);
+/* Whether a press is the second of a double-click whose first opened the panel under it (the menu's Sound pressed
+ * twice): within Windows' double-click time and rectangle of the press that opened it. Such a press changes nothing. */
+int ui_repeat_press(double since_open_ms, float dx, float dy, double double_ms, float double_w, float double_h);
+
+/* The way back into a song after the menu, the question or the sound panel closes while it is held (or the game comes
+ * back from the taskbar): 3, 2, 1 for RESUME_MS in the game's popup, the song still held, then it goes on. The digit
+ * shown at `since_ms` after the close, 0 once it is over. */
+#define RESUME_MS 1500.0
+int resume_digit(double since_ms);
+/* The countdown's popup: in the middle of the game area (the song is held still under it, and it is gone before a note
+ * moves), the game's message box's shape. */
+Box resume_box(int area_w, int area_h);
+
+/* What the bar says from the moment the player chose Quit the game until the game has ended, in the card's language
+ * (UTF-8), where its chips were. */
+const char *quit_words(int korean);
 /* The chip a hit is on (CHIP_*), or -1 for any other hit. */
 int ui_hit_chip(int hit);
 

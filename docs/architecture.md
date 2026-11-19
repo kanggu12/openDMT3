@@ -323,12 +323,31 @@ first points) into the log, read from its memory in the PC build.
   screen shows and after each switch between a window and full screen. No key brings it.
 - **How long it stays**: whole 600 ms after the pointer was last on it (looked for ten times a second), 4 s after a
   finger, then it slides back up; a press on the game takes it away.
-- **Its chips**: the menu, minimise, full screen or back to a window, the X.
-- **The menu** (Back to the game, Show FPS, Sound, Quit the game), **the question** (Keep playing, Quit the game; its
-  line only while a song plays) and **the sound panel** (the menu's Sound: eight columns, the master, music and key
-  sounds' volumes and the equaliser's five bands, set by a press or a drag on a column, the wheel or Up and Down):
-  sheets hanging from the bar's foot, the menu under its chip and the chips beside it, the question and the sound
-  panel under the X, each at most 114 game lines tall so that with its shadow it ends above line 192.
+- **Its chips**: the menu, minimise, full screen or back to a window, the X, all four in the launcher's quiet metal
+  (the way out no louder than its neighbours; QUIT THE GAME in the question turns red once chosen).
+- **The menu** (Back to the game, Show FPS, Sound with a › for the panel it opens, Quit the game), **the question**
+  (Keep playing, Quit the game; its line only while a song plays) and **the sound panel** (the menu's Sound: eight
+  columns, the master, music and key sounds' volumes in the launcher's words and the equaliser's five bands): sheets
+  hanging from the bar's foot, the menu under its chip and the chips beside it, the question and the sound panel under
+  the X. The question and the sound panel are at most 114 game lines tall, so that with its shadow each ends above
+  line 192; the menu's rows are a finger's size (32 game lines, 45 pixels at 1080 lines, a press anywhere in the menu
+  the nearest row's: `ui_layout`'s hit boxes tile it), so it is 128 tall and ends by line 206 at the right edge, over a
+  song held still while it is open. Every target of the overlay's is 40 pixels or more each way at 1080 lines.
+- **The sound panel's columns** (`logic.c` `ui_sound_zone`, `ui_sound_tap`, `ui_sound_drag`): the three volumes 56 game
+  pixels wide (MASTER with room inside the keys' ring), the bands 30; down a column, the value, a track 44 tall and the
+  name, each clear of the knob at either end of the track and inside the ring, which is drawn inside the column so it
+  never reaches a neighbour's name. Only the track (with the knob's half over its ends) moves a value: a tap above the
+  knob a step up, below it a step down, a drag (once drawn 6 game pixels) by its length on the track's scale from the
+  value the press found, never jumping to where the finger landed; a press on the value or the name only chooses the
+  column, and the second press of a double-click whose first opened the panel (Windows' double-click time and
+  rectangle) is kept from it. The wheel steps once each whole notch (a touchpad's small pieces add up first,
+  `wheel_notches`). The title tab (with the room under it) and Esc go back to the menu, its ring on Sound; Enter goes
+  back to the game.
+- **The way back into a song**: when the hold's reasons end (a panel closed, the game back from the taskbar), the song
+  stays held while 3, 2, 1 shows in the middle of the game in its message box's look (`look_resume`, the game's chrome
+  digits), half a second each (`resume_digit`, `RESUME_MS`), then it goes on with the sound's fade in.
+- **The unit** follows the game's height in a window smaller than its picture down to 0.75 (`UI_UNIT_MIN`), where the
+  chips are still a mouse's size and the bar no taller than the game's own top band there.
 - **The sound's values** (`soundset.c`): the launcher starts the game with them (`OPENDMT3_SOUND_VALUES`) and names the
   file it keeps them in (`OPENDMT3_SOUND_FILE`, `sound.ini` beside `launcher.json`). Both write it the same way: under
   its lock (`sound.ini.lock`, held open alone, gone when its writer is), the file read whole as it is then (at most 64
@@ -358,24 +377,25 @@ first points) into the log, read from its memory in the PC build.
   the menus', a buffer of 10 s or more played once a song's music, the rest key sounds); a loop is known as one only at
   its play, so a buffer whose volume the game set before its first play is set again there when its kind turned out
   another (`volume_reapply`). The log says each loop's first play at its volume against the game's. With
-  `OPENDMT3_SOUND_LEVELS` (measuring only) the stage logs the mix's level every second as it arrives, with the song's
-  place, and `ingame.sh` compares the tutorial's same seconds in two games: at 50 % against 100 % (the game's curve
-  within 1 dB) and moved from 50 % to 100 % against 100 % (the move within 1 dB). The master volume and the equaliser
-  (five biquad filters, RBJ's cookbook: a 60 Hz low shelf, peaks at 250 Hz, 1 kHz and 4 kHz, a 12 kHz high shelf) act on
-  the mix itself (`mix.c`): every mixer writes its mix through Windows' audio client in the game's process (Windows'
-  DirectSound, and OpenAL Soft in shared or exclusive mode), so the render client's GetBuffer and ReleaseBuffer, the
-  audio client's Initialize and GetService that tell each stream's format, and both objects' Release (a stream torn down
-  leaves the table of streams, so a new one at the same address is never taken for it), are turned to the layer's before
-  the game opens its sound (each real method stored before its table's entry is turned), and the mix is shaped in place
-  between its writing and its hand-over: no buffer and no delay added. The curve's highest gain over 20 Hz to 20 kHz is
-  taken off before the bands (an automatic preamp: every band at +12 dB reaches +14 dB between neighbouring peaks, and
-  all of it comes off), and every sample is held within full scale after them (the last guard, for a float stream too).
-  The filters' state starts again when the bands that run change or a stream's format does; after each buffer a state
-  value that is not a finite number starts it again (one NaN in the stream never silences it) and one too small to be
-  heard is taken to 0 (no denormal numbers). A band at or above half the stream's sample rate (12 kHz at 22,050 Hz or
-  less) is left off, said in the log, and shown off in the panel. The log names each stream's writer (`mix: a stream
-  written by dsound.dll`, or OpenAL Soft's library) and every 10 s the stage's time a buffer; at 100 % and flat it
-  touches nothing.
+  `OPENDMT3_SOUND_LEVELS` (measuring only) the stage logs the mix's level as it arrives for each second of the sound (by
+  its samples: the tests' silent ALSA output takes the mix 3.6 times faster than the clock runs, so a clock's second
+  would hold 3.6 of the song), with the song's place, and `ingame.sh` compares the tutorial's same seconds in two games:
+  at 50 % against 100 % (the game's curve within 1 dB) and moved from 50 % to 100 % against 100 % (the move within 1
+  dB). The master volume and the equaliser (five biquad filters, RBJ's cookbook: a 60 Hz low shelf, peaks at 250 Hz, 1
+  kHz and 4 kHz, a 12 kHz high shelf) act on the mix itself (`mix.c`): every mixer writes its mix through Windows' audio
+  client in the game's process (Windows' DirectSound, and OpenAL Soft in shared or exclusive mode), so the render
+  client's GetBuffer and ReleaseBuffer, the audio client's Initialize and GetService that tell each stream's format, and
+  both objects' Release (a stream torn down leaves the table of streams, so a new one at the same address is never taken
+  for it), are turned to the layer's before the game opens its sound (each real method stored before its table's entry
+  is turned), and the mix is shaped in place between its writing and its hand-over: no buffer and no delay added. The
+  curve's highest gain over 20 Hz to 20 kHz is taken off before the bands (an automatic preamp: every band at +12 dB
+  reaches +14 dB between neighbouring peaks, and all of it comes off), and every sample is held within full scale after
+  them (the last guard, for a float stream too). The filters' state starts again when the bands that run change or a
+  stream's format does; after each buffer a state value that is not a finite number starts it again (one NaN in the
+  stream never silences it) and one too small to be heard is taken to 0 (no denormal numbers). A band at or above half
+  the stream's sample rate (12 kHz at 22,050 Hz or less) is left off, said in the log, and shown off in the panel. The
+  log names each stream's writer (`mix: a stream written by dsound.dll`, or OpenAL Soft's library) and every 10 s the
+  stage's time a buffer; at 100 % and flat it touches nothing.
 - **The toast, the mark and the frame rate chip**, which the menu's Show FPS turns on and off for the run. A toast that
   comes during a song waits for the song's end (`sound.c`'s song music), so nothing of the layer covers the game's
   groove meter while it is played.
@@ -393,8 +413,16 @@ first points) into the log, read from its memory in the PC build.
   (nothing). In a window its title bar's buttons are taken away and its borders size it. A press on the layer never
   reaches the game.
 - **The pointer** is a cursor drawn at the display's scaling.
-- **Quitting** posts the game's own close; the game's message loop ends the program (after 10 seconds without that,
-  the process ends itself, exit code 0).
+- **Quitting** flushes the sound file, fades the mix to silence at the last stage over 30 ms and keeps it so
+  (`mix_quiet`), shows the bar saying so where its chips were (`quit_words`, `look_quitting`) and posts the game's own
+  close request, which goes to the game's own window procedure even while the game is held. Measured under Wine in
+  every run, the game takes none. In a song the game stays held still from the choice to the process's end (the play
+  is not recorded, as the question says); its own close (SC_CLOSE, which ends it by its own loop: exit 0 at once) cannot
+  run while the hold keeps that loop stopped, and letting the loop go would play the song on, so a second after the
+  request the process ends itself, exit code 0, with the reason in the log: nothing of the game's own has run since the
+  choice. On the game's menus nothing is held (whatever it does, a finished play's results on their way, goes on): a
+  second after the request the window's own close goes to the game's own procedure, and only after 10 seconds without
+  an end does the process end itself (`ingame.sh` fails a run that needs that).
 
 ### The picture's chain
 

@@ -295,10 +295,8 @@ typedef struct {
     uint32_t edge_top, edge_foot; /* the one-pixel edge (edge_top 0: no edge) */
     uint32_t ink;
 } ButtonLook;
-/* The main action's look (the technika section's "info", the title screen's blue) and the quiet metal ("neutral").
- * Under the pointer each is lit further than the launcher's own (over the game's moving picture its step was too
- * small to see: the blue lit as PLAY lights, #8fb2ff into #3a6dff, the metal two steps up). */
-static const ButtonLook MAIN = {{0x3d6ff5, 0x8fb2ff, 0x2a5ff0}, {0x2a5ff0, 0x3a6dff, 0x1d47c4}, 0, 0, 0xffffff};
+/* The launcher's quiet metal ("neutral"), the bar's chips' one look. Under the pointer it is lit further than the
+ * launcher's own (over the game's moving picture its step was too small to see: two steps up). */
 static const ButtonLook QUIET = {{0x3a434e, 0x5f6b7a, 0x2b323b}, {0x2b323b, 0x46505c, 0x232931}, 0x5a6573, 0x343c47,
                                  0xeef2f6};
 
@@ -331,14 +329,15 @@ void look_chips(Sprite *s, const UiLayout *l, int hover, int pressed, int full)
     canvas_clear(s->content);
     canvas_clear(s->mask);
     float u = l->u, o = s->room;
-    /* Over the bar's glass (they have none of their own): the X as the launcher's main button, the rest its quiet
-     * metal, each lit under the pointer and darker held. */
+    /* Over the bar's glass (they have none of their own): all four in the launcher's quiet metal, each lit under the
+     * pointer and darker held. The X is no louder than its neighbours: the way out is never the brightest thing at the
+     * top of the game, and the question's QUIT THE GAME turns red only when it is the answer chosen. */
     static const int glyphs[CHIPS] = {GLYPH_MENU, GLYPH_MIN, GLYPH_FULL, GLYPH_X};
     for (int i = 0; i < CHIPS; i++) {
         Box b = l->chip[i];
         b.x += o - l->chip[0].x;
         b.y += o - l->chip[0].y;
-        const ButtonLook *look = i == CHIP_X ? &MAIN : &QUIET;
+        const ButtonLook *look = &QUIET;
         int state = pressed == i ? 2 : hover == i ? 1 : 0;
         launcher_button(s->content, &b, look, state, u);
         /* Full screen's glyph says where the chip goes: to full screen, or back to a window when the game fills it. */
@@ -401,19 +400,20 @@ static void sound_column(Canvas *c, const Card *card, const UiLayout *l, int i, 
     t.x += dx;
     t.y += dy;
     float mid = t.x + t.w / 2;
+    /* The value's and the name's middles (the layout's: clear of the knob at either end of the track). */
+    float value_y = l->sound_value_y + dy, name_y = l->sound_name_y + dy;
+    float name_px = card->korean ? l->px_small * look_ko_label : l->px_small;
     /* A band left off at the sound's sample rate: its column quiet, its rail unlit, no knob; its value says OFF. */
     int off = i >= SOUND_EQ0 && (card->sound_off & (1u << (i - SOUND_EQ0)));
     if (off) {
-        text(ctx, c, card_state(card, i), l->px_small, mid, col.y + 7 * u, RGB_QUIET, 0);
+        text(ctx, c, card_state(card, i), l->px_small, mid, value_y, RGB_QUIET, 0);
         Paint dim = paint_solid(0xffffff, 0.08f);
         paint_rect(c, (int)(mid - 1.5f * u), (int)t.y, (int)(3 * u + 0.5f), (int)t.h, &dim);
-        text(ctx, c, card_label(card, i, NULL), card->korean ? l->px_small * look_ko_label : l->px_small, mid,
-             t.y + t.h + 7 * u, RGB_QUIET, 0);
+        text(ctx, c, card_label(card, i, NULL), name_px, mid, name_y, RGB_QUIET, 0);
         return;
     }
-    /* The value, over the column. */
-    text(ctx, c, card_state(card, i), l->px_small, mid, col.y + 7 * u, chosen ? 0xffffff : RGB_WORDS,
-         chosen ? TEXT_EDGE : 0);
+    /* The value, over the track. */
+    text(ctx, c, card_state(card, i), l->px_small, mid, value_y, chosen ? 0xffffff : RGB_WORDS, chosen ? TEXT_EDGE : 0);
     /* The rail: a faint line the track's height. */
     Paint rail = paint_solid(0xffffff, 0.16f);
     paint_rect(c, (int)(mid - 1.5f * u), (int)t.y, (int)(3 * u + 0.5f), (int)t.h, &rail);
@@ -431,8 +431,18 @@ static void sound_column(Canvas *c, const Card *card, const UiLayout *l, int i, 
     Box k = {mid - 9 * u, at - 4 * u, 18 * u, 8 * u};
     gloss_button(c, &k, chosen ? &BLUE : &METAL, u, 0, held);
     /* The name, under the track. */
-    text(ctx, c, card_label(card, i, NULL), card->korean ? l->px_small * look_ko_label : l->px_small, mid,
-         t.y + t.h + 7 * u, chosen ? 0xffffff : RGB_QUIET, chosen ? TEXT_EDGE : 0);
+    text(ctx, c, card_label(card, i, NULL), name_px, mid, name_y, chosen ? 0xffffff : RGB_QUIET, chosen ? TEXT_EDGE : 0);
+}
+
+/* The sound panel's way back to the menu: a chevron pointing left at the title tab's left, in the title's ink, 8 game
+ * pixels tall, where a list's way back stands. */
+static void back_chevron(Canvas *c, const Box *tab, float u)
+{
+    /* Clear of the tab's slanted end (it leans in 30 over 37: at its middle a little over 11 in). */
+    float cx = tab->x + 26 * u, cy = tab->y + tab->h / 2, half = 4.5f * u, depth = 4.0f * u;
+    Paint ink = paint_solid(0x0e1317, 1.0f);
+    paint_line(c, (Pt){cx + depth / 2, cy - half}, (Pt){cx - depth / 2, cy}, 1.8f * u, &ink);
+    paint_line(c, (Pt){cx - depth / 2, cy}, (Pt){cx + depth / 2, cy + half}, 1.8f * u, &ink);
 }
 
 void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int pressed, TextFn text, void *ctx)
@@ -460,6 +470,14 @@ void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int p
         Stop teal[5] = {{0.0f, 0x85a1a9}, {0.55f, 0x98afb6}, {0.9f, 0x89a4ac}, {0.93f, 0xacbcc2}, {1.0f, 0x9fb3b9}};
         Paint tp = ramp_stops(teal, 5, t.y, t.y + t.h, 1.0f);
         paint_polygon(s->content, tab, 4, &tp);
+        if (card->open == CARD_SOUND) {
+            /* The sound panel's tab is its way back to the menu: lit under the pointer, darker held, as a button. */
+            if (hover == LOOK_BACK || pressed == LOOK_BACK) {
+                Paint over = paint_solid(pressed == LOOK_BACK ? 0x000000 : 0xffffff, pressed == LOOK_BACK ? 0.16f : 0.22f);
+                paint_polygon(s->content, tab, 4, &over);
+            }
+            back_chevron(s->content, &t, u);
+        }
         text(ctx, s->content, title, l->px_title, t.x + t.w / 2, t.y + t.h / 2, 0x0e1317, TEXT_REGULAR);
     }
     /* The one line, as the game writes its messages: a sentence in its regular face. */
@@ -492,9 +510,11 @@ void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int p
             if (chosen)
                 gloss_button(s->content, &b, danger ? &RED : &BLUE, u, 0, held);
             else if (i > 0) {
-                /* A hairline between rows, as the game's dotted separators. */
+                /* A hairline between rows, as the game's dotted separators, in the middle of the gap between plates. */
+                Box above = l->rows[i - 1];
+                float gap_mid = (above.y + above.h + l->rows[i].y) / 2 + o - l->panel.y;
                 Paint sep = paint_solid(0xffffff, 0.10f);
-                paint_rect(s->content, (int)(b.x + 8 * u), (int)(b.y - 2.5f * u), (int)(b.w - 16 * u), 1, &sep);
+                paint_rect(s->content, (int)(b.x + 8 * u), (int)gap_mid, (int)(b.w - 16 * u), 1, &sep);
             }
             uint32_t ink = chosen ? 0xffffff : danger ? RGB_DANGER : RGB_WORDS;
             text(ctx, s->content, words, px, b.x + 14 * u, b.y + b.h / 2 + (held ? u : 0), ink,
@@ -502,7 +522,8 @@ void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int p
             /* A row's state at its right, as a switch shows it: on in the game's light blue, off quieter. */
             const char *state = card_state(card, i);
             if (state) {
-                uint32_t sink = chosen ? 0xffffff : card->fps ? RGB_ACCENT : RGB_QUIET;
+                /* Show FPS on in the light blue; off, and Sound's sign, quieter. */
+                uint32_t sink = chosen ? 0xffffff : i == 1 && card->fps ? RGB_ACCENT : RGB_QUIET;
                 text(ctx, s->content, state, px, b.x + b.w - 14 * u, b.y + b.h / 2 + (held ? u : 0), sink,
                      TEXT_RIGHT | (chosen ? TEXT_EDGE : 0));
             }
@@ -515,14 +536,63 @@ void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int p
         paint_rect(s->content, (int)((a.x + a.w + b.x) / 2 + o - l->panel.x), (int)(a.y + o - l->panel.y + 4 * u), 1,
                    (int)(a.h - 8 * u), &sep);
     }
-    /* The keys' ring on the question's answer they are on, or the sound column (the menu's chosen row is its glossy
-     * plate). */
+    /* The keys' ring on the question's answer they are on (round it, as the game marks its choice), or the sound column
+     * (inside the column's own box, so it never reaches a neighbour's name); the menu's chosen row is its glossy
+     * plate. */
     if ((card->open == CARD_QUIT || card->open == CARD_SOUND) && card->focus >= 0 && card->focus < l->count) {
         Box b = l->rows[card->focus];
         b.x += o - l->panel.x;
         b.y += o - l->panel.y;
+        if (card->open == CARD_SOUND) {
+            /* key_ring stands 5 out from its box (3 apart, 2 thick): the box 5 in, so the ring's outside is the
+             * column's edge. */
+            float in = 5.0f * u;
+            b.x += in;
+            b.y += in;
+            b.w -= 2 * in;
+            b.h -= 2 * in;
+        }
         key_ring(s->content, &b, u);
     }
+}
+
+/* ------------------------------------------------------------------------------------------ the way back in */
+
+void look_resume(Sprite *s, float u, int digit, TextFn text, void *ctx)
+{
+    canvas_clear(s->content);
+    canvas_clear(s->mask);
+    float o = s->room;
+    float w = (float)s->content->w - 2 * o, h = (float)s->content->h - 2 * o;
+    /* The game's message box (its common popup): a dark glass card with a soft shadow, the light falling across it from
+     * the top left, a thin metal frame all round. */
+    Pt q[4];
+    rect_points(o, o, w, h, q);
+    shadow(s->content, q, 4, u, 1.0f);
+    glass(s, q, 4);
+    sheen(s->content, o, o, w, h, 0.18f);
+    Stop metal[4] = {{0.0f, 0xd6dde0}, {0.25f, 0xa7b1b6}, {0.7f, 0x7a848a}, {1.0f, 0x5b6268}};
+    Paint frame = ramp_stops(metal, 4, o, o + h, 1.0f);
+    for (int i = 0; i < 4; i++)
+        edge(s->content, q[i], q[(i + 1) % 4], 1.5f * u, &frame);
+    /* The digit in the game's chrome numbers (its own counters' look): the wide face, a dark rim, bright at the top,
+     * the reflected band under the middle. */
+    char d[2] = {(char)('0' + (digit < 0 ? 0 : digit > 9 ? 9 : digit)), 0};
+    text(ctx, s->content, d, 56 * u, o + w / 2, o + h / 2, 0xffffff, TEXT_WIDE | TEXT_EDGE | TEXT_CHROME);
+}
+
+/* ------------------------------------------------------------------------------------------ the game ending */
+
+void look_quitting(Sprite *s, const UiLayout *l, const char *words, TextFn text, void *ctx)
+{
+    canvas_clear(s->content);
+    canvas_clear(s->mask);
+    float o = s->room;
+    /* Over the bar's glass where its chips were (the sprite holds their row): the words in its line's face, their right
+     * end on the X's right edge, their capitals' middle on the bar's. No glass of its own. */
+    float right = o + l->chip[CHIP_X].x + l->chip[CHIP_X].w - l->chip[0].x;
+    float mid = o + l->chip[0].h / 2;
+    text(ctx, s->content, words, l->px_line, right, mid, RGB_WORDS, TEXT_REGULAR | TEXT_RIGHT);
 }
 
 /* ------------------------------------------------------------------------------------------------ the toast */

@@ -17,6 +17,8 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
   (**SOUND** in the in-game menu), kept in one file: a change made in either shows in the other.
 - A connection test of another server, step by step, on **Online** and as `openDMT3-cmd.exe --test-server [URL]`.
 - Outside a song, a tap on the in-game overlay's handle, or a press held on it, brings the overlay bar.
+- When the in-game menu, the question or the sound panel closes during a song, 3, 2, 1 in the middle of the screen
+  before the song goes on.
 - On the players' site, a picture of the player's own, a preview of the DJ card drawn as the game draws it, and
   **Remember my ID on this browser** at the sign-in.
 - A page for each player on the admin pages, where every change to them is made: MAX points, the level the game
@@ -50,6 +52,10 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
 - Backups, the CSV files and the song list are named in lowercase with the tool, what they are and their date:
   `opendmt3-backup-<date>-<time>-<kind>.sqlite`, `opendmt3-plays-<date>.csv`, `opendmt3-song-list.zip`.
 - **Rankings** light each mode's key in its own colour (STAR's lime, POP's pink) and one's own row in openDMT3's blue.
+- The in-game menu's rows and the sound panel's sliders are a finger's size: a tap above or below a knob moves it one
+  step, a drag moves it from where it was, and a column's value or name only chooses it. **SOUND** shows it opens a
+  panel, whose title goes back to the menu, and the panel uses the launcher's words (**MASTER**, **MUSIC**, **KEYS**).
+- The overlay bar's X is quiet like the buttons beside it, and the overlay shrinks with the game in a small window.
 
 ### Fixed
 
@@ -59,6 +65,11 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
 - **Status** counts every account, as the Players list does, and says how many of them are disabled.
 - After an account is made, the Players page's form is empty again.
 - The launcher takes an `https://` address without a port as port 443, as a browser does.
+- **QUIT THE GAME** in the game ends it within about a second, silent (a song held still) and the overlay bar saying
+  the game is ending; it took 10 seconds, with the song playing on.
+- A double-click on the in-game menu's **SOUND** no longer changes a value, and the wheel moves a sound value one step
+  a notch with a touchpad too; under an open in-game panel the wheel and the right and middle buttons no longer reach
+  the game.
 - Two starts of this PC's server at once (**Open my records** and PLAY) no longer leave a second server holding the
   game's port.
 - Delete all deletes openDMT3's own folder for playing too: the client copy PLAY made, its card and its settings.
@@ -85,7 +96,7 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
 - The server upgrades its database on its first start, after keeping a copy beside it
   (`openDMT3.sqlite.v8-<date>-<time>.bak`). 0.3.1 refuses the upgraded database: that copy is the way back.
 - **Music** sounds as before at the same value, on the game's own curve, which the in-game panel follows.
-  **Keysounds** start at 100 %, as loud as before: the game never applied its key sounds' setting.
+  **Keys** (the key sounds) start at 100 %, as loud as before: the game never applied its key sounds' setting.
 - The admin pages take TCP 4731 (`--admin-port`, `./dmt3 ports --admin`). With Docker, when the site or the game
   already has 4731, the first `./dmt3 up` gives the admin pages the next free port and says so.
 

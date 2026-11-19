@@ -314,7 +314,7 @@ static void test_card(void)
     check(danger && !strcmp(card_title(&c), "Quit the game?"), "card: the second answer quits");
     check(card_line(&c) == NULL, "card: no line on the game's menus (no song plays)");
     c.song = 1;
-    check(!strcmp(card_line(&c), "A play in progress is not kept."), "card: during a song its one line says what is lost");
+    check(!strcmp(card_line(&c), "This play will not be recorded."), "card: during a song its one line says what is lost");
     check(card_key(&c, 0x0D) == ACT_CLOSE && c.open == CARD_NONE, "card: Enter at once keeps playing");
     card_open(&c, CARD_QUIT);
     check(card_key(&c, 0x27) == ACT_REDRAW && c.focus == 1, "card: Right moves to Quit");
@@ -330,6 +330,10 @@ static void test_card(void)
     check(card_count(&c) == 4 && !strcmp(card_label(&c, 1, NULL), "SHOW FPS") && !strcmp(card_state(&c, 1), "OFF") &&
               card_state(&c, 0) == NULL,
           "card: the menu has Show FPS, its state at its right");
+    check(card_state(&c, 2) && !strcmp(card_state(&c, 2), "\xe2\x80\xba") && card_state(&c, 3) == NULL,
+          "card: the menu's Sound shows a > at its right: it opens a panel");
+    check(!strcmp(quit_words(0), "Quitting the game\xe2\x80\xa6") && !strcmp(quit_words(1), "게임을 끝내는 중\xe2\x80\xa6"),
+          "card: the bar's words while the game ends, in both languages");
     check(card_choose(&c, 1) == ACT_FPS && c.fps && c.open == CARD_MENU && !strcmp(card_state(&c, 1), "ON"),
           "card: Show FPS turns the chip on and the menu stays");
     card_key(&c, 0x28);
@@ -354,8 +358,14 @@ static int overlap(Box a, Box b)
 static void test_layout(void)
 {
     check(fabsf(ui_unit(768) - 1.0f) < 0.001f && fabsf(ui_unit(1080) - 1.40625f) < 0.001f &&
-              fabsf(ui_unit(2160) - 2.8125f) < 0.001f && fabsf(ui_unit(600) - 1.0f) < 0.001f,
-          "layout: the game's own pixels to the area's (never under one)");
+              fabsf(ui_unit(2160) - 2.8125f) < 0.001f && fabsf(ui_unit(600) - 0.78125f) < 0.001f &&
+              fabsf(ui_unit(576) - 0.75f) < 0.001f && fabsf(ui_unit(300) - 0.75f) < 0.001f,
+          "layout: the game's own pixels to the area's, smaller with a small window down to three quarters");
+    /* In the e2e's 960 x 576 window the bar is the game's own top band there (52 lines), no taller. */
+    Card none = {0, 0, 0, 0};
+    UiLayout small;
+    ui_layout(&none, 960, 576, &small);
+    check(small.bar.h <= 70.0f * 576.0f / 768.0f + 0.01f, "layout: in a small window the bar is the game's own band");
     /* Nothing of the layer in the middle half of the game, where the notes come, at every size and shape of window:
      * the bar, its chips, the menu, the question, a long toast, the wide chip. */
     static const int sizes[5][2] = {{1280, 768}, {1920, 1080}, {3840, 2160}, {1600, 1200}, {2560, 1080}};
@@ -419,6 +429,32 @@ static void test_layout(void)
               fabsf(l.panel.y - l.bar.h) < 0.01f && l.rows[1].y > l.rows[0].y + l.rows[0].h,
           "layout: the menu hangs from the bar's foot under its chip and the chips beside it, its rows one under the "
           "other");
+    /* Each row a finger's size at 1080 lines (44 pixels or more), and a press anywhere in the menu, its gaps and its
+     * sides included, the nearest row's: none falls on the panel alone. */
+    int finger = 1, nearest = 1;
+    for (int i = 0; i < 4; i++)
+        finger &= l.hit[i].h >= 44.0f && l.hit[i].w >= 44.0f;
+    for (float y = l.panel.y + 0.5f; y < l.panel.y + l.panel.h; y += 1.0f)
+        for (float x = l.panel.x + 0.5f; x < l.panel.x + l.panel.w; x += 7.0f) {
+            int hit = ui_hit(&l, x, y);
+            /* The nearest row by its plate's middle. */
+            int want = 0;
+            for (int i = 1; i < 4; i++)
+                if (fabsf(y - (l.rows[i].y + l.rows[i].h / 2)) < fabsf(y - (l.rows[want].y + l.rows[want].h / 2)))
+                    want = i;
+            nearest &= hit == want;
+        }
+    check(finger, "layout: the menu's rows are 44 pixels or more at 1080 lines");
+    check(nearest, "layout: a press in the menu's gaps or at its sides is the nearest row's");
+    /* The chips and the question's answers a finger's size too: 40 pixels or more each way at 1080 lines. */
+    int big = 1;
+    for (int i = 0; i < CHIPS; i++)
+        big &= l.chip[i].w >= 40.0f && l.chip[i].h >= 40.0f;
+    card_open(&q, CARD_QUIT);
+    ui_layout(&q, 1920, 1080, &l);
+    for (int i = 0; i < 2; i++)
+        big &= l.hit[i].w >= 40.0f && l.hit[i].h >= 40.0f;
+    check(big, "layout: the chips and the question's answers are 40 pixels or more at 1080 lines");
     check(ui_at_top_edge(0, 1080) && ui_at_top_edge(2, 1080) && !ui_at_top_edge(4, 1080),
           "reveal: only the very top edge brings the bar (its two top lines of 768)");
     check(ui_swipe_down(2, 40, 1080) && !ui_swipe_down(2, 20, 1080) && !ui_swipe_down(30, 90, 1080),
@@ -597,9 +633,11 @@ static void test_places(void)
             hanging.y = l.bar.h;
             clear &= !overlap(hanging, l.panel) && note.x + note.w <= row.x - 15.9f * u && note.x >= 11.9f * u &&
                      !overlap(note, middle);
-            /* Each panel on the bar's foot, inside the chips' row's width or under the X, above a quarter. */
+            /* Each panel on the bar's foot, inside the chips' row's width or under the X; the question and the sound
+             * panel above a quarter, the menu (its rows a finger's size) ending with its shadow by line 206 of 768. */
+            float foot = open == CARD_MENU ? (70 + 128 + SLIDE_SHADE) * u : (float)h * 0.25f;
             hung &= fabsf(l.panel.y - l.bar.h) < 0.01f && l.panel.x + l.panel.w <= row.x + row.w + 0.01f &&
-                    l.panel.y + l.panel.h + SLIDE_SHADE * u <= h * 0.25f + 0.01f;
+                    l.panel.y + l.panel.h + SLIDE_SHADE * u <= foot + 0.01f;
             if (open == CARD_MENU)
                 hung &= fabsf(l.panel.x - row.x) < 0.01f;
         }
@@ -607,7 +645,8 @@ static void test_places(void)
         handle &= m.y == 0 && m.h <= 12 * u + 0.01f && fabsf(m.x + m.w / 2 - w / 2.0f) < 0.01f;
     }
     check(clear, "places: the notice clear of the menu, the question and the chips' row, and of the middle, at every shape");
-    check(hung, "places: the menu, the question and the sound panel hang from the bar's foot within the chips' row, above a quarter");
+    check(hung, "places: the menu, the question and the sound panel hang from the bar's foot within the chips' row, the "
+                "question and the sound panel above a quarter, the menu by line 206");
     check(handle, "places: the handle at the top centre within the game's top 12 lines, at every shape");
     /* A press while the bar comes down: the X where it is drawn now, not where it will be. */
     Card c = {0, 0, 0, 0};
@@ -1019,6 +1058,65 @@ static void test_sound_panel(void)
     check(ui_sound_value_at(&l, SOUND_EQ0 + 2, e.y + e.h / 2) == 0 && ui_sound_value_at(&l, SOUND_EQ0 + 2, e.y) == 12 &&
           fabsf(ui_sound_y(&l, SOUND_EQ0 + 2, 0) - (e.y + e.h / 2)) < 0.01f, "sound panel: a band flat at its middle");
     check(ui_hit(&l, l.rows[3].x + 2, l.rows[3].y + 2) == 3, "sound panel: a press on a column is that column's");
+    /* Only the track (the knob's half over its ends) moves a value; the value over it and the name under it only
+     * choose the column (a tap on MUSIC never mutes it). */
+    int zones = 1;
+    for (int i = 0; i < 8; i++) {
+        Box tr = l.track[i], col = l.rows[i];
+        zones &= ui_sound_zone(&l, i, tr.y + tr.h / 2) == SOUND_ZONE_TRACK &&
+                 ui_sound_zone(&l, i, tr.y - 3 * l.u) == SOUND_ZONE_TRACK &&
+                 ui_sound_zone(&l, i, tr.y + tr.h + 3 * l.u) == SOUND_ZONE_TRACK &&
+                 ui_sound_zone(&l, i, l.sound_value_y) == SOUND_ZONE_CHOOSE && ui_sound_zone(&l, i, l.sound_name_y) == SOUND_ZONE_CHOOSE &&
+                 ui_sound_zone(&l, i, col.y + 1) == SOUND_ZONE_CHOOSE &&
+                 ui_sound_zone(&l, i, col.y + col.h - 1) == SOUND_ZONE_CHOOSE;
+    }
+    check(zones, "sound panel: only the track moves a value; its value and name choose the column");
+    /* A finger's size at 1080 lines: each column's track 40 pixels or more across and down, and the way back too. */
+    int touch = 1;
+    for (int i = 0; i < 8; i++)
+        touch &= l.hit[i].w >= 40.0f && l.track[i].h + 2 * 4 * l.u >= 40.0f;
+    check(touch && l.back.w >= 40.0f && l.back.h >= 40.0f, "sound panel: its targets are 40 pixels or more at 1080 lines");
+    /* A tap above the knob a step up, below a step down, on it nothing; a drag moves the value by the drawn length
+     * from what it was (no jump where the finger landed), in the column's steps, within its range. */
+    float k60 = ui_sound_y(&l, 0, 60);
+    check(ui_sound_tap(&l, 0, 60, k60 - 8 * l.u) == 1 && ui_sound_tap(&l, 0, 60, k60 + 8 * l.u) == -1 &&
+              ui_sound_tap(&l, 0, 60, k60 + 1) == 0 && ui_sound_tap(&l, SOUND_EQ0, 0, t.y) == 1,
+          "sound panel: a tap above the knob is a step up, below a step down, on it nothing");
+    check(ui_sound_drag(&l, 0, 60, k60, k60) == 60 && ui_sound_drag(&l, 0, 60, k60 + 20, k60 + 20) == 60 &&
+              ui_sound_drag(&l, 0, 60, k60, k60 - t.h / 2) == 100 && ui_sound_drag(&l, 0, 60, k60, k60 + t.h / 4) == 35 &&
+              ui_sound_drag(&l, 0, 60, k60, k60 + t.h * 2) == 0 && ui_sound_drag(&l, SOUND_EQ0, 0, 300, 300 - e.h / 24) == 1,
+          "sound panel: a drag moves the value by its length from where it was, in steps, within the range");
+    check(!ui_sound_dragging(&l, 300, 300 + 5 * l.u) && ui_sound_dragging(&l, 300, 300 - 7 * l.u),
+          "sound panel: a finger's tap is no drag until drawn 6 game pixels");
+    /* The wheel: a notch (120) a step; a touchpad's small pieces add up to one first, a turn back takes them back. */
+    int rest = 0, steps = 0;
+    for (int k = 0; k < 4; k++)
+        steps += wheel_notches(&rest, 30);
+    int one = steps;
+    steps += wheel_notches(&rest, 50) + wheel_notches(&rest, -50);
+    check(one == 1 && steps == 1 && rest == 0 && wheel_notches(&rest, 240) == 2 && wheel_notches(&rest, -130) == -1 &&
+              rest == -10,
+          "sound panel: the wheel steps once a whole notch, a touchpad's pieces added up");
+    /* The second press of a double-click on the menu's Sound, landing on the panel that took the menu's place, changes
+     * nothing: within Windows' double-click time and rectangle of the press that opened it. */
+    check(ui_repeat_press(150, 1, -2, 500, 4, 4) && !ui_repeat_press(650, 1, 1, 500, 4, 4) &&
+              !ui_repeat_press(150, 6, 0, 500, 4, 4) && !ui_repeat_press(-1, 0, 0, 500, 4, 4),
+          "sound panel: the second press of a double-click on Sound is kept from it");
+    /* The way back: its title tab (and the room under it) and Esc go back to the menu, its ring on Sound. */
+    check(ui_hit(&l, l.tab.x + l.tab.w / 2, l.tab.y + l.tab.h / 2) == HIT_BACK, "sound panel: its title tab is the way back");
+    /* The knob clear of the value over the track and of the name under it, at either end; the keys' ring inside
+     * its column, clear of every name: measured on Pretendard Bold at 11 game pixels, MASTER 44.9 wide and 250 20.9
+     * (the widest of each kind), Korean's 23.8 at 1.25 times, their capitals 8 tall (Korean's 10). */
+    float knob = 4 * l.u, cap = 4 * l.u, kcap = 5 * l.u, ring = 2 * l.u, gap = 2 * l.u;
+    int clear = 1;
+    for (int i = 0; i < 8; i++) {
+        Box col = l.rows[i], tr = l.track[i];
+        float widest = i < SOUND_EQ0 ? 44.9f * l.u : 20.9f * l.u;
+        clear &= tr.y - knob >= l.sound_value_y + cap + gap - 0.01f && tr.y + tr.h + knob <= l.sound_name_y - kcap - gap + 0.01f &&
+                 l.sound_value_y - cap >= col.y + ring + gap - 0.01f && l.sound_name_y + kcap <= col.y + col.h - ring - gap + 0.01f &&
+                 (col.w - widest) / 2 >= ring + gap - 0.01f;
+    }
+    check(clear, "sound panel: the knob clear of the value and the name at both ends, every name inside its ring");
     c.sound[SOUND_EQ0] = 3;
     c.sound[SOUND_EQ0 + 1] = -2;
     c.sound[SOUND_MUSIC] = 80;
@@ -1031,6 +1129,31 @@ static void test_sound_panel(void)
           "sound panel: Right goes along, Up and Down a step");
     check(card_choose(&c, 4) == ACT_NONE && c.open == CARD_SOUND && card_key(&c, 0x0D) == ACT_CLOSE &&
           c.open == CARD_NONE, "sound panel: a column stays, Enter goes back to the game");
+    card_open(&c, CARD_MENU);
+    card_choose(&c, 2);
+    check(c.open == CARD_SOUND && card_key(&c, 0x1B) == ACT_SOUND_BACK && c.open == CARD_MENU && c.focus == 2,
+          "sound panel: Esc goes back to the menu, its ring on Sound");
+    check(!strcmp(card_label(&c, 0, NULL), "BACK TO THE GAME") && (card_open(&c, CARD_SOUND), 1) &&
+              !strcmp(card_label(&c, 0, NULL), "MASTER") && !strcmp(card_label(&c, 1, NULL), "MUSIC") &&
+              !strcmp(card_label(&c, 2, NULL), "KEYS"),
+          "sound panel: the volumes in the launcher's Sound page's words");
+}
+
+/* Back into a song after a panel held it: 3, 2, 1 within about 1.5 s, in the middle of the game area. */
+static void test_resume(void)
+{
+    check(resume_digit(0) == 3 && resume_digit(499) == 3 && resume_digit(500) == 2 && resume_digit(999) == 2 &&
+              resume_digit(1000) == 1 && resume_digit(1499) == 1 && resume_digit(1500) == 0 && resume_digit(5000) == 0 &&
+              RESUME_MS <= 1500.0,
+          "resume: 3, 2, 1, half a second each, then the song goes on");
+    static const int sizes[4][2] = {{1280, 768}, {1920, 1080}, {3840, 2160}, {960, 576}};
+    int middle = 1;
+    for (int k = 0; k < 4; k++) {
+        Box b = resume_box(sizes[k][0], sizes[k][1]);
+        middle &= fabsf(b.x + b.w / 2 - sizes[k][0] / 2.0f) < 0.5f && fabsf(b.y + b.h / 2 - sizes[k][1] / 2.0f) < 0.5f &&
+                  b.y > 70 * ui_unit(sizes[k][1]) && b.w > 0;
+    }
+    check(middle, "resume: its popup in the middle of the game, under the bar's band, at four sizes");
 }
 
 /* The shared table of sound.ini lines (tests/fixtures/sound_lines.txt, copied beside this program by test.sh; the
@@ -1361,9 +1484,8 @@ static void test_pictures(void)
                                   (int)(sp.room + l.chip[CHIP_MIN].x - l.chip[0].x + 6 * l.u)];
     /* The plates lean: the top left corner of each chip's box is outside its plate. */
     uint32_t corner = sp.content->px[(int)(sp.room + 1) * sp.content->w + (int)(sp.room + 1)];
-    check((xpx & 0xff) > ((xpx >> 16) & 0xff) + 100 && ((mpx & 0xff) - ((mpx >> 16) & 0xff)) < 40 && (mpx >> 24) == 255 &&
-              (corner >> 24) == 0,
-          "pictures: the X in the launcher's blue, the others its metal, their ends leaning");
+    check(xpx == mpx && ((mpx & 0xff) - ((mpx >> 16) & 0xff)) < 40 && (mpx >> 24) == 255 && (corner >> 24) == 0,
+          "pictures: the X in the launcher's quiet metal as the others (lit only under the pointer), their ends leaning");
     sprite_free(&sp);
     /* The handle: the rail across its top, the tab's dark glass under the rail's middle, deeper lit, a light chevron
      * in it (the game's light blue lit), no glass of its own. */
@@ -2348,10 +2470,10 @@ static void test_guard(void)
     check(!post_lighter(&up, &aa), "guard: nearest is as light as it goes");
     char words[160];
     note_words(0, 1, AA_FXAA, words, sizeof words);
-    check(!strcmp(words, "Picture quality lowered to keep 60 FPS (FXAA)"),
-          "guard: the note says why and what, in one sentence");
+    check(!strcmp(words, "Picture quality lowered to keep 60 FPS: now FXAA"),
+          "guard: the note says why, then what the picture is now (never in brackets, read as a cause)");
     note_words(1, 0, AA_OFF, words, sizeof words);
-    check(!strcmp(words, "60 FPS를 지키려고 화질을 낮췄습니다(부드럽게 확대)"), "guard: the note in Korean");
+    check(!strcmp(words, "60 FPS를 지키려고 화질을 낮췄습니다. 지금은 부드럽게 확대"), "guard: the note in Korean");
     Settings s;
     settings_default(&s);
     settings_read(&s, "OPENDMT3_PACING", "music");
@@ -3035,6 +3157,7 @@ int main(void)
     test_sharp();
     test_picture();
     test_card();
+    test_resume();
     test_layout();
     test_places();
     test_pictures();

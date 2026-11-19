@@ -1120,7 +1120,7 @@ static LONG g_held_frames;
  * once its pieces are made). Then the blur's passes. */
 static void layer_costs_lines(double f)
 {
-    static const char *const names[PART_KINDS] = {"fps chip", "bar", "bar chips", "panel", "toast", "mark"};
+    static const char *const names[PART_KINDS] = {"fps chip", "bar", "bar chips", "panel", "toast", "mark", "resume"};
     LayerCosts c;
     post_layer_costs(&c);
     long redraws[PART_KINDS], gdi;
@@ -1399,8 +1399,8 @@ static void hold_still(IDirect3DDevice9 *dev, HWND window, const RECT *dst, cons
     QueryPerformanceCounter(&from);
     sound_hold();
     layer_holding(1);
-    ingame_log("hold: the game held still at frame %ld (a song plays; the menu or the question is open, or the game "
-               "is minimised)", frame);
+    ingame_log("hold: the game held still at frame %ld (%s)", frame,
+               layer_quitting() ? "the game is ending" : "a song plays; the menu or the question is open, or the game is minimised");
     /* Our own clock for the held frames: 60 a second whatever the pacing (the client's own limiter is in the game's
      * frame, which does not run now). */
     Pacer held;
@@ -1437,6 +1437,8 @@ static void hold_still(IDirect3DDevice9 *dev, HWND window, const RECT *dst, cons
         mark_frame_done(dev);
         /* The sound's fade out, a step a held frame. */
         sound_hold_step();
+        /* The last stage's own lines go on while held (its measures of what reaches it among them: silence). */
+        mix_frame();
     }
     layer_holding(0);
     /* Quitting: the sound only let go; otherwise played again from where it stopped. */
@@ -1445,8 +1447,15 @@ static void hold_still(IDirect3DDevice9 *dev, HWND window, const RECT *dst, cons
     /* The game's next frame due a period after its music started again, as if the hold had not been. */
     if (g_pacer.period > 0)
         g_pacer.next = t.QuadPart + g_pacer.period;
-    ingame_log("hold: the game goes on at frame %ld after %.2f s held%s", ingame_frame(),
-               (double)(t.QuadPart - from.QuadPart) / (double)g_frequency.QuadPart, lost ? " (the device was lost)" : "");
+    /* Quitting, the hold ends only for the program's own end (its quit message): nothing goes on. */
+    if (layer_quitting())
+        ingame_log("hold: the game let go to end at frame %ld after %.2f s held%s", ingame_frame(),
+                   (double)(t.QuadPart - from.QuadPart) / (double)g_frequency.QuadPart,
+                   lost ? " (the device was lost)" : "");
+    else
+        ingame_log("hold: the game goes on at frame %ld after %.2f s held%s", ingame_frame(),
+                   (double)(t.QuadPart - from.QuadPart) / (double)g_frequency.QuadPart,
+                   lost ? " (the device was lost)" : "");
 }
 
 static HRESULT STDMETHODCALLTYPE our_reset(IDirect3DDevice9 *dev, D3DPRESENT_PARAMETERS *pp);

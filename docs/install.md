@@ -132,31 +132,38 @@ the notes come, and no key of the keyboard brings it:
   at once.
 - **The quit question.** The X asks first, in a sheet that comes out from under the bar below the X: **Quit the game?**,
   with **KEEP PLAYING** first and **QUIT THE GAME** beside it, red once the pointer or the keys are on it, and during a
-  song one more line, **A play in progress is not kept.** (the game sends a play's results when the play ends). The
+  song one more line, **This play will not be recorded.** (the game sends a play's results when the play ends). The
   window's own close (the taskbar's) asks the same, so a click by mistake ends nothing. **QUIT THE GAME** ends the game
-  the way its own close does, and the launcher sees it end. Esc and Alt+F4 do nothing: the game's own Esc would end it
-  at once, so the game never sees it.
+  within about a second, and the launcher sees it end; meanwhile the game is silent (in a song it also holds still, so
+  the song never goes on) and the bar says **Quitting the game…** where its buttons were. Esc and Alt+F4 do nothing: the
+  game's own Esc would end it at once, so the game never sees it.
 - **In a window** the game keeps its title bar, to move it, and its borders, to size it, with no buttons on the title
   bar: the overlay bar's buttons minimize it, take it to full screen and back, and quit.
 - **The menu** comes out from under the bar below its button and the buttons beside it: **BACK TO THE GAME**, **SHOW
-  FPS** (the FPS counter on or off for this run), **SOUND** and **QUIT THE GAME**, and goes back up under it. The arrow
-  keys and Enter choose, Esc closes; a click beside the menu or the question closes it too.
-- **The sound panel** (the menu's **SOUND**) hangs under the X: the master volume (**ALL**), the music's and the key
-  sounds' (**MUSIC**, **KEYS**) and the equalizer's five bands (60 Hz to 12 kHz), each a column you drag, tap or turn
-  with the wheel; Left and Right go along them, Up and Down move one a step, Enter or Esc goes back to the game. A
-  change is heard at once and is the launcher's **Sound** page's too (both keep the same file, `sound.ini` beside
-  `launcher.json`, each writing only the values it changed): a value set on the Sound page while the game runs is heard
-  within a second, and one set in the game is on the page when you look at it again.
-- **The game holds still** while the menu or the question is open during a song, or while the game is minimized in
-  one: the picture stops on the frame it showed, the music on the note it played, and both go on together when you
-  go back to the game. The game sees none of the keys and clicks that answer them.
+  FPS** (the FPS counter on or off for this run), **SOUND ›** and **QUIT THE GAME**, each row a finger's size, and goes
+  back up under it. The arrow keys and Enter choose, Esc closes; a click beside the menu or the question closes it too,
+  and a press anywhere in the menu is the nearest row's.
+- **The sound panel** (the menu's **SOUND**) hangs under the X: the master volume (**MASTER**), the music's and the key
+  sounds' (**MUSIC**, **KEYS**: the launcher's **Sound** page's words) and the equalizer's five bands (60 Hz to 12 kHz),
+  each a column with its value over a slider and its name under it. A tap on a slider above its knob moves the value a
+  step up, below it a step down; a drag moves it from where it was by the length drawn; the wheel moves it a step a
+  notch. A tap on a value or a name only chooses its column. Left and Right go along the columns, Up and Down move one a
+  step, Enter goes back to the game; Esc, or the panel's title (**‹ Sound**), goes back to the menu. A change is heard at
+  once and is the launcher's **Sound** page's too (both keep the same file, `sound.ini` beside `launcher.json`, each
+  writing only the values it changed): a value set on the Sound page while the game runs is heard within a second, and
+  one set in the game is on the page when you look at it again. During a song the panel holds the song still, so a
+  change there is heard when the song goes on.
+- **The game holds still** while the menu, the question or the sound panel is open during a song, or while the game is
+  minimized in one: the picture stops on the frame it showed, the music on the note it played. Back in the game, 3, 2,
+  1 counts down in the middle of the screen over 1.5 s, and then both go on together. The game sees none of the keys
+  and clicks that answer them.
 - **The FPS counter** (**Screen**, **FPS counter**; off by default) shows the frames a second and the time of a frame, on
   one line, on faint glass that its words read over on any screen, in the corner chosen under **Position** (the bottom
   right by default, beside the game's FREE PLAY on its line, below the notes: it covers none of the game's own labels or
   buttons, and no more of a note than the game's own FREE PLAY). In a top corner it moves down with the bar. Clicks go
   through it to the game, and it hides while the game holds still.
 - **A notice** hangs from the top edge for a few seconds when openDMT3 has something to say: `Picture quality lowered
-  to keep 60 FPS`, with the step it took
+  to keep 60 FPS: now Smooth upscale`, with the step it took
   ([the safety net](#frame-pacing-the-picture-the-fps-counter-and-the-sound-device)). It moves down with the bar, and
   one that comes during a song waits for the song's end, so nothing of the overlay covers the game's groove meter while
   you play.
@@ -243,12 +250,12 @@ is read as late as the frame's own work allows.
   of copied into its own surface (Direct3D 9Ex), the way Windows can show a game as in exclusive full screen and a
   display's variable refresh rate (G-SYNC, FreeSync) can follow the frames.
 
-- **Master**, **Music**, **Keysounds** (**Sound**, 100 % by default) and the **Equalizer**'s bands (60 Hz, 250 Hz, 1
+- **Master**, **Music**, **Keys** (**Sound**, 100 % by default) and the **Equalizer**'s bands (60 Hz, 250 Hz, 1
   kHz, 4 kHz and 12 kHz, each -12 to 12 dB, flat by default): the in-game sound panel has the same and keeps them with
   the page. The music is the game's own volume for a song's music (`setting.ini`'s, which the game turns into its own
   curve, its gain falling as the square of the value: half the value is 12 dB down): moved in the game it follows that
   curve, so a value set in the panel sounds as the same value set before PLAY; the menus' music is not the game's music
-  volume and follows only the master. The game never applied its key sounds' setting: the **Keysounds** volume is
+  volume and follows only the master. The game never applied its key sounds' setting: the **Keys** volume is
   openDMT3's own, by the same curve, and a launcher before 0.4.0, whose value had no effect, starts it at 100 %, as loud
   as before. The master and the equalizer act on the whole mix as it goes to Windows, with every **Mixer**, and add no
   delay: at 100 % and flat nothing is touched. A band raised stands over the others: the equalizer takes its curve's

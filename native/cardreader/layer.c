@@ -15,11 +15,17 @@
  *     in the game's tab shape, a chevron in it pointing down; it goes down with the bar's foot, fading; a press on it
  *     after the game's quiet is the overlay's (a tap or a long press brings the bar), in a song every press is the
  *     game's;
- *   - the menu (Back to the game, Show FPS, Quit the game) under its chip and the chips beside it, and the question
- *     (Keep playing, Quit the game) under the X: sheets that slide out from under the bar's foot and back; the window's
- *     own close request asks the same question; arrow keys and Enter choose, Esc closes them. No other key of the
- *     layer's: Esc never opens the question (the game never sees it either: its own Esc ends it at once), Alt+F4 does
- *     nothing;
+ *   - the menu (Back to the game, Show FPS, Sound, Quit the game) under its chip and the chips beside it, and the
+ *     question (Keep playing, Quit the game) under the X: sheets that slide out from under the bar's foot and back; the
+ *     window's own close request asks the same question; arrow keys and Enter choose, Esc closes them. The menu's Sound
+ *     opens the sound panel under the X in its place (its title tab, or Esc, goes back to the menu): a press on a
+ *     column's track moves its value (a tap a step, a drag by its length), a press on its value or name only chooses
+ *     it. No other key of the layer's: Esc never opens the question (the game never sees it either: its own Esc ends
+ *     it at once), Alt+F4 does nothing;
+ *   - after a panel held a song still, 3, 2, 1 in the game's message box in the middle of the game (1.5 s, the song
+ *     still held), then the song goes on;
+ *   - from Quit the game until the game has ended: the game held still and silent, the bar saying so where its chips
+ *     were;
  *   - a toast hanging from the top edge for a few seconds (the safety net's note), riding down with the bar's foot; one
  *     that comes during a song waits for the song's end;
  *   - the frame rate chip, faint, in the corner the launcher chose (riding down with the bar's foot in a top one),
@@ -48,8 +54,12 @@ static HWND g_game;
 static WNDPROC g_game_proc;
 /* The menu or the question (open: CARD_NONE when neither), and the one last shown (drawn while it fades out). */
 static Card g_card, g_shown;
-/* Quitting: the game's own close goes through without asking, and nothing of the layer shows. */
+/* Quitting: the game's own close goes through without asking, the game is held still and silent, and the bar says so
+ * until the process ends. */
 static int g_quitting;
+/* The way back into a song: when the hold's reasons ended (a panel closed, the game back from the taskbar), the
+ * countdown's start (0: none counting). */
+static double g_resume_at;
 /* The game fills its screen (a borderless window over the monitor) or sits in a window; the window's place and size
  * as it was before full screen, to go back to (none yet when the game started in full screen). */
 static int g_full;
@@ -141,9 +151,20 @@ static UiLayout g_hit;
 static int g_hover = HIT_NONE, g_pressed = HIT_NONE;
 static float g_press_y = -1;
 static int g_mouse_down;
+/* A press held on a sound column: on its track (a tap steps its value, a drag moves it) or only choosing it; the value
+ * it found and where it began (on the screen); whether it is a drag yet; whether it is the second press of a
+ * double-click on the menu's Sound (it changes nothing). */
+static int g_sound_track, g_sound_value, g_sound_drag, g_sound_repeat;
+static float g_sound_y;
+/* When and where a press of the menu's Sound opened the sound panel (its double-click's second press is kept). */
+static double g_sound_opened_at = -1e12;
+static float g_sound_opened_x, g_sound_opened_y;
+/* The wheel's travel over the sound panel not yet a whole notch (a touchpad sends a notch in many small pieces), and
+ * the column it was for. */
+static int g_wheel_rest, g_wheel_column = -1;
 
 /* The parts' pictures and the version each was drawn at (post.c uploads a part again when its version changes). */
-static Sprite g_s_bar, g_s_chips, g_s_panel, g_s_toast, g_s_fps, g_s_mark;
+static Sprite g_s_bar, g_s_chips, g_s_panel, g_s_toast, g_s_fps, g_s_mark, g_s_resume, g_s_quitting;
 /* The largest canvases the panel and the toast take at the size drawn for (warm works them out): the question with
  * its line is taller than without and the menu another shape, a note as wide as its words. */
 static int g_room_panel_w, g_room_panel_h, g_room_toast_w, g_room_toast_h;
@@ -172,9 +193,10 @@ static void redraw_end(int kind)
     if (d > g_redraw_max[kind])
         g_redraw_max[kind] = d;
 }
-static unsigned g_v_bar, g_v_chips, g_v_panel, g_v_toast, g_v_fps, g_v_mark;
+static unsigned g_v_bar, g_v_chips, g_v_panel, g_v_toast, g_v_fps, g_v_mark, g_v_resume, g_v_quitting;
 /* What each picture was drawn for: the target's size and the states it shows (drawn again when any differs). */
 static int g_drawn_bar = -1, g_drawn_chips = -1, g_drawn_panel = -1, g_drawn_fps = -1, g_drawn_mark = -1;
+static int g_drawn_resume = -1, g_drawn_quitting = -1;
 static int g_drawn_toast;
 static int g_drawn_w, g_drawn_h;
 
@@ -544,8 +566,18 @@ static void warm(int w, int h)
     Box mb = ui_mark_box(w, h, 1);
     if (sprite_for(&g_s_mark, mb.w, mb.h, ceilf(2 * l.u)))
         look_mark(&g_s_mark, l.u, 0);
+    /* The countdown's popup, each digit drawn once (its words made), 3 kept as it first shows; and the bar's words for
+     * the game ending, drawn once. */
+    Box rb = resume_box(w, h);
+    if (sprite_for(&g_s_resume, rb.w, rb.h, 8 * l.u))
+        for (int d = 1; d <= 3; d++)
+            look_resume(&g_s_resume, l.u, d, text_gdi, NULL);
+    if (sprite_for(&g_s_quitting, both.w, both.h, ceilf(2 * l.u)))
+        look_quitting(&g_s_quitting, &l, quit_words(g_settings.korean), text_gdi, NULL);
     /* All but the bar drawn again for real when they show. */
     g_drawn_panel = g_drawn_fps = g_drawn_chips = g_drawn_mark = -1;
+    g_drawn_resume = 3;
+    g_drawn_quitting = g_settings.korean ? 1 : 0;
     g_drawn_toast = 0;
     QueryPerformanceCounter(&t1);
     QueryPerformanceFrequency(&f);
@@ -577,6 +609,7 @@ int layer_parts(LayerPart *out, int max, int w, int h)
         g_drawn_w = w;
         g_drawn_h = h;
         g_drawn_bar = g_drawn_chips = g_drawn_panel = g_drawn_fps = g_drawn_mark = -1;
+        g_drawn_resume = g_drawn_quitting = -1;
         g_drawn_toast = 0;
         warm(w, h);
     }
@@ -618,7 +651,7 @@ int layer_parts(LayerPart *out, int max, int w, int h)
         ingame_log("layer: toast shown (it waited for the song's end)");
     }
     /* What is wanted now. The bar: whole in its time (logic.h BarClock), or a panel open. */
-    g_bar.want = !g_quitting && (open || bar_clock_whole(&g_bar_clock, now));
+    g_bar.want = g_quitting || open || bar_clock_whole(&g_bar_clock, now);
     g_panel.want = !g_quitting && open;
     g_toast.want = !g_quitting && now < g_toast_until;
     /* The chip: on, counted, after the first screen (never a 0 before it), not while the game is held still (its
@@ -749,7 +782,13 @@ int layer_parts(LayerPart *out, int max, int w, int h)
     /* The menu or the question: a sheet sliding out from under the bar's foot as it opens and back up under it as it
      * closes. Drawn before the bar, which lies over what of it is still under the bar. */
     if (g_panel.v > 0.0f && g_lay.panel.w > 0 && n < max) {
-        int hover = g_hover >= 0 ? g_hover : -1, held = g_pressed >= 0 && g_pressed == g_hover ? g_pressed : -1;
+        int hover = g_hover >= 0 && g_hover < 8 ? g_hover : g_hover == HIT_BACK ? LOOK_BACK : -1;
+        int held = g_pressed >= 0 && g_pressed < 8 && g_pressed == g_hover ? g_pressed
+                   : g_pressed == HIT_BACK && g_hover == HIT_BACK ? LOOK_BACK : -1;
+        /* A sound column held (its drag drawn over a neighbour): it stays the one lit, never the neighbour under the
+         * pointer. */
+        if (g_shown.open == CARD_SOUND && g_pressed >= 0 && g_pressed < 8)
+            hover = held = g_pressed;
         int key = ((((g_shown.open * 8 + g_shown.focus) * 2 + g_shown.fps) * 2 + g_shown.korean) * 16 + hover + 1) * 16 +
                   held + 1;
         /* The sound panel drawn again when a value changes (by its knob, its keys or the launcher). */
@@ -782,19 +821,51 @@ int layer_parts(LayerPart *out, int max, int w, int h)
         int key = ((hover + 1) * 8 + held + 1) * 2 + g_full;
         Box both = {g_lay.chip[0].x, g_lay.chip[0].y, g_lay.chip[CHIP_X].x + g_lay.chip[CHIP_X].w - g_lay.chip[0].x,
                     g_lay.chip[0].h};
-        if (key != g_drawn_chips && sprite_for(&g_s_chips, both.w, both.h, ceilf(2 * u))) {
+        if (!g_quitting && key != g_drawn_chips && sprite_for(&g_s_chips, both.w, both.h, ceilf(2 * u))) {
             redraw_start();
             look_chips(&g_s_chips, &g_lay, hover, held, g_full);
             redraw_end(PART_BAR_CHIPS);
             g_drawn_chips = key;
             g_v_chips++;
         }
+        /* Quitting: the words that say so where the chips were (nothing to press any more), drawn once. */
+        int lang = g_settings.korean ? 1 : 0;
+        if (g_quitting && g_drawn_quitting != lang && sprite_for(&g_s_quitting, both.w, both.h, ceilf(2 * u))) {
+            redraw_start();
+            look_quitting(&g_s_quitting, &g_lay, quit_words(g_settings.korean), text_gdi, NULL);
+            redraw_end(PART_BAR_CHIPS);
+            g_drawn_quitting = lang;
+            g_v_quitting++;
+        }
         if (g_s_bar.content)
             out[n++] = (LayerPart){&g_s_bar, g_v_bar, (int)lroundf(-g_s_bar.room), (int)lroundf(bar_top - g_s_bar.room),
                                    1.0f, PART_BAR};
-        if (g_s_chips.content)
-            out[n++] = (LayerPart){&g_s_chips, g_v_chips, (int)lroundf(both.x - g_s_chips.room),
-                                   (int)lroundf(both.y + bar_top - g_s_chips.room), 1.0f, PART_BAR_CHIPS};
+        Sprite *right = g_quitting ? &g_s_quitting : &g_s_chips;
+        if (right->content)
+            out[n++] = (LayerPart){right, g_quitting ? g_v_quitting : g_v_chips, (int)lroundf(both.x - right->room),
+                                   (int)lroundf(both.y + bar_top - right->room), 1.0f, PART_BAR_CHIPS};
+    }
+    /* The way back into a song: the countdown's popup in the middle while it counts (the song held under it), each digit
+     * said in the log at its first frame. */
+    int digit = g_resume_at && !g_quitting ? resume_digit(now - g_resume_at) : 0;
+    static int said_digit;
+    if (digit != said_digit) {
+        if (digit > 0)
+            ingame_log("layer: back into the song: %d", digit);
+        said_digit = digit;
+    }
+    if (digit > 0 && n < max) {
+        Box rb = resume_box(w, h);
+        if (digit != g_drawn_resume && sprite_for(&g_s_resume, rb.w, rb.h, 8 * u)) {
+            redraw_start();
+            look_resume(&g_s_resume, u, digit, text_gdi, NULL);
+            redraw_end(PART_RESUME);
+            g_drawn_resume = digit;
+            g_v_resume++;
+        }
+        if (g_s_resume.content)
+            out[n++] = (LayerPart){&g_s_resume, g_v_resume, (int)lroundf(rb.x - g_s_resume.room),
+                                   (int)lroundf(rb.y - g_s_resume.room), 1.0f, PART_RESUME};
     }
     return n;
 }
@@ -804,16 +875,16 @@ int layer_warm_parts(LayerPart *out, int max, int w, int h)
     /* The pictures made ready for this size (warm), each at its place and a ten thousandth of its opacity. */
     if (layer_parts(out, 0, w, h) < 0 || !g_game)
         return 0;
-    Sprite *all[6] = {&g_s_bar, &g_s_chips, &g_s_panel, &g_s_toast, &g_s_fps, &g_s_mark};
-    unsigned versions[6] = {g_v_bar, g_v_chips, g_v_panel, g_v_toast, g_v_fps, g_v_mark};
-    int kinds[6] = {PART_BAR, PART_BAR_CHIPS, PART_PANEL, PART_TOAST, PART_FPS, PART_MARK};
+    Sprite *all[8] = {&g_s_bar, &g_s_chips, &g_s_panel, &g_s_toast, &g_s_fps, &g_s_mark, &g_s_resume, &g_s_quitting};
+    unsigned versions[8] = {g_v_bar, g_v_chips, g_v_panel, g_v_toast, g_v_fps, g_v_mark, g_v_resume, g_v_quitting};
+    int kinds[8] = {PART_BAR, PART_BAR_CHIPS, PART_PANEL, PART_TOAST, PART_FPS, PART_MARK, PART_RESUME, PART_BAR_CHIPS};
     /* The chip's mask has its own version (its glass is drawn once for a size); the others' go with their pictures. */
-    unsigned masks[6] = {0, 0, 0, 0, g_v_fps_mask, 0};
+    unsigned masks[8] = {0, 0, 0, 0, g_v_fps_mask, 0, 0, 0};
     /* The room each may take: the panel's and the toast's as warm worked them out, the others' their own size. */
-    int room_w[6] = {0, 0, g_room_panel_w, g_room_toast_w, 0, 0};
-    int room_h[6] = {0, 0, g_room_panel_h, g_room_toast_h, 0, 0};
+    int room_w[8] = {0, 0, g_room_panel_w, g_room_toast_w, 0, 0, 0, 0};
+    int room_h[8] = {0, 0, g_room_panel_h, g_room_toast_h, 0, 0, 0, 0};
     int n = 0;
-    for (int i = 0; i < 6 && n < max; i++)
+    for (int i = 0; i < 8 && n < max; i++)
         if (all[i]->content)
             out[n++] = (LayerPart){all[i], versions[i], 0, 0, 0.0001f, kinds[i], masks[i], room_w[i], room_h[i]};
     return n;
@@ -912,6 +983,8 @@ static void open_card(int what)
 {
     if (g_quitting)
         return;
+    /* A countdown back into the song stops: the song stays held under the panel. */
+    g_resume_at = 0;
     card_open(&g_card, what);
     /* Every finger down now answered the overlay or waits under its panel: none reaches the game until lifted. */
     touch_withhold(1);
@@ -944,12 +1017,34 @@ static void close_card(void)
     ingame_log("layer: closed, back to the game");
 }
 
-/* Ending the game the way its own close does, so the launcher sees it end; if the game does not end in ten seconds
- * (its own shutdown stuck), the process ends itself with exit code 0. */
+/* How long the game's close request (WM_CLOSE, the polite one) is given. Its window procedure takes it at once when it
+ * comes (in a song, from the hold's own pump), so a game that ends on it has begun to by then; measured under Wine in
+ * every run, the game takes none. Then:
+ *   - held still in a song (the play is not recorded, the question says so): its own close (SC_CLOSE, which ends it by
+ *     its own loop: measured, exit 0 at once) cannot run while the hold keeps that loop stopped, and letting the loop
+ *     go would play the song on. Nothing of the game's own has run since the choice and nothing of the layer's is left
+ *     to write (the sound file is flushed first), so ending the process then loses nothing: exit 0, said in the log;
+ *   - on the game's menus (not held: whatever it is doing, a finished play's results on their way, goes on): its
+ *     window's own close, its own way out, and the process ends itself only if the game has still not ended by
+ *     QUIT_LAST_MS (its own shutdown stuck), exit 0. */
+#define QUIT_POLITE_MS 1000
+#define QUIT_LAST_MS 10000
+
 static DWORD WINAPI quit_watch(LPVOID unused)
 {
     (void)unused;
-    Sleep(10000);
+    Sleep(QUIT_POLITE_MS);
+    if (g_holding) {
+        ingame_log("quit: the game took its close request without ending in %.1f s, held still since the choice (its own "
+                   "close needs its loop, which would play the song on): ended now, exit 0, nothing of its own running "
+                   "and the sound file written", QUIT_POLITE_MS / 1000.0);
+        TerminateProcess(GetCurrentProcess(), 0);
+        return 0;
+    }
+    ingame_log("quit: the game's close request left it running for %.1f s: its window's own close now (its own way "
+               "out, which ends it at once; the sound file is written already)", QUIT_POLITE_MS / 1000.0);
+    PostMessageA(g_game, WM_SYSCOMMAND, SC_CLOSE, 0);
+    Sleep(QUIT_LAST_MS - QUIT_POLITE_MS);
     ingame_log("quit: the game had not ended after 10 s: ended now");
     TerminateProcess(GetCurrentProcess(), 0);
     return 0;
@@ -959,15 +1054,21 @@ static void quit_game(void)
 {
     g_quitting = 1;
     g_card.open = CARD_NONE;
+    /* No countdown back into a song: it is not going on. */
+    g_resume_at = 0;
     ingame_log("quit: the player chose Quit the game");
     /* The sound panel's last changes into the sound file before the game goes (the launcher reads it when the game
      * closes): a second at most. */
     soundset_flush();
+    /* Silent from now to the end, whatever the game's code still does (a held song's sounds are stopped; on the game's
+     * menus it runs on: the last stage keeps the mix quiet either way, fading out over a few milliseconds so nothing
+     * clicks). */
+    mix_quiet();
     HANDLE watch = CreateThread(NULL, 0, quit_watch, NULL, 0, NULL);
     if (watch)
         CloseHandle(watch);
-    /* The game's own close: its window goes, and its message loop ends the program. Posted, so a hold of the game
-     * ends first (layer_pump) and the game's own loop takes it. */
+    /* The game's own close request first: posted, it goes to the game's own window procedure even while the game is
+     * held (game_proc); a held song stays held until the process ends (quit_watch). */
     PostMessageA(g_game, WM_CLOSE, 0, 0);
 }
 
@@ -989,19 +1090,17 @@ static void sound_set(int which, int value)
         ingame_log("layer: sound %s set to %d", SOUND_NAMES[which], soundset_values()->v[which]);
 }
 
-/* The sound column under a press or a drag at height y (on the screen, the panel where it stands now): its value. */
-static void sound_at(int column, float y)
-{
-    UiLayout moved = g_lay;
-    sound_set(column, ui_sound_value_at(&moved, column, y - g_panel_dy));
-}
-
 /* Do what a key or a choice asked for. */
 static void act(int what)
 {
     if (what == ACT_SOUND_OPEN) {
         /* The sound panel in the menu's place (its card switched by card_choose). */
         ingame_log("layer: sound panel opened");
+        return;
+    }
+    if (what == ACT_SOUND_BACK) {
+        /* The menu again in the sound panel's place, its ring on Sound (card_key switched the card). */
+        ingame_log("layer: back to the menu from the sound panel");
         return;
     }
     if (what == ACT_SOUND) {
@@ -1220,14 +1319,62 @@ static void pointer_moved(int cx, int cy, float x, float y, int held)
     /* On the bar: whole 600 ms more from now (not over a finger's own time). */
     if (g_hover != HIT_NONE && bar_shown())
         bar_clock_rest(&g_bar_clock, now_ms());
-    /* A row under the pointer is where the keys' ring goes too, so the two never point at different answers. */
-    if (g_hover >= 0 && g_hover < card_count(&g_card) && g_hover != g_card.focus)
+    /* A row under the pointer is where the keys' ring goes too, so the two never point at different answers; not while
+     * a sound column is held (its drag drawn over a neighbour keeps the ring, and the next key moves the column
+     * dragged). */
+    int column_held = g_card.open == CARD_SOUND && g_pressed >= 0 && g_pressed < card_count(&g_card);
+    if (!column_held && g_hover >= 0 && g_hover < card_count(&g_card) && g_hover != g_card.focus)
         g_card.focus = g_hover;
+}
+
+/* A press on sound column `column` at (x, y) of the target: the second press of a double-click on the menu's Sound
+ * changes nothing; otherwise the column is chosen, and a press on its track starts a tap or a drag from the value it
+ * has (the value over it and the name under it only choose it). */
+static void sound_pressed(int column, float x, float y)
+{
+    g_sound_track = g_sound_drag = g_sound_repeat = 0;
+    if (ui_repeat_press(now_ms() - g_sound_opened_at, x - g_sound_opened_x, y - g_sound_opened_y,
+                        (double)GetDoubleClickTime(), (float)GetSystemMetrics(SM_CXDOUBLECLK),
+                        (float)GetSystemMetrics(SM_CYDOUBLECLK))) {
+        g_sound_repeat = 1;
+        ingame_log("layer: the second press of a double-click on Sound kept from the sound panel");
+        return;
+    }
+    g_card.focus = column;
+    g_sound_track = ui_sound_zone(&g_lay, column, y - g_panel_dy) == SOUND_ZONE_TRACK;
+    g_sound_value = soundset_values()->v[column];
+    g_sound_y = y;
+}
+
+/* The press on a sound column's track drawn to height y: once it is a drag, the value moved by its length. */
+static void sound_drawn(int column, float y)
+{
+    if (!g_sound_track || g_sound_repeat)
+        return;
+    if (!g_sound_drag && ui_sound_dragging(&g_lay, g_sound_y, y))
+        g_sound_drag = 1;
+    if (g_sound_drag)
+        sound_set(column, ui_sound_drag(&g_lay, column, g_sound_value, g_sound_y, y));
+}
+
+/* The press let go on its column: a tap on the track (never drawn into a drag) moves the value a step towards it. */
+static void sound_released(int column)
+{
+    if (!g_sound_track || g_sound_drag || g_sound_repeat)
+        return;
+    int toward = ui_sound_tap(&g_lay, column, g_sound_value, g_sound_y - g_press_panel_dy);
+    if (toward)
+        sound_set(column, g_sound_value + toward * sound_step(column));
 }
 
 /* A press of the button at (x, y) of the target: 1 when it was the layer's (kept from the game). */
 static int pointer_pressed(float x, float y)
 {
+    /* The game ending: nothing to press any more, and nothing reaches the game. */
+    if (g_quitting) {
+        g_keys_waiting = 1;
+        return 1;
+    }
     /* Whether this press came after the game's quiet (judged before it counts): only such a press drawn down from the
      * top edge asks for the bar. */
     g_swipe_ok = gate_quiet(&g_gate, now_ms());
@@ -1239,11 +1386,9 @@ static int pointer_pressed(float x, float y)
     if (hit != HIT_NONE) {
         /* On the layer: held there until the button comes up (a click counts where it began and ended). */
         g_pressed = hit;
-        /* A sound column: its value where it was pressed, the ring on it. */
-        if (g_card.open == CARD_SOUND && hit >= 0 && hit < card_count(&g_card)) {
-            g_card.focus = hit;
-            sound_at(hit, y);
-        }
+        /* A sound column: chosen, and its track's tap or drag begun (sound_pressed). */
+        if (g_card.open == CARD_SOUND && hit >= 0 && hit < card_count(&g_card))
+            sound_pressed(hit, x, y);
         g_keys_waiting = 1;
         SetCapture(g_game);
         return 1;
@@ -1276,6 +1421,14 @@ static int pointer_released(float x, float y)
 {
     int was = g_pressed;
     g_pressed = HIT_NONE;
+    if (g_quitting)
+        return 1;
+    /* A sound column's press let go: its tap's step (wherever it is let go: a finger lifts where it likes). */
+    if (g_card.open == CARD_SOUND && was >= 0 && was < card_count(&g_card)) {
+        ReleaseCapture();
+        sound_released(was);
+        return 1;
+    }
     /* The mouse's press of the handle let go: a click brings the bar. */
     if (was == HIT_NONE && g_mark_press.on && !g_mark_by_finger) {
         handle_released(x, y);
@@ -1303,8 +1456,20 @@ static int pointer_released(float x, float y)
         minimise();
     else if (was == HIT_FULL)
         toggle_full();
-    else if (was >= 0)
-        act(card_choose(&g_card, was));
+    else if (was == HIT_BACK)
+        /* The sound panel's title tab: back to the menu, as Esc. */
+        act(card_key(&g_card, VK_ESCAPE));
+    else if (was >= 0) {
+        int what = card_choose(&g_card, was);
+        /* The menu's Sound pressed: where and when, so the second press of a double-click on it, landing on the panel
+         * that took the menu's place, changes nothing. */
+        if (what == ACT_SOUND_OPEN) {
+            g_sound_opened_at = now_ms();
+            g_sound_opened_x = x;
+            g_sound_opened_y = y;
+        }
+        act(what);
+    }
     return 1;
 }
 
@@ -1328,6 +1493,8 @@ static LRESULT CALLBACK game_proc(HWND h, UINT msg, WPARAM w, LPARAM l)
         }
         break;
     case WM_LBUTTONDOWN:
+    case WM_LBUTTONDBLCLK:
+        /* A double-click's second press (for a window that asks for them) is a press like the first. */
         g_mouse_down = 1;
         /* Whether Windows made this press from a finger or a pen (the touch screen has that finger already). */
         touch_button(1);
@@ -1353,16 +1520,21 @@ static LRESULT CALLBACK game_proc(HWND h, UINT msg, WPARAM w, LPARAM l)
     case WM_MBUTTONDOWN:
     case WM_RBUTTONUP:
     case WM_MBUTTONUP:
-        /* The other buttons are the game's input too: no rest brings the bar for a while after them. */
+    case WM_RBUTTONDBLCLK:
+    case WM_MBUTTONDBLCLK:
+        /* The other buttons are the game's input too: no rest brings the bar for a while after them. Under an open
+         * panel (or while the game ends) none reaches the game, as its keys and the left button do not. */
         gate_press(&g_gate, now_ms(), BUTTONS_HELD(w));
+        if (g_card.open != CARD_NONE || g_quitting)
+            return 0;
         break;
     case WM_MOUSEMOVE:
         g_mouse_down = (w & MK_LBUTTON) != 0;
         pointer_moved((short)LOWORD(l), (short)HIWORD(l), x, y, BUTTONS_HELD(w));
-        /* A drag that began on the layer stays the layer's; on a sound column it moves its value. */
+        /* A drag that began on the layer stays the layer's; on a sound column's track it moves its value. */
         if (g_pressed != HIT_NONE) {
             if (g_card.open == CARD_SOUND && g_pressed >= 0 && g_pressed < card_count(&g_card) && (w & MK_LBUTTON))
-                sound_at(g_pressed, y);
+                sound_drawn(g_pressed, y);
             return 0;
         }
         break;
@@ -1377,12 +1549,13 @@ static LRESULT CALLBACK game_proc(HWND h, UINT msg, WPARAM w, LPARAM l)
         touch_pointer(h, msg, w, l);
         break;
     case WM_CLOSE:
-        /* The window's own close (the taskbar's) asks first, as the bar's X does; quitting goes through. */
+        /* The window's own close (the taskbar's) asks first, as the bar's X does; quitting, it goes to the game's own
+         * window procedure even while the game is held (Windows' default would take the window from under the game). */
         if (!g_quitting) {
             open_card(CARD_QUIT);
             return 0;
         }
-        break;
+        return CallWindowProcA(g_game_proc, h, msg, w, l);
     case WM_SYSCOMMAND:
         /* Windows' menu mode from the keyboard (Alt alone, F10): nothing, so the keys after it stay the game's. */
         if ((w & 0xFFF0) == SC_KEYMENU)
@@ -1393,15 +1566,30 @@ static LRESULT CALLBACK game_proc(HWND h, UINT msg, WPARAM w, LPARAM l)
             open_card(CARD_QUIT);
             return 0;
         }
+        /* Quitting: the window's own close is the game's own way out (quit_watch posts it after the request), taken by
+         * its own window procedure even while it is held. */
+        if ((w & 0xFFF0) == SC_CLOSE)
+            return CallWindowProcA(g_game_proc, h, msg, w, l);
         break;
     case WM_MOUSEWHEEL:
-        /* The wheel over the sound panel: the column under the pointer (or the ring's) a step up or down a notch. */
-        if (g_card.open == CARD_SOUND) {
+    case WM_MOUSEHWHEEL:
+        /* The wheel over the sound panel: the column under the pointer (or the ring's) a step up or down each whole
+         * notch (a touchpad sends one in many small pieces: they add up first). Under any open panel, or while the
+         * game ends, the wheel never reaches the game. */
+        if (g_card.open == CARD_SOUND && msg == WM_MOUSEWHEEL) {
             int f = g_hover >= 0 && g_hover < card_count(&g_card) ? g_hover : g_card.focus;
+            if (f != g_wheel_column) {
+                g_wheel_column = f;
+                g_wheel_rest = 0;
+            }
             g_card.focus = f;
-            sound_set(f, soundset_values()->v[f] + ((short)HIWORD(w) > 0 ? 1 : -1) * sound_step(f));
+            int notches = wheel_notches(&g_wheel_rest, (short)HIWORD(w));
+            if (notches)
+                sound_set(f, soundset_values()->v[f] + notches * sound_step(f));
             return 0;
         }
+        if (g_card.open != CARD_NONE || g_quitting)
+            return 0;
         break;
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
@@ -1517,10 +1705,28 @@ void layer_finger(int pressed, int any_down)
 
 int layer_hold_wanted(void)
 {
-    /* A panel open, or the game minimised, while a song's music plays, and the chain running (it keeps the frozen
-     * frame to present again). */
-    return !g_quitting && (g_card.open != CARD_NONE || (g_game && IsIconic(g_game))) && post_running() &&
-           sound_song_playing();
+    /* The chain must run: it keeps the frozen frame to present again. */
+    if (!post_running())
+        return 0;
+    if (!sound_song_playing())
+        return 0;
+    /* Quitting in a song: held still (and silent) until the process ends, so the song never plays again. */
+    if (g_quitting)
+        return 1;
+    /* A panel open, or the game minimised, while a song's music plays. */
+    if (g_card.open != CARD_NONE || (g_game && IsIconic(g_game))) {
+        g_resume_at = 0;
+        return 1;
+    }
+    /* Their reasons gone while held: 3, 2, 1 first (the song still held), then it goes on. */
+    if (g_holding && !g_resume_at) {
+        g_resume_at = now_ms();
+        ingame_log("layer: back into the song in %.1f s (3, 2, 1)", RESUME_MS / 1000.0);
+    }
+    if (g_resume_at && resume_digit(now_ms() - g_resume_at) > 0)
+        return 1;
+    g_resume_at = 0;
+    return 0;
 }
 
 void layer_holding(int on)
@@ -1552,9 +1758,8 @@ int layer_pump(void)
             continue;
         TranslateMessage(&m);
         DispatchMessageA(&m);
-        /* Quitting: the hold ends before the game's close is taken, so the game's own loop takes it. */
-        if (g_quitting)
-            return 0;
     }
-    return !g_quitting;
+    /* Quitting in a song holds on too: the game's close request goes to its own window procedure from here (game_proc),
+     * and the program ends by quit_watch, or by its own quit message above. */
+    return 1;
 }

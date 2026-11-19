@@ -134,8 +134,9 @@ wait_log() {
 # How many lines of the layer's log match (a regex); and a wait until more than a count do (the log already holds
 # such lines from earlier steps, so a step is judged by the new one it adds).
 seen() { grep -cE "$1" "$OUT/ingame.log" 2>/dev/null; }
-# Where the song's music is (ms), as the layer's last level line says it (OPENDMT3_SOUND_LEVELS: a line a second; -1
-# with no song playing), and a wait until it is past a place, up to some seconds.
+# Where the song's music is (ms), as the layer's last level line says it (OPENDMT3_SOUND_LEVELS: a line a second of the
+# sound, which this container's silent ALSA output takes 3.6 times faster than the clock runs; -1 with no song
+# playing), and a wait until it is past a place, up to some seconds.
 song_at() { grep -oE "the song at -?[0-9]+ ms" "$OUT/ingame.log" 2>/dev/null | tail -1 | grep -oE -- "-?[0-9]+"; }
 wait_song() {
   local end=$((SECONDS + $2))
@@ -212,6 +213,8 @@ PR=1860
 X_AT=$(at "$PR - $U * 37" "$U * 35"); FULL_AT=$(at "$PR - $U * 93" "$U * 35")
 MIN_AT=$(at "$PR - $U * 149" "$U * 35"); MENU_AT=$(at "$PR - $U * 215" "$U * 35")
 KEEP_AT=$(at "$PR - $U * 231.5" "$U * (76 + 40 + 16)"); KEEP_SONG_AT=$(at "$PR - $U * 231.5" "$U * (76 + 64 + 16)")
+# The menu's Sound: its third row of 32 under the bar's foot (150 down), in the middle of the menu's 228 under its chip.
+SOUND_ROW_AT=$(at "$PR - $U * 126" "$U * 150")
 # The monotonic clock in milliseconds, the layer's log's.
 now_ms() { python3 -c 'import time; print(int(time.monotonic() * 1000))'; }
 # Whether the bar is on the screen now, by the layer's log: its last "on the screen" line after its last "gone" line.
@@ -465,13 +468,13 @@ for size in "1500 900" "960 576"; do
     || fail "at a client of $size the picture is not the game's frame at the window's new size"
 done
 # The window's place, then the bar from its top edge and its full screen chip (the window's own pixels: the unit is
-# its height over 768).
+# its height over 768, never under 0.75: logic.h UI_UNIT_MIN).
 geo=$(x "xdotool search --name '^ClientApp$' getwindowgeometry" | tr '\n' ' ')
 px=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\1/' <<<"$geo"); py=$(sed -E 's/.*Position: ([0-9]+),([0-9]+).*/\2/' <<<"$geo")
 gw=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\1/' <<<"$geo"); gh=$(sed -E 's/.*Geometry: ([0-9]+)x([0-9]+).*/\2/' <<<"$geo")
 wait_s 3
 x "xdotool mousemove $((px + gw / 2)) $((py + gh / 2)) sleep 0.2 mousemove $((px + gw / 2)) $((py + 1))"; wait_s 2
-x "xdotool mousemove $(python3 -c "u = max(1.0, $gh / 768); print('%d %d' % ($px + $gw - 93 * u, $py + 35 * u))") sleep 0.4 click 1 sleep 0.05 mousemove 960 700"
+x "xdotool mousemove $(python3 -c "u = max(0.75, $gh / 768); print('%d %d' % ($px + $gw - 93 * u, $py + 35 * u))") sleep 0.4 click 1 sleep 0.05 mousemove 960 700"
 wait_s 1.5; shot 06f-full-screen-again
 wait_log "layer: full screen \(1920 x 1080" 5 || fail "the full screen chip did not take the game back to full screen"
 wait_s 3.5
@@ -501,7 +504,10 @@ x "xdotool key Return"
 wait_log "quit: the player chose Quit the game" 5 || fail "Quit the game was not taken"
 end=$((SECONDS + 30)); while game_alive && [ $SECONDS -lt $end ]; do wait_s 1; done
 game_alive && fail "the game did not end after Quit the game"
-grep -q "quit: the game had not ended" "$OUT/ingame.log" && echo "  (the game's own close took more than 10 s: ended by the layer)"
+# The game's own close request, then its window's own close: ended within a few seconds, never by the layer's last resort
+# (the review's finding 1: it took 10 s, the song playing on). Held still and silent until it ended.
+grep -E "^[0-9]+ (quit|hold): " "$OUT/ingame.log" | tail -4 | sed 's/^/  /'
+grep -q "quit: the game had not ended" "$OUT/ingame.log" && fail "the game's own close did not end it: the layer ended it after 10 s"
 end=$((SECONDS + 30)); until x "grep -q 'the game closed after' $LOG" 2>/dev/null || [ $SECONDS -gt $end ]; do wait_s 1; done
 x "grep 'the game closed after' $LOG" | tail -1 | tee "$OUT/launcher-saw.txt"
 grep -q "exit code 0, 0 crash dump" "$OUT/launcher-saw.txt" || fail "the launcher did not see the game end cleanly"
@@ -570,7 +576,24 @@ wait_log "layer: sound master_volume set to 85" 3 || fail "Up on the master did 
 SOUND_FILE=/w/drive_c/users/root/AppData/Roaming/openDMT3/sound.ini
 wait_log "sound: the sound's file written \(1 value\)" 5 || fail "the panel's change was not written to the sound file"
 docker exec "$C" grep -q "^master_volume=85$" "$SOUND_FILE" || fail "the sound file has not the panel's master 85"
+# Esc goes back to the menu the panel came from, a second Esc back to the game.
+x "xdotool key Escape"; wait_s 0.8
+wait_log "layer: back to the menu from the sound panel" 3 || fail "Esc in the sound panel did not go back to the menu"
 x "xdotool key Escape"; wait_s 1; away
+# A double-click on the menu's Sound (the review's finding 2): its second press lands on the panel that took the menu's
+# place, over a track; it is kept from it, and no value changes. The panel's title tab goes back to the menu.
+sets=$(seen "layer: sound [a-z_0-9]+ set to")
+show_bar; x "xdotool mousemove $MENU_AT sleep 0.4 click 1"; wait_s 1
+x "xdotool mousemove $SOUND_ROW_AT sleep 0.4 click --repeat 2 --delay 120 1"; wait_s 1
+wait_log "layer: the second press of a double-click on Sound kept from the sound panel" 3 \
+  || fail "the second press of a double-click on Sound was not kept from the sound panel"
+[ "$(seen "layer: sound [a-z_0-9]+ set to")" = "$sets" ] || fail "a double-click on the menu's Sound changed a sound value"
+shot 07t-sound-panel-double-click
+# The tab's middle: the panel 350 wide under the X (its left edge 362 from the picture's right), the tab 28 in from it
+# and 294 wide, 28 tall from the bar's foot.
+x "xdotool mousemove $(at "$PR - $U * 187" "$U * 84") sleep 0.3 click 1"; wait_s 0.8
+wait_more "layer: back to the menu from the sound panel" 1 3 || fail "the sound panel's title tab did not go back to the menu"
+focus; x "xdotool key Escape"; wait_s 1; away
 docker exec -e WINEPREFIX=/w -e WINEDEBUG=-all "$C" sh -c "wine '$APP' --set key_volume=50" >/dev/null 2>&1
 wait_log "sound: the music at 100 %, the key sounds at 50 %" 5 \
   || fail "the launcher's key sounds' volume did not reach the running game ($(grep 'sound: the sound' "$OUT/ingame.log" | tail -2))"
@@ -686,8 +709,9 @@ echo "== a song held still under the question: the picture and the sound stop, a
 # The tutorial's song: the first play of the long one-shot music buffer (its music in one buffer, played once).
 end=$((SECONDS + 180)); until grep -q "(41943040 bytes, [0-9]* a second, once) plays" "$OUT/ingame.log" || [ $SECONDS -gt $end ]; do wait_s 1; done
 grep -q "(41943040 bytes, [0-9]* a second, once) plays" "$OUT/ingame.log" || fail "the tutorial's song did not start"
-# The song's first 20 s left to play untouched: the third game measures its music's volume against them (below).
-wait_song 20000 40 || fail "the tutorial's song did not reach 20 s ($(song_at) ms)"
+# The song's first 40 s left to play untouched: the third game measures its music's volume against them (below), the
+# second window as late as its launcher's move lands (a Wine program's start, while the song goes on).
+wait_song 40000 60 || fail "the tutorial's song did not reach 40 s ($(song_at) ms)"
 focus
 # The bar from the top edge (nothing pressed since TOUCH to START: the game is quiet), its X: the question with its
 # line, the song held still.
@@ -704,7 +728,23 @@ drew h1 bar question '!chip' || fail "the question is not under the X while the 
 focus
 grep -E "^[0-9]+ sound: [0-9]+ buffers held" "$OUT/ingame.log" | tail -1 | sed 's/^/  /'
 x "xdotool key Return"
+# 3, 2, 1 in the middle (the review's finding 4), the song still held, then it goes on: the countdown's line, and the
+# hold's end 1.5 s after it.
+wait_s 0.4; shot 11e-countdown
 wait_log "hold: the game goes on at frame" 5 || fail "Keep playing did not let the song go on"
+python3 - "$OUT/ingame.log" <<'PY' || fail "the song went on without its 3, 2, 1, or not 1.5 s after it"
+import re, sys
+lines = open(sys.argv[1], errors="replace").read().split("\n")
+count = [int(l.split()[0]) for l in lines if re.match(r"^\d+ layer: back into the song in 1.5 s", l)]
+went = [int(l.split()[0]) for l in lines if re.match(r"^\d+ hold: the game goes on at frame", l)]
+gap = (went[-1] - count[-1]) / 1000.0 if count and went else None
+# Its digits as drawn, from the countdown's start to the song going on: 3, 2, 1 in that order.
+digits = [l.split()[-1] for l in lines if re.match(r"^\d+ layer: back into the song: [123]$", l)
+          and count and went and count[-1] <= int(l.split()[0]) <= went[-1]]
+print("  the countdown %s, then the song going on %s s after it" % (", ".join(digits) or "not drawn",
+                                                                   "%.2f" % gap if gap is not None else "?"))
+sys.exit(0 if gap is not None and 1.4 <= gap <= 2.5 and digits == ["3", "2", "1"] else 1)
+PY
 held=$(grep -oE "hold: the game held still at frame [0-9]+" "$OUT/ingame.log" | tail -1 | grep -oE "[0-9]+$")
 went=$(grep -oE "hold: the game goes on at frame [0-9]+" "$OUT/ingame.log" | tail -1 | grep -oE "[0-9]+$")
 [ "$held" = "$went" ] || fail "the game's frames went on while it was held ($held, then $went)"
@@ -788,6 +828,9 @@ x "xdotool key Return"; wait_s 1.0
 wait_more "layer: frame rate chip on" "$on" 5 || fail "the menu's Show FPS did not turn the chip on again"
 x "xdotool key Escape"; wait_s 0.5
 wait_more "layer: closed, back to the game" "$closed" 5 || fail "Esc did not close the menu"
+# Were the song still playing (a slower device than this container's), the menu held it, and 3, 2, 1 shows in the
+# middle for 1.5 s after it closes: past that before the frame is looked at.
+wait_s 1.6
 away
 drew c3 mark chip || fail "the chip is not back after Show FPS on"
 # F12 is the game's again: it turns nothing of the layer's.
@@ -843,7 +886,7 @@ print("  loops started after the key sounds' volume moved: %d, at the game's own
       % (len(loops), sum(1 for m in loops if m.group(1) == m.group(2))))
 sys.exit(0 if loops and all(m.group(1) == m.group(2) for m in loops) else 1)
 PY
-# The mix's level through the tutorial's first 20 s, at the music's 100 % (setting.ini's bgm_volume 127), untouched:
+# The mix's level through the tutorial's first 40 s, at the music's 100 % (setting.ini's bgm_volume 127), untouched:
 # kept for the third game's measure of the game's own volume curve and of the music's move (OPENDMT3_SOUND_LEVELS).
 cp "$OUT/ingame.log" "$OUT/ingame-1.log"
 # The launcher took the panel's master back when the game ended (its log of the values PLAY started with next).
@@ -859,7 +902,9 @@ docker exec "$C" sh -c "ls /w/drive_c/users/root/AppData/Roaming/openDMT3/game/o
   && fail "the layer's note of the sound engine's period was left after the game ended"
 
 textures "the offline game"
-echo "== offline again with sharpness 80 and SMAA High, the Mixer on OpenAL Soft: the chain's own frame, FSR 1 against bilinear, the screen"
+echo "== offline again with sharpness 80 and SMAA High, the Mixer on OpenAL Soft: the chain's own frame, FSR 1 against bilinear, the screen; the overlay in Korean"
+# The launcher in Korean for this game (PLAY gives the layer its language): the overlay as a Korean player has it.
+docker exec -e WINEPREFIX=/w -e WINEDEBUG=-all "$C" sh -c "wine '$APP' --language ko" >/dev/null 2>&1
 rm -f "$OUT/ingame.log"
 # The chain's measuring dump (OPENDMT3_POSTFX_DUMP, never set by the launcher) writes into OUT_DIR when asked; every
 # frame's chain and layer work timed whole (OPENDMT3_LAYER_TIMING=frame, the tests only: it stalls each frame), the
@@ -912,6 +957,17 @@ if [ $software = 1 ]; then
 else
   python3 "$HERE/ingame/costs.py" turns "$OUT/ingame.log" "$OUT/pace-marks.txt" || fail "the chip adds over 0.2 ms to a frame"
 fi
+# The overlay in Korean (the review's coverage note: never drawn in a run before): the bar, the menu, the sound panel
+# and the question, each looked at in its picture; the sound panel's Esc back to the menu, then Esc and Enter back to
+# the game.
+grep -q "start: language ko" "$OUT/ingame.log" || fail "the layer did not start in Korean ($(grep 'start: language' "$OUT/ingame.log"))"
+show_bar; wait_s 0.6; shot k1-bar-ko
+x "xdotool mousemove $MENU_AT sleep 0.4 click 1"; wait_s 1; shot k2-menu-ko
+focus; x "xdotool key Down"; wait_s 0.3; x "xdotool key Down"; wait_s 0.3; x "xdotool key Return"; wait_s 1
+shot k3-sound-ko
+x "xdotool key Escape"; wait_s 0.6; x "xdotool key Escape"; wait_s 0.8; away
+show_bar; x "xdotool mousemove $X_AT sleep 0.4 click 1"; wait_s 1; shot k4-question-ko
+focus; x "xdotool key Return"; away; wait_s 1
 # Past TOUCH to START and its loading, as above, so the frames compared are of a settled screen.
 x "xdotool mousemove 960 830 mousedown 1 sleep 0.15 mouseup 1"
 wait_s 25
@@ -939,6 +995,8 @@ end=$((SECONDS + 40)); until grep -q "^exit " "$OUT/play-picture.txt" 2>/dev/nul
 cat "$OUT/play-picture.txt"
 grep -q "^exit 0" "$OUT/play-picture.txt" || fail "openDMT3-cmd --play did not return after the second game ended"
 game_alive && fail "the game is still running after the second offline play"
+# The launcher in English again for the games after.
+docker exec -e WINEPREFIX=/w -e WINEDEBUG=-all "$C" sh -c "wine '$APP' --language en" >/dev/null 2>&1
 # Who mixed the run, in the launcher's log once the game closed; the game's own end was its normal one (its exit code
 # 0: OpenAL Soft's libraries end with it quietly).
 docker exec "$C" sh -c "grep -E \"the game's sound was mixed|was chosen and did not open|the game closed after\" $LOG | tail -2" \
@@ -1019,12 +1077,13 @@ fi
 echo "== the game's own music volume curve and the music's move, measured at the last stage of the sound"
 # The review's L7, measured: the tutorial's song in this game, started with the music at 50 % (setting.ini's
 # bgm_volume 64, from the sound file the second game left), against the same seconds of the first game's (100 %,
-# untouched for 20 s): its 1.5 to 5.5 s must be the game's own curve down, 40 log10(64 / 127) = -11.90 dB, within 1 dB.
+# untouched for 40 s): its 1.5 to 5.5 s must be the game's own curve down, 40 log10(64 / 127) = -11.90 dB, within 1 dB.
 # Then the launcher sets the music to 100 % while the song plays, and the 4 s from 1.5 s after the move was heard must
 # come out as loud as the first game's same seconds, within 1 dB: the move is the game's curve, so the same value
 # sounds the same set before PLAY or while the game runs. The same content is the same place in the song (the level
-# lines say it); the level is the mix's as it reaches the last stage, before the master and the equaliser
-# (ingame/levels.py).
+# lines say it, a line for each second of the sound whatever pace the device takes it at: here 3.6 times the clock's,
+# on the CPU and on the GPU alike); the level is the mix's as it reaches the last stage, before the master and the
+# equaliser (ingame/levels.py).
 x "xdotool mousemove 960 830 mousedown 1 sleep 0.15 mouseup 1"
 end=$((SECONDS + 180)); until grep -q "(41943040 bytes, [0-9]* a second, once) plays" "$OUT/ingame.log" || [ $SECONDS -gt $end ]; do wait_s 1; done
 grep -q "(41943040 bytes, [0-9]* a second, once) plays" "$OUT/ingame.log" || fail "the tutorial's song did not start the third time"
@@ -1037,10 +1096,32 @@ moved_at=$(song_at)
 wait_song $((${moved_at:-0} + 7000)) 30 || fail "the third game's song did not go on after the move ($(song_at) ms)"
 python3 "$HERE/ingame/levels.py" "$OUT/ingame-1.log" "$OUT/ingame.log" \
   || fail "the game's own volume curve, or the music's move by it, is not within 1 dB at the last stage"
+# Quit the game in the song (the review's finding 1): held still and silent until the game has ended, never the song
+# going on again (no end of the hold after the choice, and the mix as the game makes it silent from the hold's fade
+# on), ended by the game's own close, not the layer's ten seconds.
 quit_by_x
 wait_log "layer: question opened" 5 || fail "the X did not ask the third time"
 end=$((SECONDS + 40)); until grep -q "^exit " "$OUT/play-heavy.txt" 2>/dev/null || [ $SECONDS -gt $end ]; do wait_s 1; done
 grep -q "^exit 0" "$OUT/play-heavy.txt" || fail "openDMT3-cmd --play did not return after the third game ended"
+grep -E "^[0-9]+ (quit|hold): " "$OUT/ingame.log" | tail -4 | sed 's/^/  /'
+python3 - "$OUT/ingame.log" <<'PY' || fail "after Quit the game the song went on, or sounded again"
+import re, sys
+lines = open(sys.argv[1], errors="replace").read().split("\n")
+at = next((i for i, l in enumerate(lines) if "quit: the player chose Quit the game" in l), None)
+if at is None:
+    print("  no Quit in the log")
+    sys.exit(1)
+quit_ms = int(lines[at].split()[0])
+after = lines[at + 1:]
+went = [l for l in after if re.match(r"^\d+ hold: the game goes on", l)]
+# The mix's level as the game made it, after the hold's fade (8 frames: well under half a second).
+loud = [l for l in after if re.match(r"^\d+ mix: level of the stream", l) and int(l.split()[0]) > quit_ms + 500
+        and float(re.search(r"rms ([0-9.]+)", l).group(1)) > 0.001]
+ended = [l for l in after if "quit: the game had not ended" in l]
+print("  after Quit: the hold ended %d times, %d loud level lines, the layer's last resort %s" %
+      (len(went), len(loud), "used" if ended else "not needed"))
+sys.exit(0 if not went and not loud and not ended else 1)
+PY
 # The launcher put the steps in its log and took the note away (on the CPU, where the net stepped).
 x "grep 'the in-game picture stepped down' $LOG" | tail -3 | sed 's/^/  /'
 wine_on_gpu || x "grep -q 'the in-game picture stepped down' $LOG" || fail "the launcher's log does not have the safety net's steps"

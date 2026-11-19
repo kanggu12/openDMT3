@@ -344,6 +344,14 @@ class PictureTest(unittest.TestCase):
         self.assertEqual(picture.tobytes(), logo.crop(logo.getbbox()).tobytes())
         # Tall enough that the bar at 4K (46 of 768 lines, 129 pixels) is drawn smaller from it.
         self.assertGreaterEqual(picture.height, 129)
+        # With no label or version beside DMT3 the slab over it ends at the 3 (its top corner over the 3's last solid
+        # pixel, within a couple of pixels): nothing of it runs on over nothing, as a lockup cut short would.
+        solid = picture.getchannel("A").point(lambda v: 255 if v > 128 else 0)
+        def right_end(rows):
+            box = solid.crop((0, rows[0], picture.width, rows[1])).getbbox()
+            return box[2] if box else 0
+        slab, name = right_end((0, picture.height // 6)), right_end((picture.height // 3, picture.height))
+        self.assertLessEqual(abs(slab - name), 2 * mark.SCALE, (slab, name))
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "mark.bin")
             # Its line for the build's console kept out of the tests' output.

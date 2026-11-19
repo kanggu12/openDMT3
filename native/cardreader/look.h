@@ -59,9 +59,16 @@ void look_chips(Sprite *s, const UiLayout *l, int hover, int pressed, int full);
 void look_mark(Sprite *s, float u, int lit);
 /* The open menu or question, a sheet hanging from the bar's foot: its sprite is the panel's box, its metal frame down
  * its sides and along its foot. `hover` and `pressed` are answers (-1 none); the keys' ring is on card->focus. */
+/* The menu, the question or the sound panel; `hover` and `pressed` the answer under the pointer and the one held (-1:
+ * none), or LOOK_BACK for the sound panel's way back (its title tab). */
+#define LOOK_BACK 8
 void look_panel(Sprite *s, const Card *card, const UiLayout *l, int hover, int pressed, TextFn text, void *ctx);
 /* A toast with one line of words: its sprite is toast_box's. */
 void look_toast(Sprite *s, float u, const char *words, TextFn text, void *ctx);
+/* The way back into a song: the game's message box with a digit (3, 2, 1) in its chrome numbers, filling the sprite. */
+void look_resume(Sprite *s, float u, int digit, TextFn text, void *ctx);
+/* The bar's words while the game ends (logic.c quit_words), where the chips were: a sprite of the chips' row. */
+void look_quitting(Sprite *s, const UiLayout *l, const char *words, TextFn text, void *ctx);
 /* The frame rate chip's glass and edge, without its words: drawn once for a size, into a sprite of fps_box's. Its
  * glass is faint (FPS_ALPHA), its words drawn over it whole. */
 void look_fps_base(Sprite *s, float u);

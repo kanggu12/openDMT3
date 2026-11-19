@@ -3,8 +3,9 @@ the review's L7): the game's own music volume curve, and the music's move by it 
 
     python3 levels.py REFERENCE_LOG MEASURED_LOG
 
-Both logs are the in-game layer's (ingame.log) with OPENDMT3_SOUND_LEVELS on: a line a second with the level of the
-mix as it reached the last stage (before the master volume and the equaliser) and the song's place then. The
+Both logs are the in-game layer's (ingame.log) with OPENDMT3_SOUND_LEVELS on: a line for each second of the sound (by
+its samples: the tests' silent ALSA output takes the mix 3.6 times faster than the clock runs) with the level of the mix
+as it reached the last stage (before the master volume and the equaliser) and the song's place then. The
 reference game played the tutorial's song untouched; the measured one started with the music at another percent (or
 the same) and had it moved once while the song played (the launcher's --set, or a write of the sound file). Two
 windows of the song, the same place in both games: its 1.5 to 5.5 s (the game's own curve between the two start
@@ -15,17 +16,17 @@ import math
 import re
 import sys
 
-# The layer's level line (mix.c, measuring only): its clock (ms), the writer of the stream, the level, the samples it
-# counted, and the song's place (-1 with no song playing).
-LEVEL = re.compile(r"^(\d+) mix: level of the stream written by (\S+) over the last second: rms ([0-9.]+) .*, "
-                   r"(\d+) samples, the song at (-?\d+) ms")
+# The layer's level line (mix.c, measuring only): its clock (ms), the writer of the stream, the length of sound it
+# counted (s), the level, the samples, and the song's place (-1 with no song playing).
+LEVEL = re.compile(r"^(\d+) mix: level of the stream written by (\S+) over its last ([0-9.]+) s of sound: "
+                   r"rms ([0-9.]+) .*, (\d+) samples, the song at (-?\d+) ms")
 # The tutorial's song starting (sound.c with the watch: its music in one buffer, played once).
 SONG = re.compile(r"^(\d+) sound: stream \S+ \(41943040 bytes, \d+ a second, once\) plays")
 # The values the game started with (soundset.c), and a move of the volumes while it runs (sound.c sound_volumes).
 START = re.compile(r"^\d+ sound: master \d+ %, music (\d+) %, key sounds (\d+) %")
 MOVED = re.compile(r"^(\d+) sound: the music at (\d+) %, the key sounds at (\d+) %")
-# A line counts when the song moved about as long as the log's clock did since the line before (within this many ms):
-# no hold in its stretch (a held song does not move), whatever a slow frame made of the second's length.
+# A line counts when the song moved about as long as the sound it counted since the line before (within this many
+# ms): no hold in its stretch (a held song does not move while the mix goes on), whatever the device's pace.
 STEADY = 150
 # The share of a window the counted seconds must cover, and the window's length after its start (ms).
 COVER = 0.9
@@ -46,8 +47,8 @@ def curve_db(percent):
 
 def read(path):
     """The song's start (the log's clock), the music's percent the game started with, its first move after the song
-    started (clock, percent) or None, and the level lines after the song started (clock, rms, samples, place), of the
-    stream with the most of them (DirectSound's mix: one stream)."""
+    started (clock, percent) or None, and the level lines after the song started (clock, rms, the sound's length in
+    ms, place), of the stream with the most of them (DirectSound's mix: one stream)."""
     song = start = moved = None
     lines = {}
     for line in open(path, errors="replace"):
@@ -66,16 +67,23 @@ def read(path):
         m = LEVEL.match(line)
         if m and song is not None and int(m.group(1)) > song:
             lines.setdefault(m.group(2), []).append(
-                (int(m.group(1)), float(m.group(3)), int(m.group(4)), int(m.group(5))))
+                (int(m.group(1)), float(m.group(4)), float(m.group(3)) * 1000.0, int(m.group(6))))
     stream = max(lines.values(), key=len) if lines else []
     return song, start, moved, stream
 
 
 def place_at(stream, clock):
-    """The song's place (ms) at a moment of the log's clock, from the first counted line after it."""
-    for at, _rms, _n, place in stream:
-        if at >= clock and place >= 0:
-            return place - (at - clock)
+    """The song's place (ms) at a moment of the log's clock: between the lines either side of it, by the clock (the song
+    may move faster or slower than the clock, with the device)."""
+    before = None
+    for at, _rms, _ms, place in stream:
+        if place < 0:
+            continue
+        if at >= clock:
+            if before is None or at == before[0]:
+                return place
+            return before[1] + (clock - before[0]) / (at - before[0]) * (place - before[1])
+        before = (at, place)
     return None
 
 
@@ -84,15 +92,14 @@ def window(stream, w0, w1):
     window its stretch of the song covers; None when the counted seconds cover under COVER of it."""
     energy = covered = 0.0
     last = None
-    for at, rms, _n, place in stream:
-        if (place >= 0 and last is not None and last[1] >= 0 and place > last[1]
-                and abs((place - last[1]) - (at - last[0])) <= STEADY):
-            # The stretch of the song this line's time played, against the window.
-            overlap = min(place, w1) - max(last[1], w0)
+    for _at, rms, sound_ms, place in stream:
+        if place >= 0 and last is not None and last >= 0 and place > last and abs((place - last) - sound_ms) <= STEADY:
+            # The stretch of the song this line's sound played, against the window.
+            overlap = min(place, w1) - max(last, w0)
             if overlap > 0:
                 energy += rms * rms * overlap
                 covered += overlap
-        last = (at, place)
+        last = place
     if covered < COVER * (w1 - w0):
         return None
     return 10 * math.log10(energy / covered) if energy > 0 else float("-inf")
