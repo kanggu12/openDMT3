@@ -6,7 +6,8 @@
                                             there at DPI (96 by default), as shell assignments (sizes.sh evaluates
                                             them)
     python3 sizes.py report OUT_DIR         every start under OUT_DIR judged: OUT_DIR/summary.md and results.json, and
-                                            each start's overlay cut out of its shots at 1:1 (OUT_DIR/SIZE-DPI/KIND/crops)
+                                            each start's overlay cut out of its shots at 1:1
+                                            (OUT_DIR/SIZE-DPI/KIND/crops)
 
 A start's folder (OUT_DIR/SIZE-DPI/KIND, or OUT_DIR/heavy-KIND) holds what sizes.sh left: start.txt (its size, the
 Windows scaling, the choices), ingame.log (the layer's log), marks.txt (each phase's edges on the log's clock with the
