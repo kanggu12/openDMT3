@@ -215,9 +215,19 @@ def immediate(connection):
     try:
         yield
     except BaseException:
-        connection.execute("ROLLBACK")
+        # Nothing of it kept (SQLite may have ended it already: roll_back).
+        roll_back(connection)
         raise
     connection.execute("COMMIT")
+
+
+def roll_back(connection):
+    """End a failed write transaction, keeping none of it: a ROLLBACK while one is still open. SQLite ends the
+    transaction itself on some failures (a full disk, an I/O error, no memory left: SQLITE_FULL, SQLITE_IOERR,
+    SQLITE_NOMEM), and a ROLLBACK after that raised "cannot rollback - no transaction is active" in place of the
+    failure itself, which the log and the caller then named (measured with a data folder on a full disk)."""
+    if connection.in_transaction:
+        connection.execute("ROLLBACK")
 
 
 def connect(path, factory=None):
@@ -282,7 +292,8 @@ def _upgrade(db, version):
             db.execute("PRAGMA user_version=%d" % (number + 1))
             db.execute("COMMIT")
         except Exception:
-            db.execute("ROLLBACK")
+            # The step's failure itself goes on, not one of the rollback's (roll_back).
+            roll_back(db)
             raise
 
 

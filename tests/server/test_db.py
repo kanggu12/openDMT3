@@ -155,5 +155,54 @@ class MigrationTest(unittest.TestCase):
             self.assertEqual(f.read(), before)
 
 
+class FullDiskTest(unittest.TestCase):
+    """A write that finds the disk full fails with SQLite's own error ("database or disk is full"), which the log and
+    the caller then name: SQLite has already rolled the transaction back by then, so a ROLLBACK of its own raised
+    "cannot rollback - no transaction is active" in its place (a server on a full disk logged that, measured with a
+    data folder on a full tmpfs)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.path = os.path.join(self.tmp, "openDMT3.sqlite")
+        self.connection = db.connect(self.path)
+        # A table to fill, then a database held to a few pages more than it has: SQLite's own way to be full.
+        self.connection.execute("CREATE TABLE filler (x BLOB)")
+        pages = self.connection.execute("PRAGMA page_count").fetchone()[0]
+        self.connection.execute("PRAGMA max_page_count = %d" % (pages + 3))
+
+    def tearDown(self):
+        self.connection.close()
+        shutil.rmtree(self.tmp)
+
+    def fill(self):
+        """Rows until the database is full (it raises on the page past max_page_count)."""
+        for _ in range(100):
+            self.connection.execute("INSERT INTO filler VALUES (?)", (b"x" * 3000,))
+
+    def test_a_write_transaction_fails_with_the_full_disk_and_leaves_the_connection_usable(self):
+        with self.assertRaises(sqlite3.OperationalError) as caught:
+            with db.immediate(self.connection):
+                self.fill()
+        self.assertIn("full", str(caught.exception))
+        # Nothing of it kept, no transaction left open: the next write (with room again) works.
+        self.assertFalse(self.connection.in_transaction)
+        self.assertEqual(self.connection.execute("SELECT COUNT(*) FROM filler").fetchone()[0], 0)
+        self.connection.execute("PRAGMA max_page_count = 1073741823")
+        with db.immediate(self.connection):
+            self.connection.execute("INSERT INTO filler VALUES (x'00')")
+        self.assertEqual(self.connection.execute("SELECT COUNT(*) FROM filler").fetchone()[0], 1)
+
+    def test_the_game_servers_write_fails_with_the_full_disk(self):
+        # The game server's own transaction (server.GameServer.write: a card login's session, a credit's plays), not
+        # started: its work runs on this thread.
+        from opendmt3.server.server import GameServer
+        from opendmt3.server.services import records
+        server = GameServer("127.0.0.1", 0, records=records.Records(self.connection))
+        with self.assertRaises(sqlite3.OperationalError) as caught:
+            server.write(self.fill)
+        self.assertIn("full", str(caught.exception))
+        self.assertFalse(self.connection.in_transaction)
+
+
 if __name__ == "__main__":
     unittest.main()

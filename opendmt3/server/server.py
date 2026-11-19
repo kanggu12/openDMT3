@@ -31,6 +31,8 @@ import threading
 import time
 
 from opendmt3.server import connection, crypto, db, messages
+# A failed write's end (the local name `db` is a connection inside GameServer.write).
+from opendmt3.server.db import roll_back
 from opendmt3.server.services import accounts as accounts_service
 from opendmt3.server.services import cards, catalog, firsts, limits, maintenance, players
 from opendmt3.server.services import records as records_service
@@ -285,8 +287,9 @@ class GameServer:
                 result = work()
                 db.execute("COMMIT")
             except BaseException:
-                # Nothing of it is kept: a later try (or the caller) starts from where the database was.
-                db.execute("ROLLBACK")
+                # Nothing of it is kept: a later try (or the caller) starts from where the database was. SQLite may
+                # have ended the transaction itself (a full disk): the failure that did it goes on, not a rollback's.
+                roll_back(db)
                 raise
             if self.firsts is not None:
                 # The game server's own write: the first places followed its plays already (offer).
