@@ -21,13 +21,17 @@ Judged, each with its numbers:
   steps      every act the layer answered: the bar, the menu, the sound panel, the question, Keep playing, a toast,
              the window and back, minimise and back, the window's two sizes, the resets, the 3, 2, 1, the quit
   pointer    every point in the picture read by the game as the game pixel under it (logic.c game_pixel_under, the
-             picture's place as logic.c picture_rect puts it), a point on a bar past the game's edge on its side
+             picture's place as logic.c picture_rect puts it; in a picture smaller than the game's, the nearest the
+             display fix's whole-number sums reach), a point on a bar past the game's edge on its side, every press
+             read but one on the picture's top edge (the layer's)
   cursor     the dart 32 pixels at 96 dpi, scaled with Windows' scaling (layer.c cursor); in the smallest window
              (960x576) the chips at least as wide as the dart (logic.h: its chips are still a mouse's size)
   pacing     at the defaults in full screen, in the tutorial and on the title: the frames hold 60 (ingame/pace.py's
              rule: most of the phase's two-second windows at 59.5 a second or more with a spread under 0.5 ms), judged
-             only where the machine was quiet (the others' load under QUIET_LOAD); every other choice said, and
-             whether it held
+             only where the machine was quiet (the others' load under QUIET_LOAD) and where showing a frame on the
+             virtual screen takes the test itself less than a frame (the GPU image reads each frame back from the
+             card, a cost a player's PC does not have, and more than a frame at 3840x2160 through WSL); every other
+             choice said, and whether it held
   textures   the layer's parts' textures never made while the game plays, nothing of the chain or the layer failing
              to be made at any size, and after each reset and change of the window's size the frames going on
   crisp      the layer's words drawn at the screen's own pixels: the median width of their edges' rise from 10 % to
@@ -552,14 +556,23 @@ def report(out):
             unjudged.append("%s: no pointer point was read" % name)
         if kind in ("game", "display") and not r.get("phases"):
             unjudged.append("%s: no phase was measured" % name)
-    # Pacing at the defaults in full screen: the title's and the tutorial's default phase.
+    # Pacing at the defaults in full screen: the title's and the tutorial's default phase. Where showing a frame on
+    # the virtual screen takes the test itself a whole frame or more (the GPU image reads each frame back from the
+    # card: d3d9probe's present, measured by the size's first start), no game holds 60 there, so it is said, not
+    # judged.
+    present = {r["info"].get("SIZE"): r["present_ms"] for r in starts if r.get("present_ms")}
     for r in starts:
         kind = r["info"].get("KIND", "")
         default = {"game": "fsr1", "display": "off"}.get(kind)
+        own = present.get(r["info"].get("SIZE"))
         for p in r.get("phases", []):
             name = p["phase"]
             if default and name in ("title:" + default, "play:" + default):
-                if not p["quiet"]:
+                if own and own >= 1000.0 / 60:
+                    unjudged.append("%s %s %s: showing a frame on the virtual screen alone takes the test %.1f ms, "
+                                    "more than a frame at 60 (%s a second measured)" % (
+                                        r["info"].get("SIZE"), kind, name, own, fmt(p["frames"]["fps_median"])))
+                elif not p["quiet"]:
                     unjudged.append("%s %s %s: the machine was busy (others' load %s)" % (
                         r["info"].get("SIZE"), kind, name, p["others_load"]))
                 elif not p["held_60"]:
