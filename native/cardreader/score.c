@@ -157,6 +157,23 @@ uint32_t score_counted(BYTE *p, uint32_t *real_out)
     return shown;
 }
 
+uint32_t score_own_count(const BYTE *p)
+{
+    uint32_t now = *(volatile uint32_t *)(p + SP_TICK);
+    hold_places();
+    for (int i = 0; i < FOLLOWED; i++) {
+        const Followed *f = &g_followed[i];
+        if (f->player != p)
+            continue;
+        /* The count set back by this update: the score's own is the one kept. */
+        if (f->written && now == f->shown && *(volatile int64_t *)(p + SP_START) == f->start)
+            now = f->real;
+        break;
+    }
+    free_places();
+    return now;
+}
+
 void score_before_count(BYTE *p)
 {
     hold_places();

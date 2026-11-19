@@ -174,15 +174,21 @@ extern volatile ULONG g_clock_count_return;
  * read put the count back, all only when the client is the one measured, with a line in the log either way;
  * score_lag_ms sets the milliseconds alone (what tests use). After each count, score_counted sets the count of score
  * player `player` back by the lag and gives the count shown (the score's own in *real); score_before_count, from the
- * clock read at the next count's start, puts the count back when it still holds what was written. score_watch hands
- * each update's counts, the score's own and the one shown, to `watch` (line.c's). */
+ * clock read at the next count's start, puts the count back when it still holds what was written; score_own_count
+ * gives the score's own count between the two (the one it counted on its clock). score_watch hands each update's
+ * counts, the score's own and the one shown, to `watch` (line.c's). */
 typedef void (*ScoreWatch)(const BYTE *player, uint32_t real, uint32_t shown);
 int score_follow(void);
 void score_offset(int offset_ms);
 void score_lag_ms(int offset_ms);
 uint32_t score_counted(BYTE *player, uint32_t *real);
 void score_before_count(BYTE *player);
+uint32_t score_own_count(const BYTE *player);
 void score_watch(ScoreWatch watch);
+/* Presses made by the layer at a set time after each plain note, to see how the game judges them (press.c, measuring
+ * only: OPENDMT3_PRESS_LATE gives the milliseconds, the values taken by the notes in turn): once the device is made,
+ * the judge's two calls turned when they are where they were measured; each press's judgement into the log. */
+void press_attach(void);
 /* The game's score watched (line.c, measuring only: OPENDMT3_LINE_WATCH names a file): once the device is made, the
  * score player's update followed (score.c) when it is where it was measured; at each of the game's presents, before
  * anything of the present's own, a row of the frame (its number) into the file. */

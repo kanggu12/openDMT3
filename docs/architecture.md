@@ -220,6 +220,7 @@ the cabinet's touch screen library, which hands the game every finger through th
 | `trace.c` | With `OPENDMT3_INGAME_TRACE` set, how the game draws (its device, its draws' vertex formats, transforms, render targets, copies), into the log; never set by the launcher |
 | `clock.c` | The score's clock: the client's one read of the system's interrupt time, which its score player counts a song's ticks on, turned to openDMT3's, which leaves out the time the game was held still ([holding the game still](#frame-pacing-and-the-music)); called at the start of the score's count with an audio offset, it first puts the count back (`score.c`) |
 | `score.c` | The score player's update followed, when an audio offset is set or the score is watched: after each update its count set back by the offset's lag, so the notes and the judging are that far behind the music, and put back before the next count ([the audio offset](#frame-pacing-and-the-music)) |
+| `press.c` | With `OPENDMT3_PRESS_LATE` set, each plain note pressed by the layer at a set time after it and its judgement written into the log (measuring only; `tests/e2e/windows/gpu/judge.sh`); never set by the launcher |
 | `line.c` | With `OPENDMT3_LINE_WATCH` naming a file, the score watched (through `score.c`): a row a frame of the score player's clock, its ticks (counted, and shown and judged) and tempo, the line's place by the game's own fields and the music's position (`tests/e2e/windows/gpu/line.py` reads it); never set by the launcher |
 | `test_native.c`, `test.sh` | The tests of the files with no Windows calls (the touch screen's rules read back the way the game reads them), and of the methods' watch, built with the same compiler and run under Wine |
 
@@ -814,11 +815,17 @@ unshown), `OPENDMT3_VBLANK=wait` brings each present back at the display's next 
 `OPENDMT3_REFRESH=60`, Wine's virtual screen, which shows every present at once, then shows no frame sooner, as a
 60 Hz display with VSync), and `OPENDMT3_STALL=MS[,MS...]` stalls a frame that many milliseconds in every song, the
 n-th n times 20 s into its music (four at most), as the game's own hiccups do; `OPENDMT3_LINE_WATCH=FILE` writes a
-row a frame of the score into that file (`line.c`: its clock and ticks, its tempo, the line's place by the game's own
-fields, the music's position), which `tests/e2e/windows/gpu/line.py` reads. `OPENDMT3_POINTER_LOG` logs each
-new point of the pointer in the client with the game pixel the game reads there, and `OPENDMT3_MEMORY_WATCH` the
-32-bit process's address space every ten seconds (free, its largest free block, reserved, committed, walked from a
-thread of its own) and the device's texture memory left as Direct3D counts it.
+row a frame of the score into that file (`line.c`: its clock and ticks, counted and shown, its tempo, the line's place
+by the game's own fields, the music's position), which `tests/e2e/windows/gpu/line.py` reads. `OPENDMT3_POINTER_LOG`
+logs each new point of the pointer in the client with the game pixel the game reads there, and
+`OPENDMT3_MEMORY_WATCH` the 32-bit process's address space every ten seconds (free, its largest free block, reserved,
+committed, walked from a thread of its own) and the device's texture memory left as Direct3D counts it.
+`OPENDMT3_PRESS_LATE=MS[,MS...]` presses each plain note itself at the first frame the score's own count reaches the
+note's time plus those milliseconds, the notes taking the values in turn, the game's own press check not asked, and
+writes each judgement into the log: the music it is in, the count the judge took, the distance and the level the
+game gave (`press.c`: the plain note judge's call of the press check and of the level turned, only when their bytes
+are as measured; the guest's tutorial and the attract screens play themselves, a note there judged on its own once
+the count shown is past it).
 
 While the menu, the question or the sound panel is open during a song (the song's music buffer playing), or the game
 is minimised in one, the game is held still:

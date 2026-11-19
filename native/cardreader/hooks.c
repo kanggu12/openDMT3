@@ -1953,6 +1953,8 @@ static HRESULT STDMETHODCALLTYPE our_create_device(IDirect3D9 *d3d, UINT adapter
      * is set (score.c): both follow the score player's update, turned once. */
     line_attach(*out);
     score_offset(g_settings.audio_offset);
+    /* Presses made by the layer to see how the game judges them, when asked (press.c, measuring only). */
+    press_attach();
     /* How the game draws, for study, when asked (after ours, so it sees the game's own calls). */
     trace_attach(*out, pp, flags);
     ingame_log("picture: device made for window %p", (void *)game);

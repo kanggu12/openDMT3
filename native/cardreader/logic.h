@@ -156,6 +156,12 @@ uint32_t chart_lag_ticks(int offset_ms, double ms_per_tick);
  * gone back from the last frame's (set back by the game) starts the lag again at none. */
 uint32_t chart_lag_frame(ChartLag *c, uint32_t real, uint32_t target);
 
+/* The presses' milliseconds after their notes (press.c, OPENDMT3_PRESS_LATE, measuring only): whole numbers from 0 to
+ * PRESS_LATE_MAX split by commas, taken by the notes in turn, at most `most` of them into `ms`. The number read, or 0
+ * when anything in the text is not such a number (no presses then). */
+#define PRESS_LATE_MAX 1000
+int press_values(const char *text, int *ms, int most);
+
 /* Locked to the display (VSync on): the pacer's ticks kept in the middle of a refresh, so each frame's present
  * waits for the same refresh every time (on a 240 Hz display, every fourth) and a tick never wavers either side of
  * one. `phase` is where in its refresh the tick fell (0 the start of the refresh, 1 its end; negative: not known);

@@ -1873,6 +1873,13 @@ static void test_audio_offset(void)
     check(shown == 400 - 32 && slower == 404 - 20, "audio offset: a smaller lag taken at once, the count going on");
     check(chart_lag_frame(&c, 100, 20) == 100 && chart_lag_frame(&c, 104, 20) == 103,
           "audio offset: a count set back starts the lag again at none");
+    /* The presses' milliseconds for measuring (press.c): whole numbers split by commas, a value a music. */
+    int ms[8];
+    check(press_values("80,0", ms, 8) == 2 && ms[0] == 80 && ms[1] == 0 && press_values("1000", ms, 8) == 1 &&
+              ms[0] == 1000, "presses: whole milliseconds split by commas read in turn");
+    check(!press_values("", ms, 8) && !press_values("80,", ms, 8) && !press_values(",80", ms, 8) &&
+              !press_values("80;0", ms, 8) && !press_values("1001", ms, 8) && !press_values("-5", ms, 8) &&
+              !press_values("1,2,3", ms, 2), "presses: anything else, past the most or past the room reads as none");
     /* A song through two resets of the device (a window switch each), 300 ms of stall each: the song keeps its own
      * start, so the frames end on the music, and each stall is won back. */
     double longest, shortest, end;

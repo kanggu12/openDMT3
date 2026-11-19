@@ -14,14 +14,15 @@
 # within a tick and 20 ms) and gives what each moved the score against the music over two seconds each side; line.py
 # gives the whole run's numbers. Nothing reaches a real screen or a speaker.
 #
-#   [OPENDMT3_WINE_GPU=1] [SCREEN=1280x768] [HOLDS=...] [TUT_HOLDS=...] [MINIMISE=...] [HOLD_S=5]
+#   [OPENDMT3_WINE_GPU=1] [SCREEN=1280x768] [HOLDS=...] [TUT_HOLDS=...] [MINIMISE=...] [HOLD_S=5] [MUSICS=2]
 #   [OPENDMT3_E2E_NAME=odt3-holds]
 #     tests/e2e/windows/gpu/holds.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS] [VAR=VALUE...]
 #
 # The arguments are song.sh's: BUILD_DIR is ./dmt3 build's output (native/CRT_R1.dll, the layer, with multiDLL.dll
 # beside it) or a folder holding them; each VAR=VALUE is passed to the game on top of the layer's defaults as a player
-# has them (OPENDMT3_STALL=200, say: the layer's own stall 20 s into each music). Exit: line.py holds' (0 when every
-# hold was judged and the chart held with the music).
+# has them (OPENDMT3_STALL=200, say: the layer's own stall 20 s into each music). MUSICS=1 ends the run with the
+# tutorial's music (gpu/judge.sh's runs). Exit: line.py holds' (0 when every hold was judged and the chart held with
+# the music); with no holds asked (HOLDS, TUT_HOLDS and MINIMISE empty), 0 once the run has played its music.
 set -u
 SRC=$(realpath "${1:?usage: holds.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS] [VAR=VALUE...]}")
 BUILD=$(realpath "${2:?}")
@@ -191,7 +192,23 @@ until [ "$(seen "$PLAY")" -ge 1 ] || [ $SECONDS -gt $end ]; do wait_s 0.5; done
 tut=$(grep -E "$PLAY" "$L" | sed -n 1p | cut -d' ' -f4)
 [ -n "$tut" ] || { echo "FAIL: no tutorial within 20 minutes"; stop; exit 1; }
 note "the tutorial's music started (stream $tut)"
+tut_stops=$(seen "stream $tut stops at")
 events tutorial $SECONDS "$tut"
+# The tutorial's music alone (MUSICS=1): to its end, and the run is over.
+if [ "${MUSICS:-2}" = 1 ]; then
+  until [ "$(seen "stream $tut stops at")" -gt "$tut_stops" ] || [ $SECONDS -gt $end ]; do wait_s 1; done
+  [ "$(seen "stream $tut stops at")" -gt "$tut_stops" ] ||
+    { echo "FAIL: the tutorial's music did not stop"; stop; exit 1; }
+  grep -E "stream $tut stops at" "$L" | tail -1 | sed 's/^/  /' | tee -a "$OUT/run.txt"
+  note "the tutorial's music stopped; load $(cut -d' ' -f1-3 /proc/loadavg)"
+  stop
+  python3 "$HERE/line.py" "$OUT/line.csv" "$OUT/line.json" > /dev/null
+  [ -z "$HOLDS$TUT_HOLDS$MINIMISE" ] && exit 0
+  python3 "$HERE/line.py" holds "$OUT/line.csv" "$L" --windows > "$OUT/holds.txt"
+  code=$?
+  tee -a "$OUT/run.txt" < "$OUT/holds.txt"
+  exit $code
+fi
 until [ "$(seen "$PLAY")" -ge 2 ] || [ $SECONDS -gt $end ]; do wait_s 0.5; done
 song=$(grep -E "$PLAY" "$L" | sed -n 2p | cut -d' ' -f4)
 [ -n "$song" ] || { echo "FAIL: no song within 20 minutes"; stop; exit 1; }
@@ -204,6 +221,8 @@ grep -E "stream ($tut|$song) stops at" "$L" | sed 's/^/  /' | tee -a "$OUT/run.t
 note "the song's music stopped; load $(cut -d' ' -f1-3 /proc/loadavg)"
 stop
 python3 "$HERE/line.py" "$OUT/line.csv" "$OUT/line.json" > /dev/null
+# No holds asked: the run itself was all.
+[ -z "$HOLDS$TUT_HOLDS$MINIMISE" ] && exit 0
 python3 "$HERE/line.py" holds "$OUT/line.csv" "$L" --windows > "$OUT/holds.txt"
 code=$?
 tee -a "$OUT/run.txt" < "$OUT/holds.txt"

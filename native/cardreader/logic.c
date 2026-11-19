@@ -335,6 +335,34 @@ uint32_t chart_lag_ticks(int offset_ms, double ms_per_tick)
     return (uint32_t)ticks;
 }
 
+int press_values(const char *text, int *ms, int most)
+{
+    int n = 0;
+    const char *at = text;
+    while (*at) {
+        /* A number of digits only, then a comma or the end. */
+        if (!isdigit((unsigned char)*at) || n >= most)
+            return 0;
+        long v = 0;
+        while (isdigit((unsigned char)*at)) {
+            v = v * 10 + (*at - '0');
+            /* Past the most: not a value (and no number can grow without end). */
+            if (v > PRESS_LATE_MAX)
+                return 0;
+            at++;
+        }
+        ms[n++] = (int)v;
+        if (*at == ',')
+            at++;
+        else if (*at)
+            return 0;
+        /* A comma at the end leaves nothing after it: not a list. */
+        if (at > text && at[-1] == ',' && !*at)
+            return 0;
+    }
+    return n;
+}
+
 uint32_t chart_lag_frame(ChartLag *c, uint32_t real, uint32_t target)
 {
     /* The first frame of a score, or its count gone back (the game set it back): the lag starts again at none. */
