@@ -1,6 +1,6 @@
 """The files of a release, gathered into one folder with their SHA-256 sums, and a table of them for the maintainer.
 
-    python3 packaging/release_files.py VERSION BUILD_DIR OUT_DIR [--server DIR]
+    python3 packaging/release_files.py VERSION BUILD_DIR OUT_DIR [--root DIR] [--server DIR]
 
 Run by packaging/release.sh after packaging/windows/build.sh has built into BUILD_DIR, and the server's packages and
 chart into the folder --server names. Into OUT_DIR it puts, and prints the Markdown table of (FILES.md beside them):

@@ -158,9 +158,14 @@
       Remove-Item -LiteralPath $incoming -Recurse -Force
       Fail "$archive holds no $name\opendmt3-server.exe; $unchanged"
     }
-    if ((Run $newExe @('--version') -Quiet) -ne 0) {
+    # It must answer with its own version: anything else (Windows' word for a program it cannot run, nothing at all)
+    # is a package this PC does not run.
+    $before = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $said = (& $newExe --version 2>&1 | Out-String).Trim() } catch { $said = $_.Exception.Message } finally { $ErrorActionPreference = $before }
+    if ($said -ne "openDMT3 server $version") {
       Remove-Item -LiteralPath $incoming -Recurse -Force
-      Fail "the package does not start on this PC; $unchanged"
+      Fail "the package does not start on this PC ($said); $unchanged"
     }
 
     # Now the running server stops, by its own command, and starts again at the end on the new version.

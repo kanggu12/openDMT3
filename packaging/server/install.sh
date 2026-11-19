@@ -125,10 +125,13 @@ install() {
     || die "$archive is not the release's (its SHA-256 differs): run this again"
   mkdir -p "$DIR" "$BIN"
   # Whether a server runs now: it is stopped only once this version is unpacked and has started here, so a failure
-  # before that leaves it running as it was.
+  # before that leaves it running as it was. Its status says 0 when it runs and answers, 1 when it runs and does not
+  # answer (yet), 3 when none runs.
   was_running=
-  if [ -x "$BIN/opendmt3-server" ] && "$BIN/opendmt3-server" status >/dev/null 2>&1; then
-    was_running=yes
+  if [ -x "$BIN/opendmt3-server" ]; then
+    code=0
+    "$BIN/opendmt3-server" status >/dev/null 2>&1 || code=$?
+    case $code in 0 | 1) was_running=yes ;; esac
   fi
   unchanged="nothing was changed"
   [ -z "$was_running" ] || unchanged="nothing was changed: the server runs as it was"
@@ -147,9 +150,11 @@ install() {
     rm -rf "$DIR/.incoming"
     die "the package does not start on this machine (${started:-it said nothing}); $unchanged"
   fi
-  # Now the running server stops, by its own command, and starts again at the end on the new version.
-  if [ -n "$was_running" ]; then
-    "$BIN/opendmt3-server" stop
+  # Now the running server stops, by its own command, and starts again at the end on the new version; one that does
+  # not stop is left as it is, with nothing changed.
+  if [ -n "$was_running" ] && ! "$BIN/opendmt3-server" stop; then
+    rm -rf "$DIR/.incoming"
+    die "the running server did not stop ($BIN/opendmt3-server stop); $unchanged"
   fi
   # The same version installed before (an install run again) is set aside, and the command kept, until the new ones
   # are in place: put back if that fails, and the old server started again.
