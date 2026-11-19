@@ -691,11 +691,14 @@ fi
 [ $verdict -eq 1 ] && unjudged="a part of the layer did not hold 60 where the game alone did, on a quiet machine ($(grep -oE 'failed: .*' "$OUT/pace.txt" | head -1))"
 [ $verdict -eq 2 ] && unjudged="the pacing could not be judged in $QUIET_WAIT s ($(grep -oE 'phases not judged: .*' "$OUT/pace.txt" 2>/dev/null || echo 'no round on a quiet machine: the others'"'"' share of the load never under '"$QUIET_LOAD"))"
 [ -n "$unjudged" ] && echo "  $unjudged"
-# The chip's own cost as a player has it: its CPU time a frame alone, its updates, no GDI drawing in them. Read from
-# the rounds' marks: with no round run (the machine never quiet), not measured, and the run fails at its end with the
-# reason above, after the steps below.
+# The chip's own cost as a player has it: its CPU time a frame alone, its updates, no GDI drawing in them, and the
+# mark's alone. Read from the rounds' marks: with no round run (the machine never quiet), not measured, and the run
+# fails at its end with the reason above, after the steps below. On the CPU's renderer each part's time a frame is
+# judged at the median of its lines and the longest said (a draw call waits on a stalled software renderer there), as
+# the sound stage's longest buffer is; on a GPU every line is judged. The output says which.
 if [ -s "$OUT/pace-marks.txt" ]; then
-  python3 "$HERE/ingame/costs.py" play "$OUT/ingame.log" "$OUT/pace-marks.txt" || fail "the chip costs more than its targets"
+  python3 "$HERE/ingame/costs.py" play "$OUT/ingame.log" "$OUT/pace-marks.txt" $([ $software = 1 ] && echo cpu) \
+    || fail "the chip or the mark costs more than its targets"
 else
   echo "  the chip's own cost not measured: no round ran"
 fi

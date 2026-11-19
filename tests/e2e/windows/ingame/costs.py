@@ -1,6 +1,6 @@
 """The in-game layer's own cost against its targets (tests/e2e/windows/ingame.sh).
 
-    python3 costs.py play INGAME_LOG MARKS
+    python3 costs.py play INGAME_LOG MARKS [cpu]
     python3 costs.py turns INGAME_LOG MARKS
 
 The layer logs a line every two seconds for each kind of part it drew ("layer cost fps chip: N frames, CPU X us a
@@ -13,6 +13,13 @@ its words, then uploaded) under 200 us at the median of the lines that had one, 
 any update. The mark at the top centre, on the screen through every phase of nothing (alone there): its CPU time a
 frame under 100 us in every line wholly inside one. The CPU times are the wall clock's around the work, so a busy
 machine can only make them longer.
+
+With "cpu" (the game drawn on the CPU, Wine's software renderer), the chip's and the mark's CPU times a frame are
+judged at the median of their lines, and the longest line is said, not judged: a draw call there waits whenever the
+software renderer's queue is full, so one stalled frame in a 2-second line (27 ms in a run with the renderer at 98 ms
+a frame and the game at 6 a second) is the renderer's time, not the part's; a part that costs more on every frame (a
+picture drawn again each frame) still moves the median and fails. On a GPU every line is judged, as above. The output
+says which way it judged.
 
 turns: a run with OPENDMT3_LAYER_TIMING=frame, where every frame's chain and layer work is timed whole, the device made
 idle before it and after it ("layer cost frame: the chain and the layer X us a frame"), and MARKS holds turns of a
@@ -49,7 +56,18 @@ def median(values):
     return values[len(values) // 2] if values else None
 
 
-def play(log, marks):
+def judged(values, cpu):
+    """The value a part's lines are judged by, and how it is said: every line's (its largest) on a GPU, the median on
+    the CPU (the longest said beside it)."""
+    if not values:
+        return None, "none"
+    if cpu:
+        return median(values), "%.1f us at the median of %d lines (judged), the longest %.1f us (said, not judged)" % (
+            median(values), len(values), max(values))
+    return max(values), "%.1f to %.1f us, every line judged" % (min(values), max(values))
+
+
+def play(log, marks, on_cpu=False):
     spans = [(s, e) for name, s, e in phases(marks) if name == "chip"]
     cpu, updates, longest, gdi = [], [], [], 0
     for m in LINE.finditer(log):
@@ -66,17 +84,21 @@ def play(log, marks):
             longest.append(float(again.group(2)) + float(again.group(3)))
         g = re.search(r"(\d+) GDI drawings in its updates", rest)
         gdi += int(g.group(1)) if g else 0
-    print("  the chip alone: %d lines; CPU a frame %s us; updates (drawn again and uploaded) %s us at the median of "
+    chip, chip_said = judged(cpu, on_cpu)
+    print("  the chip alone: %d lines; CPU a frame %s; updates (drawn again and uploaded) %s us at the median of "
           "the lines, the longest %s us; GDI drawings in its updates %d" % (
-              len(cpu), "%.1f to %.1f" % (min(cpu), max(cpu)) if cpu else "none",
-              "%.1f" % median(updates) if updates else "none", "%.1f" % max(longest) if longest else "none", gdi))
+              len(cpu), chip_said, "%.1f" % median(updates) if updates else "none",
+              "%.1f" % max(longest) if longest else "none", gdi))
     # The mark: alone on the screen in the phases of nothing (it shows whenever nothing else is at the top).
     nothing = [(s, e) for name, s, e in phases(marks) if name == "nothing"]
     mark = [float(m.group(4)) for m in LINE.finditer(log)
             if m.group(2) == "mark" and any(s + 2000 <= int(m.group(1)) <= e for s, e in nothing)]
-    print("  the mark alone: %d lines; CPU a frame %s us" % (
-        len(mark), "%.1f to %.1f" % (min(mark), max(mark)) if mark else "none"))
-    ok = cpu and max(cpu) < 100 and updates and median(updates) < 200 and gdi == 0 and mark and max(mark) < 100
+    mark_value, mark_said = judged(mark, on_cpu)
+    print("  the mark alone: %d lines; CPU a frame %s" % (len(mark), mark_said))
+    print("  judged %s" % ("at the median of each part's lines, the longest said (the game drawn on the CPU)" if on_cpu
+                           else "on every line of each part (a GPU)"))
+    ok = (chip is not None and chip < 100 and updates and median(updates) < 200 and gdi == 0 and
+          mark_value is not None and mark_value < 100)
     return 0 if ok else 1
 
 
@@ -111,4 +133,4 @@ def turns(log, marks):
 
 if __name__ == "__main__":
     mode, text, marks = sys.argv[1], open(sys.argv[2]).read(), open(sys.argv[3]).read()
-    sys.exit(play(text, marks) if mode == "play" else turns(text, marks))
+    sys.exit(play(text, marks, len(sys.argv) > 4 and sys.argv[4] == "cpu") if mode == "play" else turns(text, marks))
