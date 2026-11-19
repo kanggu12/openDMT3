@@ -476,19 +476,28 @@ def main():
     data = tempfile.mkdtemp(prefix="opendmt3-load-")
     try:
         args.rows, visitors, pages, newest = prepare(data, args)
-        port, web = free_port(), free_port()
+        # Ports of its own, the admin site's too: it listens on 4731 unless told, and with another server there (a
+        # second run's, the owner's own) this one ended at its start, the run then counting every cabinet as failed.
+        port, web, admin = free_port(), free_port(), free_port()
         log = open(os.path.join(data, "server.log"), "w")
         # The C library's memory in two pools for all the server's threads, as the server's image sets it
         # (packaging/docker/Dockerfile): its memory is measured as it runs there.
         server = subprocess.Popen([sys.executable, "-m", "opendmt3.server", "--data", data, "--host", "127.0.0.1",
-                                   "--port", str(port), "--web-port", str(web)], stdout=log, stderr=subprocess.STDOUT,
-                                  env=dict(os.environ, MALLOC_ARENA_MAX="2"))
+                                   "--port", str(port), "--web-port", str(web), "--admin-port", str(admin)],
+                                  stdout=log, stderr=subprocess.STDOUT, env=dict(os.environ, MALLOC_ARENA_MAX="2"))
         helpers = []
         try:
             for _ in range(300):
-                # Both of its ports listening: the game's and the site's.
-                if all(listening(p) for p in (port, web)):
+                # Its three ports listening: the game's, the site's and the admin site's.
+                if all(listening(p) for p in (port, web, admin)):
                     break
+                if server.poll() is not None:
+                    # Ended at its start (a port taken, a database refused): said with the end of its log, not as
+                    # every cabinet failing for the whole run.
+                    log.flush()
+                    with open(log.name, errors="replace") as said:
+                        raise SystemExit("the server ended at its start (exit %d):\n%s" % (server.returncode,
+                                                                                         said.read()[-2000:]))
                 time.sleep(0.1)
             url = "http://127.0.0.1:%d" % web
             seconds = args.minutes * 60
