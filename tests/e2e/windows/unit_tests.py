@@ -10,7 +10,7 @@ with the parts' boundary. What LEFT_OUT names (a module, or one test) is left ou
 reason it gives: it waits on, times or asks Windows for what a Windows Python under Wine does differently from
 Windows itself (a link's end, a loop's pauses, a folder's access list, a process's written bytes). On Windows itself
 (CI's Windows job) every test runs, those included, so a real fault there is never hidden by what Wine cannot show.
-Exit 1 when a test fails.
+Exit 1 when a test fails, or when a part gives no test at all.
 """
 
 import os
@@ -82,15 +82,24 @@ def main(argv):
         suite.addTests(loader.loadTestsFromName(name))
     # Asked once: the same answer for every test of the run.
     wine = under_wine()
+    # How many tests each part gave: a part that gave none judged nothing of it.
+    counts = {}
     for part in PARTS:
         found = loader.discover(os.path.join(ROOT, "tests", part), top_level_dir=ROOT)
         # A module that failed to load is a test too (unittest's _FailedTest): it stays, and fails the run.
-        suite.addTests(t for t in tests_of(found) if not left_out(t.id(), wine))
+        kept = [t for t in tests_of(found) if not left_out(t.id(), wine)]
+        counts[part] = len(kept)
+        suite.addTests(kept)
     result = unittest.TextTestRunner(verbosity=2 if "-v" in argv else 1).run(suite)
     # Said only when something was left out, with why, so a run's log tells which kind of Windows it was.
     for name, why in (LEFT_OUT.items() if wine else ()):
         print("left out under Wine %s: %s" % (name, why))
-    return 0 if result.wasSuccessful() else 1
+    # A part with no test (its folder moved, or found nothing on this system) is never a pass: the run judged nothing
+    # of it, and unittest says OK to none.
+    empty = [part for part, count in counts.items() if not count]
+    for part in empty:
+        print("no tests found in tests/%s: nothing of it was judged, so this run fails" % part)
+    return 0 if result.wasSuccessful() and not empty else 1
 
 
 if __name__ == "__main__":

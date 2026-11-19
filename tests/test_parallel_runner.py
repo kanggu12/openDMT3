@@ -100,6 +100,8 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(len(lines), 1, done.stdout)
         result = json.loads(lines[0])
         self.assertEqual((result["class"], result["run"], result["skipped"]), (piece["label"], 5, 1))
+        # The skipped test by its id, with its reason.
+        self.assertEqual(result["skips"], [["tests.parallel_samples.Samples.test_skipped", "made-up skip"]])
         self.assertEqual([t for t, _ in result["failures"]], ["tests.parallel_samples.Samples.test_fails"])
         self.assertIn("made-up failure", result["failures"][0][1])
         self.assertEqual([t for t, _ in result["errors"]], ["tests.parallel_samples.Samples.test_errs"])
@@ -146,6 +148,75 @@ class ProcessTest(unittest.TestCase):
         for r in results:
             self.assertIn("sent back 'not a result\\n'", r["errors"][0][1])
         self.assertLess(time.monotonic() - started, 30)
+
+
+class SayTest(unittest.TestCase):
+    """What the run says at its end: the skipped tests with why, and a run that judged nothing failing."""
+
+    def result(self, **fields):
+        # A piece's result as a process sends it back, with what the test names.
+        out = {"class": "a.One", "seconds": 0.1, "run": 2, "failures": [], "errors": [], "skipped": 0, "skips": [],
+               "expected_failures": 0, "unexpected_successes": []}
+        out.update(fields)
+        return out
+
+    def said(self, results, verbose, broken_result=None):
+        with mock.patch("builtins.print") as printed:
+            good = parallel.say(results, broken_result or unittest.TestResult(), 1.0, 2, verbose)
+        return good, "\n".join(" ".join(str(a) for a in call.args) for call in printed.call_args_list)
+
+    def test_each_skip_is_said_with_why_and_a_reason_shared_by_many_is_one_line(self):
+        results = [self.result(skipped=2, skips=[["a.One.t1", "needs a library"], ["a.One.t2", "needs a library"]]),
+                   self.result(**{"class": "a.Two", "skipped": 1, "skips": [["a.Two.t", "Windows only"]]})]
+        good, text = self.said(results, verbose=False)
+        # A pass, its count as unittest says it, and a line for each reason with how many it skipped.
+        self.assertTrue(good)
+        self.assertIn("OK (skipped=3)", text)
+        self.assertIn("skipped 2: needs a library", text)
+        self.assertIn("skipped 1: Windows only", text)
+        self.assertNotIn("a.One.t1", text)
+        # With -v (as CI runs it), each test by its id.
+        good, text = self.said(results, verbose=True)
+        self.assertIn("skipped a.One.t1: needs a library", text)
+        self.assertIn("skipped a.Two.t: Windows only", text)
+
+    def test_a_module_that_skips_itself_as_it_loads_is_counted_and_said(self):
+        # A module raising unittest.SkipTest at its top, as discover loads it (its tests are never found by name), in
+        # a package of a made-up name, gone from the modules and the path afterwards.
+        package = "parallel_made_up_skipping"
+        with tempfile.TemporaryDirectory() as top:
+            os.makedirs(os.path.join(top, package))
+            open(os.path.join(top, package, "__init__.py"), "w").close()
+            with open(os.path.join(top, package, "test_gone.py"), "w") as f:
+                f.write("import unittest\nraise unittest.SkipTest('made-up module skip')\n")
+            try:
+                suite = unittest.TestLoader().discover(os.path.join(top, package), top_level_dir=top)
+            finally:
+                for name in [n for n in sys.modules if n == package or n.startswith(package + ".")]:
+                    del sys.modules[name]
+                if top in sys.path:
+                    sys.path.remove(top)
+        broken = list(parallel._tests_of(suite))
+        # Not a test of a class found by name: the runner runs it among the broken ones.
+        self.assertTrue(all(type(t).__module__.startswith("unittest.") for t in broken))
+        result = unittest.TestResult()
+        unittest.TestSuite(broken).run(result)
+        good, text = self.said([self.result()], verbose=False, broken_result=result)
+        self.assertTrue(good)
+        self.assertIn("OK (skipped=1)", text)
+        self.assertIn("skipped 1: made-up module skip", text)
+
+    def test_a_run_that_finds_no_test_fails_and_keeps_the_last_runs_files(self):
+        # Nothing found by the parallel run (and no module that failed to load), then nothing by one process's run.
+        with mock.patch.object(parallel, "classes", return_value=({}, [])), \
+                mock.patch.object(parallel, "_keep") as kept, mock.patch("builtins.print") as printed:
+            self.assertEqual(parallel.main(["--jobs", "2"]), 1)
+        self.assertIn(mock.call(parallel.NONE_FOUND, flush=True), printed.call_args_list)
+        kept.assert_not_called()
+        with mock.patch.object(unittest.TestLoader, "discover", return_value=unittest.TestSuite()), \
+                mock.patch("builtins.print") as printed, mock.patch("sys.stderr"):
+            self.assertEqual(parallel.main(["--one-process"]), 1)
+        self.assertIn(mock.call(parallel.NONE_FOUND, flush=True), printed.call_args_list)
 
 
 if __name__ == "__main__":

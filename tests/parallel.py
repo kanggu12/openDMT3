@@ -7,7 +7,8 @@ and their results added up and said as one run says them.
 ./dmt3 test runs this, and so does CI. --one-process runs them all in this process, as unittest's discover does (--jobs
 1 the same). The classes' times of the last run are kept in build/test-times.json: the longest go first, and a class
 long beside the whole run is cut into pieces of its tests (without the file, the class with the most tests goes
-first). --shuffle hands the pieces out in an order of the seed's instead.
+first). --shuffle hands the pieces out in an order of the seed's instead. The tests skipped are said with why (each
+one with -v, else a line for each reason with how many), and a run that finds no test at all fails.
 
 A piece (a class, or a run of its tests) runs whole in one process with its own setUpClass and tearDownClass, apart
 from what other processes run: a test may count on nothing another class left behind (a module's globals, a file, a
@@ -41,6 +42,9 @@ TIMES = os.path.join(ROOT, "build", "test-times.json")
 ORDER = os.path.join(ROOT, "build", "test-order.json")
 # At most this many processes by default: past it, the classes' own lengths, not their number, set the time.
 MOST_JOBS = 8
+# What a run that found no test at all says before it fails (from another folder than the repository's top, or with
+# every test module gone): a run that judged nothing never passes.
+NONE_FOUND = "no tests found under tests/: nothing was judged, so this run fails"
 # Tests that measure what this PC does while they run (its pace, its disk), with why: run after the rest on a process
 # of their own, nothing else of the run's beside them, as a run in one process has them. Beside the other processes
 # they measured those processes' load and the files they deleted, not the code.
@@ -179,7 +183,10 @@ def worker():
                "failures": [[t.id(), text] for t, text in result.failures],
                "errors": [[getattr(t, "id", lambda: str(t))(), text] for t, text in result.errors],
                "skipped": len(result.skipped), "expected_failures": len(result.expectedFailures),
-               "unexpected_successes": [t.id() for t in result.unexpectedSuccesses]}
+               "unexpected_successes": [t.id() for t in result.unexpectedSuccesses],
+               # Each test skipped with its reason (a class's setUpClass skipping has the class's id): a test that
+               # did not run is said with why, so a condition that skips it where it could run shows in the run.
+               "skips": [[getattr(t, "id", lambda: str(t))(), reason] for t, reason in result.skipped]}
         results.write(json.dumps(out) + "\n")
         results.flush()
     return 0
@@ -271,7 +278,7 @@ class Runner:
             # An error of the piece, with the end of what the process printed, and a new process for the rest.
             name, line = unfinished
             how = "sent back %r instead of its result" % line[:200] if line else "ended"
-            self._took({"class": name, "seconds": 0, "run": 0, "failures": [], "skipped": 0,
+            self._took({"class": name, "seconds": 0, "run": 0, "failures": [], "skipped": 0, "skips": [],
                         "errors": [[name, "the process running it %s (exit %s); the end of what it printed:\n%s"
                                     % (how, child.returncode, last_lines(log, self.LAST_LINES))]],
                         "expected_failures": 0, "unexpected_successes": [], "after": len(ran) - 1})
@@ -320,15 +327,18 @@ def _size(path):
         return 0
 
 
-def say(results, broken_result, seconds, jobs):
-    """The run said as unittest says one: each failure and error with its traceback, the count, OK or FAILED. Returns
-    True when every test passed."""
+def say(results, broken_result, seconds, jobs, verbose=False):
+    """The run said as unittest says one: each failure and error with its traceback, the skipped tests with why (each
+    one with verbose, else a line a reason with how many), the count, OK or FAILED. Returns True when every test
+    passed."""
     failures = [f for r in results for f in r["failures"]] + [[t.id(), text] for t, text in broken_result.failures]
     errors = [e for r in results for e in r["errors"]] + [[getattr(t, "id", lambda: str(t))(), text]
                                                           for t, text in broken_result.errors]
     unexpected = [u for r in results for u in r["unexpected_successes"]]
     run = sum(r["run"] for r in results) + broken_result.testsRun
-    skipped = sum(r["skipped"] for r in results)
+    # A module that skips itself as it is loaded (unittest.SkipTest raised at its top) is one of the broken ones run
+    # here: its skip is counted and said with the others'.
+    skipped = sum(r["skipped"] for r in results) + len(broken_result.skipped)
     expected = sum(r["expected_failures"] for r in results)
     line = "=" * 70
     for kind, items in (("ERROR", errors), ("FAIL", failures)):
@@ -338,6 +348,16 @@ def say(results, broken_result, seconds, jobs):
         if r.get("printed"):
             # What a failing piece's tests printed while it ran, as one process would have shown it among them.
             print("%s\nWhat %s printed (its last lines):\n%s\n%s" % (line, r["class"], "-" * 70, r["printed"]))
+    # The tests that did not run, with why: a condition that skips a test where it could run shows here (a library
+    # missing from the Python under test skips every test that needs it, which a count alone does not tell).
+    skips = sorted([s for r in results for s in r.get("skips", [])] +
+                   [[getattr(t, "id", lambda: str(t))(), reason] for t, reason in broken_result.skipped])
+    if verbose:
+        for test, reason in skips:
+            print("skipped %s: %s" % (test, reason))
+    else:
+        for reason, count in sorted(collections.Counter(reason for _, reason in skips).items()):
+            print("skipped %d: %s" % (count, reason))
     print("-" * 70)
     print("Ran %d tests in %.3fs (%d processes)\n" % (run, seconds, jobs))
     parts = []
@@ -399,9 +419,18 @@ def main(argv=None):
         # As `python -m unittest discover -s tests -t .` runs them.
         suite = unittest.TestLoader().discover("tests", top_level_dir=ROOT)
         result = unittest.TextTestRunner(verbosity=2 if args.verbose else 1).run(suite)
+        if not result.testsRun:
+            # A run that found nothing judged nothing: never a pass (unittest itself says OK to none).
+            print(NONE_FOUND, flush=True)
+            return 1
         return 0 if result.wasSuccessful() else 1
     started = time.perf_counter()
     found, broken = classes()
+    if not found and not broken:
+        # Nothing to hand out, nothing that failed to load: a run that judged nothing is never a pass, and it keeps
+        # the last run's times and order as they are.
+        print(NONE_FOUND, flush=True)
+        return 1
     # What could not be loaded is run here, to say why, as unittest says it.
     broken_result = unittest.TestResult()
     unittest.TestSuite(broken).run(broken_result)
@@ -419,7 +448,7 @@ def main(argv=None):
         pieces += lone
     _keep(ORDER, order)
     seconds = time.perf_counter() - started
-    good = say(results, broken_result, seconds, jobs)
+    good = say(results, broken_result, seconds, jobs, args.verbose)
     # Every piece handed out has its result, and the tests run are as many as were found: one missing would be a test
     # never run.
     missing = sorted({label for label, _, _ in pieces} - {r["class"] for r in results})

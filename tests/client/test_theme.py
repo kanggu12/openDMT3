@@ -1,13 +1,19 @@
 """The theme's colours and pictures, without a window: words stay readable on every fill, and the pictures the
 dialogs and buttons are made of come out at the size asked for."""
 
+import importlib
 import unittest
 
 try:
-    from opendmt3.client import art, dialogs, snapshot, theme, widgets
+    # Only whether this Python has Tk: a server's may not (the launcher brings its own), and the launcher's pictures
+    # are not its business.
+    importlib.import_module("tkinter")
 except ImportError as e:
-    # A Python without Tk (a server's: the launcher brings its own): the launcher's pictures are not its business.
     raise unittest.SkipTest("needs Tk, the launcher's window toolkit (%s)" % e)
+
+# Outside the question above: a module of the launcher's that fails to import for a fault of its own is an error of
+# this file's, never a skip said to be for Tk.
+from opendmt3.client import art, dialogs, snapshot, theme, widgets  # noqa: E402
 
 
 def luminance(hex_colour):
@@ -175,11 +181,7 @@ class PictureTest(unittest.TestCase):
         # the version over it, as the site's bar sets DMT3 SERVER. At every scale from 100 to 200 % it is as wide as
         # the column's room at most, a usual version stands beside DMT3 (no taller for it), and it is the logo's
         # picture at that width cut to its pixels.
-        try:
-            from opendmt3.client import widgets
-            self.assertLessEqual(art.BRAND_WIDTH, widgets.Rail.WIDTH - 2 * widgets.Rail.EDGE - 1)
-        except ImportError:
-            pass
+        self.assertLessEqual(art.BRAND_WIDTH, widgets.Rail.WIDTH - 2 * widgets.Rail.EDGE - 1)
         for scale in (1.0, 1.25, 1.5, 1.75, 2.0):
             room = int(round(art.BRAND_WIDTH * scale))
             usual = art.brand(scale, "0.4.0")

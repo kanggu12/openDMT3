@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import unittest
 import zipfile
+from unittest import mock
 
 from opendmt3.core import signing
 
@@ -267,6 +268,37 @@ class SigningKeyRulesTest(unittest.TestCase):
         release = text_of("packaging", "release.sh")
         self.assertIn('if [ -n "${OPENDMT3_TEST_UPDATE_KEY:-}" ]; then', release)
         self.assertIn('[ -f "$TEST_KEYS" ] && [ ! -s "$TEST_KEYS" ]', release)
+
+
+class WindowsUnitTestsTest(unittest.TestCase):
+    """CI's windows job runs the unit tests with tests/e2e/windows/unit_tests.py: a part that gives no test fails it."""
+
+    class Made(unittest.TestCase):
+        # A made-up test, as a part's discover gives one.
+        def test_it(self):
+            pass
+
+    def main(self, parts_found):
+        # The runner's main with each part's discover giving the made-up test or nothing, and the run itself said to
+        # pass without running anything (the parts' own tests are not run inside this one).
+        script = runpy.run_path(os.path.join(ROOT, "tests", "e2e", "windows", "unit_tests.py"))
+
+        def discover(loader, start, top_level_dir=None):
+            part = os.path.basename(start)
+            return unittest.TestSuite([self.Made("test_it")] if part in parts_found else [])
+        passed = unittest.TestResult()
+        with mock.patch.object(unittest.TestLoader, "discover", discover), \
+                mock.patch.object(unittest.TextTestRunner, "run", return_value=passed), \
+                contextlib.redirect_stdout(io.StringIO()) as said:
+            code = script["main"]([])
+        return code, said.getvalue()
+
+    def test_a_part_with_no_test_fails_the_run_and_is_named(self):
+        self.assertEqual(self.main({"core", "client", "server"}), (0, ""))
+        code, said = self.main({"core", "server"})
+        self.assertEqual(code, 1)
+        self.assertIn("no tests found in tests/client", said)
+        self.assertNotIn("tests/core", said)
 
 
 if __name__ == "__main__":
