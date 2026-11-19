@@ -628,7 +628,7 @@ class StopTheRealServerTest(unittest.TestCase):
 
     def test_the_command_restarts_and_removes_its_data_when_its_admin_asks(self):
         import httpx
-        if os.path.exists("/.dockerenv"):
+        if os.name != "nt" and os.path.exists("/.dockerenv"):
             self.skipTest("inside a container the server's runner is Docker Compose")
         # A data folder of the test's own, inside a folder of its own: the last copy lands beside it, in there too.
         parent = tempfile.mkdtemp()

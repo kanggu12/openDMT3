@@ -527,11 +527,30 @@ def cmd_run(args):
         logging.shutdown()
         for handler in logging.getLogger().handlers[:]:
             logging.getLogger().removeHandler(handler)
+        if args.background:
+            # Started in the background, this run writes what it prints to data/logs/output.txt (cmd_start), a file
+            # Windows will not delete while it is open: its output goes nowhere from here, so the folder can go.
+            release_output()
         kept_copy = server_cli.remove_data(data)
         say("The server's data in %s is deleted; its last backup is %s" % (data, kept_copy))
         if os.name == "nt":
             say("Its firewall rules stay: %s firewall --remove takes them out." % PROG)
     return 0
+
+
+def release_output():
+    """This process's standard output and error let go of the file they write to: the null device in its place."""
+    for stream in (sys.stdout, sys.stderr):
+        # What was written so far reaches the file before it is let go.
+        with contextlib.suppress(Exception):
+            stream.flush()
+    nowhere = os.open(os.devnull, os.O_WRONLY)
+    try:
+        # Each descriptor's file closed as the null device takes its place (on Windows its handle too).
+        os.dup2(nowhere, 1)
+        os.dup2(nowhere, 2)
+    finally:
+        os.close(nowhere)
 
 
 def server_args_namespace(data):

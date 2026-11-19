@@ -374,6 +374,11 @@ class AdminPublicTest(unittest.TestCase):
         self.addCleanup(__import__("shutil").rmtree, self.base)
         self.data = os.path.join(self.base, "data")
         os.makedirs(self.data)
+        # Not Windows unless a test makes Windows up (on_windows()): on a Windows PC these commands would otherwise
+        # ask its firewall (netsh) and change its rules.
+        windows = mock.patch.object(standalone, "on_windows", return_value=False)
+        windows.start()
+        self.addCleanup(windows.stop)
 
     def caddyfile(self):
         with open(os.path.join(self.data, "Caddyfile"), encoding="utf-8") as f:
@@ -595,7 +600,9 @@ class OperationsReview2Test(unittest.TestCase):
         # /.dockerenv to the Windows package and its banner left out the admin pages' row. A Windows server is never
         # in a Linux container.
         with mock.patch.object(sources.os.path, "exists", return_value=True):
-            self.assertTrue(sources.in_container())
+            # On Linux the mark is a container's (the test may itself run on Windows: Linux made up).
+            with mock.patch.object(sources.os, "name", "posix"):
+                self.assertTrue(sources.in_container())
             with mock.patch.object(sources.os, "name", "nt"):
                 self.assertFalse(sources.in_container())
         # Said by the environment, it counts anywhere.

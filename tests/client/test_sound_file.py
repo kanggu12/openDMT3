@@ -2,9 +2,9 @@
 native/cardreader/soundset.c): the one rule for its lines, read from the table both sides' tests read, and the
 launcher's changes that cannot be written kept until they are (never undone by the file's older value)."""
 
-import fcntl
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -47,6 +47,18 @@ class SoundFileTest(unittest.TestCase):
 
     def hold_lock(self):
         """The file's lock held as another writer holds it (the game, mid-write): the descriptor to let it go."""
+        if sys.platform == "win32":
+            # Windows: the lock file opened shared with nobody, as sound_file and the game's layer hold it.
+            import ctypes
+            import msvcrt
+            from ctypes import wintypes
+            create = ctypes.windll.kernel32.CreateFileW
+            create.restype = wintypes.HANDLE
+            handle = create(self.path + ".lock", 0xC0000000, 0, None, 4, 0x80, None)
+            self.assertNotEqual(handle, wintypes.HANDLE(-1).value)
+            # A descriptor over the handle, so os.close lets it go as on Linux.
+            return msvcrt.open_osfhandle(handle, os.O_RDWR)
+        import fcntl
         fd = os.open(self.path + ".lock", os.O_RDWR | os.O_CREAT, 0o600)
         fcntl.flock(fd, fcntl.LOCK_EX)
         return fd
