@@ -6,7 +6,7 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-11-17
+## [0.4.0] - 2026-11-19
 
 The admin pages on a site of their own with a page for each player, a master volume and an equalizer in the launcher
 and in the game, new ways to run a server, and TECHNIKA 3's look for the launcher and both sites.
