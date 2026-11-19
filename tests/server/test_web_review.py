@@ -47,7 +47,11 @@ class StepsTest(SiteBase):
             # The busiest is the strongest step there is, never the empty one.
             self.assertIn(max(self.steps(".heat i")), self.drawn(heat), most)
             days = [time.time() - 86400 * i for i in range(len(counts))]
-            cells = str(charts.cells(counts, days, most, w))
+            # The Players tab's cells are made once for the page (insights.day_cells) and the macro shows them.
+            from opendmt3.server.web import insights
+            row = {"days": counts}
+            insights.day_cells([row], days, most, w)
+            cells = str(charts.cells(row))
             self.assertLessEqual(self.drawn(cells), self.steps(".daycells i"), most)
 
 
