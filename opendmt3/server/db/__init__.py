@@ -158,7 +158,9 @@ STEPS = [
     # was (the plays log, the rankings, the newest plays and records, a song's boards: compared one by one).
     [
         "CREATE INDEX plays_by_time ON plays (played_at, account_id)",
-        "DROP INDEX sessions_by_time",
+        # Step 3's index on the start alone, made again with the end: a database that lost it (dropped by hand) still
+        # comes up.
+        "DROP INDEX IF EXISTS sessions_by_time",
         "CREATE INDEX sessions_by_time ON sessions (started_at, ended_at)",
     ],
 ]
