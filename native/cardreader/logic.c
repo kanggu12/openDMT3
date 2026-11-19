@@ -293,7 +293,7 @@ void song_lock_pause(SongLock *s)
     s->playing = 0;
 }
 
-int64_t song_lock_frame(SongLock *s, long started, double ahead, int offset, int64_t period, int *began, double *off)
+int64_t song_lock_frame(SongLock *s, long started, double ahead, int64_t period, int *began, double *off)
 {
     *began = 0;
     if (started != s->song) {
@@ -310,10 +310,56 @@ int64_t song_lock_frame(SongLock *s, long started, double ahead, int offset, int
         s->fresh = 0;
     }
     s->playing = 1;
-    /* The audio offset: the frames held that much further behind the music than the game's own start put them. The lock
-     * reaches it as it wins back any distance (1 ms a frame, 4 ms while over 50 ms away). */
-    *off = ahead - s->base - offset;
+    /* The frames kept where the game's own start put them against the music: the lock wins back any distance from it
+     * (1 ms a frame, 4 ms while over 50 ms away). */
+    *off = ahead - s->base;
     return music_lock_step(&s->lock, *off, period);
+}
+
+void chart_lag_start(ChartLag *c)
+{
+    /* Nothing seen: the next frame starts the lag at none. */
+    memset(c, 0, sizeof *c);
+}
+
+uint32_t chart_lag_ticks(int offset_ms, double ms_per_tick)
+{
+    /* No offset, or a tempo not read (none, or not a number, which fails every comparison): no lag. */
+    if (offset_ms <= 0 || !(ms_per_tick > 0))
+        return 0;
+    /* The nearest whole tick: within half a tick of the offset (1.3 ms at a tick of 2.6 ms). */
+    double ticks = (double)offset_ms / ms_per_tick + 0.5;
+    /* A tick of under a thousandth of a millisecond would make a lag past any song: held at a million. */
+    if (ticks > 1e6)
+        ticks = 1e6;
+    return (uint32_t)ticks;
+}
+
+uint32_t chart_lag_frame(ChartLag *c, uint32_t real, uint32_t target)
+{
+    /* The first frame of a score, or its count gone back (the game set it back): the lag starts again at none. */
+    if (!c->primed || real < c->real) {
+        c->primed = 1;
+        c->quarters = 0;
+        c->real = real;
+        c->shown = real;
+        return real;
+    }
+    /* A quarter of a tick of lag for each tick counted since the last frame, up to the target's; a smaller target
+     * takes the lag down to it at once. In 64 bits: no count and no target can wrap it. */
+    uint64_t q = (uint64_t)c->quarters + (real - c->real);
+    uint64_t most = (uint64_t)target * 4;
+    if (q > most)
+        q = most;
+    c->quarters = (uint32_t)q;
+    uint32_t lag = c->quarters / 4;
+    /* Never below 0 (a lag past the count), never back from the last frame's. */
+    uint32_t shown = lag < real ? real - lag : 0;
+    if (shown < c->shown)
+        shown = c->shown;
+    c->real = real;
+    c->shown = shown;
+    return shown;
 }
 
 int64_t display_lock_step(double phase, int64_t refresh_ticks)

@@ -33,7 +33,7 @@ docker run --rm --network none -u "$AS" -v "$HERE:/src:ro" -v "$OUT:/out" opendm
     /src/crt_r1.c /src/hooks.c /src/trace.c /src/post.c /src/postmath.c /src/sound.c /src/engine.c /src/openal.c \
     /src/layer.c /src/text.c /src/look.c /src/logic.c /src/paint.c /src/files.c /src/redirect.c /src/passtimes.c \
     /src/render.c /src/strobe.c /src/flip.c /src/touch.c /src/contacts.c /src/methods.c /src/mix.c /src/soundset.c \
-    /src/clock.c /src/line.c \
+    /src/clock.c /src/score.c /src/line.c \
     /src/logfile.c \
     /src/crt_r1.def /out/post.res \
     -Wl,--kill-at -luser32 -lgdi32 -lm

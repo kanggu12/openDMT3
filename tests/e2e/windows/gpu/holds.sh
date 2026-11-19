@@ -114,7 +114,7 @@ seen() { grep -cE "$1" "$L" 2>/dev/null; }
 end=$((SECONDS + 300))
 until grep -q "layer: attached" "$L" 2>/dev/null || [ $SECONDS -gt $end ]; do wait_s 2; done
 grep -q "layer: attached" "$L" 2>/dev/null || { echo "FAIL: the layer never attached"; stop; exit 1; }
-grep -E "^[0-9]+ (clock|line): " "$L" | sed 's/^/  /' | tee -a "$OUT/run.txt"
+grep -E "^[0-9]+ (clock|score|offset|line): " "$L" | sed 's/^/  /' | tee -a "$OUT/run.txt"
 wait_s 40
 proof=$(gpu_proof "$C" 'Client (openDMT3).exe'); drawn=$?
 echo "$proof" | tee -a "$OUT/run.txt"

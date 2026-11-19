@@ -32,6 +32,11 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ### Fixed
 
+- The audio offset held a song's frames behind its music, which does not move its notes: the notes and their judging
+  stayed with the music at any offset (since 0.2.0). The notes and the judging of the presses are now held behind the
+  music by the offset, with any frame pacing, while the song's own sounds stay with its music. A new offset is reached
+  over the song's first moments (a third of a second for 80 ms, two seconds for 500), the notes moving at three
+  quarters of their pace until then.
 - In Korean, a name whose Korean words another name shares was that other name's English (since 0.4.0): the
   installer's first step said SETUP, its update and the launcher's own UPDATES, **Game**'s card THE GAME'S FILES and
   a quick play that could not start YOU PLAY. Each now says what it says in English: INSTALL, UPDATE, GAME FILES,

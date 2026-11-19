@@ -1,5 +1,7 @@
 """The judgement line's watch (native/cardreader/line.c, OPENDMT3_LINE_WATCH) read back: what the game's own frames
-did with the line, set beside the score player's clock and the music's.
+did with the line, set beside the score player's clock and the music's. A row's "tick" is the count the score player
+counted on its clock, its "shown" the count the game's line, notes and judging read after the update (the count less
+the audio offset's lag, score.c; the same with no offset, and absent before 0.4.2's watch).
 
     python3 tests/e2e/windows/gpu/line.py LINE_CSV [OUT_JSON]
     python3 tests/e2e/windows/gpu/line.py holds LINE_CSV INGAME_LOG [--windows]
@@ -26,6 +28,12 @@ def F32(value):
     import numpy as np
 
     return np.float32(value)
+
+
+def shown(r):
+    """The count a row's frame showed and judged: its "shown" column, or the score's own count where there is none."""
+    value = number(r, "shown", int)
+    return value if value is not None else number(r, "tick", int)
 
 
 def line_pos(tick, row_ticks, width):
@@ -180,7 +188,8 @@ def main(argv):
     pos_ok = row_ok = six_ok = 0
     offsets = {}
     for r in played:
-        tick, rt, w = number(r, "tick", int), number(r, "row_ticks", int), number(r, "width")
+        # The line is drawn where the count shown puts it.
+        tick, rt, w = shown(r), number(r, "row_ticks", int), number(r, "width")
         pos = number(r, "pos")
         mine = line_pos(tick, rt, w)
         pos_ok += abs(float(mine) - pos) <= 1e-3
@@ -245,14 +254,20 @@ def main(argv):
         if key is None or key < 0 or mb is None or mb < 0 or number(a, "music_frame", int) != key:
             continue
         # The score's time from its start: the first frame's ticks at its tempo, then each step at its own.
-        s = songs.setdefault(key, {"chart_ms": number(a, "tick", int) * number(a, "ms_per_tick"), "against": []})
+        s = songs.setdefault(key, {"chart_ms": number(a, "tick", int) * number(a, "ms_per_tick"), "against": [],
+                                   "shown_ms": shown(a) * number(a, "ms_per_tick"), "shown_against": []})
         s["chart_ms"] += (number(b, "tick", int) - number(a, "tick", int)) * number(a, "ms_per_tick")
         s["against"].append(mb - s["chart_ms"])
+        # The same for the count shown and judged: with an audio offset, the offset more behind the music.
+        s["shown_ms"] += (shown(b) - shown(a)) * number(a, "ms_per_tick")
+        s["shown_against"].append(mb - s["shown_ms"])
         # The music lock's own measure beside it: the music less the song's frames at 60 a second (this frame is the
         # song's frame number b - key + 1).
         s.setdefault("lock", []).append(mb - (number(b, "frame", int) + 1 - key) * 1000.0 / 60)
     out["songs"] = {str(k): {"frames": len(v["against"]), "music_less_score_ms_first": round(v["against"][0], 1),
                              "median": round(statistics.median(v["against"]), 1), "last": round(v["against"][-1], 1),
+                             "music_less_shown_ms_median": round(statistics.median(v["shown_against"]), 1),
+                             "music_less_shown_ms_last": round(v["shown_against"][-1], 1),
                              "music_less_frames_ms_first": round(v["lock"][0], 1),
                              "music_less_frames_median": round(statistics.median(v["lock"]), 1),
                              "music_less_frames_last": round(v["lock"][-1], 1)}

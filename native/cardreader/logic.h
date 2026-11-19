@@ -37,9 +37,9 @@ typedef struct {
     int sound_path;        /* OPENDMT3_SOUND_PATH: SOUND_PATH_* below (Windows' DirectSound unless chosen) */
     int render_display;    /* OPENDMT3_RENDER=display: the game drawn at the picture's size in the window (render.c),
                             * not at its own 1280x768 enlarged after (game, the default) */
-    int audio_offset;      /* OPENDMT3_AUDIO_OFFSET: milliseconds the frames are kept behind a song's music, for a sound
-                            * device that plays late (Sound page, Audio offset; 0 to AUDIO_OFFSET_MAX, 0 by default);
-                            * with the music lock only */
+    int audio_offset;      /* OPENDMT3_AUDIO_OFFSET: milliseconds a song's notes and their judging are held behind its
+                            * music, for a sound device that plays late (Sound page, Audio offset; 0 to
+                            * AUDIO_OFFSET_MAX, 0 by default): score.c, with any pacing */
     int motion;            /* OPENDMT3_MOTION_CLARITY: MOTION_* (Screen page, Motion clarity; off by default) */
     int flip;              /* OPENDMT3_FLIP_MODEL=on: Direct3D 9Ex's flip model for the borderless window (Screen page,
                             * Advanced, Flip model; off by default) */
@@ -117,7 +117,7 @@ double music_lock_most(const MusicLock *m);
 /* The music lock over a game's songs (hooks.c lock_to_music): the song locked (its music's start frame), the distance
  * the game itself started that music at against its frames, kept for the whole song, and the lock's readings. Through a
  * reset of the device or a frame with no reading, the same song goes on from its own start: a reset's stall is won back
- * as any stall is, and the audio offset stays counted once. A song with another start frame takes its own. */
+ * as any stall is. A song with another start frame takes its own. */
 typedef struct {
     long song;             /* the locked song's music start frame (-1: none yet) */
     double base;           /* that song's first distance, ms (the game's own start, kept) */
@@ -129,10 +129,32 @@ void song_lock_start(SongLock *s);
 /* A reset of the device, or a frame with no song to read: the lock's readings start again at the next song frame,
  * the song and its start kept. */
 void song_lock_pause(SongLock *s);
-/* A song frame: the song's music started at frame `started` and is `ahead` ms ahead of this frame at its tick; the
- * frames are held `offset` ms more behind it (the audio offset). The ticks to take off the next tick (negative: to
- * add); *began set when this frame began the lock of a song, *off the distance from the lock's target, ms. */
-int64_t song_lock_frame(SongLock *s, long started, double ahead, int offset, int64_t period, int *began, double *off);
+/* A song frame: the song's music started at frame `started` and is `ahead` ms ahead of this frame at its tick. The
+ * ticks to take off the next tick (negative: to add); *began set when this frame began the lock of a song, *off the
+ * distance from the lock's target, ms. The frames stay with the music: the audio offset holds the chart back
+ * (ChartLag), never the frames, which do not move it (the chart runs on the system's interrupt time). */
+int64_t song_lock_frame(SongLock *s, long started, double ahead, int64_t period, int *began, double *off);
+
+/* The audio offset's lag of a song's chart (score.c): the score player counts its ticks on its clock as ever, so its
+ * own sounds (its background tracks, the music's start) go with the music, and what it shows and judges is that count
+ * less a lag, so the notes and the presses judged against them meet the music where a sound device that plays late
+ * lets it be heard. The lag is the offset in the song's ticks. From a score's start it grows by a quarter of each
+ * frame's ticks until it is there (the shown tick moving at three quarters of the score's pace meanwhile: 0.32 s for
+ * 80 ms, 2 s for 500), never past the count (the shown tick never below 0) and never taking the shown tick back; a
+ * smaller lag (a slower tempo, fewer ticks for the same milliseconds) is taken at once, the shown tick going that
+ * much further that frame. */
+typedef struct {
+    int primed;            /* a frame seen since the score's start */
+    uint32_t real;         /* the score's own count at that frame */
+    uint32_t shown;        /* the count shown and judged at that frame */
+    uint32_t quarters;     /* the lag, in quarters of a tick */
+} ChartLag;
+void chart_lag_start(ChartLag *c);
+/* The offset `offset_ms` in whole ticks of `ms_per_tick` ms (the nearest; 0 for no offset or a tempo not read). */
+uint32_t chart_lag_ticks(int offset_ms, double ms_per_tick);
+/* A frame of the score: its own count `real` and the lag's ticks `target` now; the count to show and judge. A count
+ * gone back from the last frame's (set back by the game) starts the lag again at none. */
+uint32_t chart_lag_frame(ChartLag *c, uint32_t real, uint32_t target);
 
 /* Locked to the display (VSync on): the pacer's ticks kept in the middle of a refresh, so each frame's present
  * waits for the same refresh every time (on a 240 Hz display, every fourth) and a tick never wavers either side of

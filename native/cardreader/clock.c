@@ -17,6 +17,11 @@
  * hold's end on the game's thread, and the client also reads its clock on a thread of its own while it loads a song
  * (its eye-catch screens make the score player there), so the total is published as Windows publishes a time (the
  * second high word first, the low word, the first high word last) and never read torn.
+ *
+ * The same read starts the score's count at each frame's update: with an audio offset (score.c), when it is called
+ * from there (its return address the count's, g_clock_count_return), the score player's count is first put back as
+ * the score left it (score_before_count, with the score player the client's ECX holds there), before the count goes on
+ * from it. Called from anywhere else (a score's start, on whatever thread) it only reads.
  */
 #include "ingame.h"
 
@@ -33,6 +38,9 @@ static const BYTE CLOCK_BYTES[18] = {0x55, 0x8b, 0xec, 0x3e, 0x8b, 0x15, 0x0c, 0
  * assembly below names them. */
 volatile LONG g_clock_held_high1, g_clock_held_high2;
 volatile ULONG g_clock_held_low;
+/* Where the client's call of the read in the score's count returns to, with the audio offset on (score.c sets it; 0:
+ * no offset, a return address never 0). Not static: the assembly names it. */
+volatile ULONG g_clock_count_return;
 
 /* openDMT3's read, which the client's jumps to: EDX:EAX = the interrupt time less the held total, every other register
  * and the flags as they were. Each step says why it is there. */
@@ -43,6 +51,16 @@ __attribute__((naked)) void clock_score_read(void)
         "    pushfl\n"
         "    pushl %ecx\n"
         "    pushl %ebx\n"
+        /* Called from the score's count with the audio offset on (the caller's return address, above the three just
+         * kept): the count put back first (score.c), the score player in ECX handed over as the C function's one
+         * argument. It may change EAX, ECX and EDX (the ones the result goes in, and ECX, kept above); the flags are
+         * kept above too. */
+        "    movl 12(%esp), %ebx\n"
+        "    cmpl _g_clock_count_return, %ebx\n"
+        "    jne 1f\n"
+        "    pushl %ecx\n"
+        "    call _score_before_count\n"
+        "    addl $4, %esp\n"
         /* The held total: its first high word, its low word, then its second high word again until they agree. */
         "1:  movl _g_clock_held_high1, %ebx\n"
         "    movl _g_clock_held_low, %ecx\n"

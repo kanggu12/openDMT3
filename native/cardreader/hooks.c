@@ -687,20 +687,19 @@ static void lock_to_music(LONGLONG now)
     double until_due = (double)(g_pacer.next - now) * 1000.0 / (double)g_frequency.QuadPart;
     double ahead = ms + (until_due > 0 ? until_due : 0) - frame_ms;
     /* The lock's step (logic.c song_lock_frame): a new song takes its first distance as its own start, a song going on
-     * keeps its own; the audio offset holds the frames that much further behind the music than that start, so what is
-     * seen and judged meets the music as a sound device that plays late lets it be heard. */
+     * keeps its own. The frames stay there against the music: the audio offset holds the chart back (score.c), never
+     * the frames, which do not move it. */
     int began;
     double off;
     long was = g_song.song;
-    LONGLONG step = song_lock_frame(&g_song, started, ahead, g_settings.audio_offset, g_pacer.period, &began, &off);
+    LONGLONG step = song_lock_frame(&g_song, started, ahead, g_pacer.period, &began, &off);
     if (began) {
         /* A new song's catch-up starts with nothing read (one of a song before it, with no frame between, is over). */
         if (was >= 0 && g_catch.running)
             catch_up_line("catching up cut short (a new song's music started)");
         catchup_start(&g_catch);
         g_skip_next = 0;
-        ingame_log("pacing: locked to the music started at frame %ld (%.1f ms from its frames; the frames kept %d ms "
-                   "behind it for the sound device)", started, ahead, g_settings.audio_offset);
+        ingame_log("pacing: locked to the music started at frame %ld (%.1f ms from its frames)", started, ahead);
     }
     /* A display that shows no frame sooner than its refresh (VSync on, under 64 Hz, its ticks kept to its refresh):
      * nothing is taken off a tick, which would never reach the screen and only push the tick out of the middle of its
@@ -723,7 +722,7 @@ static void lock_to_music(LONGLONG now)
         g_catch.done = 0;
     }
     /* Measuring (OPENDMT3_SOUND_WATCH): the song's first 10 s, every sixth frame, how far the frames are from the
-     * lock's target (how a new offset settles). */
+     * lock's target (how the lock settles). */
     static int watch = -1;
     if (watch < 0) {
         char v[4];
@@ -1950,8 +1949,10 @@ static HRESULT STDMETHODCALLTYPE our_create_device(IDirect3D9 *d3d, UINT adapter
         post_flip(0);
         reset_device(*out, &back);
     }
-    /* The game's score watched, when asked (line.c, measuring only). */
+    /* The game's score watched, when asked (line.c, measuring only), then the audio offset's lag of the chart, when one
+     * is set (score.c): both follow the score player's update, turned once. */
     line_attach(*out);
+    score_offset(g_settings.audio_offset);
     /* How the game draws, for study, when asked (after ours, so it sees the game's own calls). */
     trace_attach(*out, pp, flags);
     ingame_log("picture: device made for window %p", (void *)game);

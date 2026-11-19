@@ -276,10 +276,11 @@ is read as late as the frame's own work allows.
   steps its driver allows: 2.7 ms with Windows' own audio driver, where 10 ms is usual. Every program playing on the device goes in
   those steps too, until the game closes. After a game, the row says the steps its sound went in on the device chosen
   now; a driver that allows nothing shorter keeps its 10 ms.
-- **Audio offset** (**Sound**, 0 ms by default, up to 500): with **Locked to the music**, a song's notes and their
-  judging are held this many milliseconds behind its music, for a device that plays late, such as Bluetooth
-  headphones or a TV's speakers over HDMI. The frames reach a new offset over the first second or two of a song,
-  running a little slower until then.
+- **Audio offset** (**Sound**, 0 ms by default, up to 500): a song's notes and their judging are held this many
+  milliseconds behind its music, for a device that plays late, such as Bluetooth headphones or a TV's speakers over
+  HDMI, with any frame pacing; the song's own sounds stay with its music. The notes reach a new offset over the song's
+  first moments (a third of a second for 80 ms, two seconds for 500), moving at three quarters of their pace until
+  then.
 When the upscale filter or the anti-aliasing chosen makes frames late on this PC's graphics card, the game steps it
 down one step at a time (SMAA to FXAA to off, then AMD FSR 1, NVIDIA NIS or Anime4K to Smooth) for the rest of the
 run, says so in a notice at the top of the game (after the song, when it steps during one), and the launcher's log
