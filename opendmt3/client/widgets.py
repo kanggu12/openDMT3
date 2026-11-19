@@ -75,6 +75,8 @@ class SlimBar(tk.Canvas):
         self.first, self.last = 0.0, 1.0
         # How far below the thumb's top the drag took hold (None outside a drag), and the pointer being over the bar.
         self.grip, self.over = None, False
+        # The thumb's one rectangle once it is made (paint moves it), and the colour it was last given.
+        self._thumb, self._thumb_colour = None, None
         self.bind("<Configure>", lambda e: self.paint())
         self.bind("<ButtonPress-1>", self._press)
         self.bind("<B1-Motion>", self._drag)
@@ -92,13 +94,27 @@ class SlimBar(tk.Canvas):
         return thumb_span(self.winfo_height(), self.first, self.last, self.ui.px(32))
 
     def paint(self):
-        self.delete("all")
+        """The thumb where the view is, in the look the pointer gives it: one rectangle, moved and recoloured.
+
+        The bar paints at every scroll and at every change of the page's height (five times a page switch). Made anew
+        each time, the old rectangle took its colour with it, and on X the new one asked the X server for that colour
+        again: a round trip that waited for everything the page still had to draw (1.8 ms a paint at 200 % in the UI
+        test's container)."""
         top, bottom = self.thumb()
         # Thin at rest, a little wider under the pointer or in the hand.
         held = self.grip is not None
         inset = self.ui.px(3 if held or self.over else 4)
         colour = theme.FAINT if held else theme.RAIL_UP if self.over else theme.RAIL
-        self.create_rectangle(inset, top, self.winfo_width() - inset, bottom, fill=colour, outline="")
+        box = (inset, top, self.winfo_width() - inset, bottom)
+        if self._thumb is None:
+            # The first paint makes the rectangle; every later one moves it.
+            self._thumb = self.create_rectangle(*box, fill=colour, outline="")
+        else:
+            self.coords(self._thumb, *box)
+            if colour != self._thumb_colour:
+                # A new look only under the pointer, in the hand, or back at rest.
+                self.itemconfigure(self._thumb, fill=colour)
+        self._thumb_colour = colour
 
     def _hover(self, over):
         self.over = over
