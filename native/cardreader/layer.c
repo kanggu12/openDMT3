@@ -1702,8 +1702,11 @@ void layer_attach(HWND game)
     ui_unit_floor(screen_dpi());
     RECT a = {0, 0, 0, 0};
     GetClientRect(game, &a);
+    /* The unit of the picture in the client, where the layer lies (its own shape kept: on a 16:10 screen the picture
+     * is shorter than the client), not of the client's height. */
+    PicRect pr = picture_rect((int)a.right, (int)a.bottom, g_settings.fill);
     ingame_log("layer: attached (%ld x %ld, dpi %d, %.2f output pixels a game pixel, %s)", a.right, a.bottom,
-               screen_dpi(), ui_unit(a.bottom), g_full ? "full screen" : "in a window");
+               screen_dpi(), ui_unit(pr.h), g_full ? "full screen" : "in a window");
 }
 
 void layer_first_screen(void)
