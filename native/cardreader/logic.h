@@ -438,6 +438,13 @@ Box resume_box(int area_w, int area_h);
 const char *quit_words(int korean);
 /* The chip a hit is on (CHIP_*), or -1 for any other hit. */
 int ui_hit_chip(int hit);
+/* ui_hit_moved for a press, with the bar `coming` down (wanted, not yet in place): where it is drawn counts first, then
+ * a press on a chip's final place is that chip's (a slow game draws the bar there a frame or two after the player
+ * aimed at it); while the bar goes up such a press is the game's. */
+int ui_hit_settling(const UiLayout *l, float x, float y, float bar_dy, float panel_dy, int coming);
+/* The chip whose place in the bar (where it stands when the bar is down) a point is on, or HIT_NONE: what a press the
+ * game takes was aimed at, for the log (a press is never lost silently). */
+int ui_press_aim(const UiLayout *l, float x, float y);
 
 /* The pointer at the very top edge of the game area (the bar's own way in: the band where the game draws no note). */
 int ui_at_top_edge(float y, int area_h);
@@ -536,6 +543,12 @@ void bar_clock_moved(BarClock *b);
 int bar_clock_pointer_counts(const BarClock *b);
 /* Whether it is wanted whole now (after that it slides up). */
 int bar_clock_whole(const BarClock *b, double now);
+/* While the bar shows, whether the pointer is looked for now (a pointer on it keeps it whole BAR_STAY_MS more): ten
+ * times a second by the clock, so every frame when frames come slower. Counted in frames (every sixth) it was looked
+ * for less often than its stay when a slow game drew fewer than 10 frames a second, and the bar went from under a
+ * pointer resting on it. `last` holds the last look's time. */
+#define BAR_LOOK_MS 100.0
+int bar_look_due(double *last, double now);
 
 /* The toast: hanging from the game's top edge in the middle, as wide as its words need (`text_w` pixels), its right end
  * kept a gap left of the menu and the question, which hang under the bar's right end (moved left on a screen too

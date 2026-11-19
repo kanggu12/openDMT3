@@ -97,6 +97,8 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
 - A double-click on the in-game menu's **SOUND** no longer changes a value, and the wheel moves a sound value one step
   a notch with a touchpad too; under an open in-game panel the wheel and the right and middle buttons no longer reach
   the game.
+- In a slow game (under 10 frames a second) the overlay bar stays under a pointer resting on it, and a click on its
+  button while it is still coming down takes; it went from under the pointer, and the click went to the game.
 - Two starts of this PC's server at once (**Open my records** and PLAY) no longer leave a second server holding the
   game's port.
 - **Remove all** deletes openDMT3's own folder for playing too: the client copy PLAY made, its card and its settings.

@@ -321,8 +321,9 @@ first points) into the log, read from its memory in the PC build.
   down 24 game lines after such a quiet outside a song (`logic.c`'s `MarkPress`; that press is the overlay's, kept from
   the game until let go, and in a song every press on the mark is the game's). It comes by itself for 3 s when the game's first
   screen shows and after each switch between a window and full screen. No key brings it.
-- **How long it stays**: whole 600 ms after the pointer was last on it (looked for ten times a second), 4 s after a
-  finger, then it slides back up; a press on the game takes it away.
+- **How long it stays**: whole 600 ms after the pointer was last on it (looked for ten times a second by the clock,
+  so every frame of a slow game: `logic.c` `bar_look_due`; counted in frames, a game under 10 frames a second let it go
+  from under a resting pointer), 4 s after a finger, then it slides back up; a press on the game takes it away.
 - **Its chips**: the menu, minimise, full screen or back to a window, the X, all four in the launcher's quiet metal
   (the way out no louder than its neighbours; QUIT THE GAME in the question turns red once chosen).
 - **The menu** (Back to the game, Show FPS, Sound with a › for the panel it opens, Quit the game), **the question**
@@ -407,7 +408,11 @@ first points) into the log, read from its memory in the PC build.
   the mark fading as the bar comes. A part wanted again on its way turns back from where it is, its way taking the share
   of the whole way's time its length is. With Windows' animation effects off (`SPI_GETCLIENTAREAANIMATION`, read at most
   twice a second) every part comes and goes at once; the chip and the mark fade over 150 ms otherwise. A press is judged
-  where the parts stood on the screen when it was pressed (a chip pressed while the bar comes down acts).
+  where the parts stood on the screen when it was pressed (a chip pressed while the bar comes down acts), and while the
+  bar comes down a press on a chip's final place is that chip's too (`ui_hit_settling`: a slow game draws the bar there
+  a frame or two after the player aimed). A press the layer took that does nothing (let go elsewhere, between the bar's
+  buttons) and one the game took on a chip's place with the bar going up or just gone, or with no song playing
+  (`ui_press_aim`), are said in the log: a press is never lost silently.
 - **The game's window** is subclassed for its mouse, its keys while a panel is up, Esc (kept from the game, which
   would end at once), Alt+F4 (nothing), its close request and command (the question) and Windows' menu mode
   (nothing). In a window its title bar's buttons are taken away and its borders size it. A press on the layer never

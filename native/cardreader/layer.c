@@ -103,11 +103,16 @@ static float g_bar_dy, g_panel_dy, g_press_bar_dy, g_press_panel_dy;
 static int g_toast_waiting;
 /* How long the bar stays (logic.h BarClock, as OpenDMTQ's bar): whole for 600 ms after the pointer was last on it,
  * 4 s after a finger brought it, 3 s by itself, while a panel is open; then fading over 300 ms. The pointer is looked
- * for ten times a second while it shows (it may leave over the window's title bar, where the game hears no move). */
+ * for ten times a second by the clock while it shows (logic.c bar_look_due: every frame of a slow game; it may leave
+ * over the window's title bar, where the game hears no move). */
 static BarClock g_bar_clock;
-static int g_bar_look;
-/* When the bar came on the screen (0: it is not on it), for the log's line of how long it showed. */
-static double g_bar_on_at;
+static double g_bar_look_at = -1e12;
+/* When the bar came on the screen (0: it is not on it), for the log's line of how long it showed; when it last went. */
+static double g_bar_on_at, g_bar_gone_at = -1e12;
+/* Whether the bar was coming down at the press now held (its press judged at its chips' final places too). */
+static int g_press_coming;
+/* When the log last said where a press the game took had been aimed (once a second at most). */
+static double g_aim_said_at = -1e12;
 /* When the game's first screen showed (0: not yet): the chip, the mark and the bar's first showing wait for it. */
 static double g_first_at;
 /* When a rest at the top edge or on the mark may bring the bar (logic.c RevealGate): the game's presses and the
@@ -636,8 +641,7 @@ int layer_parts(LayerPart *out, int max, int w, int h)
     /* While the bar shows, the pointer looked for ten times a second: on it, it stays whole 600 ms more; off it (perhaps
      * gone over the window's title bar, where the game hears no move), no chip is under the pointer. */
     int open = g_card.open != CARD_NONE;
-    if (bar_shown() && ++g_bar_look >= 6) {
-        g_bar_look = 0;
+    if (bar_shown() && bar_look_due(&g_bar_look_at, now)) {
         if (pointer_on_bar())
             bar_clock_rest(&g_bar_clock, now);
         else if (!open)
@@ -677,6 +681,7 @@ int layer_parts(LayerPart *out, int max, int w, int h)
     } else if (bar_was > 0.0f && g_bar.v <= 0.0f && g_bar_on_at) {
         ingame_log("layer: bar gone after %.2f s on the screen", (now - g_bar_on_at) / 1000.0);
         g_bar_on_at = 0;
+        g_bar_gone_at = now;
     }
     slide_aim(&g_panel_slide, g_panel.want ? 1.0f : 0.0f, now, animate);
     g_panel.v = slide_at(&g_panel_slide, now);
@@ -1367,6 +1372,21 @@ static void sound_released(int column)
         sound_set(column, g_sound_value + toward * sound_step(column));
 }
 
+/* A hit's name for the log. */
+static const char *hit_name(int hit)
+{
+    switch (hit) {
+    case HIT_MENU: return "menu chip";
+    case HIT_MIN: return "minimise chip";
+    case HIT_FULL: return "full screen chip";
+    case HIT_X: return "X";
+    case HIT_BAR: return "bar";
+    case HIT_PANEL: return "panel";
+    case HIT_BACK: return "sound panel's title";
+    default: return hit >= 0 ? "panel's answer" : "game";
+    }
+}
+
 /* A press of the button at (x, y) of the target: 1 when it was the layer's (kept from the game). */
 static int pointer_pressed(float x, float y)
 {
@@ -1382,7 +1402,12 @@ static int pointer_pressed(float x, float y)
     /* Judged where the bar and the panel stand on the screen now, and kept for the release (logic.h ui_hit_moved). */
     g_press_bar_dy = g_bar_dy;
     g_press_panel_dy = g_panel_dy;
-    int hit = bar_shown() || g_card.open != CARD_NONE ? ui_hit_moved(&g_hit, x, y, g_bar_dy, g_panel_dy) : HIT_NONE;
+    /* Coming down (wanted, not yet in place): a press on a chip's final place is that chip's (logic.h ui_hit_settling:
+     * a slow game draws the bar there a frame or two after the player aimed at it). */
+    g_press_coming = g_bar.want && g_bar.v < 1.0f;
+    int hit = bar_shown() || g_card.open != CARD_NONE
+                  ? ui_hit_settling(&g_hit, x, y, g_bar_dy, g_panel_dy, g_press_coming)
+                  : HIT_NONE;
     if (hit != HIT_NONE) {
         /* On the layer: held there until the button comes up (a click counts where it began and ended). */
         g_pressed = hit;
@@ -1410,8 +1435,18 @@ static int pointer_pressed(float x, float y)
         return 1;
     }
     /* A press on the game is play: no rest brings the bar for a while (logic.c RevealGate), and a bar that shows goes
-     * (brought, or by itself), fading. */
-    gate_press(&g_gate, now_ms(), 1);
+     * (brought, or by itself), fading. One on a chip's place in the bar, with the bar going up or gone in the last two
+     * seconds or no song playing (a press there in a song is the game's own button), is said in the log, once a second
+     * at most: it was aimed at the bar, and never goes silently. */
+    int aim = ui_press_aim(&g_hit, x, y);
+    double t = now_ms();
+    if (aim != HIT_NONE && (bar_shown() || t - g_bar_gone_at < 2000.0 || !sound_song_playing()) &&
+        t - g_aim_said_at >= 1000.0) {
+        g_aim_said_at = t;
+        ingame_log("layer: a press on the %s's place went to the game: the bar %s", hit_name(aim),
+                   bar_shown() ? "was going up" : t - g_bar_gone_at < 2000.0 ? "had just gone" : "was not on the screen");
+    }
+    gate_press(&g_gate, t, 1);
     bar_clock_hide(&g_bar_clock);
     return 0;
 }
@@ -1444,9 +1479,16 @@ static int pointer_released(float x, float y)
         return 0;
     }
     ReleaseCapture();
-    /* Counted only where it began (slide off to change your mind). */
-    if (ui_hit_moved(&g_hit, x, y, g_press_bar_dy, g_press_panel_dy) != was)
+    /* Counted only where it began (slide off to change your mind), judged as the press was; said in the log. */
+    if (ui_hit_settling(&g_hit, x, y, g_press_bar_dy, g_press_panel_dy, g_press_coming) != was) {
+        ingame_log("layer: a press on the %s was let go elsewhere: nothing done", hit_name(was));
         return 1;
+    }
+    /* The bar's band or a panel between their buttons: the layer's (kept from the game), and nothing to do. */
+    if (was == HIT_BAR || was == HIT_PANEL) {
+        ingame_log("layer: a press on the %s, between its buttons: nothing done", hit_name(was));
+        return 1;
+    }
     if (was == HIT_MENU)
         /* The menu's chip opens the menu, or closes it when it is open. */
         g_card.open == CARD_MENU ? close_card() : open_card(CARD_MENU);

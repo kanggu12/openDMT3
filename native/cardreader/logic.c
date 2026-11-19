@@ -1115,6 +1115,30 @@ int ui_hit(const UiLayout *l, float x, float y)
     return HIT_NONE;
 }
 
+int ui_press_aim(const UiLayout *l, float x, float y)
+{
+    /* The bar alone, in place: no panel, nothing moved. */
+    UiLayout bar = *l;
+    bar.count = 0;
+    bar.panel.w = 0;
+    bar.back.w = 0;
+    int hit = ui_hit_moved(&bar, x, y, 0, 0);
+    return ui_hit_chip(hit) >= 0 ? hit : HIT_NONE;
+}
+
+int ui_hit_settling(const UiLayout *l, float x, float y, float bar_dy, float panel_dy, int coming)
+{
+    int hit = ui_hit_moved(l, x, y, bar_dy, panel_dy);
+    /* Coming down: nothing of the layer's where it is drawn now (or the bar's band alone), but a chip's final place
+     * under the press: the chip the player aimed at. */
+    if (coming && bar_dy < 0 && (hit == HIT_NONE || hit == HIT_BAR)) {
+        int aim = ui_press_aim(l, x, y);
+        if (aim != HIT_NONE)
+            return aim;
+    }
+    return hit;
+}
+
 int ui_hit_chip(int hit)
 {
     /* The chips' hits back to their places in the bar. */
@@ -1330,6 +1354,16 @@ int bar_clock_pointer_counts(const BarClock *b)
 {
     /* Neither the pointer a finger leaves nor one that has not moved since the bar came by itself. */
     return !b->by_touch && !b->parked;
+}
+
+int bar_look_due(double *last, double now)
+{
+    /* A tenth of a second since the last look (or the clock went back): look now. */
+    if (now - *last >= BAR_LOOK_MS || now < *last) {
+        *last = now;
+        return 1;
+    }
+    return 0;
 }
 
 int bar_clock_whole(const BarClock *b, double now)

@@ -528,6 +528,24 @@ static void test_bar_clock(void)
     check(!bar_clock_pointer_counts(&b), "bar clock: a finger's parked pointer does not keep it");
     bar_clock_moved(&b);
     check(bar_clock_pointer_counts(&b) && !b.by_touch, "bar clock: a move of the mouse after a finger counts again");
+    /* A slow game (the CPU's renderer on a busy machine: 6.4 to 10 frames a second, measured in a run where the bar went
+     * from under a resting pointer 1.9 s after it came): the pointer resting on the bar keeps it whole at every frame
+     * for six seconds, the pointer looked for by the clock (ten times a second, every frame when frames are slower). */
+    static const double paces[3] = {100.0, 118.0, 155.0};
+    int kept = 1;
+    for (int k = 0; k < 3; k++) {
+        bar_clock_start(&b);
+        double last = -1e12, t = 50000;
+        bar_clock_rest(&b, t);
+        for (int f = 0; f < 60; f++) {
+            /* Each frame a little late or early (a busy machine), never shorter than the pace's 80 %. */
+            t += paces[k] * (f % 3 == 1 ? 1.2 : f % 3 == 2 ? 0.8 : 1.0);
+            if (bar_look_due(&last, t))
+                bar_clock_rest(&b, t);
+            kept &= bar_clock_whole(&b, t);
+        }
+    }
+    check(kept, "bar clock: a slow game keeps the bar whole under a resting pointer (the pointer looked for by the clock)");
 }
 
 /* The layer's slides (logic.h): the bar down out of the top edge in 220 ms slowing into place, up in 170 ms gathering
@@ -657,6 +675,18 @@ static void test_places(void)
     check(ui_hit_moved(&l, x, y, dy, 0) == HIT_X && ui_hit_moved(&l, x, l.bar.h + dy + 3, dy, 0) == HIT_NONE &&
               ui_hit_moved(&l, x, y - dy, 0, 0) == HIT_X,
           "places: a chip of a bar on its way is hit where it is drawn");
+    /* A press on a chip's final place while the bar is still coming down (a slow game draws it there a frame or two
+     * later) is that chip's; while it goes up it is the game's, as before. Where it is drawn now counts first. */
+    float fy = l.chip[CHIP_MENU].y + l.chip[CHIP_MENU].h / 2, fx = l.chip[CHIP_MENU].x + l.chip[CHIP_MENU].w / 2;
+    check(ui_hit_settling(&l, fx, fy, -60, 0, 1) == HIT_MENU && ui_hit_settling(&l, fx, fy, -60, 0, 0) == HIT_NONE &&
+              ui_hit_settling(&l, x, y, dy, 0, 1) == HIT_X && ui_hit_settling(&l, 960, 540, -60, 0, 1) == HIT_NONE &&
+              ui_hit_settling(&l, fx, -5, -60, 0, 1) == HIT_NONE,
+          "places: a press on a chip's final place while the bar comes down is that chip's");
+    /* Where a press the game takes was aimed: at a chip's final place (the log says so: a press is never lost
+     * silently), or nothing of the bar's. */
+    check(ui_press_aim(&l, fx, fy) == HIT_MENU && ui_press_aim(&l, x, l.chip[CHIP_X].y + 4) == HIT_X &&
+              ui_press_aim(&l, 960, 540) == HIT_NONE && ui_press_aim(&l, 400, 20) == HIT_NONE,
+          "places: a press the game takes is said by the chip whose place it was on");
     /* The question sliding out under the bar: the bar over it where they meet, its answers where they are drawn. */
     card_open(&c, CARD_QUIT);
     ui_layout(&c, 1920, 1080, &l);
