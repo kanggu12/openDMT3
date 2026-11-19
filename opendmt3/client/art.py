@@ -6,7 +6,9 @@ Shapes are drawn three times larger and scaled down, because Tk's own canvas doe
 """
 
 import collections
+import functools
 import io
+import itertools
 import math
 import random
 import threading
@@ -31,6 +33,65 @@ STAGES_KEPT = 4
 _GROUNDS = collections.OrderedDict()
 GROUNDS_KEPT = 10
 _grounds_lock = threading.Lock()
+# The kept small pictures (_kept) are looked up and stored one thread at a time.
+_kept_lock = threading.Lock()
+
+
+def _key_of(value):
+    """An argument as part of a kept picture's key: a dict (a section's colours) and a list (a row's words) as
+    tuples, anything else as it is."""
+    if isinstance(value, dict):
+        # The colours by name, in one order whatever order the dict has them in.
+        return tuple(sorted((name, _key_of(v)) for name, v in value.items()))
+    if isinstance(value, (list, tuple)):
+        return tuple(_key_of(v) for v in value)
+    return value
+
+
+def _kept(most):
+    """Keep what a picture function draws, by its arguments, the `most` last asked for (a decorator).
+
+    A page is made anew at every visit, its cards, buttons, switches and rows of choices with it, and each drew its
+    pictures again: about 30 ms of a page switch at 200 % went to drawing what the last visit had drawn, and
+    buttons and switches that look alike drew alike pictures each. The function must draw from its arguments and the
+    theme alone, and its callers never change the picture they get (each makes its own Tk image of it). A call drawn
+    over another picture (a dialog's button over its panel's pixels: button_face's `under`) is drawn every time, as
+    one whose arguments cannot make a key."""
+    def keep(draw):
+        # key -> picture, the least recently asked for first.
+        found = collections.OrderedDict()
+
+        @functools.wraps(draw)
+        def kept(*args, **kwargs):
+            if any(isinstance(v, Image.Image) for v in itertools.chain(args, kwargs.values())):
+                # Drawn over another picture: nothing to keep it by.
+                return draw(*args, **kwargs)
+            try:
+                # The arguments as they were given (positional, then by name in one order).
+                key = (_key_of(args), _key_of(sorted(kwargs.items())))
+                hash(key)
+            except TypeError:
+                # An argument that cannot be a key (none of today's callers gives one): drawn as before.
+                return draw(*args, **kwargs)
+            with _kept_lock:
+                picture = found.get(key)
+                if picture is not None:
+                    found.move_to_end(key)
+                    return picture
+            # Drawn outside the lock: two threads asking at once each draw it, and the second's is kept.
+            picture = draw(*args, **kwargs)
+            with _kept_lock:
+                found[key] = picture
+                while len(found) > most:
+                    # The least recently asked for goes first (another window scaling's, a page not seen for long).
+                    found.popitem(last=False)
+            return picture
+
+        # The kept pictures, for the tests.
+        kept.kept = found
+        return kept
+    return keep
+
 
 # Steel chrome, top to bottom (TECHNIKA 3's title-screen wordmark, measured): bright, a bright line just over the dark
 # band where the horizon reflects, the band, then bright again.
@@ -419,6 +480,8 @@ def cut_masks(cut):
     return beyond.resize((cut, cut), Image.BOX), seam.resize((cut, cut), Image.BOX)
 
 
+# A card's corner: one or two looks at a scaling (on a card, on a dialog), every card of every page.
+@_kept(16)
 def corner(size, inside, outside, seam=None, rim=None):
     """A card's top-right corner, cut as the family's panels are (both sites' and OpenDMTQ's launcher's): the picture
     laid over the card's square corner, seam included (cut_masks): the page's colour beyond the cut, the card's seam
@@ -590,6 +653,8 @@ def chevron(width, height, colour, scale=1.0, up=False):
     return img.resize((width, height), Image.LANCZOS)
 
 
+# A card's tab and a section's plate: a few on each page, the same each visit.
+@_kept(64)
 def name_plate(text, scale=1.0, fill=None, colour=None):
     """A section's name as the game labels a part of its screen (NO CREW on the song select): white words on a dark
     leaning plate, its right end cut on the slant. Returns an RGBA picture just big enough."""
@@ -617,6 +682,8 @@ def play_button(width, height, state="normal"):
     return plain_plate(width, height, {"disabled": "#262d37", "playing": "#2c3646"}[state], top=theme.LINE)
 
 
+# A tick box's looks: ticked or not, by the pointer and the keyboard, in a section's colour.
+@_kept(32)
 def tick_box(checked, state="normal", scale=1.0, colours=None, focused=False):
     """A tick box (FORMS.md): a 20 px square slot, its edge a step lighter than a field's (it is small), lighter still
     under the pointer; ticked, filled in the section's colour with the tick in its ink; the keyboard's cyan ring two
@@ -663,6 +730,8 @@ def tick_box(checked, state="normal", scale=1.0, colours=None, focused=False):
 TICK_RING_ROOM = 4
 
 
+# A switch's looks: every switch of a page shares them (SCREEN has seven).
+@_kept(32)
 def switch(on, state="normal", scale=1.0, colours=None, focused=False):
     """A switch (FORMS.md): a 42 by 24 round track (only switches, lamps and badges are round); off, the slot with the
     knob in the ash's grey at its left; on, the track in the section's colour with the knob in its ink at its right;
@@ -700,6 +769,8 @@ def switch(on, state="normal", scale=1.0, colours=None, focused=False):
     return img.resize((width + 2 * room, height + 2 * room), Image.LANCZOS)
 
 
+# A slider's four knobs: every slider shares them (SOUND has nine sliders, each made all four).
+@_kept(16)
 def slider_knob(scale=1.0, state="normal", focused=False):
     """A slider's knob (FORMS.md): 10 by 22, chalk, standing upright, a pixel of ink round it and a soft shadow under
     it; white under the pointer; the metal while it cannot be used; the keyboard's cyan ring round it. The picture
@@ -795,6 +866,8 @@ def knob(size, colour=theme.TEXT, ring=theme.BLUE):
 QUIET = ("#1c2127", "#3a434e")
 
 
+# A lamp by its colour, its state and its size: each check line has one, the status line one.
+@_kept(32)
 def lamp(colour, lit=True, scale=1.0, size=(13, 10)):
     """A small leaning light beside a line, as the cabinet's lamps are: lit, its body dark at the top and lit from below
     to its colour, a pixel of light along its top edge and nothing round it; "quiet", unlit metal (a state with nothing
@@ -828,6 +901,8 @@ def lamp(colour, lit=True, scale=1.0, size=(13, 10)):
     return img.resize((width, height), Image.LANCZOS)
 
 
+# The cabinet's two lamps, lit or not.
+@_kept(8)
 def lamp_chip(word, kind, lit=True, scale=1.0):
     """The cabinet's status lamp with its word (ID CARD, NET at the game's foot): a small plate rounded as the game's
     lamps are, its word in capitals in the wide face. Lit: its body dark at the top and lit from below
@@ -878,6 +953,8 @@ def level_gem(tier, scale=1.0, size=12):
     return img.resize((s, s), Image.LANCZOS)
 
 
+# A row of choices in each look it shows (its choice, the pointer, the keyboard): each visit drew them again.
+@_kept(48)
 def choice_row(texts, chosen, hover, colours, scale=1.0, focused=None, enabled=True):
     """A row of 2 to 4 choices of which one is on (FORMS.md's segmented keys): the game's leaning keys side by side, 2
     px apart, 34 px tall, the metal with words in the ash's grey, the metal's lighter shade with chalk words under the
@@ -918,7 +995,8 @@ def choice_row(texts, chosen, hover, colours, scale=1.0, focused=None, enabled=T
         draw.text((x + w / 2, height / 2), text, font=font, fill=_rgb(colour) + (255,), anchor="mm")
         edges.append((x + lean // 2, x + w - lean // 2))
         x += w - lean + gap
-    return img, edges
+    # The edges as a tuple: the row is kept (_kept), and what is kept is never changed by a caller.
+    return img, tuple(edges)
 
 
 # ------------------------------------------------------------------------------------------------ dialogs
@@ -1058,6 +1136,9 @@ BUTTON_LOOKS = {
 SECTION_LOOKS = {"technika": "info", "star": "star", "pop": "danger", "console": "warn"}
 
 
+# A button's faces (four for each button, four more once it has the keyboard): the faces of a page's buttons are
+# the same each visit, and buttons with the same words share them. A dialog's, drawn over its panel, are not kept.
+@_kept(128)
 def button_face(size, margin, look, state, focused, scale, under=None, bg=None):
     """A button's picture, leaning like PLAY and every plate of the game: quiet metal, or a fill in a section's
     colour.

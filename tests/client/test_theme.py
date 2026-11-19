@@ -94,6 +94,55 @@ class PictureTest(unittest.TestCase):
             self.assertEqual(face.getpixel((2, 2)), art._rgb(theme.PANEL))
             self.assertEqual(face.getpixel((147, 37)), art._rgb(theme.PANEL))
 
+    def test_a_page_made_again_takes_the_pictures_it_had(self):
+        from PIL import Image
+        # The same arguments give the same picture, drawn once; it is the picture the function draws.
+        args = ((120, 34), 0, "neutral", "hover", False, 2.0)
+        first = art.button_face(*args, bg=theme.PANEL)
+        self.assertIs(art.button_face(*args, bg=theme.PANEL), first)
+        self.assertEqual(first.tobytes(), art.button_face.__wrapped__(*args, bg=theme.PANEL).tobytes())
+        # Another state, another picture.
+        self.assertIsNot(art.button_face((120, 34), 0, "neutral", "normal", False, 2.0, bg=theme.PANEL), first)
+        # A section's colours (a dict, in whatever order) and a row's words (a list) are part of what it is kept by.
+        row = art.choice_row(["A", "B"], 0, None, theme.SECTION_COLOURS["star"], 1.0)
+        reordered = dict(reversed(list(theme.SECTION_COLOURS["star"].items())))
+        self.assertIs(art.choice_row(["A", "B"], 0, None, reordered, 1.0), row)
+        self.assertIsNot(art.choice_row(["A", "B"], 0, None, theme.SECTION_COLOURS["pop"], 1.0), row)
+        # Its edges cannot be changed by the row that takes them.
+        self.assertIsInstance(row[1], tuple)
+        # Drawn over another picture (a dialog's button over its panel's pixels): drawn each time, never kept.
+        under = Image.new("RGB", (120, 34))
+        self.assertIsNot(art.button_face((120, 34), 0, "info", "normal", False, 1.0, under=under),
+                         art.button_face((120, 34), 0, "info", "normal", False, 1.0, under=under))
+
+    def test_kept_pictures_go_least_recently_asked_first(self):
+        from PIL import Image
+        drawn = []
+
+        @art._kept(3)
+        def draw(n):
+            drawn.append(n)
+            return Image.new("L", (1, 1), n)
+
+        for n in (0, 1, 2, 0, 3):
+            draw(n)
+        # 1 was asked for least recently when 3 came: drawn again; 0 is still kept.
+        draw(1)
+        draw(0)
+        self.assertEqual(drawn, [0, 1, 2, 3, 1])
+        self.assertEqual(len(draw.kept), 3)
+        # An argument that cannot be a key is drawn each time, as before.
+        twice = []
+
+        @art._kept(3)
+        def draw_set(values):
+            twice.append(values)
+            return Image.new("L", (1, 1))
+
+        draw_set({1, 2})
+        draw_set({1, 2})
+        self.assertEqual(len(twice), 2)
+
     def test_a_dialog_is_opaque_pictures(self):
         from PIL import Image
         window = Image.new("RGB", (800, 600), art._rgb(theme.BG))
