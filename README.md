@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/showcase.webp" alt="openDMT3 in four screens, with made-up players, songs and folders: the launcher's PLAY page with who plays, the ready check and the last game; the players' site's rankings, each mode's DJs by total score with the first three on their plates; the game's own tutorial with openDMT3's overlay bar and its FPS counter at 60 FPS, 16.8 ms; and the admin site's Players page, under its rail of the server's state" width="100%">
+  <img src="docs/images/showcase.webp" alt="openDMT3 in four screens, with made-up players, songs and folders: the launcher's PLAY page with who plays, the ready check and the last game; the players' site's rankings, each mode's DJs by total score with the first three on their plates; the game's own tutorial with openDMT3's overlay bar and its FPS counter at 60 FPS, 16.6 ms; and the admin site's Players page, under its rail of the server's state" width="100%">
 </p>
 
 **DJMAX TECHNIKA 3** is a touch-screen arcade rhythm game of 2011. openDMT3 plays your own copy of it on a Windows
@@ -94,7 +94,7 @@ The overlay bar comes down from the game's top edge or a tap on its handle: the 
 equalizer), minimise, window and an X that asks first. During a song an open panel holds the game still.
 
 <p align="center">
-  <img src="docs/images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, SOUND, QUIT THE GAME in red. Under it, four pieces of other frames, two by two: the quit question hanging from the bar under the X, Quit the game?, with A play in progress is not kept., KEEP PLAYING and QUIT THE GAME; the sound panel hanging from the bar under the X, Sound, with eight columns: ALL, MUSIC and KEYS at 100, then the bands 60 at +3, 250 at 0, 1K at +2, 4K and 12K at 0; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS (Smooth upscale); and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.8 ms on one line" width="100%">
+  <img src="docs/images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, SOUND with an arrow to its panel, QUIT THE GAME in red. Under it, four pieces of other frames, two by two: the quit question hanging from the bar under the X, Quit the game?, with This play will not be recorded., KEEP PLAYING and QUIT THE GAME; the sound panel hanging from the bar under the X, Sound with a way back to the menu, and eight columns: MASTER, MUSIC and KEYS at 100, then the bands 60 at +3, 250 at 0, 1K at +2, 4K and 12K at 0; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS: now Smooth upscale; and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.8 ms on one line" width="100%">
 </p>
 
 ### Frames on time, and on the music
