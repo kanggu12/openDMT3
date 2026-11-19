@@ -18,7 +18,8 @@
 // {"pages": N, "sticking": N, "cut": N, "unlabelled": N, "menu_cut": N, "askew": N, "dialogs": N, "dialog_faults": N,
 //  "filters": N, "filter_faults": N, "messages": N,
 //  "message_faults": N, "looks": N, "look_faults": N, "tokens": N, "token_faults": N, "uploads": N, "upload_faults": N,
-//  "song_lists": N, "song_list_faults": N, "drops": N, "drop_faults": N, "maintenances": N, "maintenance_faults": N}.
+//  "song_lists": N, "song_list_faults": N, "drops": N, "drop_faults": N, "maintenances": N, "maintenance_faults": N,
+//  ..., "sheets": N, "copies": N, "copy_faults": N, "pickers": N, "picker_faults": N}.
 const fs = require('fs');
 const puppeteer = require('puppeteer');
 // The layout's measure, shared with the empty server's run (empty.js).
@@ -27,6 +28,9 @@ const {layout, layers, frame, record: recorded} = require('/w/measure.js');
 const base = process.env.SITE || 'http://site:4730';
 // The admin site, a site of its own on its own port (ADMIN-SITE.md), signed in to on its own door.
 const admin = process.env.ADMIN || 'http://site:4731';
+// The server by its address on the network (run.sh: the container's own), as a player on the LAN reaches it: plain http,
+// so the browser gives the page no clipboard of its own (navigator.clipboard is a secure context's).
+const lan = process.env.LANIP || '';
 // The upload field's words in both languages, from the site's own table (run.sh reads strings.py): {key: [en, ko]}.
 const words = JSON.parse(process.env.WORDS || '{}');
 const pages = ['/', '/rankings', '/rankings?by=best30', '/rankings?by=month', '/songs', '/songs/4', '/dj/4', '/download',
@@ -58,7 +62,8 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
                    filters: 0, filter_faults: 0, messages: 0,
                    message_faults: 0, looks: 0, look_faults: 0, tokens: 0, token_faults: 0, uploads: 0,
                    upload_faults: 0, song_lists: 0, song_list_faults: 0, drops: 0, drop_faults: 0, maintenances: 0,
-                   maintenance_faults: 0, form_faults: 0, frame_faults: 0, wrap_faults: 0, bars: 0, bar_faults: 0};
+                   maintenance_faults: 0, form_faults: 0, frame_faults: 0, wrap_faults: 0, bars: 0, bar_faults: 0,
+                   sheets: 0, copies: 0, copy_faults: 0, pickers: 0, picker_faults: 0};
   // What the layout's measure finds on the page showing (measure.js), and its line and place in the summary.
   // The layout's measure, then the page's floating layers opened one by one (measure.js: layers), together.
   // Last, the page's frame on screen (measure.js: frame), which leaves the page at its top for its picture: the frame of
@@ -69,6 +74,18 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
     summary.layers += opened.opened;
     const framed = await frame(page, kind);
     return Object.assign(over, {layers: opened.faults, frame: framed});
+  };
+  // MENU's sheet as a person opens it (MENU pressed), its picture, and closed again: the window's own picture, at the top.
+  const sheet = async path => {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.click('.menu-key');
+    await new Promise(done => setTimeout(done, 300));
+    const open = await page.evaluate(() => document.getElementById('menu-sheet').matches(':popover-open'));
+    await page.screenshot({path});
+    await page.evaluate(() => document.getElementById('menu-sheet').hidePopover());
+    summary.sheets += 1;
+    if (!open) summary.bar_faults += 1;
+    console.log('menu sheet pictured', path, open ? 'ok' : 'FAULT (it did not open)');
   };
   // Every whole page's picture is taken at rest at its top (one taken scrolled draws the sticky bar halfway down).
   const full = async path => {
@@ -169,6 +186,9 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
       await door(base, 'players', 'signin');
       for (const path of pages) {
         await visit(base, 'players', path, path.replace(/[\/?=&]/g, '_') || '_');
+        // On a phone, the players' MENU sheet as a person opens it, pictured (Home only: the sheet is the same on every
+        // page but for the item lit).
+        if (path === '/' && width <= 760) await sheet(`/out/${lang}-menu-sheet-${width}.png`);
       }
       // The admin pages' old address on the players' port, from this browser (another PC than the server's): the
       // players' page that is not there.
@@ -176,7 +196,31 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
       await door(admin, 'console', 'admin-signin');
       for (const path of adminPages) {
         await visit(admin, 'console', path, path === '/licenses' ? 'admin-licenses' : path.replace(/[\/?=&]/g, '_'));
+        // The admin site's MENU sheet, pictured on its Status page.
+        if (path === '/admin/status' && width <= 760) await sheet(`/out/${lang}-admin-menu-sheet-${width}.png`);
       }
+      // The DJ card's pickers as a person opens them, a tap on each (the page fresh: all of them closed), on the admin's
+      // page of a player whose chosen plate is the last of five, below its box's fold on a phone: the chosen picture of
+      // each is whole in its box (the box scrolled to it, never the page), and each box is a well, not a cut part.
+      await page.goto(admin + '/admin/players/HANA', {waitUntil: 'networkidle0'});
+      for (const head of await page.$$('#card details.picker > summary')) {
+        await head.click();
+        // The box scrolls on the picker's toggle, which the browser fires a moment after it opens.
+        await new Promise(done => setTimeout(done, 150));
+      }
+      const pickers = await page.evaluate(() => [...document.querySelectorAll('#card details.picker')].map(d => {
+        const box = d.querySelector('.choices'), chosen = d.querySelector('input:checked');
+        if (!box || !chosen) return {kind: box ? box.className : '', chosen: false};
+        const item = chosen.closest('.choice').getBoundingClientRect(), frame = box.getBoundingClientRect();
+        return {kind: box.className, open: d.open, scrolled: box.scrollTop,
+                whole: item.top >= frame.top - 0.5 && item.bottom <= frame.bottom + 0.5,
+                well: getComputedStyle(box).clipPath === 'none'};
+      }));
+      // Three pickers (icon, plate, pattern), every one opened, its chosen one whole, its box a well.
+      const pickersFine = pickers.length === 3 && pickers.every(p => p.open && p.whole && p.well);
+      summary.pickers += 1;
+      if (!pickersFine) summary.picker_faults += 1;
+      console.log(lang, width, 'card pickers opened', pickersFine ? 'ok' : 'FAULT', JSON.stringify(pickers));
       // Each question: open, inside the screen, its question filled in; Esc closes it and nothing goes.
       for (const [what, site, path, button, fill] of questions) {
         await page.goto(site + path, {waitUntil: 'networkidle0'});
@@ -428,6 +472,59 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
       await page.goto(base + '/', {waitUntil: 'networkidle0'});
       await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}),
                          page.evaluate(() => document.querySelector('form[action="/signout"]').requestSubmit())]);
+    }
+  }
+  // Copy over plain http on the network: the server by its LAN address (no clipboard for the page there). On the players'
+  // site a token made on My account, on the admin site the message to send an account made there: the key shows, and
+  // pressed it copies the whole value (the browser's copy fired with all of it selected, the key saying Copied) or,
+  // where the browser refuses even that, leaves all of it selected and says Selected. Both languages.
+  if (lan) {
+    for (const lang of ['en', 'ko']) {
+      await page.setViewport({width: 1280, height: 860});
+      for (const [site, kind] of [['http://' + lan + ':4730', 'players'], ['http://' + lan + ':4731', 'console']]) {
+        await page.goto(site + '/lang/' + lang, {waitUntil: 'networkidle0'});
+        await page.goto(site + '/signin', {waitUntil: 'networkidle0'});
+        await page.type('input[name=login_id]', 'BOSS');
+        await page.type('input[name=password]', 'pass1234');
+        await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('button.primary')]);
+        let field;
+        if (kind === 'players') {
+          await page.goto(site + '/account', {waitUntil: 'networkidle0'});
+          await page.type('form:has(input[name=action][value=token_make]) input[name=name]', 'LAN copy ' + lang);
+          await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}),
+                             page.click('form:has(input[name=action][value=token_make]) button')]);
+          field = 'made-token';
+        } else {
+          await page.goto(site + '/admin/players', {waitUntil: 'networkidle0'});
+          await page.type('form:has(input[name=action][value=make]) input[name=login_id]', 'LAN' + (lang === 'en' ? '1' : '2'));
+          await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}),
+                             page.click('form:has(input[name=action][value=make]) button.primary')]);
+          field = 'message';
+        }
+        const before = await page.evaluate(field => {
+          // What the browser's copy takes, as it fires: the selection's text.
+          window.copied = null;
+          document.addEventListener('copy', () => { window.copied = String(window.getSelection()) ||
+            (document.activeElement && document.activeElement.value ? document.activeElement.value.slice(
+              document.activeElement.selectionStart, document.activeElement.selectionEnd) : ''); });
+          const key = document.querySelector('button[data-copy="' + field + '"]');
+          return {secure: window.isSecureContext, clipboard: !!navigator.clipboard, shown: !!key && !key.hidden && key.offsetWidth > 0};
+        }, field);
+        await page.click('button[data-copy="' + field + '"]');
+        await new Promise(done => setTimeout(done, 200));
+        const after = await page.evaluate(field => {
+          const box = document.getElementById(field), key = document.querySelector('button[data-copy="' + field + '"]');
+          const all = box.selectionStart === 0 && box.selectionEnd === box.value.length && box.value.length > 0;
+          return {said: key.textContent, done: key.dataset.done, selectedWord: key.dataset.selected, copied: window.copied,
+                  whole: window.copied === box.value, all};
+        }, field);
+        const fine = !before.secure && before.shown &&
+          ((after.said === after.done && after.whole) || (after.said === after.selectedWord && after.all));
+        summary.copies += 1;
+        if (!fine) summary.copy_faults += 1;
+        await page.screenshot({path: `/out/${lang}-lan-copy-${kind}-1280.png`});
+        console.log(lang, 1280, 'copy over plain http (' + kind + ')', fine ? 'ok' : 'FAULT', JSON.stringify({before, after}));
+      }
     }
   }
   await browser.close();

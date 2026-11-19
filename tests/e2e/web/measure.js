@@ -13,9 +13,8 @@
 //                 lost the box that centres its words, and they rose to its top edge beside two buttons that kept it);
 //   forms         a field with no label, a slot not of the forms' heights (34, 42, 44, 48), the browser's own list or
 //                 tick, a rule in a bracketed placeholder, a field marked wrong with no words under it (FORMS.md);
-//   wraps         a number or a date that breaks over two lines (2026-11- over 17 09:30): one is read whole, so a run
-//                 of digits and the marks it is written with (- : . , / and the word joiner the dates carry) lies on
-//                 one line;
+//   wraps         a number or a date that breaks over two lines (2026-11- over 17 09:30, 1 over 2), a figure parted
+//                 from its unit (7.8 over GB) or a time from its date: each is read whole, so it lies on one line;
 //   spacing       boxes (a card, a button, a field, a tag, an alert: anything with a fill, a border or a shadow) that
 //                 touch or overlap a box beside them in the same parent; words nearer a box's edge than its padding;
 //                 a gap between two boxes beside each other that is off the site's scale (whole steps of 2 px up to
@@ -210,24 +209,27 @@ const layout = page => page.evaluate(() => {
     const said = (f.getAttribute('aria-describedby') || '').split(/\s+/).map(id => document.getElementById(id)).filter(Boolean);
     if (!said.some(e => e.matches('.field-error'))) forms.push(name(f) + ' is marked wrong with no words under it');
   }
-  // ---- a number or a date breaking over two lines: each run of digits and its marks, as a range of its text, has its
-  // first and last boxes on one line (a range that wraps gives a box on each line it is on). Only a number or a date
-  // that is a word of its own: digits inside a longer word (a backup's file name, openDMT3-20261117-045835-manual.sqlite)
-  // are that word's, which may break where a long name must.
+  // ---- a number or a date breaking over two lines, or a figure parted from its unit, or a time from its date: each
+  // as a range of its text has its first and last boxes on one line (a range that wraps gives a box on each line it is
+  // on). A number of two digits or more, or digits with their marks (2026-11-17, 09:30, 1,234, 11/17); a figure and its
+  // unit (7.8 GB, 16.8 ms, 3 h, 12 min); a date and its time (2026-11-05 19:23). Only words of their own: digits inside
+  // a longer word (a backup's file name, opendmt3-backup-20261117-045835-manual.sqlite) are that word's, which may break
+  // where a long name must.
   const wraps = [];
   const texts = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  const figure = /(?<![\p{L}\p{N}_.-])\d+(?:[-\u2060:.,/]+\d+)+(?![\p{L}\p{N}_-])/gu;
+  const figure = /(?<![\p{L}\p{N}_.-])\d[\d\u2060:.,/-]*\d(?![\p{L}\p{N}_-])/gu;
+  const paired = /(?<![\p{L}\p{N}_.-])(?:\d{4}-\u2060?\d{2}-\u2060?\d{2}[ \u00a0]\d{1,2}:\d{2}|\d[\d,.]*[ \u00a0](?:[KMGT]B|ms|FPS|fps|min|h|Hz|dB|px)(?![\p{L}\p{N}_]))/gu;
   for (let n = texts.nextNode(); n; n = texts.nextNode()) {
     const host = n.parentElement;
     // Words a person sees: not a script's, not a field's own (a textarea draws its text inside itself), not hidden.
     if (!host || host.closest('script, style, textarea, dialog:not([open]), [hidden]') || !shown(host)) continue;
-    for (const m of n.textContent.matchAll(figure)) {
+    for (const m of [...n.textContent.matchAll(figure), ...n.textContent.matchAll(paired)]) {
       const range = document.createRange();
       range.setStart(n, m.index);
       range.setEnd(n, m.index + m[0].length);
       const boxes = [...range.getClientRects()].filter(r => r.width > 0 && r.height > 0);
       if (boxes.length > 1 && boxes[boxes.length - 1].top - boxes[0].top > boxes[0].height / 2) {
-        wraps.push(name(host) + ' "' + m[0].replace(/\u2060/g, '') + '" breaks over two lines');
+        wraps.push(name(host) + ' "' + m[0].replace(/\u2060/g, '').replace(/\u00a0/g, ' ') + '" breaks over two lines');
       }
     }
   }

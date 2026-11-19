@@ -660,7 +660,10 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 | SITE-203 | The admin site's Song list page | The song list's state and the ways to take it in, no paragraph of guidance and no command to copy | `tests/server/test_web_review.py#SongListPageTest` | unit |
 | SITE-204 | The DJ card's editor | The comment's limit under the comment | `tests/server/test_web_review.py#CardEditorTest` | unit |
 | SITE-205 | The review's words | A field named for what it takes, Korean as it is said, nothing that reads unfinished, no advice | `tests/server/test_web_review.py#WordsTest` | unit |
+| SITE-206 | Copy on the token shown once and on the message to send, over plain http on the server's LAN address, both languages | The key shows; pressed, the browser's copy takes the whole value and the key says Copied (or, refused, the whole value stays selected and the key says Selected) | `tests/e2e/web/shoot.js#copy over plain http` | web |
+| SITE-207 | MENU on a phone, on both sites, two widths, two languages | Its sheet opens and is pictured | `tests/e2e/web/shoot.js#menu sheet pictured` | web |
 | SITE-208 | The DJ card's editor with a picture of each kind | Each box of pictures is a well, never drawn as a cut part (no class of the cut parts' rule) | `tests/server/test_web_review.py#test_no_box_of_choices_carries_a_class_the_cut_parts_have` | unit |
+| SITE-209 | The admin's page of a player whose chosen plate is the last of five, each picker opened by a tap, every width and language | The chosen picture of each is whole in its box, the box scrolled to it, and the box is a well | `tests/e2e/web/shoot.js#card pickers opened` | web |
 
 ## TS-TEXT: the words
 

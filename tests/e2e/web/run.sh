@@ -77,7 +77,10 @@ done
 # The upload field's words in both languages, from the site's own table, for the browser to hold the page to.
 WORDS=$(cd "$REPO" && python3 -I -c 'import json, sys; sys.path.insert(0, "."); from opendmt3.server.web.strings import TEXT
 print(json.dumps({k: TEXT[k] for k in ("upload.none", "upload.choose", "upload.change")}))') || { echo "FAIL: the words"; exit 1; }
-timeout 1500 docker run --rm --name "$NAME-browser-$$" --network "$NET" -e SITE=http://site:4730 -e ADMIN=http://site:4731 -e NODE_PATH=/usr/src/app/node_modules -e WORDS="$WORDS" \
+# The server by its own address on that network too, as a player on a LAN reaches it: plain http on an IP address, where
+# the browser gives a page no clipboard (the Copy keys' other way is checked there).
+LANIP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$SRV")
+timeout 1500 docker run --rm --name "$NAME-browser-$$" --network "$NET" -e SITE=http://site:4730 -e ADMIN=http://site:4731 -e LANIP="$LANIP" -e NODE_PATH=/usr/src/app/node_modules -e WORDS="$WORDS" \
   -v "$REPO/tests/e2e/web:/w:ro" -v "$OUT/shots:/out" -w /usr/src/app zenika/alpine-chrome:with-puppeteer node /w/shoot.js \
   > "$OUT/shoot.txt" 2>&1
 status=$?
@@ -134,7 +137,8 @@ for what, key in (("pages stick out", "sticking"), ("pages cut words off", "cut"
                   ("pages have a form part out of its design (FORMS.md)", "form_faults"),
                   ("pages have their bar, the menu item showing or the side menu off the screen or under something "
                    "(at the top or halfway down), or the other site's frame", "frame_faults"),
-                  ("pages break a number or a date over two lines", "wrap_faults")):
+                  ("pages break a number or a date over two lines, or part a figure from its unit or a time from its date",
+                   "wrap_faults")):
     if s.get(key, 0) + e.get(key, 0):
         problems.append("%s: %d" % (what, s.get(key, 0) + e.get(key, 0)))
 if empty_status:
@@ -145,6 +149,15 @@ if s["filters"] != rounds or s["filter_faults"]:
     problems.append("the songs filter: %d of %d runs misbehaved" % (s["filter_faults"], s["filters"]))
 if s["messages"] != rounds or s["message_faults"]:
     problems.append("the message to send: %d of %d runs misbehaved" % (s["message_faults"], s["messages"]))
+# The phone's MENU sheets pictured: the players' and the admin site's, at two phone widths in two languages.
+if s.get("sheets", 0) != 8:
+    problems.append("the MENU sheets pictured: %d, not 8" % s.get("sheets", 0))
+# Copy over plain http on the LAN address: a token on the players' site and a message on the admin site, two languages.
+if s.get("copies", 0) != 4 or s.get("copy_faults", 0):
+    problems.append("Copy over plain http: %d of %d misbehaved" % (s.get("copy_faults", 0), s.get("copies", 0)))
+# The DJ card's pickers opened by a tap, every round: the chosen picture whole in its box, each box a well.
+if s.get("pickers", 0) != rounds or s.get("picker_faults", 0):
+    problems.append("the DJ card's pickers: %d of %d runs misbehaved" % (s.get("picker_faults", 0), s.get("pickers", 0)))
 if s["bars"] != rounds or s["bar_faults"]:
     problems.append("the toast (its place, and in one run its time) and the phone's menu sheet: %d of %d runs "
                     "misbehaved" % (s["bar_faults"], s["bars"]))
@@ -165,7 +178,8 @@ if status:
     problems.append("the browser exited %d" % status)
 print("FAIL: " + "; ".join(problems) if problems else "PASS: %d pages and %d of an empty server, nothing sticks out, "
       "no words cut off, no cell without a label, the phone menu whole, every button's words in its middle, boxes "
-      "apart and on the scale, every form in its design, every number and date whole, each site's frame on screen, "
+      "apart and on the scale, every form in its design, every number and date whole and with its unit, each site's "
+      "frame on screen, the MENU sheets pictured, Copy over plain http fine, the DJ card's pickers opened fine, "
       "%d floating layers "
       "whole and on top; the toast and the "
       "phone's menu sheet pressed; %d "
