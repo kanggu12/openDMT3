@@ -13,6 +13,7 @@ the work they followed.
 
 import asyncio
 import collections
+import logging
 import secrets
 import threading
 import time
@@ -26,6 +27,8 @@ QUICK = 3.0
 # Seconds a job is kept after it ended, and the jobs kept at most (the oldest ended one goes first).
 KEEP_SECONDS = 3600
 MOST = 50
+# The site's log, where a job's last step that failed is said (Jobs._run).
+log = logging.getLogger("opendmt3.web")
 # The kinds of job, and the steps each goes through in order (what the work says with progress.step): the page lists
 # the steps with the one it is on, and the bar counts them alike. An import's steps depend on what it reads, which its
 # first step tells (an archive is unpacked first, a song list is checked, a folder's songs are read at once): ROUTES
@@ -132,7 +135,9 @@ class Jobs:
                 try:
                     await long(finish, job)
                 except Exception:  # noqa: BLE001  (what comes after the work never changes how the work ended)
-                    pass
+                    # Said in the server's log with its traceback: the change log's line of an import, or its trace
+                    # kept, were lost without a word otherwise (a full disk, a database held past its wait).
+                    log.exception("the last step of a %s job could not be done", job.kind)
             if not job.finished.done():
                 job.finished.set_result(job)
 

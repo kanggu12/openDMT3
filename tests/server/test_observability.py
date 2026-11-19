@@ -230,6 +230,24 @@ class JobTest(unittest.TestCase):
         job = asyncio.run(run())
         self.assertEqual((job.state, job.view()["error"]["message"]), ("failed", "made-up failure"))
 
+    def test_a_failing_last_step_is_said_in_the_log_and_leaves_the_job_as_it_ended(self):
+        # A job's last step (the change log's line of an import, its traceback kept) failed without a word: a disk
+        # full or a database held past its wait lost that line and nobody could tell.
+        from opendmt3.server.web import jobs
+
+        def finish(job):
+            raise OSError("made-up full disk")
+
+        async def run():
+            job = jobs.Jobs().start("song_list", "BOSS", lambda: {"songs": 1}, finish=finish)
+            await job.finished
+            return job
+        with self.assertLogs("opendmt3.web", level="ERROR") as said:
+            job = asyncio.run(run())
+        self.assertEqual((job.state, job.result), ("done", {"songs": 1}))
+        self.assertIn("song_list", said.output[0])
+        self.assertIn("made-up full disk", "\n".join(said.output))
+
     def test_a_restore_says_its_steps(self):
         from opendmt3.server import db
         from opendmt3.server.services import backups, progress
