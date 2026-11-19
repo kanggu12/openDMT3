@@ -459,8 +459,10 @@ class ScrollArea(tk.Frame):
         # words under the title.
         self.head_height, self._head_item, self._sub_item = 0, None, None
         self.canvas.head_picture = None
-        # What the window does when the area changes width (the head is drawn again for it).
+        # What the window does when the area changes width (the head is drawn again for it), and the width it was last
+        # told of (None before the first).
         self.on_width = None
+        self._told_width = None
         self._window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
         self.canvas.configure(yscrollcommand=self._bar_set)
         self.canvas.pack(side="left", fill="both", expand=True)
@@ -519,8 +521,10 @@ class ScrollArea(tk.Frame):
         # The content is exactly as wide as the visible area; labels wrap to their own box (follow_width). The content
         # frame's new width sets the scrolled region again (its own <Configure>).
         self.canvas.itemconfigure(self._window, width=event.width)
-        if self.on_width is not None:
-            # The head is drawn again for the new width (the window waits for a drag to settle).
+        if self.on_width is not None and event.width != self._told_width:
+            # The head is drawn again for a new width (the window waits for a drag to settle). A window made only
+            # taller or shorter keeps its head: the head is as wide as the area, and its height is its words'.
+            self._told_width = event.width
             self.on_width(event.width)
 
     def _wheel(self, on):

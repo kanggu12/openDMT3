@@ -2637,3 +2637,27 @@ class StatusWordsTest(unittest.TestCase):
             self.assertEqual(app.break_long_words(self.Font(), text, 200), text)
         # No width known yet: the words as they are.
         self.assertEqual(app.break_long_words(self.Font(), "x" * 45, 0), "x" * 45)
+
+
+@unittest.skipUnless(TK, "this Python has no Tk")
+class PageHeadWidthTest(unittest.TestCase):
+    """The page's head is as wide as the page area and as tall as its words: it is drawn again when the area changes
+    width, and a window made only taller or shorter keeps the head it has."""
+
+    def test_only_a_new_width_draws_the_head_again(self):
+        from types import SimpleNamespace
+        from opendmt3.client import widgets
+        told = []
+        # The scroll area's parts _on_resize uses: its canvas, the content's window item, the window's callback.
+        area = SimpleNamespace(canvas=SimpleNamespace(itemconfigure=lambda *a, **k: None), _window=1,
+                               on_width=told.append, _told_width=None)
+        # The first size, a height drag, a width drag, a height drag again.
+        for width, height in ((900, 600), (900, 640), (900, 500), (910, 500), (920, 500), (920, 700)):
+            widgets.ScrollArea._on_resize(area, SimpleNamespace(width=width, height=height))
+        self.assertEqual(told, [900, 910, 920])
+        # No callback (a check that measures the page without its head): nothing told, the next width still is.
+        area.on_width = None
+        widgets.ScrollArea._on_resize(area, SimpleNamespace(width=930, height=700))
+        area.on_width = told.append
+        widgets.ScrollArea._on_resize(area, SimpleNamespace(width=930, height=700))
+        self.assertEqual(told, [900, 910, 920, 930])
