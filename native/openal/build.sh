@@ -49,7 +49,7 @@ fi
 # container only. Its name says whose it is, as the other build steps' do.
 docker run --rm --name "${OPENDMT3_E2E_NAME:-odt3}-openal-$$" --network none -u "$(id -u):$(id -g)" \
   -v "$OUT:/out" -v "$HERE:/here:ro" -e OPENAL_TAR="$OPENAL_TAR" -e DSOAL_TAR="$DSOAL_TAR" \
-  opendmt3-openal:local bash /here/inside.sh
+  -e OPENDMT3_BUILD_JOBS="${OPENDMT3_BUILD_JOBS:-2}" opendmt3-openal:local bash /here/inside.sh
 # Not executable here: a Windows program is never started from this machine (WSL would hand it to Windows).
 chmod 0644 "$OUT/dsoal-aldrv.dll" "$OUT/openDMT3-dsoal.dll"
 # The notices: what each part is, the archives it is built from with their hashes, and every licence text in them.

@@ -23,6 +23,9 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # Nothing here pushes with git: no token is left in the clone's git settings.
+          persist-credentials: false
 
       # The script the release machine runs before it builds (packaging/release.sh), with the runner's own Python.
       - name: The tag, __version__ and CHANGELOG.md name one version
@@ -43,6 +46,9 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # Nothing here pushes with git: no token is left in the clone's git settings.
+          persist-credentials: false
 
       # The version without the tag's v, and the registry's name in lower case, as image names must be.
       - name: The image's names

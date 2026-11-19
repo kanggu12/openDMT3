@@ -13,8 +13,22 @@ on:
 permissions:
   contents: read
 
+# A newer push to a branch or a pull request makes the run of the one before it moot: that run is cancelled. A tag's
+# run (release.yml calls this workflow) has a group of its own, so it is never cancelled nor held back by another.
+concurrency:
+  group: ci-${{ startsWith(github.ref, 'refs/tags/') && github.run_id || github.ref }}
+  cancel-in-progress: true
+
+# Every run block in bash with -o pipefail beside -e (GitHub's own `bash` shell; without it a step is `bash -e` alone):
+# a command failing inside a pipe fails its step, as in the maintainer's run of the jobs on a Linux PC. The windows
+# job keeps PowerShell.
+defaults:
+  run:
+    shell: bash
+
 # Every action from elsewhere is pinned by its commit, its release in a comment: a tag moved later never runs here
-# (tests/test_release_notes.py checks each).
+# (tests/test_release_notes.py checks each). No job pushes anything: each checkout leaves no token in the clone's git
+# settings for the steps after it.
 
 jobs:
   # The unit tests on the oldest Python a server runs on and on the one the server's image and the launcher run, with
@@ -31,6 +45,8 @@ jobs:
         python: ["3.10", "3.12"]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python }}
@@ -56,13 +72,15 @@ jobs:
       - name: The boundary test
         run: python -m unittest tests.test_architecture -v
 
-      # The one known line (updates.py imports velopack only to see whether it is there) is let through; any other
-      # fails the step.
+      # Everything pyflakes says, its standard error too (a file that does not parse is said there, and so is a
+      # pyflakes that cannot run): the one known line (updates.py imports velopack only to see whether it is there) is
+      # let through; any other fails the step.
       - name: pyflakes
         run: |
-          python -m pyflakes opendmt3 tests dmt3 packaging .github > lint.txt || true
+          python -m pyflakes opendmt3 tests dmt3 packaging .github > lint.txt 2>&1 || true
           cat lint.txt
-          ! grep -v "'velopack' imported but unused" lint.txt | grep -q .
+          extra=$(grep -v "'velopack' imported but unused" lint.txt || true)
+          test -z "$extra"
 
   # openDMT3's card reader library (native/cardreader), built for the game's 32 bits with MinGW-w64, with its touch
   # screen library and their notices, and its native tests under Wine, both in containers with no network (build.sh,
@@ -76,6 +94,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
       - name: The card reader library and its notices
         run: native/cardreader/build.sh "$PWD/_work/windows-parts"
@@ -86,7 +106,11 @@ jobs:
       - name: The official 7-Zip for Windows
         run: packaging/windows/sevenzip.sh "$PWD/_work/windows-parts"
 
+      # Four compilers at a time, the runner's four cores, which this job has to itself (the release machine's build
+      # keeps to two, beside the rest of its work).
       - name: The Sound page's OpenAL Soft mixer (DSOAL and OpenAL Soft) and its notices
+        env:
+          OPENDMT3_BUILD_JOBS: 4
         run: native/openal/build.sh "$PWD/_work/windows-parts/openal"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -105,38 +129,59 @@ jobs:
   # The launcher's screens on a virtual screen in a container with no network: the first-start guide, every page, the
   # dialogs, the installer's states and the keyboard focus, in English and Korean at 1180x760, 960x640 and 1600x1000,
   # each measured for text cut off, a label never told its width, a squeezed button or anything past the window's edge
-  # (tests/e2e/ui/run.sh). Every size must end with 0 problems.
+  # (tests/e2e/ui/run.sh). Every size must end with 0 problems. A job for each language, both at once: each runs its
+  # three sizes one after another on a runner of its own, as one job ran all six.
   ui:
     runs-on: ubuntu-24.04
-    # Building the test machine and six sizes of screens: several times that is a stalled job.
+    # Building the test machine and three sizes of screens, each with 15 minutes of its own in run.sh: several times
+    # what this job takes is a stalled job.
     timeout-minutes: 45
+    strategy:
+      # Each language's result is seen, whichever fails first.
+      fail-fast: false
+      matrix:
+        lang: [en, ko]
+    env:
+      UI_LANG: ${{ matrix.lang }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
       - name: Every screen, with the layout check
         run: |
-          tests/e2e/ui/run.sh "$PWD/_work/ui" en ko | tee ui.txt
-          # Each language at each size said its screens and 0 problems: six lines, none with a problem.
-          test "$(grep -cE '^(en|ko)-[0-9]+x[0-9]+: [0-9]+ screens, 0 problems$' ui.txt)" = 6
+          tests/e2e/ui/run.sh "$PWD/_work/ui" "$UI_LANG" | tee ui.txt
+          # The language at each of its three sizes said its screens (some, never none) and 0 problems: three lines.
+          test "$(grep -cE "^$UI_LANG-[0-9]+x[0-9]+: [1-9][0-9]* screens, 0 problems\$" ui.txt)" = 3
 
       # What the screens looked like, for looking through: also when it passed.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: ui-screens
+          name: ui-screens-${{ matrix.lang }}
           path: _work/ui
           retention-days: 14
 
   # The site's pages in headless Chrome against the server's image on made-up data, both in containers on a network of
   # their own: every page in English and Korean at a desktop and a phone width, the questions asked first, the upload
   # fields by mouse, keyboard and screen reader, both uploads, the songs filter, a token shown once and maintenance off
-  # and on (tests/e2e/web/run.sh).
+  # and on (tests/e2e/web/run.sh). A job for each of its two servers, both at once: the one with made-up data, and the
+  # empty one (OPENDMT3_WEB_PART), each judged whole on a runner of its own, as one job ran them one after the other.
   web:
     runs-on: ubuntu-24.04
     # The server's image and Chrome's: several times what this job takes is a stalled job.
     timeout-minutes: 30
+    strategy:
+      # Each server's result is seen, whichever fails first.
+      fail-fast: false
+      matrix:
+        part: [full, empty]
+    env:
+      OPENDMT3_WEB_PART: ${{ matrix.part }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
       - name: Every page, with the layout check
         run: tests/e2e/web/run.sh "$PWD/_work/web"
@@ -146,7 +191,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: web-pages
+          name: web-pages-${{ matrix.part }}
           path: |
             _work/web
             !_work/web/data
@@ -161,6 +206,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
       - name: The server's image
         run: docker build -f packaging/docker/Dockerfile -t opendmt3-server:ci .
@@ -172,6 +219,8 @@ jobs:
 
       - name: Started, answering /health, as its own user
         run: |
+          # Stopped however the step ends, a failed check's too (a run on a PC again finds the name free).
+          trap 'docker rm -f odt3-ci-server >/dev/null 2>&1' EXIT
           docker run -d --name odt3-ci-server -p 127.0.0.1:14730:4730 opendmt3-server:ci >/dev/null
           # Up when /health answers (the server makes its database first).
           code=000
@@ -186,7 +235,10 @@ jobs:
           # The version this tree carries, in the answer and on the site's pages.
           version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' opendmt3/__init__.py)
           grep -q "\"version\":\"$version\"" /tmp/health.json
-          curl -sf http://127.0.0.1:14730/licenses | grep -q "openDMT3 $version"
+          # The page kept whole first: grep -q stops at its first match, and with pipefail a curl still writing to it
+          # would fail the step for a page that is right.
+          curl -sf -o /tmp/licenses.html http://127.0.0.1:14730/licenses
+          grep -q "openDMT3 $version" /tmp/licenses.html
           # Its own user (packaging/docker/Dockerfile), not root.
           test "$(docker exec odt3-ci-server id -u)" = 4725
           docker rm -f odt3-ci-server >/dev/null
@@ -213,8 +265,14 @@ jobs:
     runs-on: windows-latest
     # PyInstaller and the unit tests: several times what this job takes is a stalled job.
     timeout-minutes: 30
+    # Windows' own shell, as the runner gives it (the workflow's bash is for the Linux jobs).
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"

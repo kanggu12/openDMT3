@@ -23,7 +23,8 @@ docker run --rm --name "${OPENDMT3_E2E_NAME:-odt3-ui}-$$" --network none -e PYTH
   -e OPENDMT3_SHOTS_ONLY -v "$REPO:/src:ro" -v "$OUT:/out" -w /src \
   opendmt3-ui:local bash -c "
     Xvfb :99 -screen 0 1920x1200x24 -nolisten tcp >/dev/null 2>&1 &
-    sleep 1
+    # Up once it answers (a tenth of a second on this PC, more on a slow runner), not after a second's guess.
+    for _ in \$(seq 100); do xdpyinfo -display :99 >/dev/null 2>&1 && break; sleep 0.1; done
     # The bundled fonts, known to fontconfig the way Windows loads them privately.
     mkdir -p /usr/local/share/fonts/opendmt3 && cp opendmt3/client/assets/fonts/*.ttf /usr/local/share/fonts/opendmt3/ && fc-cache -f >/dev/null
     status=0

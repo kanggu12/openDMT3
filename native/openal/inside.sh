@@ -20,14 +20,17 @@ cmake -S "$AL" -B al -G Ninja -DCMAKE_TOOLCHAIN_FILE="$PWD/$AL/XCompile.txt" -DH
   -DALSOFT_ENABLE_MODULES=OFF -DALSOFT_STATIC_LIBGCC=ON -DALSOFT_STATIC_STDCXX=ON -DALSOFT_STATIC_WINPTHREAD=ON \
   -DALSOFT_STL_HARDENING=None \
   > /tmp/al-cmake.log 2>&1 || { tail -30 /tmp/al-cmake.log; exit 1; }
-# Two compilers at a time: the build shares the machine.
-ninja -C al -j2 > /tmp/al-build.log 2>&1 || { tail -30 /tmp/al-build.log; exit 1; }
+# Two compilers at a time: the build shares the machine (OPENDMT3_BUILD_JOBS gives another count, as CI does for a
+# runner the build has to itself). Whichever count builds them, the libraries are the same but for the time they
+# were linked at, which differs from one build to the next anyway.
+JOBS=${OPENDMT3_BUILD_JOBS:-2}
+ninja -C al -j"$JOBS" > /tmp/al-build.log 2>&1 || { tail -30 /tmp/al-build.log; exit 1; }
 # DSOAL: its own CMake, the same compiler and the runtimes linked in too, with no STL hardening either (above).
 cmake -S "$DS" -B ds -G Ninja -DCMAKE_TOOLCHAIN_FILE="$PWD/$AL/XCompile.txt" -DHOST=i686-w64-mingw32 \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_SHARED_LINKER_FLAGS="-static -static-libgcc -static-libstdc++" \
   -DDSOAL_STL_HARDENING=None \
   > /tmp/ds-cmake.log 2>&1 || { tail -30 /tmp/ds-cmake.log; exit 1; }
-ninja -C ds -j2 > /tmp/ds-build.log 2>&1 || { tail -30 /tmp/ds-build.log; exit 1; }
+ninja -C ds -j"$JOBS" > /tmp/ds-build.log 2>&1 || { tail -30 /tmp/ds-build.log; exit 1; }
 # Under the names openal.c loads them by, stripped of their symbols.
 i686-w64-mingw32-strip -o /out/dsoal-aldrv.dll al/OpenAL32.dll
 i686-w64-mingw32-strip -o /out/openDMT3-dsoal.dll ds/dsound.dll

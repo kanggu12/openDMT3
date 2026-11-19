@@ -16,10 +16,16 @@
 #                                        OUT_DIR/empty.txt)
 #
 # OPENDMT3_REPO points the run at another copy (the check itself is tested on a copy with a planted fault:
-# tests/e2e/web/selftest.sh).
+# tests/e2e/web/selftest.sh). OPENDMT3_WEB_PART=full runs the server with made-up data alone, =empty the empty server
+# alone, each judged whole as in a run of both (CI runs the two at once, a job each); unset, both, one after the other.
 set -u
 OUT=$(realpath -m "${1:?usage: run.sh OUT_DIR}")
 REPO=${OPENDMT3_REPO:-$(cd "$(dirname "$0")/../../.." && pwd)}
+PART=${OPENDMT3_WEB_PART:-both}
+case $PART in
+  both|full|empty) ;;
+  *) echo "FAIL: OPENDMT3_WEB_PART is full or empty (or unset, for both), not $PART"; exit 2 ;;
+esac
 # 32 pages (the players' site: its sign-in page, 10 pages signed in, and the admin pages' old address on its port; the
 # admin site: its sign-in page, 12 pages signed in with two players' own pages and its Licenses page; then the players
 # page with a message to send, the Status page with a line to look at, the songs page filtered, the account page with a
@@ -57,6 +63,11 @@ chmod 777 "$OUT/shots" "$OUT/data" "$OUT/empty-data"
 # The server image from the tree under test, every time (a tag of its own: a copy with a planted fault never
 # becomes the image other tests use).
 docker build -q -f "$REPO/packaging/docker/Dockerfile" -t "$TAG" "$REPO" >/dev/null || { echo "FAIL: the image did not build"; exit 1; }
+# What a part left out says in place of its browser's last line (never a file of an earlier run in OUT_DIR), and its
+# browser's exit code: the verdict below judges only the part that ran.
+summary=skipped
+status=0
+if [ "$PART" != empty ]; then
 docker run --rm --name "$NAME-seed-$$" --network none -e PYTHONPATH=/app -v "$OUT/data:/data" -v "$REPO/tests/e2e/web:/t:ro" --entrypoint python "$TAG" /t/seed.py /data \
   || { echo "FAIL: the data did not seed"; exit 1; }
 # The song list the seed saved, where the browser can upload it from.
@@ -85,6 +96,11 @@ timeout 1500 docker run --rm --name "$NAME-browser-$$" --network "$NET" -e SITE=
   > "$OUT/shoot.txt" 2>&1
 status=$?
 docker logs "$SRV" > "$OUT/server.log" 2>&1
+summary=$(tail -1 "$OUT/shoot.txt")
+fi
+empty=skipped
+empty_status=0
+if [ "$PART" != full ]; then
 # The empty server: no data seeded, no network at all but its own (the browser joins it, so its visits come from
 # 127.0.0.1, which the first-run page asks for).
 docker run -d --name "$EMPTY" --network none -v "$OUT/empty-data:/data" "$TAG" >/dev/null
@@ -98,33 +114,44 @@ timeout 1500 docker run --rm --name "$NAME-empty-browser-$$" --network "containe
   > "$OUT/empty.txt" 2>&1
 empty_status=$?
 docker logs "$EMPTY" > "$OUT/empty-server.log" 2>&1
-cleanup
-summary=$(tail -1 "$OUT/shoot.txt")
 empty=$(tail -1 "$OUT/empty.txt")
+fi
+cleanup
 echo "$summary"
 echo "$empty"
-grep -hE "STICKS OUT|CUT OFF|NO LABEL|MENU CUT|BUTTON ASKEW|FAULT" "$OUT/shoot.txt" "$OUT/empty.txt"
+# The faults each browser said, from the parts that ran (a part left out has no file of this run's).
+said=()
+[ "$PART" != empty ] && said+=("$OUT/shoot.txt")
+[ "$PART" != full ] && said+=("$OUT/empty.txt")
+grep -hE "STICKS OUT|CUT OFF|NO LABEL|MENU CUT|BUTTON ASKEW|FAULT" "${said[@]}"
 python3 - "$summary" "$status" "$EXPECTED_PAGES" "$EXPECTED_DIALOGS" "$EXPECTED_ROUNDS" "$empty" "$empty_status" \
-  "$EXPECTED_EMPTY_PAGES" "$EXPECTED_EMPTY_STATES" <<'PY'
+  "$EXPECTED_EMPTY_PAGES" "$EXPECTED_EMPTY_STATES" "$PART" <<'PY'
 import json, sys
 summary, status, pages, dialogs, rounds = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
 empty, empty_status, empty_pages, empty_states = sys.argv[6], int(sys.argv[7]), int(sys.argv[8]), int(sys.argv[9])
-try:
-    s = json.loads(summary)
-except ValueError:
-    sys.exit("FAIL: the browser run ended early (exit %d); see shoot.txt" % status)
-try:
-    e = json.loads(empty)
-except ValueError:
-    sys.exit("FAIL: the empty server's browser run ended early (exit %d); see empty.txt" % empty_status)
+# Which servers' checks ran: both, or one alone (OPENDMT3_WEB_PART); the one that ran is judged whole.
+part = sys.argv[10]
+full, bare = part in ("both", "full"), part in ("both", "empty")
+# A part left out gives nothing to judge (its counts are none, its faults none), never a pass of its own.
+s, e = {}, {}
+if full:
+    try:
+        s = json.loads(summary)
+    except ValueError:
+        sys.exit("FAIL: the browser run ended early (exit %d); see shoot.txt" % status)
+if bare:
+    try:
+        e = json.loads(empty)
+    except ValueError:
+        sys.exit("FAIL: the empty server's browser run ended early (exit %d); see empty.txt" % empty_status)
 problems = []
-if s["pages"] != pages:
+if full and s["pages"] != pages:
     problems.append("looked at %d pages, not %d" % (s["pages"], pages))
-if s["dialogs"] != dialogs:
+if full and s["dialogs"] != dialogs:
     problems.append("opened the questions %d times, not %d" % (s["dialogs"], dialogs))
-if e["pages"] != empty_pages:
+if bare and e["pages"] != empty_pages:
     problems.append("looked at %d pages of the empty server, not %d" % (e["pages"], empty_pages))
-if e["states"] != empty_states or e["state_faults"]:
+if bare and (e["states"] != empty_states or e["state_faults"]):
     problems.append("the empty server's states: %d of %d did not hold" % (e["state_faults"], e["states"]))
 # The layout's measure, the full server's pages and the empty one's together: each kind of fault and how many pages
 # have it (the kinds' words are what docs/test-cases.md and selftest.sh look for).
@@ -143,48 +170,59 @@ for what, key in (("pages stick out", "sticking"), ("pages cut words off", "cut"
         problems.append("%s: %d" % (what, s.get(key, 0) + e.get(key, 0)))
 if empty_status:
     problems.append("the empty server's browser exited %d" % empty_status)
-if s["dialog_faults"]:
-    problems.append("%d questions misbehaved" % s["dialog_faults"])
-if s["filters"] != rounds or s["filter_faults"]:
-    problems.append("the songs filter: %d of %d runs misbehaved" % (s["filter_faults"], s["filters"]))
-if s["messages"] != rounds or s["message_faults"]:
-    problems.append("the message to send: %d of %d runs misbehaved" % (s["message_faults"], s["messages"]))
-# The phone's MENU sheets pictured: the players' and the admin site's, at two phone widths in two languages.
-if s.get("sheets", 0) != 8:
-    problems.append("the MENU sheets pictured: %d, not 8" % s.get("sheets", 0))
-# Copy over plain http on the LAN address: a token on the players' site and a message on the admin site, two languages.
-if s.get("copies", 0) != 4 or s.get("copy_faults", 0):
-    problems.append("Copy over plain http: %d of %d misbehaved" % (s.get("copy_faults", 0), s.get("copies", 0)))
-# The DJ card's pickers opened by a tap, every round: the chosen picture whole in its box, each box a well.
-if s.get("pickers", 0) != rounds or s.get("picker_faults", 0):
-    problems.append("the DJ card's pickers: %d of %d runs misbehaved" % (s.get("picker_faults", 0), s.get("pickers", 0)))
-if s["bars"] != rounds or s["bar_faults"]:
-    problems.append("the toast (its place, and in one run its time) and the phone's menu sheet: %d of %d runs "
-                    "misbehaved" % (s["bar_faults"], s["bars"]))
-if s["looks"] != rounds or s["look_faults"]:
-    problems.append("the list to look at: %d of %d runs misbehaved" % (s["look_faults"], s["looks"]))
-# Two upload fields a round, the Backups tab's and the Song list tab's.
-if s["drops"] != 2 * rounds or s["drop_faults"]:
-    problems.append("the upload fields: %d of %d misbehaved" % (s["drop_faults"], s["drops"]))
-for what, done, faults in (("the token shown once", "tokens", "token_faults"), ("the upload", "uploads", "upload_faults"),
-                           ("the song list's upload", "song_lists", "song_list_faults"),
-                           ("maintenance off and on", "maintenances", "maintenance_faults")):
-    if s[done] != rounds or s[faults]:
-        problems.append("%s: %d of %d runs misbehaved" % (what, s[faults], s[done]))
-# The floating layers: the full server's pages have the charts and the DJ's weeks, so some were opened.
-if not s["layers"]:
-    problems.append("no floating layer was opened")
+if full:
+    if s["dialog_faults"]:
+        problems.append("%d questions misbehaved" % s["dialog_faults"])
+    if s["filters"] != rounds or s["filter_faults"]:
+        problems.append("the songs filter: %d of %d runs misbehaved" % (s["filter_faults"], s["filters"]))
+    if s["messages"] != rounds or s["message_faults"]:
+        problems.append("the message to send: %d of %d runs misbehaved" % (s["message_faults"], s["messages"]))
+    # The phone's MENU sheets pictured: the players' and the admin site's, at two phone widths in two languages.
+    if s.get("sheets", 0) != 8:
+        problems.append("the MENU sheets pictured: %d, not 8" % s.get("sheets", 0))
+    # Copy over plain http on the LAN address: a token on the players' site and a message on the admin site, two languages.
+    if s.get("copies", 0) != 4 or s.get("copy_faults", 0):
+        problems.append("Copy over plain http: %d of %d misbehaved" % (s.get("copy_faults", 0), s.get("copies", 0)))
+    # The DJ card's pickers opened by a tap, every round: the chosen picture whole in its box, each box a well.
+    if s.get("pickers", 0) != rounds or s.get("picker_faults", 0):
+        problems.append("the DJ card's pickers: %d of %d runs misbehaved" % (s.get("picker_faults", 0), s.get("pickers", 0)))
+    if s["bars"] != rounds or s["bar_faults"]:
+        problems.append("the toast (its place, and in one run its time) and the phone's menu sheet: %d of %d runs "
+                        "misbehaved" % (s["bar_faults"], s["bars"]))
+    if s["looks"] != rounds or s["look_faults"]:
+        problems.append("the list to look at: %d of %d runs misbehaved" % (s["look_faults"], s["looks"]))
+    # Two upload fields a round, the Backups tab's and the Song list tab's.
+    if s["drops"] != 2 * rounds or s["drop_faults"]:
+        problems.append("the upload fields: %d of %d misbehaved" % (s["drop_faults"], s["drops"]))
+    for what, done, faults in (("the token shown once", "tokens", "token_faults"), ("the upload", "uploads", "upload_faults"),
+                               ("the song list's upload", "song_lists", "song_list_faults"),
+                               ("maintenance off and on", "maintenances", "maintenance_faults")):
+        if s[done] != rounds or s[faults]:
+            problems.append("%s: %d of %d runs misbehaved" % (what, s[faults], s[done]))
+    # The floating layers: the full server's pages have the charts and the DJ's weeks, so some were opened.
+    if not s["layers"]:
+        problems.append("no floating layer was opened")
 if status:
     problems.append("the browser exited %d" % status)
-print("FAIL: " + "; ".join(problems) if problems else "PASS: %d pages and %d of an empty server, nothing sticks out, "
-      "no words cut off, no cell without a label, the phone menu whole, every button's words in its middle, boxes "
-      "apart and on the scale, every form in its design, every number and date whole and with its unit, each site's "
-      "frame on screen, the MENU sheets pictured, Copy over plain http fine, the DJ card's pickers opened fine, "
-      "%d floating layers "
-      "whole and on top; the toast and the "
-      "phone's menu sheet pressed; %d "
-      "questions fine; %d upload fields fine; the songs filter, the message to send, the list to look at, the token "
-      "shown once, both uploads and maintenance off and on fine in %d runs; the empty server's %d states hold" % (
-          s["pages"], e["pages"], s["layers"], s["dialogs"], s["drops"], rounds, e["states"]))
-sys.exit(1 if problems else 0)
+if problems:
+    print("FAIL: " + "; ".join(problems))
+    sys.exit(1)
+# What held, in the words of the parts that ran.
+held = ("nothing sticks out, no words cut off, no cell without a label, the phone menu whole, every button's words in "
+        "its middle, boxes apart and on the scale, every form in its design, every number and date whole and with its "
+        "unit, each site's frame on screen")
+full_held = ("the MENU sheets pictured, Copy over plain http fine, the DJ card's pickers opened fine, "
+             "%d floating layers whole and on top; the toast and the phone's menu sheet pressed; %d questions fine; %d "
+             "upload fields fine; the songs filter, the message to send, the list to look at, the token shown once, "
+             "both uploads and maintenance off and on fine in %d runs" % (s["layers"], s["dialogs"], s["drops"], rounds)
+             if full else "")
+bare_held = "the empty server's %d states hold" % e["states"] if bare else ""
+if full and bare:
+    print("PASS: %d pages and %d of an empty server, %s, %s; %s" % (s["pages"], e["pages"], held, full_held, bare_held))
+elif full:
+    print("PASS: %d pages, %s, %s (the empty server: OPENDMT3_WEB_PART=empty)" % (s["pages"], held, full_held))
+else:
+    print("PASS: %d pages of an empty server, %s; %s (the server with made-up data: OPENDMT3_WEB_PART=full)" % (
+        e["pages"], held, bare_held))
+sys.exit(0)
 PY
