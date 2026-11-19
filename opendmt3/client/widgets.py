@@ -2045,7 +2045,9 @@ class Said(tk.Frame):
         self.ui, self.tone, self.text, self.font = ui, None, "", font or ui.fonts.small
         # FORMS.md's lamp before an error: the launcher's leaning one, 9 by 7.
         self.lamp = Lamp(self, ui, theme.MUTED, bg=bg, size=(9, 7))
-        self.words = label(self, ui, "", font=self.font, fg=theme.HINT, bg=bg, wrap_margin=0, beside=(self.lamp,))
+        # The words wrap at the line's width less the lamp and the 8 px after it (set()): with the lamp lit, the line is
+        # never wider than its box, so an error under a field never widens the field's column (the final review's B-08).
+        self.words = label(self, ui, "", font=self.font, fg=theme.HINT, bg=bg, wrap_margin=8, beside=(self.lamp,))
         self.words.pack(side="right", fill="x", expand=True)
         # A link after the words, when the line has a way on (Test the connection after a server that did not answer).
         self.link = None

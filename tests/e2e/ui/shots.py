@@ -991,11 +991,16 @@ def interactions_check(app, out, tag, problems):
         fields = [form.fields[k] for k in ("online.id", "online.password", "online.dj")]
         fields[0].insert(0, "NEWDJ")
         fields[1].insert(0, "1")
+        # Where the fields stand before the error, to hold that an error under one never moves the others (B-08).
+        places = [f.winfo_rootx() for f in fields] + [form.winfo_width()]
         # Add a player, as a click on it does.
         form.submit_button.press()
         wait_out(app, 0.3)
         shot(app, out, "%s_online-field-error" % tag)
         measure(app, "%s_online-field-error" % tag, problems)
+        if [f.winfo_rootx() for f in fields] + [form.winfo_width()] != places:
+            problems.append("%s_online-field-error: the error under Password moved the form (%r, then %r)"
+                            % (tag, places, [f.winfo_rootx() for f in fields] + [form.winfo_width()]))
         said = [k for k, e in form.errors.items() if e.winfo_ismapped() and e.tone == "bad"]
         if said != ["online.password"] or not fields[1].error:
             problems.append("%s: a password too short was not said under the Password field (%s said)"
