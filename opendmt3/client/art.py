@@ -669,6 +669,9 @@ def name_plate(text, scale=1.0, fill=None, colour=None):
     return img
 
 
+# PLAY's five looks at its size: the guide's last step and the launcher's column share them, and a window made again
+# (another language) takes them.
+@_kept(12)
 def play_button(width, height, state="normal"):
     """The PLAY button as the game sets its chosen mode (TOUCH TO START): a leaning blue slab with light stripes on
     the slant and a bright top rim; flat and dark while it cannot be pressed or the game is open."""

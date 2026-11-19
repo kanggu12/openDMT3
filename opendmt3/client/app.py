@@ -257,12 +257,12 @@ class LauncherApp:
     def _make_play(self, parent):
         """PLAY: the angular blue slab, its word in the game's wide letters."""
         px = self.ui.px
-        size = self.play_size(self.rail)
-        self._play_pictures = {s: art.play_button(*size, state=s)
-                               for s in ("normal", "hover", "pressed", "disabled", "playing")}
-        self._play_images = {s: ImageTk.PhotoImage(p, master=self.root) for s, p in self._play_pictures.items()}
+        # Its size, and its pictures by look, each drawn the first time that look shows (_play_image): a start shows
+        # one or two of the five, and drawing all five took 36 ms of the start at 200 %.
+        self._play_size = self.play_size(self.rail)
+        self._play_pictures, self._play_images = {}, {}
         # The keyboard reaches it too, as OpenDMTQ's PLAY: Tab brings a cyan ring round it, Enter or Space presses it.
-        button = tk.Label(parent, image=self._play_images["normal"], text=self.words("bottom.play"),
+        button = tk.Label(parent, image=self._play_image("normal"), text=self.words("bottom.play"),
                           compound="center", font=self.fonts.display_big, fg=theme.TEXT, bg=theme.BAR,
                           cursor="hand2", bd=0, takefocus=1, highlightthickness=max(1, px(2)),
                           highlightbackground=theme.BAR, highlightcolor=theme.CYAN)
@@ -273,6 +273,17 @@ class LauncherApp:
         for key in ("<Return>", "<KP_Enter>", "<space>"):
             button.bind(key, lambda e: self.play())
         return button
+
+    def _play_image(self, look):
+        """PLAY's Tk image in `look` (normal, hover, pressed, disabled, playing), its picture drawn the first time that
+        look shows; art.play_button keeps it for a window made again (another language, the guide's end)."""
+        if look not in self._play_images:
+            picture = art.play_button(*self._play_size, state=look)
+            # The picture for a dialog's view of the window (snapshot.py), the Tk image for the label: both kept here,
+            # as Tk drops an image the moment Python forgets it.
+            self._play_pictures[look] = picture
+            self._play_images[look] = ImageTk.PhotoImage(picture, master=self.root)
+        return self._play_images[look]
 
     def _paint_play(self, mouse=None):
         """The button's look follows the state first (busy, playing), then the mouse."""
@@ -285,8 +296,10 @@ class LauncherApp:
             look, text = "disabled", self.words("bottom.play")
         else:
             look, text = mouse or "normal", self.words("bottom.play")
+        # The look's image first (drawn now if it never showed), then its picture for a dialog's view of the window.
+        image = self._play_image(look)
         self.play_button.opendmt3_picture = self._play_pictures[look]
-        self.play_button.configure(image=self._play_images[look], text=text,
+        self.play_button.configure(image=image, text=text,
                                    fg=theme.TEXT if look not in ("disabled", "playing") else theme.FAINT,
                                    cursor="hand2" if look not in ("disabled", "playing") else "arrow")
         # One lit main action on the screen, as OpenDMTQ's launcher has it: a page's main button (Connect, Sign in,
