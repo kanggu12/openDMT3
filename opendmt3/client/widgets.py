@@ -1828,6 +1828,9 @@ class Card(tk.Frame):
             top = ui.px(12)
         # A card's action at the head's right end stands a little in from the seam, its top in line with the tab's.
         self.head_pad = (ui.px(pad - 8), ui.px(6))
+        # The room a control keeps at the card's top right: the cut and the card's own padding, so that no key or tag
+        # stands in the 45-degree cut or flush against it (the owner, twice: the corner handled awkwardly).
+        self.corner_room = ui.px(self.cut + pad)
         if look.get("well"):
             # The status panel's sunken screen, set into the plate: a pixel of shade round it, its lower edge catching
             # the light, the rows on it. It ends with its rows: a plate taller than them shows its own face below.
@@ -1903,19 +1906,28 @@ class Card(tk.Frame):
         self.state_lamp.image, self.state_lamp.opendmt3_picture, self.state_lamp.tone = image, picture, tone
 
     def badge(self, name):
-        """The signed-in player's platinum nameplate at the head's right end (a page's lead), left of its action."""
-        picture = art.member_plate(name, self.ui.scale)
+        """Who is signed in, after the state lamp (a page's lead): the member card's own platinum in miniature (a card's
+        proportions, its rim and perforation: art.card_glyph) and the DJ name in words beside it. A label that says the
+        state with the lamp, never a pill beside a key that reads as one to press."""
+        bg = self.head.cget("bg")
+        self.plate_badge = tk.Frame(self.head, bg=bg)
+        # A tag, not a control: the corner check holds it out of the cut all the same (tests/e2e/ui/compose.py).
+        self.plate_badge.opendmt3_tag, self.plate_badge.words = True, name
+        picture = art.card_glyph(self.ui.scale)
         image = ImageTk.PhotoImage(picture, master=self)
-        self.plate_badge = tk.Label(self.head, image=image, bg=self.head.cget("bg"), bd=0)
-        self.plate_badge.image, self.plate_badge.opendmt3_picture, self.plate_badge.words = image, picture, name
-        self.plate_badge.pack(side="right", padx=(0, self.ui.px(10)), pady=(self.head_pad[1], 0))
+        glyph = tk.Label(self.plate_badge, image=image, bg=bg, bd=0)
+        glyph.image, glyph.opendmt3_picture = image, picture
+        glyph.pack(side="left")
+        tk.Label(self.plate_badge, text=name, font=self.ui.fonts.body_bold, fg=theme.TEXT, bg=bg, padx=0,
+                 pady=0).pack(side="left", padx=(self.ui.px(8), 0))
+        # After the lamp, on the tab's middle (the lamp's own room before it).
+        self.plate_badge.pack(side="left", anchor="w", padx=(self.ui.px(12), 0), pady=(self.ui.px(4), 0))
 
     def action(self, text, command, kind="secondary"):
-        """What the card does, as a small button at the right end of its tab's row (OpenDMTQ's Check again)."""
+        """What the card does, as a small button at the right end of its tab's row (OpenDMTQ's Check again), out of
+        the cut corner by the cut and the card's padding (corner_room)."""
         button = Button(self.head, self.ui, text, command, kind=kind, size="small")
-        # At the very end of the row, a lead's nameplate left of it.
-        before = {"before": self.plate_badge} if self.plate_badge is not None else {}
-        button.pack(side="right", padx=(0, self.head_pad[0]), pady=(self.head_pad[1], 0), **before)
+        button.pack(side="right", padx=(0, self.corner_room), pady=(self.head_pad[1], 0))
         return button
 
 

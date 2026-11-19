@@ -106,8 +106,9 @@ def _records_drawn(app, box, dj):
         badge.pack(side="left", padx=(ui.px(12), ui.px(6)))
         tk.Label(top, text="Lv %d" % card["level"], font=ui.fonts.body_bold, fg=theme.TEXT, bg=top.cget("bg")).pack(
             side="left")
+    # At the card's top right, out of its cut corner by the cut (the body's own padding is the rest of the room).
     widgets.Button(top, ui, w("records.site"), lambda: _records_open_site(app, dj["player"])).pack(
-        side="right")
+        side="right", padx=(0, ui.px(head.cut)))
     if card.get("comment"):
         # The comment over the plate in the game.
         widgets.label(head.body, ui, card["comment"], fg=theme.MUTED, bg=head.body.cget("bg"), wrap_margin=0).pack(

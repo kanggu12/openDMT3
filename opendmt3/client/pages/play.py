@@ -135,11 +135,9 @@ def build_play(app, parent):
     app.check_box = tk.Frame(ready.body, bg=ready.body.cget("bg"))
     app.check_box.pack(fill="x")
     # Beside it, the player: their card and who plays (made again on its own when the player changes: Sections).
+    # The two end on one line (Pair): the shorter one's body grows to the row's height, its content at its top; the
+    # ready check's sunken screen ends with its rows, the plate under it the plate's own face.
     player = pair_card(row.right, ui, w("play.player"), kind="member")
-    for made in (ready, player):
-        # Each as tall as what it holds: no box stretched to its neighbour's height (a sunken screen ends with its
-        # rows, never with an empty dark area under them).
-        made.pack_configure(fill="x", expand=False, anchor="n")
     sections = Sections(app, player.body)
     sections.add("who", lambda holder: _who_plays(app, holder, lambda: sections.redo("who")))
     # Under them, the full width: the last game as the game's result panel, a card of its own.

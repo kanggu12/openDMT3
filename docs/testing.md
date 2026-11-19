@@ -86,8 +86,9 @@ middle by their ink (their capitals', or their Hangul syllables'), every word in
 dialog's name smaller than the body under it, a setting's name and control on one line and one group's controls at
 one edge, sliders long enough to set a value by, one left edge for the head's line and the cards, no card for one
 control and a line, no list of three cards across the column on a short page wide enough for two side by side, a
-status panel's lamp saying the whole check as the foot does, and the page's own colour round every card, in the gaps
-and beyond each cut corner, a result panel's second one included (read from the screen); it is tried first on pages
+status panel's lamp saying the whole check as the foot does, no key or tag in a card's cut corner (the cut and the
+card's padding), cards side by side ending on one line, and the page's own colour round every card, in the gaps and
+beyond each cut corner, a result panel's second one included (read from the screen); it is tried first on pages
 made up to fail each of these. The
 forms are used as a person uses them: a wrong value said under its field and gone with the next key, Show in the Tab
 order after its password, and the sign-in against a made-up server in each state (asked, a wrong ID or password, not

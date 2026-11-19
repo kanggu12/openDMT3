@@ -2794,8 +2794,8 @@ def planted_composition_check(app, out, tag, problems):
     label in a size that is none of the type's steps, a setting whose control stands off its name's line, a slider too
     short to set a value by, a card off the page's left edge, and the stage's colour in the gap beside a card; then, on
     a short page, a card for one key and its line, and three cards across the whole column one under another (said
-    where the column is wide enough for two side by side). Each must be said; the run's own page must be said of
-    nothing."""
+    where the column is wide enough for two side by side); then two cards side by side that end apart and a key flush
+    in a card's cut corner. Each must be said; the run's own page must be said of nothing."""
     import tkinter as tk
     from opendmt3.client import theme
     app.go("controls")
@@ -2863,6 +2863,27 @@ def planted_composition_check(app, out, tag, problems):
     if content.winfo_width() >= app.ui.px(PAIR_FROM):
         wanted.append(("3 cards across the whole column", "list of boxes"))
     for first, second in wanted:
+        if not any(first in p and second in p for p in said):
+            problems.append("%s: the composition check missed a planted %r (%s): it said %s"
+                            % (tag, first, second, said))
+    # Two cards side by side that end apart, and a key in a card's cut corner (flush against the card's right edge).
+    for child in content.winfo_children():
+        child.destroy()
+    row = tk.Frame(content, bg=content.cget("bg"))
+    row.pack(fill="x")
+    tall = widgets.Card(row, app.ui, title="Made-up tall")
+    tall.pack(side="left", anchor="n", padx=(0, app.ui.px(16)))
+    for words in ("One made-up line", "Another made-up line", "A third made-up line"):
+        tk.Label(tall.body, text=words, font=app.fonts.body, bg=tall.face, fg=theme.TEXT).pack(anchor="w")
+    short = widgets.Card(row, app.ui, title="Made-up short")
+    short.pack(side="left", anchor="n")
+    tk.Label(short.body, text="One made-up line", font=app.fonts.body, bg=short.face, fg=theme.TEXT).pack(anchor="w")
+    widgets.Button(short.head, app.ui, "Cornered", lambda: None, size="small").pack(side="right", padx=0)
+    settle(app)
+    label = "%s_planted-corner" % tag
+    shot(app, out, label)
+    said = compose.check(app, label, screen_reader())
+    for first, second in (("'Cornered'", "cut corner"), ("MADE-UP TALL", "end")):
         if not any(first in p and second in p for p in said):
             problems.append("%s: the composition check missed a planted %r (%s): it said %s"
                             % (tag, first, second, said))

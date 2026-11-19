@@ -1302,32 +1302,6 @@ def member_card(name, login_id, scale=1.0):
 
 
 @_kept(8)
-def member_plate(name, scale=1.0):
-    """The signed-in player's small platinum nameplate (a page's lead, CARDS.md): the member card's metal and rim,
-    rounded, the DJ name in its dark ink in the body's size. Returns an RGBA picture."""
-    font_px = 10 * 96 / 72.0 * scale
-    height = int(round(22 * scale))
-    probe = ImageFont.truetype(theme.TEXT_BOLD_FILE, font_px)
-    width = int(round(probe.getlength(name) + 2 * 10 * scale))
-    w, h = width * SS, height * SS
-    face = _platinum(w, h)
-    shape = Image.new("L", (w, h), 0)
-    radius = int(round(5 * scale * SS))
-    ImageDraw.Draw(shape).rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    img.paste(face, (0, 0), shape)
-    draw = ImageDraw.Draw(img)
-    draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, outline=_rgb(theme.PLATINUM_RIM),
-                           width=max(1, int(round(scale))) * SS)
-    # The name's ink band in the plate's middle (ink_band), as every word on a key or a tab stands.
-    font = ImageFont.truetype(theme.TEXT_BOLD_FILE, font_px * SS)
-    top, bottom = ink_band(theme.TEXT_BOLD_FILE, font_px * SS, name)
-    draw.text((10 * scale * SS, h / 2.0 - (top + bottom) / 2.0), name, font=font, fill=_rgb(theme.PLATINUM_INK),
-              anchor="ls")
-    return img.resize((width, height), Image.LANCZOS)
-
-
-@_kept(8)
 def corner_foot(size, inside, outside, seam):
     """The result panel's second cut, at its foot's left (the game's result frames are cut at two opposite corners):
     the top-right corner's picture turned half round, its seam along the cut."""
@@ -1354,4 +1328,34 @@ def member_slot(words, scale=1.0):
     font = ImageFont.truetype(theme.WIDE_FILE, PLATE_TEXT * scale * SS)
     pad = 12 * scale * SS
     draw.text((pad, h - pad), words, font=font, fill=_rgb(theme.MUTED), anchor="ls")
+    return img.resize((width, height), Image.LANCZOS)
+
+
+@_kept(4)
+def card_glyph(scale=1.0):
+    """The member card in miniature, for a signed-in player's tag (Card.badge): the card's proportions (1.586 to 1),
+    its platinum with the shade across its middle, its rim, its light along the top and a few rows of its perforation;
+    rounded as the card is. Returns an RGBA picture 24 by 15 logical pixels."""
+    width, height = int(round(24 * scale)), int(round(15 * scale))
+    w, h = width * SS, height * SS
+    radius = int(round(2.5 * scale * SS))
+    face = _platinum(w, h)
+    dots = ImageDraw.Draw(face)
+    step, r = 4 * scale * SS, 0.45 * scale * SS
+    y, row = 1.5 * scale * SS, 0
+    while y < h:
+        x = (1.5 if row % 2 == 0 else 3.5) * scale * SS
+        while x < w:
+            dots.ellipse([x - r, y - r, x + r, y + r], fill=(176, 184, 191))
+            x += step
+        y += step / 2.0
+        row += 1
+    shape = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(shape).rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    img.paste(face, (0, 0), shape)
+    draw = ImageDraw.Draw(img)
+    line = max(1, int(round(scale))) * SS
+    draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, outline=_rgb(theme.PLATINUM_RIM), width=line)
+    draw.line([(radius, line), (w - radius, line)], fill=(255, 255, 255), width=line)
     return img.resize((width, height), Image.LANCZOS)

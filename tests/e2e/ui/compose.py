@@ -17,6 +17,7 @@ What it holds, on every page, guide step and dialog it is given:
 - a setting's name and its control on one line (their middles), the controls of one group at one edge;
 - a control sized for its use: a slider long enough to set a value by;
 - a status panel's lamp saying the whole check as the foot does;
+- no control or tag in a card's cut corner (the cut and the card's padding), and cards in one row ending on one line;
 - a page composed, not a list of boxes: no card that holds one control (a key, a switch, a choice, a field) and at
   most one line of words (fold it into the group it belongs to), and no run of three or more cards each across the
   whole column, one under another, on a page wide enough for two (pages.PAIR_FROM) that leaves a quarter of its view
@@ -40,6 +41,8 @@ SAME_COLOUR = 6
 # The controls a card can hold: a card with one of them and at most one line of words is a box for one control.
 CONTROLS = (widgets.Button, widgets.Toggle, widgets.Segmented, widgets.Select, widgets.Slider, widgets.Field,
             widgets.Tick)
+# A card's own padding (widgets.Card's pad, logical pixels): the room a control keeps from the cut corner beyond the cut.
+CARD_PAD = 18
 # How many full-width cards one under another make a list of boxes, and the share of the page's view left empty under
 # them that makes it a short one.
 STACK, EMPTY_SHARE = 3, 0.25
@@ -387,6 +390,61 @@ def decoration(root, ui, name, screen_pixel):
     return problems
 
 
+def corner_clear(root, ui, name):
+    """No control (a key, a switch, a choice, a field) and no tag in a card's cut corner: each stays out of the square
+    at the card's top right as wide and as tall as the cut and the card's own padding together (the owner, twice: a key
+    in the 45-degree cut, or flush against it, is the corner handled awkwardly)."""
+    problems = []
+    room = ui.px(CARD_PAD)
+    for card in _walk(root):
+        if not isinstance(card, widgets.Card) or not _shown(card):
+            continue
+        cut = ui.px(getattr(card, "cut", widgets.Card.CUT))
+        x, y, w = card.winfo_rootx(), card.winfo_rooty(), card.winfo_width()
+        # The cut's corner and the card's padding round it: nothing that is pressed or read as a tag reaches in.
+        left, foot = x + w - cut - room, y + cut + room
+        for part in _walk(card):
+            if part is card or not _shown(part):
+                continue
+            if not (isinstance(part, CONTROLS) or getattr(part, "opendmt3_tag", False)):
+                continue
+            if _inside_control(part, card):
+                continue
+            px_, py_, pw = part.winfo_rootx(), part.winfo_rooty(), part.winfo_width()
+            if px_ + pw > left and py_ < foot:
+                problems.append("%s: %s reaches into the cut corner of the card %r (%d px into the cut and its room)"
+                                % (name, _describe(part), _card_name(card), px_ + pw - left))
+    return problems
+
+
+def _describe(part):
+    """A control as a person names it: a key or a tag by its words, else its kind."""
+    words = getattr(part, "words", None)
+    if isinstance(part, widgets.Button):
+        return "the key %r" % words
+    if words is None:
+        return "a %s" % type(part).__name__.lower()
+    return "the %s %r" % ("tag" if getattr(part, "opendmt3_tag", False) else type(part).__name__.lower(), words)
+
+
+def row_bottoms(root, ui, name):
+    """Cards side by side in one row end on one line (within a pixel): the shorter one's body grows to the row's
+    height, its content at its top."""
+    problems = []
+    cards = [c for c in _walk(root) if isinstance(c, widgets.Card) and _shown(c)]
+    boxes = [(c, c.winfo_rootx(), c.winfo_rooty(), c.winfo_rootx() + c.winfo_width(),
+              c.winfo_rooty() + c.winfo_height()) for c in cards]
+    for i, (a, ax, ay, ax2, ay2) in enumerate(boxes):
+        for b, bx, by, bx2, by2 in boxes[i + 1:]:
+            # Side by side: one top, apart across; one inside the other is no row.
+            if abs(ay - by) > 1 or not (ax2 <= bx or bx2 <= ax):
+                continue
+            if abs(ay2 - by2) > 1:
+                problems.append("%s: the cards %r and %r stand in one row but end %d px apart"
+                                % (name, _card_name(a), _card_name(b), abs(ay2 - by2)))
+    return problems
+
+
 def status_lamp(app, name):
     """A status panel's lamp says the whole check as the foot does (CARDS.md "status"): green when PLAY can go, amber
     when something is still to do, pink when something went wrong, an outline while the check is made."""
@@ -415,5 +473,5 @@ def check(app, name, screen_pixel=None):
     root.update_idletasks()
     return (keys(root, ui, name) + words_and_headings(root, ui, name) + rows(root, ui, name)
             + left_line(root, ui, name) + single_controls(root, ui, name) + short_stack(root, ui, name)
-            + status_lamp(app, name)
+            + corner_clear(root, ui, name) + row_bottoms(root, ui, name) + status_lamp(app, name)
             + decoration(root, ui, name, screen_pixel))

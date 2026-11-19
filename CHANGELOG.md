@@ -23,8 +23,9 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   says NO ID CARD); the last game and the records' scores on the game's black glass, cut at two opposite corners, the
   scores in the game's colour; the connection test with a rail down its edge; what openDMT3 is and what to try on a
   quiet plate named by a grey caption; what puts back and removes on a sunken tray; the players on a sheet under a
-  band. **Online**'s where-you-play is the page's lead, cut deeper, with the signed-in player's nameplate. A choice
-  and a tick are blue on the pages whose colour means a state (pink only for what failed or removes for good).
+  band. **Online**'s where-you-play is the page's lead, cut deeper, the signed-in player's card in miniature and their
+  name after its lamp. A choice and a tick are blue on the pages whose colour means a state (pink only for what
+  failed or removes for good). Cards side by side end on one line, and no key stands in a card's cut corner.
 - A card's and a dialog's name are as large as the words under them; every key of one role is one size on every page
   and dialog (one height, one room either side of its words), its words centred by their ink, and no key is stretched
   across its card.
