@@ -62,6 +62,8 @@ from tests.server.test_server import StandInClient  # noqa: E402
 
 KEEP_ALIVE = 11.0      # seconds between the real client's keep-alives
 SESSION = 60.0         # seconds between one cabinet's player sessions
+LINGER = 2.0           # seconds the cabinets stay on past the watch's end, so its last sample counts them
+                       # all (ending together, one could close just before that last count)
 ANSWER_LIMIT = 2.0     # the slowest keep-alive answer that still passes
 KEEP_ALIVE_P95 = 0.25  # 95 % of the keep-alives answered within this
 LOGIN_P50 = 0.5        # half the card logins answered (0x64 read) within this
@@ -326,7 +328,9 @@ async def drive(args, port, server):
     until = time.monotonic() + args.minutes * 60
     good = args.cabinets - (1 if args.bad else 0)
     cabinets = [Cabinet(i, args.rows[i], port, stats) for i in range(good)]
-    runs = [asyncio.ensure_future(c.run(until)) for c in cabinets]
+    # Each cabinet runs LINGER seconds past the watch's end: the watch's last sample is taken at `until`, and a
+    # cabinet ending at that same moment could already be closed when it is counted.
+    runs = [asyncio.ensure_future(c.run(until + LINGER)) for c in cabinets]
     # Everyone online first (the watch below says so if some never are), then one past the limit.
     for _ in range(300):
         if all(c.online for c in cabinets):
