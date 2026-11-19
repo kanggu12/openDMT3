@@ -13,13 +13,13 @@ From a PC with internet, onto a USB stick or a share:
 - **The launcher's installer** for the players, from the [releases](https://github.com/kanggu12/openDMT3/releases),
   and your client data's song list ([what a server takes](client-data.md#what-a-server-takes)).
 - **The server**, one of these:
-  - **Windows**: the release's `opendmt3-server-0.4.0-windows-x64.zip`. It needs nothing else: it brings its own
+  - **Windows**: the release's `opendmt3-server-0.4.1-windows-x64.zip`. It needs nothing else: it brings its own
     Python, 7-Zip and the launcher's installer.
   - **Docker**: the server's image as a file. Pull it there and save it:
-    `docker pull ghcr.io/kanggu12/opendmt3-server:0.4.0` then
-    `docker save ghcr.io/kanggu12/opendmt3-server:0.4.0 -o opendmt3-server.tar`; with HTTPS, Caddy's too:
+    `docker pull ghcr.io/kanggu12/opendmt3-server:0.4.1` then
+    `docker save ghcr.io/kanggu12/opendmt3-server:0.4.1 -o opendmt3-server.tar`; with HTTPS, Caddy's too:
     `docker pull caddy:2.10.2-alpine` and `docker save caddy:2.10.2-alpine -o caddy.tar`. Bring the release's
-    server package (`opendmt3-server-0.4.0-linux-macos.zip`) or a copy of the repository beside them.
+    server package (`opendmt3-server-0.4.1-linux-macos.zip`) or a copy of the repository beside them.
   - **Python**: the release's server package, and the site's libraries as files, downloaded there on the same system
     and Python version as the server:
     `pip download -d wheels starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0 python-multipart==0.0.20 pillow==11.3.0`.

@@ -7,8 +7,8 @@ description: >-
 type: application
 # The chart's own version and the server's go together: a release packs the chart with both set to the release's
 # version (helm package --version V --app-version V), and tests/server/test_helm.py checks both against __version__.
-version: 0.4.0
-appVersion: "0.4.0"
+version: 0.4.1
+appVersion: "0.4.1"
 # Recreate deployments, Ingress v1 and the pod security fields the chart uses are all there from 1.25 on.
 kubeVersion: ">=1.25.0-0"
 keywords:

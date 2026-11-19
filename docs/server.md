@@ -36,15 +36,15 @@ The other guides for server owners: [Playing from outside your home](internet.md
 - A PC that stays on. On Windows: the Windows server package, nothing else. With Docker: Docker with Compose v2 and
   Python 3 (`./dmt3` is a Python script), on Linux, on macOS, or on Windows in WSL 2. With Python: Python 3.10 or
   newer, on Linux or macOS. In the launcher: the launcher on a Windows PC, nothing else.
-- The server: the release's server package for Linux and macOS, `opendmt3-server-0.4.0-linux-macos.zip` (what the
-  server needs and nothing else), the Windows server package `opendmt3-server-0.4.0-windows-x64.zip`, or a clone of
+- The server: the release's server package for Linux and macOS, `opendmt3-server-0.4.1-linux-macos.zip` (what the
+  server needs and nothing else), the Windows server package `opendmt3-server-0.4.1-windows-x64.zip`, or a clone of
   this repository (git).
 - Memory and processor: the server held about 100 MB with 64 cabinets and 20 visitors at once
   ([Many players at once](#many-players-at-once)); its site works on two threads, and reading a song list uses up to
   eight cores.
 - Your own client data on the server PC, in a folder or an archive, or the song list the launcher saved from it
   ([what a server takes](client-data.md#what-a-server-takes)). The server keeps only the song list.
-- The launcher's installer, `opendmt3-launcher-0.4.0-windows-x64-setup.exe`, from the
+- The launcher's installer, `opendmt3-launcher-0.4.1-windows-x64-setup.exe`, from the
   [releases](https://github.com/kanggu12/openDMT3/releases/latest), to hand out from the site (the Windows server
   package brings it).
 
@@ -67,7 +67,7 @@ same addresses in a browser for the site.
 ## On Windows
 
 On a Windows 10 or 11 PC of its own, without Docker, Python or the launcher: the release's
-`opendmt3-server-0.4.0-windows-x64.zip`, from the [releases](https://github.com/kanggu12/openDMT3/releases/latest).
+`opendmt3-server-0.4.1-windows-x64.zip`, from the [releases](https://github.com/kanggu12/openDMT3/releases/latest).
 It brings its own Python, the official 7-Zip, and the launcher's installer of the same release to hand out.
 
 1. Unpack the whole zip into a folder of your own (for example `C:\openDMT3-server`), and start
@@ -105,9 +105,9 @@ On Linux, macOS, or Windows in WSL 2. It needs Docker with Compose v2 and Python
 nothing to install). From the release's server package:
 
 ```sh
-curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0-linux-macos.zip
-unzip opendmt3-server-0.4.0-linux-macos.zip
-cd opendmt3-server-0.4.0-linux-macos
+curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-linux-macos.zip
+unzip opendmt3-server-0.4.1-linux-macos.zip
+cd opendmt3-server-0.4.1-linux-macos
 ./dmt3 setup
 ```
 
@@ -134,7 +134,7 @@ Enter on to the next:
    song list, the jackets and the DJ cards. An archive with a password gets a box for it. Links inside the client
    data's folder are followed: the folders they point into are mounted read-only too. Empty: none now.
 8. **The installer to hand out**: the one `./dmt3 build` left, a file (an
-   `opendmt3-launcher-0.4.0-windows-x64-setup.exe` downloaded from the
+   `opendmt3-launcher-0.4.1-windows-x64-setup.exe` downloaded from the
    [releases](https://github.com/kanggu12/openDMT3/releases/latest)), or none for now, with its version and size.
 9. **Confirm**: every answer on one page; a number goes back to change it.
 10. **Setting up**: the image, the data folder, the account, the song list, the jackets, the DJ cards, the installer,
@@ -146,7 +146,7 @@ A terminal that cannot draw the pages (`TERM=dumb`, a window smaller than 64 by 
 prompts. With options, or from a script, `setup` asks nothing:
 
 ```sh
-./dmt3 setup --game /path/to/client/data --installer opendmt3-launcher-0.4.0-windows-x64-setup.exe
+./dmt3 setup --game /path/to/client/data --installer opendmt3-launcher-0.4.1-windows-x64-setup.exe
 ```
 
 It does these, in order; run again, each one that is done already changes nothing:
@@ -268,7 +268,7 @@ docker compose run --rm server --add-player BOSS --admin
 # the song list, imported once from your own client data (a folder or an archive) or a song list:
 docker compose run --rm -v /path/to/client/data:/game:ro server --catalog /game --setup-only
 # the installer for the site's Download page:
-docker compose cp opendmt3-launcher-0.4.0-windows-x64-setup.exe server:/data/downloads/
+docker compose cp opendmt3-launcher-0.4.1-windows-x64-setup.exe server:/data/downloads/
 ```
 
 The data lives in a named volume (`opendmt3_data`), and the server runs as its own user, not root.
@@ -284,7 +284,7 @@ release's server, checked against the release's SHA-256 sums, into `~/.local/sha
 Python environment and the official 7-Zip, and puts the command `opendmt3-server` in `~/.local/bin`:
 
 ```sh
-curl -fsSL https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0-linux-installer.sh | sh
+curl -fsSL https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-linux-installer.sh | sh
 opendmt3-server setup --game /path/to/your/client/data
 opendmt3-server start
 ```
@@ -299,9 +299,9 @@ By hand instead, from the release's server package, unpacked, or a copy of this 
 shows song numbers):
 
 ```sh
-curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0-linux-macos.zip
-unzip opendmt3-server-0.4.0-linux-macos.zip
-cd opendmt3-server-0.4.0-linux-macos
+curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-linux-macos.zip
+unzip opendmt3-server-0.4.1-linux-macos.zip
+cd opendmt3-server-0.4.1-linux-macos
 python3 -m venv .venv
 .venv/bin/pip install starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0 python-multipart==0.0.20 pillow==11.3.0
 .venv/bin/python -m opendmt3.server --data data --catalog /path/to/your/client/data --setup-only
@@ -319,7 +319,7 @@ first-run page makes the first one, the owner's. On a server PC without a browse
 `.venv/bin/python -m opendmt3.server --data data --add-player BOSS --admin` makes it and prints its password (the
 server's own program asks for it in the terminal: `opendmt3-server setup`). (In Docker, use `--add-player` as above:
 there the admin pages never see a visit from the server PC.) Put
-`opendmt3-launcher-0.4.0-windows-x64-setup.exe` in `data/downloads/`, under its own name, to hand it out.
+`opendmt3-launcher-0.4.1-windows-x64-setup.exe` in `data/downloads/`, under its own name, to hand it out.
 
 To update, see [Updating the server](#updating-the-server).
 
@@ -454,12 +454,12 @@ older database forward on its first start (a copy of it is kept first).
   and the client data kept at setup; the data itself is in Docker's volume, which the new folder uses as it is), or
   `git pull` in a clone; then `./dmt3 up`: the new version's image is pulled (or built, with `--build`), and the data
   stays. Then
-  `./dmt3 setup --installer FILE` with the release's `opendmt3-launcher-0.4.0-windows-x64-setup.exe`, so the
+  `./dmt3 setup --installer FILE` with the release's `opendmt3-launcher-0.4.1-windows-x64-setup.exe`, so the
   **Download** page hands out the new launcher.
 - **With Python**: stop the server, unpack the new server package and move the `data` folder into it, with a new
   `.venv` made there by the `venv` line (a virtual environment does not move), or `git pull` in the copy of the
   repository; run the `pip install` line again, and start the server again. Put the
-  new `opendmt3-launcher-0.4.0-windows-x64-setup.exe` in `data/downloads/`: of the installers there, the newest
+  new `opendmt3-launcher-0.4.1-windows-x64-setup.exe` in `data/downloads/`: of the installers there, the newest
   version is handed out.
 - **On Windows**: stop the server, unpack the new zip into a new folder, move the `data` folder into it, and start the
   new `opendmt3-server.exe`. It puts the new launcher's installer beside the old one in `data\downloads`, and the
