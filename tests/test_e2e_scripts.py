@@ -25,7 +25,8 @@ def shell_of(path):
     another has no first line of its own to name it, and the scripts that source them are bash's)."""
     with open(path, encoding="utf-8", errors="replace") as f:
         first = f.readline()
-    return "sh" if first.startswith("#!") and first[2:].strip().split()[0] in ("/bin/sh", "/usr/bin/sh") else "bash"
+    named = first[2:].split() if first.startswith("#!") else []
+    return "sh" if named[:1] in (["/bin/sh"], ["/usr/bin/sh"]) else "bash"
 
 
 @unittest.skipUnless(shutil.which("bash") and shutil.which("sh"), "needs bash and sh")
