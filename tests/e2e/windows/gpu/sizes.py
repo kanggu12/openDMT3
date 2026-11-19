@@ -6,9 +6,9 @@
                                             there at DPI (96 by default), as shell assignments (sizes.sh evaluates
                                             them)
     python3 sizes.py report OUT_DIR         every start under OUT_DIR judged: OUT_DIR/summary.md and results.json, and
-                                            each start's overlay cut out of its shots at 1:1 (OUT_DIR/SIZE/KIND/crops)
+                                            each start's overlay cut out of its shots at 1:1 (OUT_DIR/SIZE-DPI/KIND/crops)
 
-A start's folder (OUT_DIR/SIZE/KIND, or OUT_DIR/heavy-KIND) holds what sizes.sh left: start.txt (its size, the
+A start's folder (OUT_DIR/SIZE-DPI/KIND, or OUT_DIR/heavy-KIND) holds what sizes.sh left: start.txt (its size, the
 Windows scaling, the choices), ingame.log (the layer's log), marks.txt (each phase's edges on the log's clock with the
 machine's load then, ingame/quiet.py), steps.txt (each act and the layer's answer to it), probes.txt (each point the
 pointer rested on, in the client's pixels), cursor.txt (the dart's picture through XFixes, ingame/pointer.py) and
@@ -543,7 +543,8 @@ def report(out):
     plan = re.search(r"^sizes (.*?);(?: kinds (.*?);)? heavy (\w+)", read(os.path.join(out, "run.txt")), re.M)
     if plan:
         kinds = (plan.group(2) or "game display").split()
-        wanted = ["%s/%s" % (spec.split("@")[0], kind) for spec in plan.group(1).split() for kind in kinds]
+        wanted = ["%s-%s/%s" % (spec.split("@")[0], spec.split("@")[1], kind) for spec in plan.group(1).split()
+                  for kind in kinds]
         wanted += ["heavy-" + k for k in ("display", "game") if plan.group(3) in ("1", k)]
         have = {os.path.relpath(d, out) for d in dirs}
         unjudged += ["%s: the start did not run" % w for w in wanted if w not in have]

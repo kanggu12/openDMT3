@@ -37,7 +37,7 @@
 # In every start the process's address space and the device's texture memory are logged every 10 s
 # (OPENDMT3_MEMORY_WATCH), and the card's memory in use is read beside them (OUT_DIR/card.txt), its clocks all along
 # (gpu/clocks.py). Each start keeps its layer's log, its phases' marks with the machine's load at their edges
-# (ingame/quiet.py), its steps and their answers, its pointer's points and its shots (OUT_DIR/SIZE/KIND/, the heavy
+# (ingame/quiet.py), its steps and their answers, its pointer's points and its shots (OUT_DIR/SIZE-DPI/KIND/, the heavy
 # ones OUT_DIR/heavy-KIND/); sizes.py judges them all at the end (OUT_DIR/summary.md and results.json, its exit code
 # this script's). Nothing reaches a real screen or a speaker; the containers are odt3-res-*, each removed after its
 # start. About 70 minutes on the GPU.
@@ -264,7 +264,8 @@ start() {
   NAME=$1 SIZE=$2 DPI=$3
   shift 3
   W=${SIZE%x*} H=${SIZE#*x}
-  D=$OUT/$SIZE/$NAME
+  # A folder a size and scaling (the same size at two scalings is two starts).
+  D=$OUT/$SIZE-$DPI/$NAME
   case $NAME in heavy-*) D=$OUT/$NAME ;; esac
   LOG=$D/ingame.log
   rm -rf "$D"

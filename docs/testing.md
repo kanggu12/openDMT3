@@ -635,6 +635,44 @@ tutorial were shown after all, and its 100 ms took 4.2 s to win back. In that ru
 twice stood still, for 1.7 and 1.9 s. The lock held the frames back for it (48 frames a second for some seconds: the
 14.9 % over 20 ms), and both stalls fell into those stretches, so it needed only 15 frames left unshown.
 
+On 2026-11-19, the same card, `gpu/sizes.sh` with 0.4.0's build (the two heavy starts on 0.4.0 with
+`OPENDMT3_MEMORY_WATCH`), each size at its Windows scaling, the game's title and its tutorial as a guest. Other jobs ran
+on the machine (the others' load 6 to 22 against the quiet machine's 5), so the pacing was said, not judged; and at
+3840x2160 the virtual screen's read back alone takes the test 20.3 ms a frame, more than a frame at 60, so no game holds
+60 there in this test (52.8 to 58.2 a second in full screen, 60.0 in a window of 2700x1620, 60.0 with the flip model).
+The chain's GPU time a frame on the title (the card at its idle clock, 225 MHz), the layer's own pass with nothing,
+the bar and the menu shown, the median rise of the words' edges, and the parts' textures made when the picture changes
+size:
+
+| Size | Scaling | The test's own present | FSR 1 | NIS | Anime4K | SMAA Ultra drawn at the screen's size | The layer's pass | Words' edges | Textures at a size |
+|---|---|---|---|---|---|---|---|---|---|
+| 1920x1080 | 100 % | 3.3 ms | 0.53 ms | 0.54 ms | 0.88 ms | 0.43 ms | 36, 44, 46 us | 1.0 to 1.3 px | 10 to 15 ms |
+| 2560x1440 | 125 % | 10.7 ms | 0.81 ms | 0.77 ms | 0.92 ms | 0.61 ms | 36, 49, 52 us | 1.1 to 1.5 px | 6 to 18 ms |
+| 3440x1440 | 100 % | 8.1 ms | 0.87 ms | 0.78 ms | 0.86 ms | 0.62 ms | 36, 39, 50 us | 1.1 to 1.5 px | 8 to 16 ms |
+| 2560x1600 | 150 % | 7.7 ms | 0.90 ms | 0.89 ms | 0.79 ms | 0.65 ms | 35, 50, 53 us | 0.8 to 1.6 px | 7 to 15 ms |
+| 3840x2160 | 150 % | 20.3 ms | 1.59 ms | 1.37 ms | 0.97 ms | 1.06 ms | 36, 57, 73 us | 1.3 to 1.6 px | 12 to 34 ms |
+
+- **The layer at each size**: attached at the screen's size and scaling (the dart 32, 40 and 48 pixels at 100, 125
+  and 150 %), every act answered at its place (the bar from a rest at the top edge, the menu, its SOUND row, the
+  question and Keep playing, a toast, a window and back, its two sizes, minimise and back, in the tutorial the
+  question with its line, the 3, 2, 1 and Quit the game, ended 1.2 to 2.3 s after). Its measures follow the picture's
+  height (2.81 output pixels a game pixel at 3840x2160), so they are as large on a 27-inch 3840x2160 screen as on
+  a 27-inch 2560x1440 one (the buttons' capitals 4.0 mm) and larger than Windows' own 9 point text there (2.0 and
+  2.5 mm). Its words are drawn at the screen's pixels at every size: their edges rise over 1.3 to 1.6 pixels at
+  3840x2160, where words enlarged from the game's size would rise over about 2.8.
+- **The pointer**: every press the game read at 2560x1440, 3440x1440 (21:9, bars beside the picture) and at TOUCH to
+  START at each size went to the game pixel under it, a press on a bar past the game's edge on its side. In a window
+  smaller than the game's picture (960x576) the display fix's whole-number sums reach no client point for some game
+  pixels, and the read was the one next to it (592 for 591).
+- **The 32-bit process at 3840x2160** (large-address aware: 4095 MB of addresses): 3588 MB free at the start; at the
+  least 3008 MB free with SMAA Ultra drawn at the screen's size and the flip model at 200 % (1054 MB committed at the
+  most), 2977 MB with Anime4K (1086 MB), the largest free block 2048 MB throughout. The card's memory in use: 480 MB
+  more than with no game for the first, 360 MB for the second; 200 MB at 2560x1440.
+- **Resets at 3840x2160**: five switches to a window and back drawn at the screen's size, and with the flip model's
+  own reset at every change of the window's size, each followed by frames at once; the parts' textures made again in
+  4 to 34 ms each time (none while the game plays). A device lost by the chain's measuring reset did not come back
+  ([architecture.md](architecture.md)): the game's own resets all failed, held by a texture of its own.
+
 #### The chart across a hold, before and after
 
 On 2026-11-19, `gpu/holds.sh` at 1280x768 with no presses and `OPENDMT3_STALL=200`, the layer at a player's defaults
