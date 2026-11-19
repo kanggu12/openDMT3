@@ -252,7 +252,7 @@ is read as late as the frame's own work allows.
 
 - **Master**, **Music**, **Keys** (**Sound**, 100 % by default) and the **Equalizer**'s bands (60 Hz, 250 Hz, 1
   kHz, 4 kHz and 12 kHz, each -12 to 12 dB, flat by default): the in-game sound panel has the same and keeps them with
-  the page. The music is the game's own volume for a song's music (`setting.ini`'s, which the game turns into its own
+  the page. The music is the game's own volume for a song's music (its settings file's, which it turns into its own
   curve, its gain falling as the square of the value: half the value is 12 dB down): moved in the game it follows that
   curve, so a value set in the panel sounds as the same value set before PLAY; the menus' music is not the game's music
   volume and follows only the master. The game never applied its key sounds' setting: the **Keys** volume is

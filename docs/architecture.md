@@ -365,12 +365,12 @@ first points) into the log, read from its memory in the PC build.
   launcher's change at once; the launcher reads it under the lock (a reader holding the file open would refuse the
   game's swap) when it starts, on its Sound page, before PLAY and when the game closes. The game's own volumes, as
   measured at the last stage (the mix's level over the title's loop, the screens before the tutorial and the tutorial's
-  first 20 s, the game started at `setting.ini`'s values 127, 96, 64 and 32, one at a time): `bgm_volume` moves a song's
+  first 20 s, the game started at its settings' values 127, 96, 64 and 32, one at a time): `bgm_volume` moves a song's
   music only, by 40 log10(value / 127) dB (4.88, 11.96 and 24.04 dB down at 96, 64 and 32, within 0.1 dB of it: the gain
   falls as the square of the value), and nothing else (the menus' loops, the jingles and the screens' sounds are the
   same at any value); `sfx_volume` moves nothing (the key sounds' own volumes, what the game writes into their buffers
   and the mix the same at 127 and at 32). So the music's volume moves a song's music by that curve between
-  `setting.ini`'s value of the percent the game started at and that of the percent now (`logic.c` `volume_moved`,
+  the settings file's value of the percent the game started at and that of the percent now (`logic.c` `volume_moved`,
   `game_curve_db`): a value set in the panel sounds as the same value set before PLAY. The key sounds' volume is
   openDMT3's alone, by the same curve from 100 % (`volume_for_kind`), and a launcher.json from before the sound file
   (0.3's, with no sound changes waiting), whose value the game never applied, starts it at 100 % (`state.py`; a later
