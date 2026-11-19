@@ -382,8 +382,8 @@ class Guide:
                 if i:
                     widgets.divider(players.body, ui, pady=6)
                 on = r["login_id"] == app.state.player
-                line = tk.Frame(players.body, bg=theme.PANEL_HI if on else theme.PANEL, padx=px(10), pady=px(6),
-                                cursor="hand2")
+                line = tk.Frame(players.body, bg=theme.PANEL_HI if on else players.body.cget("bg"), padx=px(10),
+                                pady=px(6), cursor="hand2")
                 line.pack(fill="x")
                 parts = [widgets.Lamp(line, ui, theme.BLUE_HI if on else theme.MUTED, lit=on),
                          tk.Label(line, text=r["dj_name"], font=app.fonts.body_bold, fg=theme.TEXT, bg=line["bg"]),
@@ -416,8 +416,8 @@ class Guide:
 
     def _ready(self, parent):
         app, ui, px, w = self.app, self.app.ui, self.app.ui.px, self.app.words
-        ready = card(parent, ui, w("play.ready"), last=True)
-        app.check_box = tk.Frame(ready.body, bg=theme.PANEL)
+        ready = card(parent, ui, w("play.ready"), last=True, kind="status")
+        app.check_box = tk.Frame(ready.body, bg=ready.body.cget("bg"))
         app.check_box.pack(fill="x")
         app.refresh_checks()
         pages.refresh_checks(app)

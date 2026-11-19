@@ -32,7 +32,7 @@ def _who_plays(app, parent, changed):
     under the choice follow it)."""
     ui, w = app.ui, app.words
     card = parent
-    line = tk.Frame(parent, bg=theme.PANEL)
+    line = tk.Frame(parent, bg=parent.cget("bg"))
     line.pack(fill="x")
     if app.state.mode == "server":
         # Another server: the signed-in player is the one; changing player means signing in again (ONLINE).
@@ -98,13 +98,13 @@ def build_play(app, parent):
     row = Pair(app, parent, last=True)
     # The ready check, filled in when the worker thread finishes it; Check again at its title's right end, as
     # OpenDMTQ's has it (the check is made again, the server asked again).
-    ready = pair_card(row.left, ui, w("play.ready"))
+    ready = pair_card(row.left, ui, w("play.ready"), kind="status")
     ready.action(w("help.recheck"), app.refresh_checks)
-    app.check_box = tk.Frame(ready.body, bg=theme.PANEL)
+    app.check_box = tk.Frame(ready.body, bg=ready.body.cget("bg"))
     app.check_box.pack(fill="x")
     # Beside it, the player: who plays (made again on its own when the player changes: Sections), then, under the
     # card's faint line, how their last game went, to the ready check's foot.
-    last = pair_card(row.right, ui, w("play.player"))
+    last = pair_card(row.right, ui, w("play.player"), kind="member")
     sections = Sections(app, last.body)
     sections.add("who", lambda holder: _who_plays(app, holder, lambda: sections.redo("who")))
     widgets.divider(last.body, ui, pady=14)
@@ -114,13 +114,13 @@ def build_play(app, parent):
         # Per cleared stage: the song on its own line (titles run long), then its pattern and the score in lime.
         widgets.divider(last.body, ui, pady=8)
         widgets.label(last.body, ui, play["title"], font=ui.fonts.body_bold, wrap_margin=0).pack(fill="x")
-        line = tk.Frame(last.body, bg=theme.PANEL)
+        line = tk.Frame(last.body, bg=last.body.cget("bg"))
         line.pack(fill="x")
         tk.Label(line, text=w("play.pattern", n=play["pattern"]), font=ui.fonts.small, fg=theme.MUTED,
-                 bg=theme.PANEL).pack(side="left")
+                 bg=line.cget("bg")).pack(side="left")
         # The score in TECHNIKA 3's score colour, in the game's heavy figures.
-        tk.Label(line, text="{:,}".format(play["score"]), font=ui.fonts.figures, fg=theme.SCORE, bg=theme.PANEL).pack(
-            side="right")
+        tk.Label(line, text="{:,}".format(play["score"]), font=ui.fonts.figures, fg=theme.SCORE,
+                 bg=line.cget("bg")).pack(side="right")
     refresh_checks(app)
 
 
@@ -153,7 +153,7 @@ def refresh_checks(app):
     ui, w = app.ui, app.words
     if app.checks is None:
         # Being made (a worker thread): said as a check line is, its lamp an outline until the answer comes.
-        line = tk.Frame(box, bg=theme.PANEL)
+        line = tk.Frame(box, bg=box.cget("bg"))
         line.pack(fill="x")
         lamp = widgets.Lamp(line, ui, theme.MUTED, lit=False)
         lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))

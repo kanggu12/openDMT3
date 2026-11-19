@@ -79,7 +79,7 @@ def build_about(app, parent):
     box.pack(fill="x")
     # What the look for updates found, and the button that puts an update in: right under the version, and no
     # room taken while there is nothing to say.
-    found = tk.Frame(general.body, bg=theme.PANEL)
+    found = tk.Frame(general.body, bg=general.body.cget("bg"))
     found.pack(fill="x")
     # Playing without this window beside what openDMT3 is: two short groups, one pair (one under the other in a small
     # window).
@@ -130,7 +130,7 @@ def build_about(app, parent):
         # the new launcher (client/updating.py).
         updating.run(app, result)
 
-    legal = pair_card(pair.right, ui, w("about.legal"))
+    legal = pair_card(pair.right, ui, w("about.legal"), kind="info")
     for i, key in enumerate(("about.license", "about.notice")):
         if i:
             widgets.divider(legal.body, ui, pady=8)

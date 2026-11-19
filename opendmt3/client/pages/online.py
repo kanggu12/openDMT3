@@ -249,7 +249,7 @@ def _sign_in_rows(app, parent, remote_state, rerender, test_link):
     under the password in one sentence (the server tells the two apart to nobody: IDs are private), too many tries and
     a server that does not answer right above the key (the latter with the way to the connection test), a banned
     account on a plate in place of the form, with the owner's reason and Sign in with another ID."""
-    holder = tk.Frame(parent, bg=theme.PANEL)
+    holder = tk.Frame(parent, bg=parent.cget("bg"))
     holder.pack(fill="x")
     # The ID kept by Remember my ID; or, after the server stopped taking a sign-in (app.token_refused), the ID signed
     # in with, so that only the password is to type again.
@@ -389,7 +389,7 @@ def _sign_in_form(app, parent, remembered, rerender, test_link, banned, ticked=F
     if form.keys is not None:
         form.keys.configure(width=ui.px(SIGN_IN_WIDTH))
     # Under a seam, the way back when the password is gone: one quiet line.
-    seam = tk.Frame(parent, bg=theme.PANEL, width=ui.px(SIGN_IN_WIDTH))
+    seam = tk.Frame(parent, bg=parent.cget("bg"), width=ui.px(SIGN_IN_WIDTH))
     seam.pack(anchor="w", pady=(ui.px(16), 0))
     tk.Frame(seam, bg=theme.DIVIDER, height=1, width=ui.px(SIGN_IN_WIDTH)).pack(anchor="w")
     widgets.label(seam, ui, w("online.forgot"), font=ui.fonts.small, fg=theme.HINT, wraplength=ui.px(SIGN_IN_WIDTH),
@@ -406,9 +406,9 @@ def _banned_plate(app, parent, reason, again):
     ui, w = app.ui, app.words
     # As wide as the sign-in form it stands in place of: a column held to that width by a pixel-high rule of the
     # card's colour, the plate and its key across it, the words wrapped inside it.
-    column = tk.Frame(parent, bg=theme.PANEL)
+    column = tk.Frame(parent, bg=parent.cget("bg"))
     column.pack(anchor="w")
-    tk.Frame(column, bg=theme.PANEL, width=ui.px(SIGN_IN_WIDTH), height=1).pack(anchor="w")
+    tk.Frame(column, bg=column.cget("bg"), width=ui.px(SIGN_IN_WIDTH), height=1).pack(anchor="w")
     edge = tk.Frame(column, bg=theme.BAN_EDGE, padx=1, pady=1)
     edge.pack(fill="x")
     plate = tk.Frame(edge, bg=theme.FIELD, padx=ui.px(16), pady=ui.px(14))
@@ -432,7 +432,7 @@ def _banned_plate(app, parent, reason, again):
                                                                                      padx=(ui.px(8), 0))
     widgets.label(plate, ui, w("online.banned.lift"), font=ui.fonts.small, fg=theme.HINT, bg=theme.FIELD, padx=0,
                   pady=0, wraplength=room).pack(fill="x", pady=(ui.px(6), 0))
-    keys = tk.Frame(column, bg=theme.PANEL)
+    keys = tk.Frame(column, bg=column.cget("bg"))
     keys.pack(fill="x", pady=(ui.px(16), 0))
     # An ordinary key sized for its words, at the column's left edge (no key stretched across a card).
     other = widgets.Button(keys, ui, w("online.banned.other"), again)
@@ -444,7 +444,7 @@ def _signed_rows(app, parent, remote_state, rerender):
     """Signed in, a part of Where you play (`parent`, its card's body): who (the DJ name, the ID beside it), that the
     game logs in with this card, and Sign out at the right end."""
     ui, w = app.ui, app.words
-    line = tk.Frame(parent, bg=theme.PANEL)
+    line = tk.Frame(parent, bg=parent.cget("bg"))
     line.pack(fill="x")
 
     def sign_out():
@@ -471,13 +471,13 @@ def _signed_rows(app, parent, remote_state, rerender):
     leave.pack(side="right", anchor="n")
     lamp = widgets.Lamp(line, ui, theme.NET)
     lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
-    who = tk.Frame(line, bg=theme.PANEL)
+    who = tk.Frame(line, bg=line.cget("bg"))
     who.pack(side="left", fill="x", expand=True, padx=(ui.px(8), ui.px(16)))
-    name = tk.Frame(who, bg=theme.PANEL)
+    name = tk.Frame(who, bg=who.cget("bg"))
     name.pack(anchor="w")
-    tk.Label(name, text=remote_state.get("dj_name", ""), font=ui.fonts.body_bold, fg=theme.TEXT, bg=theme.PANEL,
+    tk.Label(name, text=remote_state.get("dj_name", ""), font=ui.fonts.body_bold, fg=theme.TEXT, bg=name.cget("bg"),
              padx=0, pady=0).pack(side="left")
-    tk.Label(name, text=remote_state.get("login_id", ""), font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL,
+    tk.Label(name, text=remote_state.get("login_id", ""), font=ui.fonts.small, fg=theme.MUTED, bg=name.cget("bg"),
              padx=0, pady=0).pack(side="left", padx=(ui.px(8), 0))
     widgets.label(who, ui, w("online.signed.on", base=app.state.server_url), font=ui.fonts.small, fg=theme.MUTED,
                   wrap_margin=0).pack(fill="x", pady=(ui.px(2), 0))
@@ -542,7 +542,7 @@ def test_card(app, where, parent, typed, rerender=None):
             return
         if made is None or not made.winfo_exists():
             # The test's card, the gap between cards above it.
-            made = shown["card"] = widgets.Card(holder, ui, title=w("server_test"))
+            made = shown["card"] = widgets.Card(holder, ui, title=w("server_test"), kind="result")
             made.pack(fill="x", pady=(ui.px(CARD_GAP), 0))
         inside = made.body
         for child in inside.winfo_children():
@@ -551,7 +551,7 @@ def test_card(app, where, parent, typed, rerender=None):
         for i, step in enumerate(steps):
             if i:
                 widgets.divider(inside, ui, pady=8)
-            line = tk.Frame(inside, bg=theme.PANEL)
+            line = tk.Frame(inside, bg=inside.cget("bg"))
             line.pack(fill="x")
             colour, lit = TEST_LAMPS[step.state]
             lamp = widgets.Lamp(line, ui, colour, lit=lit)
@@ -559,12 +559,12 @@ def test_card(app, where, parent, typed, rerender=None):
             # The time at the right end, in the hints' grey, only for a slow step: a column of 0 ms and 2 ms said nothing
             # anyone acts on (the copied result keeps every step's time for the server's owner).
             took = "%d ms" % step.ms if step.ms is not None and step.ms >= SLOW_MS else ""
-            tk.Label(line, text=took, font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(side="right",
+            tk.Label(line, text=took, font=ui.fonts.small, fg=theme.MUTED, bg=line.cget("bg")).pack(side="right",
                                                                                               anchor="n")
-            words = tk.Frame(line, bg=theme.PANEL)
+            words = tk.Frame(line, bg=line.cget("bg"))
             words.pack(side="left", fill="x", expand=True, padx=(ui.px(8), ui.px(12)))
             tk.Label(words, text=w("server_test." + step.key), font=ui.fonts.body_bold, fg=theme.TEXT,
-                     bg=theme.PANEL, anchor="w").pack(fill="x")
+                     bg=words.cget("bg"), anchor="w").pack(fill="x")
             if step.said:
                 widgets.label(words, ui, w(step.said[0], **step.said[1]), font=ui.fonts.small, fg=theme.MUTED,
                               wrap_margin=0).pack(fill="x")
@@ -573,7 +573,7 @@ def test_card(app, where, parent, typed, rerender=None):
                 widgets.label(words, ui, w(step.fix[0], **step.fix[1]), font=ui.fonts.small, fg=theme.TEXT,
                               wrap_margin=0).pack(fill="x", pady=(ui.px(4), 0))
         widgets.divider(inside, ui, pady=8)
-        foot = tk.Frame(inside, bg=theme.PANEL)
+        foot = tk.Frame(inside, bg=inside.cget("bg"))
         foot.pack(fill="x")
         if running:
             said, colour = w("server_test.running"), theme.MUTED
@@ -707,7 +707,7 @@ def build_online(app, parent):
         return
     # The players and the form that adds one, one group: each part made again on its own when a player is added,
     # chosen or deleted (Sections), so what is typed in the form stays as it was.
-    group = card(parent, ui, w("online.players"), last=True)
+    group = card(parent, ui, w("online.players"), last=True, kind="list")
     sections = Sections(app, group.body)
     # The group's action (Admin pages) once there is a player: made with the list, at the group's head.
     opener = {}
@@ -760,16 +760,16 @@ def _player_line(app, parent, r, changed):
     """One player on the Players card: the lamp lit for the one who goes in at PLAY, the DJ name and ID, Delete, and
     Play next for the others; `changed()` makes the card again after a choice."""
     ui, w = app.ui, app.words
-    line = tk.Frame(parent, bg=theme.PANEL)
+    line = tk.Frame(parent, bg=parent.cget("bg"))
     line.pack(fill="x")
     on = r["login_id"] == app.state.player
     # The player who goes in at PLAY has the lit lamp.
     # The player who goes in at PLAY has the lit lamp, in the NET green of every "this one, fine" lamp (the section's
     # pink reads as a problem on this page).
     widgets.Lamp(line, ui, theme.NET if on else theme.MUTED, lit=on).pack(side="left")
-    tk.Label(line, text=r["dj_name"], font=ui.fonts.body_bold, fg=theme.TEXT, bg=theme.PANEL).pack(
+    tk.Label(line, text=r["dj_name"], font=ui.fonts.body_bold, fg=theme.TEXT, bg=line.cget("bg")).pack(
         side="left", padx=(ui.px(10), ui.px(8)))
-    tk.Label(line, text=r["login_id"], font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(side="left")
+    tk.Label(line, text=r["login_id"], font=ui.fonts.small, fg=theme.MUTED, bg=line.cget("bg")).pack(side="left")
 
     def pick(login_id=r["login_id"]):
         app.state.player = login_id
@@ -802,7 +802,7 @@ def _player_line(app, parent, r, changed):
         widgets.Button(line, ui, w("online.pick"), pick).pack(side="right", padx=(0, ui.px(8)))
     else:
         # Who plays now, said in the hints' ink: the row's lit lamp already marks it (one mark, one accent).
-        tk.Label(line, text=w("online.plays"), font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(
+        tk.Label(line, text=w("online.plays"), font=ui.fonts.small, fg=theme.MUTED, bg=line.cget("bg")).pack(
             side="right", padx=(0, ui.px(12)))
 
 

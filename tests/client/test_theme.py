@@ -704,6 +704,25 @@ class ComposeTest(unittest.TestCase):
         self.assertEqual(widgets.Button.SIDES["lg"], widgets.Button.SIDES["normal"])
         self.assertEqual(widgets.Button.LEAST["lg"], widgets.Button.LEAST["normal"])
 
+    def test_every_card_kind_has_its_whole_look_and_every_page_names_a_kind_there_is(self):
+        # A card's look in one place (theme.CARD_LOOKS), a whole one for each kind, so that a kind's own shape and
+        # colour (the card identity) slots in without a page changed.
+        import glob
+        import os
+        import re
+        for kind in theme.CARD_KINDS:
+            self.assertEqual(set(theme.CARD_LOOKS[kind]), {"face", "seam", "rim", "foot", "tab", "cut"}, kind)
+        top = os.path.dirname(theme.__file__)
+        named = set()
+        for path in glob.glob(os.path.join(top, "**", "*.py"), recursive=True):
+            with open(path, encoding="utf-8") as f:
+                source = f.read()
+            # The kinds the pages and the guide give their cards (card, pair_card, widgets.Card).
+            for call in re.findall(r"(?:card|Card)\([^()]*(?:\([^()]*\)[^()]*)*\)", source):
+                named.update(re.findall(r"kind=\"(\w+)\"", call))
+        self.assertTrue(named)
+        self.assertLessEqual(named, set(theme.CARD_KINDS), named - set(theme.CARD_KINDS))
+
     def test_the_type_steps_name_every_size(self):
         import re
         with open(theme.__file__, encoding="utf-8") as f:

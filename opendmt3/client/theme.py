@@ -121,6 +121,17 @@ FONT_FILES = {(DISPLAY, "normal"): WIDE_FILE, (TEXT_FONT, "normal"): TEXT_FILE, 
 # head's line under a page's title; a dialog's question; the big words (PLAY, the records' numbers, the titles).
 TYPE_STEPS = (9, 10, 11, 12, 13, 17, 18, 19, 21)
 
+# The kinds of card the pages are made of, each page naming its own (widgets.Card's kind): a status panel with lamps
+# (the ready check, the checks), the member's card (who plays, a DJ's records), a result panel (the connection test's
+# steps), a settings plate of rows, a step rail, an info plate (what openDMT3 is, what to try, a page's word of what
+# stands), a destructive plate (what puts back and takes away), a list sheet (the players, the plays). Every kind's
+# look is here and only here (CARD_LOOKS: the face, the seam round it, its lit top and darker foot, the name's tab, the
+# cut corner's size), so that a kind's own shape and colour change no page. Until the kinds are designed (the card
+# identity, CARDS.md), every kind looks as the cards always have.
+CARD_KINDS = ("status", "member", "result", "settings", "steps", "info", "danger", "list")
+CARD_LOOKS = {kind: {"face": PANEL, "seam": SEAM, "rim": RIM, "foot": FOOT, "tab": LINE, "cut": 14}
+              for kind in CARD_KINDS}
+
 
 def register_fonts():
     """Make the bundled fonts usable by Tk in this process only (nothing is installed on the PC).

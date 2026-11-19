@@ -105,18 +105,20 @@ class Pair(tk.Frame):
             self.right.grid(row=1, column=0, sticky="nsew", padx=0, pady=(gap, 0))
 
 
-def pair_card(holder, ui, title=None):
-    """A group's card on one side of a Pair: it fills its side, so that the two stand as tall as each other."""
+def pair_card(holder, ui, title=None, kind="settings"):
+    """A group's card on one side of a Pair: it fills its side, so that the two stand as tall as each other. `kind`:
+    what the card is (theme.CARD_KINDS)."""
     from opendmt3.client import widgets
-    made = widgets.Card(holder, ui, title=title)
+    made = widgets.Card(holder, ui, title=title, kind=kind)
     made.pack(fill="both", expand=True)
     return made
 
 
-def card(parent, ui, title=None, last=False):
-    """A card with its title, stacked under the ones before it with the gap between cards."""
+def card(parent, ui, title=None, last=False, kind="settings"):
+    """A card with its title, stacked under the ones before it with the gap between cards. `kind`: what the card is
+    (theme.CARD_KINDS: a settings plate of rows unless said)."""
     from opendmt3.client import widgets
-    made = widgets.Card(parent, ui, title=title)
+    made = widgets.Card(parent, ui, title=title, kind=kind)
     made.pack(fill="x", pady=(0, 0 if last else ui.px(CARD_GAP)))
     return made
 

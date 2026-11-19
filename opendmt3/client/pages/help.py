@@ -6,7 +6,7 @@ import os
 import threading
 import tkinter as tk
 
-from opendmt3.client import actions, dialogs, leaving, playing, theme, widgets
+from opendmt3.client import actions, dialogs, leaving, playing, widgets
 from opendmt3.client import state as st
 
 log = logging.getLogger("opendmt3.launcher")
@@ -25,18 +25,18 @@ def build_help(app, parent):
     itself), each a group of rows."""
     ui, w = app.ui, app.words
     pair = Pair(app, parent)
-    checks = pair_card(pair.left, ui, w("help.checks"))
+    checks = pair_card(pair.left, ui, w("help.checks"), kind="status")
     checks.action(w("help.recheck"), app.refresh_checks)
-    app.check_box = tk.Frame(checks.body, bg=theme.PANEL)
+    app.check_box = tk.Frame(checks.body, bg=checks.body.cget("bg"))
     app.check_box.pack(fill="x")
     refresh_checks(app)
-    crash = pair_card(pair.right, ui, w("help.crash"))
+    crash = pair_card(pair.right, ui, w("help.crash"), kind="info")
     lines = (("help.crash.1", "screen", "screen.mode"), ("help.crash.2", "screen", "screen.videos"),
              ("help.crash.3", None, None))
     for i, (key, page, setting) in enumerate(lines):
         if i:
             widgets.divider(crash.body, ui, pady=8)
-        line = tk.Frame(crash.body, bg=theme.PANEL)
+        line = tk.Frame(crash.body, bg=crash.body.cget("bg"))
         line.pack(fill="x")
         beside = ()
         said = widgets.label(line, ui, w(key))
@@ -84,7 +84,7 @@ def build_help(app, parent):
         app.refresh_checks()
 
     # What puts back and takes away, a group of its own as OpenDMTQ's "Reset and remove": the least first.
-    remove = pair_card(second.right, ui, w("help.remove"))
+    remove = pair_card(second.right, ui, w("help.remove"), kind="danger")
     widgets.setting_row(remove.body, ui, w("help.restore"),
                         lambda p: widgets.Button(p, ui, w("help.restore.confirm"), restore),
                         w("help.restore.hint")).pack(fill="x")

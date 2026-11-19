@@ -349,7 +349,8 @@ def decoration(root, ui, name, screen_pixel):
             continue
         x, y, w, h = card.winfo_rootx(), card.winfo_rooty(), card.winfo_width(), card.winfo_height()
         colour = art._rgb(card.master.cget("bg"))
-        cut = ui.px(widgets.Card.CUT)
+        # The card's own cut (its kind's: theme.CARD_LOOKS).
+        cut = ui.px(getattr(card, "cut", widgets.Card.CUT))
         # Next to the card's edges and a little out into the gaps, and in the triangle its cut leaves.
         out = ui.px(10)
         points = [("left of", x - 3, y + h // 2), ("left of", x - out, y + h // 2), ("right of", x + w + 2, y + h // 2),

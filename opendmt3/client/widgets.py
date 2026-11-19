@@ -1757,31 +1757,38 @@ class Card(tk.Frame):
     """A panel as the family's cards are (both launchers' and both sites'): one pixel of seam round it, its top-right
     corner cut, its parts in `body`. With a title, its name hangs from the top-left corner on a tab in the seam's colour
     that leans at its right end, as the game tabs its panels; `head` is the tab's row, whose right end holds what the
-    card does (Check again, a small button) as OpenDMTQ's cards hold it at their title's right end."""
+    card does (Check again, a small button) as OpenDMTQ's cards hold it at their title's right end.
 
-    # The cut corner's size (logical pixels), the site's.
+    `kind` is what the card is (theme.CARD_KINDS: a status panel, the member's card, a result panel, a settings plate,
+    a step rail, an info plate, a destructive plate, a list sheet): its look comes from theme.CARD_LOOKS, here and
+    nowhere else, and its face colour is `face` (the body's), which what a page puts in it takes from the body."""
+
+    # The cut corner's size (logical pixels), the site's: every kind's until the kinds have their own (`cut`).
     CUT = 14
 
-    def __init__(self, parent, ui, pad=18, title=None):
-        self.ui = ui
+    def __init__(self, parent, ui, pad=18, title=None, kind="settings"):
+        self.ui, self.kind = ui, kind
+        # The kind's look: the face, the seam, its light and foot, the name's tab, the cut.
+        look = theme.CARD_LOOKS[kind]
+        self.face, self.cut = look["face"], look["cut"]
         outside = parent.cget("bg")
-        # The edge: a hairline round the card (theme.SEAM), lit along its top and a step darker along its foot (the
+        # The edge: a hairline round the card (the seam), lit along its top and a step darker along its foot (the
         # lines placed over it below), as the Platinum Crew site's boxes and Sidenote's panels have their light.
-        super().__init__(parent, bg=theme.SEAM, padx=1, pady=1)
-        inside = tk.Frame(self, bg=theme.PANEL)
+        super().__init__(parent, bg=look["seam"], padx=1, pady=1)
+        inside = tk.Frame(self, bg=self.face)
         inside.pack(fill="both", expand=True)
         top = ui.px(pad - 2)
         # The tab's row: the tab at its left, the card's action at its right end (nothing until a page puts one).
-        self.head = tk.Frame(inside, bg=theme.PANEL)
+        self.head = tk.Frame(inside, bg=self.face)
         self.head.pack(fill="x")
         self.tab = None
         if title:
             # A card's name in the game's capitals, English in both languages as the menu's (THEME.md), the content in
             # the page's language.
             words = i18n.english_of(title).upper()
-            picture = art.name_plate(words, ui.scale, fill=theme.LINE)
+            picture = art.name_plate(words, ui.scale, fill=look["tab"])
             image = ImageTk.PhotoImage(picture, master=self)
-            self.tab = tk.Label(self.head, image=image, bg=theme.PANEL, bd=0)
+            self.tab = tk.Label(self.head, image=image, bg=self.face, bd=0)
             # Kept on the label: Tk shows a picture only while Python holds it. The words ride along for the tests.
             self.tab.image, self.tab.words, self.tab.opendmt3_picture = image, words, picture
             self.tab.pack(side="left", anchor="nw")
@@ -1789,19 +1796,20 @@ class Card(tk.Frame):
             top = ui.px(12)
         # A card's action at the head's right end stands a little in from the seam, its top in line with the tab's.
         self.head_pad = (ui.px(pad - 8), ui.px(6))
-        self.body = tk.Frame(inside, bg=theme.PANEL, padx=ui.px(pad), pady=0)
+        self.body = tk.Frame(inside, bg=self.face, padx=ui.px(pad), pady=0)
         self.body.pack(fill="both", expand=True, pady=(top, ui.px(pad - 2)))
         # The cut: a small picture over the square corner, its seam included (placed from the card's outer edge, not
         # inside the pixel of seam the frame keeps round its inside): the page's colour beyond the cut, the seam going
         # on along it from the top edge to the right one, so that no square corner is left.
-        cut = ui.px(self.CUT)
+        cut = ui.px(self.cut)
         # The top edge's light, from the left to where the cut begins (it goes on down the cut in the corner's picture),
         # and the foot a step darker: one line round the card, its light from above.
-        tk.Frame(self, bg=theme.RIM, height=1, bd=0, highlightthickness=0).place(x=0, y=0, relwidth=1.0, width=-cut,
-                                                                                  height=1, bordermode="outside")
-        tk.Frame(self, bg=theme.FOOT, height=1, bd=0, highlightthickness=0).place(x=0, rely=1.0, y=-1, relwidth=1.0,
-                                                                                   height=1, bordermode="outside")
-        picture = art.corner(cut, theme.PANEL, outside, seam=theme.SEAM, rim=theme.RIM)
+        tk.Frame(self, bg=look["rim"], height=1, bd=0, highlightthickness=0).place(x=0, y=0, relwidth=1.0, width=-cut,
+                                                                                    height=1, bordermode="outside")
+        tk.Frame(self, bg=look["foot"], height=1, bd=0, highlightthickness=0).place(x=0, rely=1.0, y=-1,
+                                                                                     relwidth=1.0, height=1,
+                                                                                     bordermode="outside")
+        picture = art.corner(cut, self.face, outside, seam=look["seam"], rim=look["rim"])
         self._corner = ImageTk.PhotoImage(picture, master=self)
         corner = tk.Label(self, image=self._corner, bd=0, highlightthickness=0, bg=outside)
         # A dialog draws the window behind it from the widgets (snapshot.py): the corner as it looks.
