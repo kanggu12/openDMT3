@@ -377,6 +377,48 @@ class WebTest(WebBase):
         # The change is in the log.
         self.assertIn("named cabinet", self.client.get("/admin/log").text)
 
+    def test_the_cabinets_counts_are_kept_until_a_session_or_a_play_comes(self):
+        # Counting each cabinet's sessions and plays read all of them at every visit (78 ms on 300,000 plays): kept by
+        # the site (cache.py) until a session starts or a play is kept; the cabinets' own rows (a new name, the last
+        # time seen) are read each time.
+        from unittest import mock
+        from opendmt3.server import db
+        from opendmt3.server.services import activity, records
+        self.make("BOSS", admin=True)
+        nova = self.make()
+        boss = self.client.post("/api/v1/session", json={"login_id": "BOSS", "password": "pass1234"}).json()["token"]
+        auth = {"Authorization": "Bearer " + boss}
+        connection = db.connect(self.site.db_path)
+        act, store = activity.Activity(connection), records.Records(connection)
+        stage = {"song": 1, "pattern": 1, "score": 500000, "counts": [0] * 7, "raw": bytes(47)}
+        try:
+            act.seen("198.51.100.7", "test", "198.51.100.7:5000")
+            session = act.start("198.51.100.7", nova["id"])
+            store.add(nova["id"], "198.51.100.7:5000", 0, stage, session_id=session)
+
+            def shown():
+                one = self.client.get("/api/v1/cabinets?all=1", headers=auth).json()["cabinets"][0]
+                return one["name"], one["sessions"], one["plays"]
+            counted = mock.patch.object(activity.Activity, "cabinet_counts", autospec=True,
+                                        side_effect=activity.Activity.cabinet_counts)
+            with counted as count:
+                self.assertEqual(shown(), (None, 1, 1))
+                self.assertEqual(shown(), (None, 1, 1))
+                self.assertEqual(count.call_count, 1)
+                # A name is read at once, the counts kept.
+                act.rename_cabinet(connection.execute("SELECT id FROM cabinets").fetchone()[0], "Living room")
+                self.assertEqual(shown(), ("Living room", 1, 1))
+                self.assertEqual(count.call_count, 1)
+                # A card login's session, then its plays at the credit's end: counted again each time.
+                session = act.start("198.51.100.7", nova["id"])
+                self.assertEqual(shown(), ("Living room", 2, 1))
+                store.add(nova["id"], "198.51.100.7:5000", 0, dict(stage, song=2), session_id=session)
+                store.add(nova["id"], "198.51.100.7:5000", 0, dict(stage, song=3), session_id=session)
+                self.assertEqual(shown(), ("Living room", 2, 3))
+                self.assertEqual(count.call_count, 3)
+        finally:
+            connection.close()
+
     def test_status_log_and_cabinets_are_for_admins_and_have_api_twins(self):
         self.make("BOSS", admin=True)
         self.make()

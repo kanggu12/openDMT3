@@ -630,7 +630,11 @@ def _known_cabinets(site):
         live[c["address"].rsplit(":", 1)[0]] = c
     activity = site.activity()
     try:
-        rows = activity.cabinets()
+        # Each cabinet's sessions and plays, kept until a session starts or a play is kept (cache.py, with the state
+        # activity.COUNTS_STATE says); the cabinets themselves (their names, when last seen) read each time.
+        counts = site.lists.get(activity.db, ("cabinet counts",), activity.cabinet_counts,
+                                newest=act.Activity.COUNTS_STATE)
+        rows = activity.cabinets(counts)
     finally:
         activity.db.close()
     for r in rows:

@@ -53,14 +53,35 @@ class Activity:
 
     # ------------------------------------------------------------------------------------ the pages' side
 
-    def cabinets(self):
-        """Every cabinet seen, last seen first, with its sessions and the stages cleared on it."""
-        return [dict(r) for r in self.db.execute(
-            "SELECT c.id, c.machine_key AS host, c.name, c.version, c.first_seen, c.last_seen,"
-            " (SELECT COUNT(*) FROM sessions s WHERE s.cabinet = c.machine_key) AS sessions,"
-            " (SELECT COUNT(*) FROM plays p JOIN sessions s ON s.id = p.session_id WHERE s.cabinet = c.machine_key)"
-            " AS plays"
-            " FROM cabinets c ORDER BY c.last_seen DESC, c.id")]
+    # What the counts of cabinet_counts() are made of, as one number that only goes up while plays and sessions are
+    # added (the newest play's number plus the newest session's), for the site's kept lists (web/cache.py: its
+    # `newest`): a session starts at a card login, its plays come at the credit's end, and either moves it on. Plays
+    # go only with a change the lists count anyway (a reset, a player deleted, a restore); sessions never go.
+    COUNTS_STATE = ("SELECT (SELECT COALESCE(MAX(id), 0) FROM plays) + (SELECT COALESCE(MAX(id), 0) FROM sessions)", ())
+
+    def cabinets(self, counts=None):
+        """Every cabinet seen, last seen first, with its sessions and the stages cleared on it. `counts`: what
+        cabinet_counts() gave (the site keeps them until they change); counted here when not given."""
+        counts = self.cabinet_counts() if counts is None else counts
+        rows = [dict(r) for r in self.db.execute(
+            "SELECT id, machine_key AS host, name, version, first_seen, last_seen FROM cabinets"
+            " ORDER BY last_seen DESC, id")]
+        for r in rows:
+            # A cabinet seen but never logged in on has neither.
+            r["sessions"], r["plays"] = counts.get(r["host"], (0, 0))
+        return rows
+
+    def cabinet_counts(self):
+        """Each cabinet's sessions and the stages cleared in them, {machine key: [sessions, plays]}: the sessions
+        counted along their index by cabinet, the plays along theirs by session (each session's once, then added up
+        by its cabinet). A count for each cabinet in turn read every session and play of it (78 ms on 300,000 plays,
+        at every visit of the Cabinets page: the site now keeps these until a session or a play comes)."""
+        plays = dict(self.db.execute(
+            "SELECT s.cabinet, SUM(k.n) FROM (SELECT session_id, COUNT(*) AS n FROM plays"
+            " WHERE session_id IS NOT NULL GROUP BY session_id) AS k JOIN sessions AS s ON s.id = k.session_id"
+            " GROUP BY s.cabinet").fetchall())
+        return {cabinet: [sessions, plays.get(cabinet, 0)] for cabinet, sessions in self.db.execute(
+            "SELECT cabinet, COUNT(*) FROM sessions GROUP BY cabinet")}
 
     def rename_cabinet(self, cabinet_id, name):
         """Give a cabinet a name the admin pages show (empty: back to its address); False if there is none."""
