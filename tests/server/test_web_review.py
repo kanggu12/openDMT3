@@ -9,7 +9,6 @@ They need the web libraries (Starlette, Jinja2, httpx for the test client); with
 
 import os
 import re
-import sqlite3
 import time
 import unittest
 
