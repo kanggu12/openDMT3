@@ -20,6 +20,7 @@
  *     tables are looked at there and put back if Direct3D filled a table in again (methods.c).
  */
 #include "ingame.h"
+#include "logfile.h"
 #include "methods.h"
 #include "postmath.h"
 
@@ -79,28 +80,36 @@ int ingame_beside(const WCHAR *name, WCHAR *out, size_t room)
 
 void ingame_log(const char *fmt, ...)
 {
-    WCHAR path[MAX_PATH * 4];
-    /* No variable: no log (a player's normal case). A value too long for the buffer is not a path to open. */
-    DWORD got = GetEnvironmentVariableW(L"OPENDMT3_INGAME_LOG", path, MAX_PATH * 4);
-    if (!got || got >= MAX_PATH * 4)
-        return;
-    /* An empty value means the default name beside the DLL (openDMT3's folder; the game folder is only read). */
-    if (!path[0] && !ingame_beside(L"openDMT3-ingame.log", path, MAX_PATH * 4))
-        return;
-    /* One line at a time from any thread (the sound engine's period is said from a thread of its own, engine.c): each
-     * open moves to the file's end and writes there, so two at once could land at the same place, one lost. */
+    /* Whether there is a log, from its variable read at the first line (the environment is the process's own from its
+     * start): 0 not read yet, 1 a file to write, -1 none. With none, a player's normal case, a line costs this one
+     * read: no lock, no call into Windows (each line read the variable again before). */
+    static volatile LONG state;
+    /* The file's path once read, and its handle, kept open from the first line on (logfile.c: opened and closed for
+     * each line, the counter's lines every two seconds cost their frame 2.3 to 5.4 ms under Wine, after its tick). */
+    static WCHAR path[MAX_PATH * 4];
+    static LogFile file;
+    /* One line at a time from any thread (the sound engine's period is said from a thread of its own, engine.c), each
+     * written whole at the file's end. */
     static SRWLOCK lock = SRWLOCK_INIT;
+    if (state < 0)
+        return;
     AcquireSRWLockExclusive(&lock);
-    FILE *f = _wfopen(path, L"a");
-    if (f) {
-        /* The time since Windows started, in milliseconds: enough to order the lines and measure between them. */
-        fprintf(f, "%lu ", (unsigned long)GetTickCount());
+    if (!state) {
+        /* No variable: no log. A value too long for the buffer is not a path to open (logfile_variable). */
+        int got = logfile_variable(L"OPENDMT3_INGAME_LOG", path, MAX_PATH * 4);
+        /* Set to nothing: the default name beside the DLL (openDMT3's folder; the game folder is only read). Windows
+         * answers an empty value as it answers none, so this name was never reached before (logfile_variable). */
+        if (got == LOG_DEFAULT && !ingame_beside(L"openDMT3-ingame.log", path, MAX_PATH * 4))
+            got = LOG_UNSET;
+        /* Read without the lock only to leave at once when there is no log; the path itself is read under it. */
+        state = got == LOG_UNSET ? -1 : 1;
+    }
+    if (state > 0) {
         va_list ap;
         va_start(ap, fmt);
-        vfprintf(f, fmt, ap);
+        /* The time since Windows started, in milliseconds: enough to order the lines and measure between them. */
+        logfile_line(&file, path, (unsigned long)GetTickCount(), fmt, ap);
         va_end(ap);
-        fputc('\n', f);
-        fclose(f);
     }
     ReleaseSRWLockExclusive(&lock);
 }

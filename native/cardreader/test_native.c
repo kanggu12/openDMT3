@@ -15,6 +15,7 @@
 
 #include "contacts.h"
 #include "ingame.h"
+#include "logfile.h"
 #include "logic.h"
 #include "methods.h"
 #include "passtimes.h"
@@ -869,6 +870,122 @@ static void test_sound_file(void)
         Sleep(1500);
     }
     SetFileAttributesW(path, FILE_ATTRIBUTE_NORMAL);
+}
+
+/* ---- the in-game log's file (logfile.c): kept open from its first line, each line written whole at once. */
+
+/* One line through logfile_line, its words from `fmt` as ingame_log hands them on. */
+static int log_line(LogFile *log, const WCHAR *path, unsigned long ms, const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int ok = logfile_line(log, path, ms, fmt, ap);
+    va_end(ap);
+    return ok;
+}
+
+/* A file's bytes as text into `out` (room for `room`), read through a handle of the test's own while the writer keeps
+ * its file open, as a test reading the log while the game runs does; the length, or -1 when it cannot be read. */
+static long log_text(const WCHAR *path, char *out, long room)
+{
+    HANDLE h = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+    if (h == INVALID_HANDLE_VALUE)
+        return -1;
+    DWORD got = 0;
+    BOOL ok = ReadFile(h, out, (DWORD)room - 1, &got, NULL);
+    CloseHandle(h);
+    if (!ok)
+        return -1;
+    out[got] = 0;
+    return (long)got;
+}
+
+/* Another writer's bytes at the end of a file (a handle of the test's own, opened and closed for them). */
+static void log_other(const WCHAR *path, const char *bytes)
+{
+    HANDLE h = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS,
+                           FILE_ATTRIBUTE_NORMAL, NULL);
+    DWORD put = 0;
+    if (h != INVALID_HANDLE_VALUE) {
+        WriteFile(h, bytes, (DWORD)strlen(bytes), &put, NULL);
+        CloseHandle(h);
+    }
+}
+
+static void test_logfile(void)
+{
+    WCHAR dir[MAX_PATH], path[MAX_PATH], got[16];
+    static char text[64 * 1024];
+    GetTempPathW(MAX_PATH, dir);
+    wcscat(dir, L"odt3-log-test");
+    CreateDirectoryW(dir, NULL);
+    _snwprintf(path, MAX_PATH, L"%ls\\ingame.log", dir);
+    DeleteFileW(path);
+    /* The variable: not set (no log), set to nothing (the default file beside the DLL: Windows answers an empty value
+     * as it answers none, so the default was never reached before), a path, one too long for the room. */
+    SetEnvironmentVariableW(L"OPENDMT3_TEST_LOG", NULL);
+    int unset = logfile_variable(L"OPENDMT3_TEST_LOG", got, 16) == LOG_UNSET;
+    SetEnvironmentVariableW(L"OPENDMT3_TEST_LOG", L"");
+    int empty = logfile_variable(L"OPENDMT3_TEST_LOG", got, 16) == LOG_DEFAULT && !got[0];
+    SetEnvironmentVariableW(L"OPENDMT3_TEST_LOG", L"C:\\a.log");
+    int named = logfile_variable(L"OPENDMT3_TEST_LOG", got, 16) == LOG_PATH && !wcscmp(got, L"C:\\a.log");
+    SetEnvironmentVariableW(L"OPENDMT3_TEST_LOG", L"C:\\a folder too long\\ingame.log");
+    int long_value = logfile_variable(L"OPENDMT3_TEST_LOG", got, 16) == LOG_UNSET;
+    SetEnvironmentVariableW(L"OPENDMT3_TEST_LOG", NULL);
+    check(unset && empty && named && long_value,
+          "log: no variable no log, set to nothing the default file, a path, a value too long no path");
+    /* Each line in the file as soon as it is written (read through another handle while the log keeps its own open),
+     * after the ones before it: its time, a space, its words, "\r\n" as the C runtime's text mode wrote it. */
+    LogFile log = {NULL};
+    int first = log_line(&log, path, 12, "one %d", 1) && log_text(path, text, sizeof text) == 10 &&
+                !strcmp(text, "12 one 1\r\n");
+    HANDLE kept = log.h;
+    int second = log_line(&log, path, 13, "two %s", "words") && log_text(path, text, sizeof text) == 24 &&
+                 !strcmp(text, "12 one 1\r\n13 two words\r\n");
+    check(first && second && kept && kept != INVALID_HANDLE_VALUE && log.h == kept,
+          "log: each line in the file at once, after the ones before, through the one handle kept open");
+    /* A line longer than the room the line is made in, whole; an end inside a line, as text mode wrote it. */
+    static char words[5001];
+    memset(words, 'x', 5000);
+    words[5000] = 0;
+    int long_ok = log_line(&log, path, 14, "%s.", words);
+    int inner_ok = log_line(&log, path, 15, "a\nb");
+    long n = log_text(path, text, sizeof text);
+    const char *at = text + 24;
+    int whole = n == 24 + 3 + 5001 + 2 + 9 && !strncmp(at, "14 ", 3) && strspn(at + 3, "x") == 5000 &&
+                !strcmp(at + 3 + 5000, ".\r\n15 a\r\nb\r\n");
+    check(long_ok && inner_ok && whole, "log: a long line whole, an end inside a line written as text mode did");
+    logfile_close(&log);
+    check(log.h == NULL, "log: let go");
+    /* A file whose folder is not there: the line is lost and nothing is kept open; once the folder is there, the next
+     * line opens the file (each line tries, as each line opened the file before). */
+    WCHAR later_dir[MAX_PATH], later[MAX_PATH];
+    _snwprintf(later_dir, MAX_PATH, L"%ls\\later", dir);
+    _snwprintf(later, MAX_PATH, L"%ls\\ingame.log", later_dir);
+    DeleteFileW(later);
+    RemoveDirectoryW(later_dir);
+    LogFile late = {NULL};
+    int lost = !log_line(&late, later, 1, "lost") && late.h == INVALID_HANDLE_VALUE;
+    CreateDirectoryW(later_dir, NULL);
+    int found = log_line(&late, later, 2, "found") && log_text(later, text, sizeof text) == 9 &&
+                !strcmp(text, "2 found\r\n");
+    check(lost && found, "log: a line with no folder for its file is lost, the next opens the file once it is there");
+    logfile_close(&late);
+    DeleteFileW(later);
+    RemoveDirectoryW(later_dir);
+    /* Another writer's line between two of the log's (the file kept open meanwhile): the log's next line goes after it,
+     * at the file's end as it is then, never over it from a place of its own. (Two writers at the very same moment are
+     * a seek and a write apart under Wine, which can overlap, as two C runtime openings could before.) */
+    DeleteFileW(path);
+    LogFile own = {NULL};
+    int a = log_line(&own, path, 1, "ours");
+    log_other(path, "theirs\r\n");
+    int b = log_line(&own, path, 2, "ours again");
+    check(a && b && log_text(path, text, sizeof text) == 30 && !strcmp(text, "1 ours\r\ntheirs\r\n2 ours again\r\n"),
+          "log: a line another writer added stays, the log's next goes after it");
+    logfile_close(&own);
+    DeleteFileW(path);
+    RemoveDirectoryW(dir);
 }
 
 static void test_sound_panel(void)
@@ -2909,6 +3026,7 @@ int main(void)
     test_sound_values();
     test_sound_panel();
     test_sound_file();
+    test_logfile();
     test_bar_clock();
     test_slides();
     test_slot_index();
