@@ -58,7 +58,8 @@ The unit tests run on several processes at once (`tests/parallel.py`, as many as
 | Load | One server process on a made-up history of 300,000 plays for 30 minutes: 63 stand-in cabinets and a bad one (garbage, a login it never reads, a message cut half way), 20 visitors on the site and a program asking for every play as a file over and over. Every good cabinet online all the time, 95 % of the keep-alives within 250 ms and every one within 2 s, half the logins within 500 ms, every session kept, each page within 1 s for 95 % of the visitors' asks and none refused, every call of the program answered (one at a time), memory steady after the first third | `python tests/e2e/load/cabinets.py` | 31 min |
 | Server package on Windows | The Windows server package (`packaging/windows/server.sh`) under Wine with no network: setup, a song list, start in the background, `/health`, the site and the API, the installer it brings handed out, status, invite, the firewall's commands, the launcher of a release signing in to it, stop, a run in the foreground stopped from another process, its banner, repair, removal | `tests/e2e/windows/server_package.sh ZIP OUT_DIR [LAUNCHER_PACKAGE]` | 5 min |
 | HTTPS | `./dmt3 expose` on a copy of the tree with ports of its own (`./dmt3 ports`): Caddy's local authority (the root verifies the certificate, HTTP sent to HTTPS, an admin signs in, the site's own port closed), Pebble as an ACME authority, `--off`, the moved game port told to launchers, the banner in the log | `tests/e2e/expose/run.sh OUT_DIR [IMAGE]` | 2 min |
-| One-line install | `packaging/server/install.sh` in `python:3.12-slim-bookworm` as a user of its own: install, setup, start, `/health`, the install again while it runs, `--uninstall` keeping the data | `tests/e2e/install/run.sh OUT_DIR` | 2 min |
+| Server packages for Linux and macOS | The four packages (`packaging/server/bundle.sh`) put together from their pinned files in a container with no network, the same bytes from the same tree; CI's package job unpacks and runs each on its own system and processor (Linux x64 and arm64 in a bare Debian 10, macOS on Intel and Apple silicon): `--version`, setup, start, `/health` and the admin pages', a made-up archive listed with the package's 7-Zip, repair, stop, and the one-line install from a folder of the files | `packaging/server/bundle.sh OUT_DIR [TARGET ...]` | 2 min |
+| One-line install | `packaging/server/install.sh` as a user of its own, with this tree's package for Linux x64: in a bare Debian 10 with no Python and no network, install, setup, start, `/health`, the install again while it runs, a later release whose package is not the release's and one whose package does not start (each refused, the server running on), `--uninstall` keeping the data; then over an install the last release's line made with Python (taken over, the data kept), `expose` with Caddy beside it, `--uninstall` | `tests/e2e/install/run.sh OUT_DIR` | 3 min |
 | Helm | The chart on a kind cluster: ready, `/health`, the sign-in page, the game's port, the Secret's account signing in through the API, a restart, `helm test` | `deploy/kind/up.sh [--down]` | 4 min |
 | Images | The server's image for amd64 and arm64 with buildx (arm64 under QEMU: `docker run --privileged --rm tonistiigi/binfmt --install arm64` once), each started and answering `/health` | `docker buildx build --platform linux/arm64 -f packaging/docker/Dockerfile --load .` | 3 min |
 | Upgrade | A database the last release's server made (accounts and plays), opened by this tree's server: upgraded with its owner's-only copy kept first, nothing lost, the same players sign in | `tests/e2e/upgrade/run.sh vX.Y.Z OUT_DIR` | 2 min |
@@ -79,7 +80,17 @@ bar must leave the page its whole width. Its spacing pass (`tests/e2e/ui/spacing
 boxes that touch or overlap, words over a box they are no part of, words closer to the edge of the menu column or a
 card than its padding, words lying on a page's field outside any card, and gaps between stacked boxes off the
 launcher's spacing scale; every drop-down on every page is opened and its list must lie whole on the screen and over
-everything at its corners (read from the screen's own pixels); and no screen may light two main actions at once. The
+everything at its corners (read from the screen's own pixels); and no screen may light two main actions at once. Its
+composition pass (`tests/e2e/ui/compose.py`) holds every page, guide step and dialog to one size for each role of key
+(height, room either side of the words, least width; none stretched across its card), the words of every key in its
+middle by their ink (their capitals', or their Hangul syllables'), every word in the type's steps and no card's or
+dialog's name smaller than the body under it, a setting's name and control on one line and one group's controls at
+one edge, sliders long enough to set a value by, one left edge for the head's line and the cards, no card for one
+control and a line, no list of three cards across the column on a short page wide enough for two side by side, a
+status panel's lamp saying the whole check as the foot does, no key or tag in a card's cut corner (the cut and the
+card's padding), cards side by side ending on one line, and the page's own colour round every card, in the gaps and
+beyond each cut corner, a result panel's second one included (read from the screen); it is tried first on pages
+made up to fail each of these. The
 forms are used as a person uses them: a wrong value said under its field and gone with the next key, Show in the Tab
 order after its password, and the sign-in against a made-up server in each state (asked, a wrong ID or password, not
 answering, too many tries, banned), each said where it belongs and scrolled into view. A run with no new screenshot
@@ -88,8 +99,12 @@ otherwise. `tests/e2e/ui/start.py` starts the launcher as starts are (the guide 
 size: PLAY, PLAY with the window resized before its first drawing, every page as the first one drawn and the guide's
 first step, each start in a process of its own with a minute to finish drawing its first page. The
 site's check (`tests/e2e/web/shoot.js`, measuring with `measure.js`) fails on anything past a page's right edge, words
-cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone width, a word of the phone
-menu that does not fit, a button whose words are out of its middle, boxes that touch or overlap, words nearer a box's
+cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone width or with its value
+wrapping back under its label, a word broken inside itself (a column squeezed under it), a gap inside a number (a
+step between its characters off the face's own advance; every page is measured for it again as the headless shell
+draws it, `tests/e2e/web/shell.js`, where each glyph is stepped by a whole pixel unless the page says otherwise, as the
+pictures made for the owner are, while the usual headless steps by the face's advances), a word of the phone menu that
+does not fit, a button whose words are out of its middle, boxes that touch or overlap, words nearer a box's
 edge than its padding, a gap between two boxes off the site's scale (steps of 2 px up to 32, then 36, 40, 48, 56, 64),
 words straight on the page's background, a floating layer (the charts' tips, opened by pointing at the first, the
 middle and the last of each kind) not wholly on the screen or with something over it, and a question asked first that
@@ -97,9 +112,10 @@ does not fit. Both
 also count what they looked at, so a page that silently stops being visited fails the run.
 
 Each check is tested itself: `OPENDMT3_REPO` points it at a copy of the tree, and `tests/e2e/web/selftest.sh OUT_DIR`
-plants five faults in a copy (a table that sticks out on a phone, words cut off in a box of a fixed height, a stacked
-cell with no label, a button's words out of its middle, the phone menu cut) and passes only when the check catches
-each. The launcher's check for hidden content tries itself at every run, at that run's fonts and scale, on a made-up
+plants ten faults in a copy (a table that sticks out on a phone, words cut off in a box of a fixed height, a stacked
+cell with no label, a button's words out of its middle, the phone menu cut, a group's name smaller than its rows, a
+small key off its role's padding, the head's stage under the bar, a Korean page's table breaking a word inside itself,
+the page's words stepped by whole pixels again) and passes only when the check catches each. The launcher's check for hidden content tries itself at every run, at that run's fonts and scale, on a made-up
 page taller than the window: it must be said hidden where it cannot scroll (a scroll area with its region cut, a plain
 box) and not where it scrolls; and its check of the menu column on names made taller than the column holds.
 
@@ -271,6 +287,7 @@ Three settings of the image keep the frame times and the layer's costs the game'
 | `OPENDMT3_WINE_GPU=1 tests/e2e/windows/ingame.sh ...` | The test as in the table above, on the GPU (the same for `install_and_play.sh` and `play_a_song.sh`; the containers are named `odt3-gpu-*`, so they never take a CPU run's) |
 | `[OPENDMT3_WINE_GPU=1] [SCREEN=WxH] tests/e2e/windows/gpu/measure.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS] [RUN...]` | The same scenes on either renderer at one screen size, the real client started as a guest on its title screen: what draws it, what showing a frame costs by itself, the game alone (its own limiter, and as fast as it goes), openDMT3 at each picture choice, each part of the layer in turns, the picture's GPU time by pass at every choice, kept and filled, in one start of the game (`passes`; 35 minutes in all up to here), and the frame rate chip with the limiter out, where its number changes at every count (`chip`, a minute and a half: its uploads' times, and the layer's textures made at its first frame). `python3 tests/e2e/windows/gpu/measure.py compare OUT_DIR` puts the sessions side by side; `measure.py passes OUT_DIR [BEFORE_DIR]` tables the passes runs, or two builds' before and after |
 | `[OPENDMT3_WINE_GPU=1] [PRESSES=80] tests/e2e/windows/gpu/song.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS] [VAR=VALUE...]` | A whole song as a guest, the layer at a player's defaults (locked to the music, FSR 1 at 50) and the variables given, on an image whose sound goes to PulseAudio's null sink (`gpu/sound/Dockerfile`), which plays in real time, so the music lock holds the song at 60 a second (ALSA's null device, the other tests' sound, runs its play cursor ahead of real time): every frame's length, the music against the frames at its stop, and PRESSES presses (none after the song) timed from each press's message to its frame done on the GPU, with the parts the layer gives (to the game's read of it, from the read to the present, from the present to done); `song.py OUT_DIR` turns a run into its numbers (`results.json`), and `song.py compare A_DIR[,A_DIR...] B_DIR[,B_DIR...]` pools two sides' presses for their medians and the difference's 95 % interval; 7 minutes a run |
+| `[OPENDMT3_WINE_GPU=1] [OFFSET_MS=80] tests/e2e/windows/gpu/judge.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]` | Two runs of `holds.sh`'s play (the guest's tutorial, then a song), the layer pressing each plain note itself (`OPENDMT3_PRESS_LATE`) MS after its time and on it, in turn, the song's presses judged (the tutorial plays itself: a note there is judged on its own once the count shown is past it): with an audio offset of MS the first judged on time and the second MS early, with none the first MS late and the second on time (`line.py presses`: within a frame after the time expected, the distance the game took the count it judged less the note's), and the count the line and the notes are drawn by MS behind the score's own with the offset and the score's own with none (`line.py lag`, within half a tick); 15 minutes |
 | `[OPENDMT3_WINE_GPU=1] [HOLDS="32 50"] [MINIMISE=68] tests/e2e/windows/gpu/holds.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS] [VAR=VALUE...]` | `song.sh`'s tutorial and song with no presses, held still under the question and minimised at those seconds into each music, the score watched (`OPENDMT3_LINE_WATCH`): `line.py holds` judges each hold (the score counted no more time across it than the music played, and a tick) and gives how far it moved the score against the music over 2 s each side; 10 minutes a run |
 | `[OPENDMT3_WINE_GPU=1] [SIZES="WxH@DPI ..."] [HEAVY=1] tests/e2e/windows/gpu/sizes.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]` | The screen sizes players have, each at the Windows scaling a PC of it has by default (1920x1080 at 100 %, 2560x1440 at 125 %, 3840x2160 at 150 %, 3440x1440 at 100 % with bars beside the picture, 2560x1600 at 150 % with bars over and under it), on `song.sh`'s image: for each, a start drawn at the game's 1280x768 (every upscale filter measured on the title, the layer's parts made by the pointer at their places and shot with their costs, the pointer's points read back as the game pixels under them, the dart's size, a window from the chip at two sizes and back, minimise and back) and one drawn at the screen's size (every anti-aliasing, a window, at 3840x2160 five switches and a lost device the game must reset), each then TOUCH to START and the guest's tutorial (the defaults and the heaviest choice measured, the question with its line, the 3, 2, 1 and Quit the game shot); then two starts at 3840x2160 with the heaviest choices as a player has them (SMAA Ultra drawn at the screen's size with the flip model at 200 %, Anime4K at 100 %) through five switches and two sizes of the window. The process's address space and the device's texture memory every 10 s (`OPENDMT3_MEMORY_WATCH`), the card's memory in use and its clocks beside them. `sizes.py report OUT_DIR` judges every start (`summary.md`, `results.json`): attached at its size and scaling, every act answered, every pointer point right, the dart's size, the defaults holding 60 on a quiet machine, nothing failing to be made, the frames going on after every change, and the layer's words drawn at the screen's pixels at every size; each choice's frame time, GPU time by pass and the parts' costs, the layer's measures in millimetres beside Windows' own text, and the memory said; 70 minutes on the GPU |
 | `OPENDMT3_WINE_GPU=1 tests/e2e/windows/gpu/measure.sh ... pictures:keep pictures:fill` with one build, again with the other and `PICTURE_SOURCE=` the first run's session, then `python3 tests/e2e/windows/gpu/pictures.py A_DIR B_DIR` | The chain's measuring dump of frames of the title screen (`PICTURE_FRAMES`, 1800 and 2400 by default) with every filter and anti-aliasing, kept and filled. The title's animation is not at the same picture at a frame number in two runs, so the second run takes the first's game picture of each frame in place of its own (`OPENDMT3_POSTFX_SOURCE`); `pictures.py` holds the two runs' dumps against each other: the game's own frame must be the same in both, then each picture's pixels that differ, the largest difference and the PSNR (exit 0 only when all are the same) |
@@ -715,6 +732,24 @@ its two frames that was not held, within a tick and 20 ms (its sound is ALSA's n
 there the music's position moved 8.5 s across a minimised hold of 3.75 s). Its play on 0.4.0's layer with the watch
 failed there, the score having counted 9.9 and 3.8 s across the question's hold and the minimised one; on 0.4.1's it
 passed, the score counting 15.9 and 21.2 ms.
+
+#### The audio offset's judging, measured
+
+On 2026-11-19, `gpu/judge.sh` on the CPU image (its two runs, 13 minutes): the song after the guest's tutorial, its
+216 plain notes pressed by the layer 80 ms after their time and on it in turn. The tutorial plays itself: its judge
+judged its notes on its own, its own-play flag set at every press there and at none in the song.
+
+| Audio offset | Pressed | Judged at (median, from and to) | The game's levels |
+|---|---|---|---|
+| 80 ms | 80 ms after its note | +7.6 ms (+0.0 to +17.8) | 6 for all 108 |
+| 80 ms | on its note | -71.1 ms (-78.8 to -61.0) | 5 for all 108 |
+| None | on its note | +5.1 ms (+0.0 to +17.8) | 6 for all 108 |
+| None | 80 ms after its note | +86.4 ms (+78.8 to +96.5) | 5 for 47, 4 for 61 |
+
+A press is made at the first frame its time is reached, so each was judged up to a frame (16.7 ms) after the time
+asked. With the offset, the count the line and the notes are drawn by was 80 ms behind the score's own in every one of
+the 12,178 frames counted past each score's first 3 s (1.24 ms off it at most, within half a tick); with none, the
+score's own in all 12,170.
 
 ## Before a release
 

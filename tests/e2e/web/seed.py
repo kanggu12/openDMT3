@@ -47,20 +47,32 @@ def main(data):
         draw.ellipse((62, 62, 98, 98), fill=(16, 19, 23, 255))
         draw.text((74, 30), str(number), fill=(16, 19, 23, 255))
         disc.save(os.path.join(data, "jackets", "%d.png" % number))
-    # Made-up DJ card pictures and tables (cards.py's shape): coloured plates with their numbers, six icons, five
-    # plates, four patterns, and the level steps. BOSS (the signed-in admin) and HANA wear a full card.
+    # Made-up DJ card pictures and tables (cards.py's shape): six icons, five plates, four patterns, and the level
+    # steps. BOSS (the signed-in admin) and HANA wear a full card. The pictures carry no words or numbers: a pattern
+    # is drawn over its plate and the comment over both, so a number in each would stand one over another (a
+    # pattern's 3 over a plate's 32770); each is told from the others by its colour and shape alone.
     from opendmt3.server.services import cards
     choices = {"icon": [1, 2, 3, 4, 5, 6], "plate": [32768, 32769, 32770, 32771, 32772], "pattern": [0, 1, 2, 3]}
     for kind, numbers in choices.items():
         os.makedirs(os.path.join(data, cards.FOLDER, kind), exist_ok=True)
         for i, number in enumerate(numbers):
             size = (104, 64) if kind == "icon" else (204, 64)
-            # A pattern is drawn over a plate: a see-through stripe; icons and plates are solid.
-            picture = Image.new("RGBA", size, (0, 0, 0, 0) if kind == "pattern" else (40 + 40 * i, 90, 200 - 30 * i, 255))
+            picture = Image.new("RGBA", size, (0, 0, 0, 0))
             draw = ImageDraw.Draw(picture)
-            if kind == "pattern":
+            if kind == "icon":
+                # An emblem: a disc of its own colour on a darker square.
+                colour = (60 + 30 * i, 120 + 15 * i, 230 - 30 * i)
+                draw.rectangle((0, 0, size[0] - 1, size[1] - 1), fill=tuple(c // 3 for c in colour) + (255,))
+                draw.ellipse((34, 14, 70, 50), fill=colour + (255,))
+            elif kind == "plate":
+                # A plate: its colour, a lighter band over its top third as a plate's sheen.
+                colour = (40 + 40 * i, 90, 200 - 30 * i)
+                draw.rectangle((0, 0, size[0] - 1, size[1] - 1), fill=colour + (255,))
+                draw.rectangle((0, 0, size[0] - 1, 20), fill=tuple(min(255, c + 40) for c in colour) + (255,))
+            elif number:
+                # A pattern is seen over a plate: a see-through stripe at its own height (pattern 0 is none: the plate
+                # alone, so its picture is empty).
                 draw.rectangle((0, 24 + 4 * i, size[0], 36 + 4 * i), fill=(255, 179, 61, 160))
-            draw.text((8, 8), str(number), fill=(255, 255, 255, 255))
             picture.save(os.path.join(data, cards.FOLDER, kind, "%d.png" % number))
     with open(os.path.join(data, cards.FILE), "w", encoding="utf-8") as f:
         json.dump(dict({k: [{"number": n, "grade": "S" if n % 2 else ""} for n in v] for k, v in choices.items()},

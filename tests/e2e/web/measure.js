@@ -7,6 +7,7 @@
 //                 one row that is wider than its own clipped box;
 //   unlabelled    at a phone's width, a cell of a table shown as blocks (its headers hidden) that says a number, a date
 //                 or a word with nothing beside it to say what it is: its column had a name, the cell has no label;
+//                 and a labelled cell whose value wraps back under its label (a line starting left of its first);
 //   menu          at a phone's width, a word of the top menu that does not fit the screen (cut mid-word at its edge),
 //                 and a menu whose words would not fit the narrowest phone looked after (360 px wide);
 //   askew         a button whose words are not in its middle or are larger than it (a link made to look like a button
@@ -14,14 +15,20 @@
 //   forms         a field with no label, a slot not of the forms' heights (34, 42, 44, 48), the browser's own list or
 //                 tick, a rule in a bracketed placeholder, a field marked wrong with no words under it (FORMS.md);
 //   wraps         a number or a date that breaks over two lines (2026-11- over 17 09:30, 1 over 2), a figure parted
-//                 from its unit (7.8 over GB) or a time from its date: each is read whole, so it lies on one line;
+//                 from its unit (7.8 over GB) or a time from its date: each is read whole, so it lies on one line; and
+//                 a word broken inside itself (syste over m), its column or part squeezed under it;
+//   gaps          (a measure of its own, gaps(), run in the headless shell too) a number with a gap or a squeeze
+//                 inside it: a step between two of its characters off the face's own advance (a hinted 7 stepped by a
+//                 whole 9 px for its 8.2 read "487 25");
 //   spacing       boxes (a card, a button, a field, a tag, an alert: anything with a fill, a border or a shadow) that
 //                 touch or overlap a box beside them in the same parent; words nearer a box's edge than its padding;
 //                 a gap between two boxes beside each other that is off the site's scale (whole steps of 2 px up to
 //                 32, then 36, 40, 48, 56, 64); and words with no box under them, straight on the page's background
 //                 (the bar, the hero, the notice and the foot are boxes of their own).
 //
-// Each is a short list of what was found (empty: nothing), so a line of the run names it.
+// Each is a short list of what was found (empty: nothing), so a line of the run names it. The page's composition (keys
+// by their roles, words in their keys' middles, the type scale, headings, rows, the groups' left edges, fields' widths,
+// boxes of one thing, pairs, the head's stage) is measured by compose, below.
 const layout = page => page.evaluate(() => {
   const width = document.documentElement.clientWidth;
   const name = e => e.tagName + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '');
@@ -68,6 +75,16 @@ const layout = page => page.evaluate(() => {
         const before = getComputedStyle(cell, '::before').content;
         if (!before || before === 'none' || before === '""') {
           unlabelled.push(name(table) + ' "' + said(cell) + '" (column "' + names[i] + '")');
+          return;
+        }
+        // A labelled cell whose value takes more than one line: every line starts where its first did (the label is
+        // a column of its own), never back under the label. The cell's own contents as a range: a box for each line
+        // of its words and for each element in it, the first the value's start.
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+        const boxes = [...range.getClientRects()].filter(r => r.width > 0 && r.height > 0);
+        if (boxes.length > 1 && Math.min(...boxes.map(r => r.left)) < boxes[0].left - 1) {
+          unlabelled.push(name(table) + ' "' + said(cell) + '" (column "' + names[i] + '": runs under its label)');
         }
       });
     }
@@ -127,10 +144,11 @@ const layout = page => page.evaluate(() => {
   // words stand on its gradient: the door frames them.
   const frames = e => {
     const s = getComputedStyle(e);
-    return ['auto', 'scroll'].includes(s.overflowX) || e.matches('.door, .lost-code');
+    return ['auto', 'scroll'].includes(s.overflowX) || e.matches('.door, .lost, .lost-code');
   };
+  // (A chart's scale labels are set on its guides, over the drawing: placed by the data, not by the page's spacing.)
   const outside = 'dialog, dialog *, .shards, .shards *, .tip, svg, svg *, script, style, option, .visually-hidden, ' +
-    '.toast, .toast *, .menu-sheet, .menu-sheet *';
+    '.toast, .toast *, .menu-sheet, .menu-sheet *, .trend-y';
   const boxes = [...document.querySelectorAll('body *')].filter(e => !e.matches(outside) && shown(e) && isBox(e) &&
     getComputedStyle(e).position !== 'fixed');
   const steps = new Set([0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 36, 40, 48, 56, 64]);
@@ -233,9 +251,92 @@ const layout = page => page.evaluate(() => {
       }
     }
   }
+  // ---- a word broken inside itself over two lines: a column or a row's part squeezed under its longest word (a
+  // Korean page's table broke "system" into "syste" and "m"). Words of Latin letters (digits after the first letter
+  // too), whole: not inside a longer run of letters or digits. Not where a long name may break anywhere by its own
+  // rule (code, a token, a hash, a field's own words); a number's breaking is the check above.
+  const lettered = /(?<![\p{L}\p{N}_])[A-Za-z][A-Za-z0-9]+(?![\p{L}\p{N}_])/gu;
+  const words = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = words.nextNode(); n; n = words.nextNode()) {
+    const host = n.parentElement;
+    if (!host || host.closest('script, style, textarea, code, pre, kbd, .hex, .token, .token-name, .shards, ' +
+                                'dialog:not([open]), [hidden]') || !shown(host)) continue;
+    for (const m of n.textContent.matchAll(lettered)) {
+      const range = document.createRange();
+      range.setStart(n, m.index);
+      range.setEnd(n, m.index + m[0].length);
+      const boxes = [...range.getClientRects()].filter(r => r.width > 0 && r.height > 0);
+      if (boxes.length > 1 && boxes[boxes.length - 1].top - boxes[0].top > boxes[0].height / 2) {
+        wraps.push(name(host) + ' "' + m[0] + '" breaks inside itself');
+      }
+    }
+  }
   return {page: document.documentElement.scrollWidth - width, els, cut: cut.slice(0, 6),
           unlabelled: unlabelled.slice(0, 6), menu, askew: askew.slice(0, 6), spacing: [...new Set(spacing)].slice(0, 8),
           forms: forms.slice(0, 6), wraps: wraps.slice(0, 6)};
+});
+
+// The gaps inside numbers on the page showing (a list, empty when there are none). Its own measure, as the site check
+// runs it twice: with every page's layout, and again on every page as the headless shell draws it (shoot.js, empty.js),
+// where each glyph is stepped by a whole pixel unless the page says otherwise; the new headless, like a desktop's
+// Chrome, steps by the face's own advances and shows none whatever the page says.
+const gaps = page => page.evaluate(() => {
+  const name = e => e.tagName + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '');
+  const shown = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
+  // A gap inside a number: each character of a figure (digits and the marks between them: 48725, 0.4.0,
+  // 2026-11-19 21:21, 1,234) stepped by the face's own advance. Where they stand on the page is held to the same
+  // characters in a reference of the same type laid out at the face's own advances (geometricPrecision: no step
+  // rounded to a whole pixel); a step more than 0.3 px off it is a gap or a squeeze the eye reads inside the number
+  // (a hinted 7 stepped 9 px for its 8.2 read "487 25"). All the references in one hidden box, laid out once.
+  const gaps = [];
+  const figureRun = /\d(?:[\d\u2060.,:\/-]*\d)?/g;
+  const runs = [];
+  const numbers = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = numbers.nextNode(); n; n = numbers.nextNode()) {
+    const host = n.parentElement;
+    if (!host || host.closest('script, style, textarea, .shards, dialog:not([open]), [hidden]') || !shown(host)) continue;
+    for (const m of n.textContent.matchAll(figureRun)) if (m[0].replace(/\u2060/g, '').length > 1) runs.push({n, host, at: m.index, text: m[0]});
+  }
+  // Each character's left edge, in order (a character of no width, a word joiner, stands where the next starts).
+  const lefts = (node, at, length) => Array.from({length}, (_, k) => {
+    const r = document.createRange();
+    r.setStart(node, at + k);
+    r.setEnd(node, at + k + 1);
+    return r.getBoundingClientRect();
+  });
+  const shelf = document.createElement('div');
+  shelf.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none';
+  const TYPE = ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontStretch', 'fontVariantNumeric', 'fontFeatureSettings',
+                'fontVariationSettings', 'fontKerning', 'fontOpticalSizing', 'letterSpacing', 'wordSpacing'];
+  for (const run of runs) {
+    const s = getComputedStyle(run.host), ref = document.createElement('span');
+    for (const k of TYPE) ref.style[k] = s[k];
+    ref.style.whiteSpace = 'pre';
+    ref.style.textRendering = 'geometricPrecision';
+    ref.style.display = 'block';
+    ref.textContent = run.text;
+    shelf.appendChild(ref);
+    run.ref = ref;
+  }
+  document.body.appendChild(shelf);
+  for (const run of runs) {
+    const page = lefts(run.n, run.at, run.text.length), face = lefts(run.ref.firstChild, 0, run.text.length);
+    // A number over two lines is the wraps' check's; here only one on one line.
+    if (page.some(r => Math.abs(r.top - page[0].top) > page[0].height / 2)) continue;
+    // A number in a part drawn larger (the front door's mark at twice its size) is held to the face at that scale:
+    // the host's box on the screen against its own laid-out width.
+    const scale = run.host.offsetWidth ? run.host.getBoundingClientRect().width / run.host.offsetWidth : 1;
+    for (let k = 1; k < run.text.length; k++) {
+      const step = (page[k].left - page[k - 1].left) / scale, own = face[k].left - face[k - 1].left;
+      if (Math.abs(step - own) > 0.3) {
+        gaps.push(name(run.host) + ' "' + run.text.replace(/\u2060/g, '') + '" has a gap inside it ("' + run.text.slice(k - 1, k + 1).replace(/\u2060/g, '') +
+                  '": ' + step.toFixed(2) + ' px where the face steps ' + own.toFixed(2) + ')');
+        break;
+      }
+    }
+  }
+  shelf.remove();
+  return [...new Set(gaps)].slice(0, 6);
 });
 
 // The page's floating layers (the charts' and the DJ's weeks' tips), each opened as a person opens it, by pointing at
@@ -337,6 +438,338 @@ const frame = async (page, kind) => {
   return faults;
 };
 
+// The page's composition, measured (the owner's rules of 11-19: a page is composed, not boxes stacked; every text and key
+// measured), in the browser. Each is a short list of what was found (empty: nothing):
+//
+//   keys      a key not of its role's height or side padding (main and ordinary keys are the page's controls' height,
+//             small keys a table row's, an icon key square), or wider than its words and its padding (a key stretched
+//             across its card or row);
+//   ink       a key's words off its middle: up and down, the ink of its letters (a capital's height over the line, a
+//             Hangul syllable's whole ink) against the key's inside; across, the box of everything it holds;
+//   type      words of a size off the site's steps, or lines of a paragraph closer or farther apart than reading
+//             wants (a line's height 1.35 to 1.8 times its size);
+//   headings  a heading smaller than the words under it (a card's name smaller than its rows);
+//   rows      controls side by side in one row not on one line (their tops and feet apart), controls stacked in one
+//             column not on one edge, a group's row whose name is not on its value's first baseline (a fact) or on its
+//             control's middle (a field, a key);
+//   align     words in a group that start a few pixels off the group's own left edge (a table's cell padding, an odd
+//             margin): every line of a group starts on its edge or well in from it;
+//   sizing    a field wider than what it takes by far (an ID of 8 letters across a card);
+//   single    a box that holds one key, or one fact, and nothing else;
+//   pairs     groups side by side that are not of one height;
+//   stage     the head's stage not flush under the bar and clear of every other box (its shards would end in the gap
+//             or at a box's edge).
+//
+// `STEPS` is the site's type scale (site.css's :root says it in words).
+const STEPS = [11, 12, 13, 14, 15, 17, 20, 24, 28, 32, 40, 48, 56, 64];
+const compose = page => page.evaluate(STEPS => {
+  const out = {keys: [], ink: [], type: [], headings: [], rows: [], align: [], sizing: [], single: [], pairs: [], stage: []};
+  const width = document.documentElement.clientWidth;
+  const name = e => e.tagName + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '');
+  const said = e => (e.innerText || e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 32);
+  const shown = e => {
+    const r = e.getBoundingClientRect(), s = getComputedStyle(e);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && parseFloat(s.opacity) > 0;
+  };
+  // Not the page's own: a dialog not open, the phone menu's sheet, a toast, a tip, the mark (a drawing, not words).
+  const aside = 'dialog:not([open]), dialog:not([open]) *, .menu-sheet:not(:popover-open), .menu-sheet:not(:popover-open) *, ' +
+    '.toast, .toast *, .tip, .tip *, .logo, .logo *, svg, svg *, script, style, .visually-hidden, .skip';
+  // Drawings with words in them, in their own proportions: the DJ card as the game draws it, a page's big code.
+  const drawn = '.djcard, .djcard *, .card-preview, .card-preview *, .lost-code';
+  const px = v => parseFloat(v) || 0;
+  const own = e => [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+  // Where a line of words sits: a probe of no size put at the start of its first words (in a span with them, so a flex
+  // or grid box does not make the probe an item of its own), its foot the line's baseline.
+  const baselineOf = e => {
+    const walker = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+    let text = walker.nextNode();
+    while (text && !text.textContent.trim()) text = walker.nextNode();
+    if (!text) return null;
+    const hold = document.createElement('span'), probe = document.createElement('span');
+    probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline;padding:0;margin:0;border:0';
+    text.parentNode.insertBefore(hold, text);
+    hold.appendChild(probe);
+    hold.appendChild(text);
+    const y = probe.getBoundingClientRect().bottom;
+    hold.parentNode.insertBefore(text, hold);
+    hold.remove();
+    return y;
+  };
+  const root = getComputedStyle(document.documentElement);
+  const ctl = px(root.getPropertyValue('--ctl')), ctlSm = px(root.getPropertyValue('--ctl-sm'));
+
+  // ---- keys: each by its role, at its role's height and side padding, no wider than its words want
+  const role = k => k.matches('.btn.primary') ? 'main' : k.matches('.btn.small') ? 'small' : k.matches('.btn') ? 'ordinary' :
+    k.matches('.icon-key, .toast-close') ? 'icon' : null;
+  const spec = {main: [ctl, 18], ordinary: [ctl, 18], small: [ctlSm, 12], icon: [36, 0]};
+  const canvas = document.createElement('canvas').getContext('2d');
+  for (const k of document.querySelectorAll('.btn, .icon-key, .toast-close')) {
+    if (k.closest(aside) || !shown(k)) continue;
+    const r = role(k);
+    if (!r) continue;
+    const box = k.getBoundingClientRect(), s = getComputedStyle(k);
+    const [height, pad] = spec[r];
+    if (Math.abs(box.height - height) > 0.5) out.keys.push(`${name(k)} "${said(k)}" is ${box.height.toFixed(1)} px tall (${r} keys: ${height})`);
+    if (r !== 'icon' && (Math.abs(px(s.paddingLeft) - pad) > 0.5 || Math.abs(px(s.paddingRight) - pad) > 0.5)) {
+      out.keys.push(`${name(k)} "${said(k)}" has ${px(s.paddingLeft)}/${px(s.paddingRight)} px at its sides (${r} keys: ${pad})`);
+    }
+    if (r === 'icon' && Math.abs(box.width - height) > 0.5) out.keys.push(`${name(k)} is ${box.width.toFixed(1)} px wide (icon keys: square)`);
+    // Its words and what it holds (an icon, a lamp): the box of them, as wide as they are.
+    const range = document.createRange();
+    range.selectNodeContents(k);
+    const words = range.getBoundingClientRect();
+    if (!words.width) continue;
+    // Stretched: wider than its words, its padding and its least width (a key sized for its use, never across its card).
+    const wants = Math.max(px(s.minWidth), words.width + px(s.paddingLeft) + px(s.paddingRight));
+    if (r !== 'icon' && box.width > wants + 1.5) out.keys.push(`${name(k)} "${said(k)}" is ${Math.round(box.width)} px wide for ${Math.round(wants)} px of words and padding (stretched)`);
+    // Across: the middle of what it holds against its own.
+    const across = (words.left + words.right) / 2 - (box.left + box.right) / 2;
+    // Up and down: the ink. The baseline where it is drawn (a probe of no size on it), the ink from the face itself.
+    const text = [...k.childNodes].find(n => n.nodeType === 3 && n.textContent.trim()) ||
+      [...k.querySelectorAll('*')].flatMap(e => [...e.childNodes]).find(n => n.nodeType === 3 && n.textContent.trim());
+    let up = 0;
+    if (text) {
+      // The words wrapped for a moment in a span of their own, the probe on its line: in a key laid out as a flex box,
+      // a bare probe would be a flex item of its own, set in the middle rather than on the words' baseline.
+      const hold = document.createElement('span'), probe = document.createElement('span');
+      probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline;padding:0;margin:0;border:0';
+      text.parentNode.insertBefore(hold, text);
+      hold.appendChild(probe);
+      hold.appendChild(text);
+      const baseline = probe.getBoundingClientRect().bottom;
+      hold.parentNode.insertBefore(text, hold);
+      hold.remove();
+      const ts = getComputedStyle(text.parentElement);
+      canvas.font = `${ts.fontStyle} ${ts.fontWeight} ${ts.fontSize} ${ts.fontFamily}`;
+      const hangul = /[\uac00-\ud7a3]/.exec(text.textContent);
+      const m = canvas.measureText(hangul ? hangul[0] : 'H');
+      const top = baseline - m.actualBoundingBoxAscent, bottom = baseline + (hangul ? m.actualBoundingBoxDescent : 0);
+      const inside = [box.top + px(s.borderTopWidth), box.bottom - px(s.borderBottomWidth)];
+      up = (top + bottom) / 2 - (inside[0] + inside[1]) / 2;
+    }
+    if (Math.abs(up) > 0.5 || Math.abs(across) > 0.5) {
+      out.ink.push(`${name(k)} "${said(k)}" ${Math.abs(up) > 0.5 ? (up > 0 ? 'low' : 'high') + ' by ' + Math.abs(up).toFixed(1) : ''}${Math.abs(up) > 0.5 && Math.abs(across) > 0.5 ? ', ' : ''}${Math.abs(across) > 0.5 ? (across > 0 ? 'right' : 'left') + ' by ' + Math.abs(across).toFixed(1) : ''} px`);
+    }
+  }
+
+  // ---- type: every line of words at a step of the scale (the mark and pictures are drawings, not text)
+  const sizes = new Map();
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const host = n.parentElement;
+    if (!n.textContent.trim() || !host || host.closest(aside) || host.closest('[hidden], select, option, input, textarea') || !shown(host)) continue;
+    if (host.closest(drawn)) continue;
+    const size = Math.round(px(getComputedStyle(host).fontSize) * 10) / 10;
+    if (!STEPS.includes(size)) {
+      const key = size + ' ' + name(host);
+      if (!sizes.has(key)) sizes.set(key, `${size} px: ${name(host)} "${said(host)}"`);
+    }
+  }
+  // A paragraph's lines (an element of its own words on two lines or more): its line height reads as a paragraph's.
+  for (const e of document.querySelectorAll('p, li, td, dd, .row-value, .field-hint, .lead')) {
+    if (e.closest(aside) || e.closest(drawn) || !shown(e) || !own(e)) continue;
+    const st = getComputedStyle(e), size = px(st.fontSize), line = st.lineHeight === 'normal' ? size * 1.2 : px(st.lineHeight);
+    // Its own words on two lines or more (the lines' boxes at two heights), not a box made tall by its neighbours.
+    const words = document.createRange();
+    words.selectNodeContents(e);
+    const tops = new Set([...words.getClientRects()].filter(q => q.width > 0).map(q => Math.round(q.top)));
+    if (tops.size < 2) continue;
+    const ratio = line / size;
+    if (ratio < 1.35 || ratio > 1.8) sizes.set('line ' + name(e), `${name(e)} "${said(e)}": lines ${line.toFixed(1)} px apart at ${size} px (${ratio.toFixed(2)})`);
+  }
+  out.type = [...sizes.values()];
+
+  // ---- headings: never smaller than the words under them in their group
+  const headings = [...document.querySelectorAll('h1, h2, h3, h4, [role="heading"]')].filter(h => !h.closest(aside) && shown(h));
+  for (const h of headings) {
+    const group = h.closest('.card, section, .group, .console-head, .page-head, .hero, form, .door, main') || h.parentElement;
+    const own = px(getComputedStyle(h).fontSize);
+    // The words of the group after the heading that are read (a cell, a row, a line), by how many letters each size has.
+    const weight = new Map();
+    const w2 = document.createTreeWalker(group, NodeFilter.SHOW_TEXT);
+    for (let n = w2.nextNode(); n; n = w2.nextNode()) {
+      const host = n.parentElement;
+      if (!n.textContent.trim() || !host || host.closest(aside) || h.contains(host) || !shown(host)) continue;
+      if (host.closest('h1, h2, h3, h4, th, .tag, .label, .kicker, .field-hint, .muted, .small, .btn, button, a.chip, .count, .lampchip')) continue;
+      // Figures (a count, a score, a balance) are read as figures, not as the text a heading names.
+      if (host.closest('.value, .big-value, .numeral, .total, .score, .stat, .hf, .plate, ' + drawn)) continue;
+      if (!(h.compareDocumentPosition(host) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+      const size = px(getComputedStyle(host).fontSize);
+      weight.set(size, (weight.get(size) || 0) + n.textContent.trim().length);
+    }
+    if (!weight.size) continue;
+    const body = [...weight.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    if (own + 0.5 < body) out.headings.push(`${name(h)} "${said(h)}" is ${own} px over words of ${body} px`);
+  }
+
+  // ---- rows: controls side by side on one line; stacked ones on one edge
+  // (A tick with its words and a switch are controls of their line too.)
+  const controls = e => [...e.querySelectorAll('input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=radio]), select, textarea, .btn, .drop, label.check, .switch')]
+    .filter(c => !c.closest(aside) && shown(c) && !c.matches('.slot-key, .field-slot .btn') && !(c.parentElement && c.parentElement.closest('.drop')));
+  for (const form of document.querySelectorAll('form, .row-value, .actions, .form-actions')) {
+    if (form.closest(aside) || !shown(form)) continue;
+    const list = controls(form).filter(c => c.closest('form, .row-value, .actions, .form-actions') === form || form.matches('form'));
+    // Side by side: overlapping rows of the screen.
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i].getBoundingClientRect(), b = list[j].getBoundingClientRect();
+        const overlap = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        const level = Math.abs(a.height - b.height) < 0.75 ? Math.max(Math.abs(a.top - b.top), Math.abs(a.bottom - b.bottom))
+          : Math.abs((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2);
+        if (overlap > Math.min(a.height, b.height) / 2 && level > 0.75) {
+          out.rows.push(`${name(list[i])} "${said(list[i])}" and ${name(list[j])} "${said(list[j])}" side by side, not on one line (${Math.round(a.top)}-${Math.round(a.bottom)} and ${Math.round(b.top)}-${Math.round(b.bottom)})`);
+        }
+      }
+    }
+    // Stacked: the first control of each line of a stacked form starts on one edge.
+    if (form.matches('form') && getComputedStyle(form).display === 'grid') {
+      const firsts = [];
+      for (const c of list) {
+        const r = c.getBoundingClientRect();
+        if (!list.some(o => o !== c && o.getBoundingClientRect().right <= r.left + 1 && Math.min(o.getBoundingClientRect().bottom, r.bottom) - Math.max(o.getBoundingClientRect().top, r.top) > r.height / 2)) firsts.push([c, r.left]);
+      }
+      const edges = [...new Set(firsts.map(([, x]) => Math.round(x)))];
+      if (edges.length > 1) out.rows.push(`${name(form)} stacks its controls on ${edges.length} edges (${edges.join(', ')})`);
+    }
+  }
+
+  for (const row of document.querySelectorAll('.rows > .row')) {
+    if (row.closest(aside) || !shown(row)) continue;
+    const label = row.querySelector(':scope > .row-label'), value = row.querySelector(':scope > .row-value');
+    if (!label || !value || !shown(label) || !shown(value)) continue;
+    // Stacked (a phone): the name over its value, nothing to line up.
+    if (value.getBoundingClientRect().top >= label.getBoundingClientRect().bottom - 1) continue;
+    // A control the value starts with, of a line's height (a field, a key): the name on its middle. Words first, or a
+    // tall control (an upload's box, a text area) with words in it: the name on the first words' baseline.
+    const ctl = controls(value)[0];
+    const firstWords = baselineOf(value);
+    const first = ctl && ctl.getBoundingClientRect().height <= 48.5 && (firstWords === null || ctl.getBoundingClientRect().top < firstWords - 4) ? ctl : null;
+    if (first) {
+      // A control on the value's first line: the name's line on its middle.
+      const c = first.getBoundingClientRect(), l = label.getBoundingClientRect();
+      const lineH = px(getComputedStyle(label).lineHeight) || l.height;
+      const mid = l.top + px(getComputedStyle(label).paddingTop) + lineH / 2;
+      if (Math.abs(mid - (c.top + c.bottom) / 2) > 0.75) out.rows.push(`row "${said(label)}": its name ${Math.round(mid - (c.top + c.bottom) / 2)} px off its control's middle`);
+    } else {
+      const a = baselineOf(label), b = baselineOf(value);
+      if (a !== null && b !== null && Math.abs(a - b) > 0.75) out.rows.push(`row "${said(label)}": its name ${Math.round(a - b)} px off its value's baseline`);
+    }
+  }
+
+  // ---- align: in a group, words start on the group's edge or well in from it (never a few pixels off it)
+  const framed = e => {
+    const st = getComputedStyle(e);
+    const clear = c => !c || c === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(c);
+    return !clear(st.backgroundColor) || st.backgroundImage !== 'none' || ['Left', 'Right', 'Top', 'Bottom'].filter(side =>
+      px(st['border' + side + 'Width']) > 0 && !clear(st['border' + side + 'Color'])).length > 1;
+  };
+  for (const card of document.querySelectorAll('.card')) {
+    if (card.closest(aside) || !shown(card)) continue;
+    const cs = getComputedStyle(card), cr = card.getBoundingClientRect();
+    const edge = cr.left + px(cs.borderLeftWidth) + px(cs.paddingLeft);
+    for (const e of card.querySelectorAll('*')) {
+      if (!own(e) || !shown(e) || e.closest(aside) || e.closest(drawn)) continue;
+      const st = getComputedStyle(e);
+      if (st.display.startsWith('inline') || st.position === 'absolute' || st.textAlign === 'right' || st.textAlign === 'center') continue;
+      // A list's item with a marker starts after its marker, by design.
+      if (e.tagName === 'LI' && st.listStyleType !== 'none') continue;
+      // Words inside a box of their own (a well, a slot, a key, a tag) start on that box's edge, not the group's.
+      let holder = e;
+      while (holder !== card && holder.parentElement && !(holder !== e && framed(holder))) holder = holder.parentElement;
+      if (holder !== card || framed(e)) continue;
+      const r = e.getBoundingClientRect();
+      const start = r.left + px(st.borderLeftWidth) + px(st.paddingLeft) + (st.textIndent ? px(st.textIndent) : 0);
+      const off = start - edge;
+      if (Math.abs(off) > 0.75 && Math.abs(off) < 24) out.align.push(`${name(e)} "${said(e)}" starts ${Math.round(off)} px off ${name(card)}'s left edge`);
+    }
+  }
+
+  // ---- sizing: a field that takes few letters is not as wide as a card
+  for (const f of document.querySelectorAll('input[maxlength]:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file])')) {
+    if (f.closest(aside) || !shown(f)) continue;
+    const most = parseInt(f.getAttribute('maxlength'), 10);
+    if (!most || most > 64) continue;
+    const s = getComputedStyle(f);
+    canvas.font = `${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+    // What it takes at its widest kind of letter for its field (a Korean name's syllables, else capitals and figures).
+    const letter = Math.max(canvas.measureText('W').width * 0.75, canvas.measureText('가').width * (/name|dj|comment|reason|text/.test(f.name) ? 1 : 0));
+    const slot = f.closest('.field-slot') || f;
+    const keys = [...slot.querySelectorAll('.slot-key')].reduce((sum, k) => sum + k.getBoundingClientRect().width + 5, 0);
+    const wants = most * letter + px(s.paddingLeft) + px(s.paddingRight) + keys;
+    const r = slot.getBoundingClientRect();
+    if (r.width > Math.max(wants * 2, wants + 120)) out.sizing.push(`${name(f)} "${f.name}" is ${Math.round(r.width)} px wide for ${most} letters (${Math.round(wants)} px)`);
+  }
+
+  // ---- single: a box with one key or one fact in it and nothing else
+  for (const card of document.querySelectorAll('.card, .group')) {
+    if (card.closest(aside) || !shown(card)) continue;
+    const head = card.querySelector(':scope > h3:first-child, :scope > h2:first-child');
+    const parts = [...card.querySelectorAll('*')].filter(e => !(head && head.contains(e)) && shown(e) && !e.closest(aside) &&
+      !e.closest('[hidden]') && (e.matches('input:not([type=hidden]), select, textarea, .btn, button, table, img, canvas, .drop') ||
+      (e.matches(':not(.btn):not(button):not(.btn *):not(button *):not(table *):not(.drop *)') &&
+       [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()))));
+    // Parts inside another part count once (a table's cells are the table).
+    const top = parts.filter(p => !parts.some(q => q !== p && q.contains(p)));
+    const keys = top.filter(p => p.matches('.btn, button'));
+    // A table is as many facts as its rows, and its head naming its columns one more (a list of one row is a list).
+    const facts = top.flatMap(p => p.matches('table') ? [...p.querySelectorAll('thead tr, tbody tr')] : p.matches('.btn, button') ? [] : [p]);
+    if ((keys.length === 1 && facts.length <= 1) || (keys.length === 0 && facts.length === 1)) {
+      out.single.push(`${name(card)} "${head ? said(head) : said(card)}" holds ${keys.length ? 'one key' : 'one fact'}${facts.length && keys.length ? ' and one line' : ''}`);
+    }
+  }
+
+  // ---- pairs: boxes side by side end on one line: each box's column (the boxes stacked under it, as wide and as far
+  // in, one gap apart) ends where the column beside it ends.
+  const cards = [...document.querySelectorAll('.card')].filter(c => !c.closest(aside) && shown(c));
+  const foot = card => {
+    let r = card.getBoundingClientRect(), bottom = r.bottom;
+    for (let moved = true; moved;) {
+      moved = false;
+      for (const o of cards) {
+        const q = o.getBoundingClientRect();
+        if (Math.abs(q.left - r.left) < 1 && Math.abs(q.width - r.width) < 1 && q.top > bottom - 1 && q.top - bottom <= 24.5) {
+          bottom = q.bottom; moved = true;
+        }
+      }
+    }
+    return bottom;
+  };
+  for (let i = 0; i < cards.length; i++) {
+    for (let j = i + 1; j < cards.length; j++) {
+      if (cards[i].contains(cards[j]) || cards[j].contains(cards[i])) continue;
+      const a = cards[i].getBoundingClientRect(), b = cards[j].getBoundingClientRect();
+      if (Math.abs(a.top - b.top) < 1 && (a.right <= b.left || b.right <= a.left)) {
+        const fa = foot(cards[i]), fb = foot(cards[j]);
+        if (Math.abs(fa - fb) > 1) {
+          out.pairs.push(`${name(cards[i])} "${said(cards[i].querySelector('h2, h3') || cards[i])}" ends at ${Math.round(fa - a.top)} px beside ${name(cards[j])} "${said(cards[j].querySelector('h2, h3') || cards[j])}" at ${Math.round(fb - b.top)} px`);
+        }
+      }
+    }
+  }
+
+  // ---- stage: the head's stage flush under the bar, across the window, clear of every other box
+  const bar = document.querySelector('.bar');
+  for (const stage of document.querySelectorAll('.hero, .page-head')) {
+    if (!shown(stage)) continue;
+    const r = stage.getBoundingClientRect(), y = window.scrollY;
+    if (r.left > 0.5 || r.right < width - 0.5) out.stage.push(`${name(stage)} is not across the window (${Math.round(r.left)}-${Math.round(r.right)})`);
+    if (bar && y === 0) {
+      const b = bar.getBoundingClientRect();
+      if (Math.abs(r.top - b.bottom) > 0.5) out.stage.push(`${name(stage)} starts ${Math.round(r.top - b.bottom)} px under the bar (its shards end in the gap)`);
+    }
+    if (stage.querySelector('.shards') && !['hidden', 'clip'].includes(getComputedStyle(stage).overflowY)) out.stage.push(`${name(stage)} lets its shards out of its edges`);
+    for (const e of document.querySelectorAll('.card, .notices, .notices-sheet, .site-notice, .alert')) {
+      if (stage.contains(e) || e.contains(stage) || !shown(e)) continue;
+      const q = e.getBoundingClientRect();
+      if (q.bottom > r.top + 0.5 && q.top < r.bottom - 0.5 && q.right > r.left && q.left < r.right) {
+        out.stage.push(`${name(e)} lies over ${name(stage)} (its shards end at that box's edge)`);
+      }
+    }
+  }
+  for (const k of Object.keys(out)) out[k] = [...new Set(out[k])].slice(0, 8);
+  return out;
+}, STEPS);
+
 // A page's measure as one of the run's lines, and its place in the run's summary: `summary` counts the pages looked
 // at and those with each kind of fault ({pages, sticking, cut, unlabelled, menu_cut, askew}).
 const record = (summary, lang, width, path, over) => {
@@ -352,7 +785,16 @@ const record = (summary, lang, width, path, over) => {
   if (over.forms && over.forms.length > 0) { summary.form_faults = (summary.form_faults || 0) + 1; faults.push('FORM'); }
   if (over.frame && over.frame.length > 0) { summary.frame_faults = (summary.frame_faults || 0) + 1; faults.push('FRAME'); }
   if (over.wraps && over.wraps.length > 0) { summary.wrap_faults = (summary.wrap_faults || 0) + 1; faults.push('WRAPS'); }
+  if (over.gaps && over.gaps.length > 0) { summary.gap_faults = (summary.gap_faults || 0) + 1; faults.push('GAPS'); }
+  // The composition (compose, above): each kind a count of the pages that have it, and its word on the page's line.
+  for (const [kind, key, word] of [['keys', 'key_faults', 'KEYS'], ['ink', 'ink_faults', 'WORDS OFF THEIR KEY'],
+                                   ['type', 'type_faults', 'TYPE'], ['headings', 'heading_faults', 'HEADING'],
+                                   ['rows', 'row_faults', 'ROWS'], ['align', 'align_faults', 'LEFT EDGE'],
+                                   ['sizing', 'sizing_faults', 'SIZING'], ['single', 'single_faults', 'ONE THING'],
+                                   ['pairs', 'pair_faults', 'PAIRS'], ['stage', 'stage_faults', 'STAGE']]) {
+    if (over[kind] && over[kind].length > 0) { summary[key] = (summary[key] || 0) + 1; faults.push(word); }
+  }
   console.log(lang, width, path, faults.length ? faults.join(', ') : 'ok', JSON.stringify(over));
 };
 
-module.exports = {layout, layers, frame, record};
+module.exports = {layout, gaps, layers, frame, record, compose, STEPS};

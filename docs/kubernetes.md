@@ -74,7 +74,7 @@ The site shows the new song list at once. To hand out the launcher, copy the rel
 downloads folder the same way:
 
 ```sh
-kubectl -n opendmt3 cp opendmt3-launcher-0.4.1-windows-x64-setup.exe "${POD#pod/}":/data/downloads/openDMT3-win-Setup.exe -c server
+kubectl -n opendmt3 cp opendmt3-launcher-0.4.1-windows-x64-installer.exe "${POD#pod/}":/data/downloads/openDMT3-win-Setup.exe -c server
 ```
 
 ## The game's port

@@ -148,7 +148,7 @@ class FiguresTest(AdminSiteBase):
         page = self.console.get("/admin/status").text
         size = _size_words(sum(os.path.getsize(p) for p in (self.site.db_path, self.site.db_path + "-wal")
                                if os.path.isfile(p)))
-        self.assertIn('<span class="value small-value">%s</span><span class="label">Database</span>' % size, page)
+        self.assertIn('<p class="row-label">Database</p><p class="row-value">%s</p>' % size, page)
 
     def test_the_hours_and_minutes_keep_their_units(self):
         from opendmt3.server.web import strings
@@ -222,7 +222,7 @@ class SongListPageTest(AdminSiteBase):
         self.assertNotIn("run this on the server PC", page)
         self.assertNotIn("./dmt3 catalog", page)
         # The state of each part and the upload stay.
-        self.assertIn('class="states"', page)
+        self.assertIn('class="headline states"', page)
         self.assertIn('action="/admin/song_list/upload"', page)
 
 
@@ -238,7 +238,7 @@ class WordsTest(SiteBase):
         self.assertNotIn("씁니다", ko("me.card.comment.hint", max=12) + ko("me.dj.hint", max=8))
         self.assertEqual(en("me.tokens.never"), "Never")
         self.assertEqual(en("admin.never"), "Never")
-        self.assertIn("added", en("download.facts", size="3.0", when="2026-11-17"))
+        self.assertEqual(en("download.added"), "Added")
         self.assertIsNone(strings.TEXT.get("server.remove.backup"))
         self.assertEqual(en("me.picture.file"), "Picture file")
 

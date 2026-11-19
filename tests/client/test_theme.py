@@ -377,6 +377,36 @@ class PictureTest(unittest.TestCase):
             self.assertEqual(updates.shown_version(), "0.7.1-updatetest")
 
 
+class FontsTest(unittest.TestCase):
+    """The bundled fonts the launcher adds to its own process on Windows before its first window."""
+
+    def test_the_fonts_registered_on_windows_are_the_bundled_files(self):
+        # As Windows runs it (on any other system it adds nothing): every path handed to Windows' GDI a file of the
+        # fonts folder, each bundled face once. A table of the same name that maps a face to its file (theme's
+        # FONT_FILES since 0.4.2) once stood in for the file list here, and the launcher stopped at its start.
+        import os
+        import sys
+        import types
+        from unittest import mock
+        added = []
+
+        class Gdi:
+            def AddFontResourceExW(self, path, flags, reserved):
+                added.append(path)
+                return 1
+
+        fake = types.SimpleNamespace(windll=types.SimpleNamespace(gdi32=Gdi()))
+        with mock.patch.object(sys, "platform", "win32"), mock.patch.dict(sys.modules, {"ctypes": fake}):
+            theme.register_fonts()
+        self.assertTrue(added)
+        for path in added:
+            self.assertIsInstance(path, str)
+            self.assertTrue(os.path.isfile(path), path)
+        self.assertEqual(sorted(os.path.basename(p) for p in added),
+                         sorted(["DMT3Wide-Regular.ttf", "Pretendard-Regular.ttf", "Pretendard-SemiBold.ttf",
+                                 "Pretendard-Bold.ttf"]))
+
+
 class ScrollBarTest(unittest.TestCase):
     """Where the scroll bar's thumb sits (widgets.thumb_span), without a window."""
 
@@ -569,6 +599,22 @@ class FinalReviewTest(unittest.TestCase):
         # A card's English name is found from its Korean words with their kept phrases.
         self.assertEqual(i18n.english_of(ko("songlist.send.title")), i18n.TEXT["songlist.send.title"][0])
 
+    def test_a_name_is_its_own_entrys_english_in_both_languages(self):
+        # A card's and a dialog's name are English capitals in both languages (THEME.md), read back from the words
+        # they were given. Two entries can share their Korean words (업데이트: Updates and Update; 설치: Setup and
+        # Install; 게임 파일: The game's files and Game files; 플레이: You play and Play): the name is still its own
+        # entry's, so the installer's first step says INSTALL and GAME's card GAME FILES in Korean as in English.
+        from opendmt3.client import i18n
+        for language in ("en", "ko"):
+            w = i18n.Words(language)
+            for key, (english, _) in i18n.TEXT.items():
+                if english:
+                    self.assertEqual(i18n.english_of(w(key)), english, (language, key))
+        # Formatted words keep their entry's English formatted alike.
+        ko = i18n.Words("ko")
+        self.assertEqual(i18n.english_of(ko("setup.install.ask", v="1.2.3")),
+                         i18n.TEXT["setup.install.ask"][0].format(v="1.2.3"))
+
     def test_a_pages_main_key_is_never_pink_or_amber(self):
         # The colour rule: pink is for what failed, amber for something to look at; a page's main key (ONLINE's
         # Connect and Sign in, LAUNCHER's update) is openDMT3's blue, or the settings' lime on their pages.
@@ -668,6 +714,118 @@ class TimerTest(unittest.TestCase):
         calls[1][1]()
         # The first ran while the widget was there; the second found it gone and did nothing.
         self.assertEqual(ran, [1])
+
+
+class ComposeTest(unittest.TestCase):
+    """The words' sizes and middles the composition pass holds (tests/e2e/ui/compose.py), measured from the fonts."""
+
+    def test_a_words_ink_band_is_its_capitals_or_its_hangul(self):
+        body = 10 * 96 / 72.0
+        top, bottom = art.ink_band(theme.TEXT_FILE, body, "H")
+        # Pretendard's capitals stand about 0.71 of the size over the baseline, nothing under it.
+        self.assertAlmostEqual(-top / body, 0.71, delta=0.04)
+        self.assertAlmostEqual(bottom, 0.0, delta=0.3)
+        # A "g" under the line or an "l" over the capitals does not move the band: the capitals' it stays.
+        self.assertEqual(art.ink_band(theme.TEXT_FILE, body, "Hlg"), (top, bottom))
+        # Hangul's own syllables make the band, a little lower and taller than the capitals.
+        hangul = art.ink_band(theme.TEXT_FILE, body, "가나다 OK")
+        self.assertLess(hangul[0], top)
+        self.assertGreater(hangul[1], bottom)
+
+    def test_a_cards_name_is_no_smaller_than_the_body(self):
+        # The owner's rule (2026-11-19): no heading smaller than the body under it.
+        for scale in (1.0, 1.5, 2.0):
+            plate = art.ink_band(theme.WIDE_FILE, art.PLATE_TEXT * scale, "READY CHECK")
+            body = art.ink_band(theme.TEXT_FILE, 10 * 96 / 72.0 * scale, "H")
+            self.assertGreaterEqual((plate[1] - plate[0]) + 0.25, body[1] - body[0], scale)
+            picture = art.name_plate("READY CHECK", scale)
+            self.assertEqual(picture.height, int(round(art.PLATE_HEIGHT * scale)))
+
+    def test_every_key_of_a_role_takes_one_size(self):
+        # A page's key and a dialog's key: one height and one least width (widgets.Button, dialogs).
+        self.assertEqual(dialogs.BUTTON, widgets.Button.HEIGHTS["normal"])
+        self.assertEqual(dialogs.BUTTON_MIN, widgets.Button.LEAST["normal"])
+        self.assertEqual(dialogs.widgets_side(), widgets.Button.SIDES["normal"])
+        # The sign-in's key is a main key: as tall as every other.
+        self.assertEqual(widgets.Button.SIDES["lg"], widgets.Button.SIDES["normal"])
+        self.assertEqual(widgets.Button.LEAST["lg"], widgets.Button.LEAST["normal"])
+
+    def test_every_card_kind_has_its_whole_look_and_every_page_names_a_kind_there_is(self):
+        # A card's look in one place (theme.CARD_LOOKS), a whole one for each kind, so that a kind's own shape and
+        # colour (the card identity) slots in without a page changed.
+        import glob
+        import os
+        import re
+        for kind in theme.CARD_KINDS:
+            look = set(theme.CARD_LOOKS[kind])
+            # Every kind's whole edge and name; its parts only from the ones widgets.Card draws.
+            self.assertLessEqual({"face", "seam", "rim", "foot", "tab", "tab_ink", "cut"}, look, kind)
+            self.assertLessEqual(look - {"face", "seam", "rim", "foot", "tab", "tab_ink", "cut"},
+                                 {"well", "foot_cut", "rail", "band"}, kind)
+        top = os.path.dirname(theme.__file__)
+        named = set()
+        for path in glob.glob(os.path.join(top, "**", "*.py"), recursive=True):
+            with open(path, encoding="utf-8") as f:
+                source = f.read()
+            # The kinds the pages and the guide give their cards (card, pair_card, widgets.Card).
+            for call in re.findall(r"(?:card|Card)\([^()]*(?:\([^()]*\)[^()]*)*\)", source):
+                named.update(re.findall(r"kind=\"(\w+)\"", call))
+        self.assertTrue(named)
+        self.assertLessEqual(named, set(theme.CARD_KINDS), named - set(theme.CARD_KINDS))
+
+    def test_the_kinds_tell_apart_in_grey_and_the_member_card_reads(self):
+        # CARDS.md: raised plates lit from above, sunken ones shaded at the top and lit at the foot.
+        def grey(colour):
+            r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+        looks = theme.CARD_LOOKS
+        for kind in ("settings", "status", "steps", "list", "result"):
+            self.assertGreater(grey(looks[kind]["rim"]), grey(looks[kind]["foot"]), kind)
+        self.assertLess(grey(looks["danger"]["rim"]), grey(looks["danger"]["foot"]))
+        # The faces apart: the quiet info plate, the base plate, the sunken tray and the black glass, each its own.
+        faces = [grey(looks[k]["face"]) for k in ("settings", "info", "danger", "result")]
+        self.assertEqual(len(set(round(f) for f in faces)), 4, faces)
+
+        # The member card's words on its platinum (the darkest stop it has): dark ink 7:1 and more, the second ink
+        # 4.5:1 and more (WCAG's contrast).
+        def luminance(colour):
+            def channel(c):
+                c = c / 255.0
+                return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+            r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
+            return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+        def contrast(a, b):
+            la, lb = sorted((luminance(a), luminance(b)), reverse=True)
+            return (la + 0.05) / (lb + 0.05)
+
+        # The metal behind each line of words (the card at 100 %, its words at its foot: the DJ name's capitals over
+        # its baseline 27 px over the foot, the ID's over its baseline 12 px over it), at its darkest there.
+        width, height = art.MEMBER_CARD
+        face = art._platinum(width, height)
+
+        def darkest(first, last):
+            return min(("#%02x%02x%02x" % face.getpixel((width // 2, y)) for y in range(first, last)),
+                       key=luminance)
+
+        self.assertGreaterEqual(contrast(theme.PLATINUM_INK, darkest(height - 27 - 13, height - 27)), 7.0)
+        self.assertGreaterEqual(contrast(theme.PLATINUM_INK_2, darkest(height - 12 - 9, height - 12)), 4.5)
+        # A card's proportions (ID-1: 85.60 by 53.98 mm), and the picture at every scale.
+        self.assertAlmostEqual(art.MEMBER_CARD[0] / float(art.MEMBER_CARD[1]), 85.60 / 53.98, delta=0.01)
+        for scale in (1.0, 1.5, 2.0):
+            picture = art.member_card("DJ NOVA", "NOVA", scale)
+            self.assertEqual(picture.size, (int(round(176 * scale)), int(round(111 * scale))))
+
+    def test_the_type_steps_name_every_size(self):
+        import re
+        with open(theme.__file__, encoding="utf-8") as f:
+            source = f.read()
+        start = source.index("class Fonts")
+        sizes = {int(n) for n in re.findall(r"size=(\d+)", source[start:])}
+        sizes |= {int(n) for n in re.findall(r"\((?:TEXT_BOLD|DISPLAY), (\d+)\)", source[start:])}
+        self.assertTrue(sizes)
+        self.assertLessEqual(sizes - set(theme.TYPE_STEPS), set(), sizes)
 
 
 if __name__ == "__main__":

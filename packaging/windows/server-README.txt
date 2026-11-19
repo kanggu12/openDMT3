@@ -57,6 +57,10 @@ Accounts, plays, backups, the log, the settings and the installer the Download p
 folder beside this program. To move the server to a new version, stop it, unpack the new zip into a new folder,
 and move the data folder into it.
 
+The one-line install does all of this for you: it keeps the program with its data folder in
+%LOCALAPPDATA%\Programs\opendmt3-server, puts that folder on your PATH, and moves a running server to a newer
+release. Its line is on the release's page and in the guide below.
+
 This package brings the launcher's installer of the same version: a start puts it in data\downloads, and the site's
 Download page hands out the newest installer there.
 

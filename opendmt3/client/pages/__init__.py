@@ -9,14 +9,14 @@ from opendmt3.client.pages.about import build_about, language_options
 from opendmt3.client.pages.common import (ROWS_THAT_COME, TITLES, Sections, database_trouble, group_names,
                                           main_button, rows_that_come)
 from opendmt3.client.pages.help import build_help
-from opendmt3.client.pages.online import build_online, player_form, server_panel
+from opendmt3.client.pages.online import build_online, lead_state, player_form, server_panel
 from opendmt3.client.pages.play import build_play, refresh_checks, where_play_plays
 from opendmt3.client.pages.records import build_records
 from opendmt3.client.pages.settings import build_controls, build_game, build_screen, build_sound
 
 __all__ = ["BUILDERS", "HEADERS", "ROWS_THAT_COME", "Sections", "TITLES", "build_about", "database_trouble",
-           "group_names", "language_options", "main_button", "player_form", "refresh_checks", "rows_that_come",
-           "server_panel"]
+           "group_names", "language_options", "lead_state", "main_button", "player_form", "refresh_checks",
+           "rows_that_come", "server_panel"]
 
 
 def _plain_header(key):

@@ -1,23 +1,26 @@
 {% extends "base.html" %}
 {% block title %}{{ w("title.songs") }} · {% endblock %}
-{% block main %}
+{% block top %}
 <section class="hero small"><div class="shards" aria-hidden="true">{{ stage() }}</div>
   <div class="hero-text"><h1 class="word">{{ w("nav.songs") }}</h1></div>
 </section>
+{% endblock %}
+{% block main %}
 <section class="page">
+  {# No song at all yet: the line says so on a strip of its own (no search, no box around one line). #}
+  {% if not total %}
+  <p class="page-note muted">{{ w("songs.none") }}</p>
+  {% else %}
   {# Typing hides the rows that do not match at once (site.js, no request); Find asks the server, without script too. #}
   <form class="search" method="get" action="/songs" role="search">
     {# The search box says what it is with the site's magnifier at its start (the browser's own clear goes: Esc). #}
     <span class="field-slot marked"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/></svg><input id="song-filter" type="search" name="q" value="{{ query }}" placeholder="{{ w('songs.search') }}" aria-label="{{ w('songs.search') }}" autocomplete="off"></span>
     <button class="btn">{{ w("songs.find") }}</button>
   </form>
-  <div class="card">
+  <div class="card k-list">
     {# How many songs the filter shows, at the head of the list's card. #}
     {% if total %}<p class="muted small song-count" id="song-count" aria-live="polite" data-words="{{ w('songs.count', n='{n}', of='{of}') }}" data-total="{{ total }}">{{ w("songs.count", n=rows|length, of=total) }}</p>{% endif %}
     <p class="muted" id="song-none" data-words="{{ w('songs.nomatch', query='{query}') }}"{% if rows or not total %} hidden{% endif %}>{{ w("songs.nomatch", query=query) }}</p>
-    {% if not total %}
-    <p class="muted">{{ w("songs.none") }}</p>
-    {% endif %}
     {% if rows %}
     <table class="table songs">
       <thead><tr><th>{{ w("songs.song") }}</th><th class="num">{{ w("songs.plays") }}</th><th class="num wide-only">{{ w("songs.players") }}</th><th class="num">{{ w("songs.best") }}</th></tr></thead>
@@ -29,5 +32,6 @@
     </table>
     {% endif %}
   </div>
+  {% endif %}
 </section>
 {% endblock %}

@@ -8,7 +8,7 @@
 #      licence texts of what it carries in its licenses folder, with NOTICES.txt (notices.py, with that Python)
 #   3. Velopack's vpk (.NET) -> Velopack's setup, a portable zip and the update packages: the whole package, and a
 #      delta package from the previous release's when it is kept (previous.py: an update then downloads what changed)
-#   4. PyInstaller again -> opendmt3-launcher-<version>-windows-x64-setup.exe: the installer's dialogs with Velopack's
+#   4. PyInstaller again -> opendmt3-launcher-<version>-windows-x64-installer.exe: the installer's dialogs with Velopack's
 #      setup inside, under the name the release gives it (lowercase, as every release file is named)
 # Usage: [OPENDMT3_UPDATE_SOURCE=<where releases are published>] [OPENDMT3_PREVIOUS_RELEASE=<folder or package>]
 #        [OPENDMT3_SIGNING_KEY=<the signing key's file>] [OPENDMT3_TEST_UPDATE_KEY=<a public key>]
@@ -129,6 +129,6 @@ docker run --rm --network none -e PYTHONDONTWRITEBYTECODE=1 -e OPENDMT3_BUILD_DI
       --distpath 'Z:\\out\\setup\\dist' --workpath 'Z:\\out\\setup\\work' 'Z:\\src\\packaging\\windows\\setup.spec' \
       > /out/pyinstaller-setup.log 2>&1; code=\$?; wineserver -w; exit \$code"
 # The release's name for it: the tool, the part, the version, the system (release.sh publishes it as it is).
-SETUP="opendmt3-launcher-$VERSION-windows-x64-setup.exe"
+SETUP="opendmt3-launcher-$VERSION-windows-x64-installer.exe"
 cp "$OUT/setup/dist/opendmt3-setup.exe" "$OUT/releases/$SETUP"
 ls -la "$OUT/releases/$SETUP"

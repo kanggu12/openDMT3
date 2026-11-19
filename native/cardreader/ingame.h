@@ -164,9 +164,34 @@ void clock_attach(void);
 int64_t clock_interrupt_now(void);
 void clock_held(int64_t held);
 int64_t clock_held_total(void);
+/* Where the client's call of the read in the score's count returns to, with the audio offset on (score.c sets it): the
+ * read called from there puts the score's count back first (score_before_count). 0: no offset. */
+extern volatile ULONG g_clock_count_return;
+
+/* The score player's update followed (score.c): the audio offset's lag of a song's chart, and the watch's reader.
+ * score_follow turns the score player's table entry its update calls after each count, once, when it holds what it
+ * held in the build measured (1: followed). score_offset, with an offset (milliseconds), follows it and has the clock
+ * read put the count back, all only when the client is the one measured, with a line in the log either way;
+ * score_lag_ms sets the milliseconds alone (what tests use). After each count, score_counted sets the count of score
+ * player `player` back by the lag and gives the count shown (the score's own in *real); score_before_count, from the
+ * clock read at the next count's start, puts the count back when it still holds what was written; score_own_count
+ * gives the score's own count between the two (the one it counted on its clock). score_watch hands each update's
+ * counts, the score's own and the one shown, to `watch` (line.c's). */
+typedef void (*ScoreWatch)(const BYTE *player, uint32_t real, uint32_t shown);
+int score_follow(void);
+void score_offset(int offset_ms);
+void score_lag_ms(int offset_ms);
+uint32_t score_counted(BYTE *player, uint32_t *real);
+void score_before_count(BYTE *player);
+uint32_t score_own_count(const BYTE *player);
+void score_watch(ScoreWatch watch);
+/* Presses made by the layer at a set time after each plain note, to see how the game judges them (press.c, measuring
+ * only: OPENDMT3_PRESS_LATE gives the milliseconds, the values taken by the notes in turn): once the device is made,
+ * the judge's two calls turned when they are where they were measured; each press's judgement into the log. */
+void press_attach(void);
 /* The game's score watched (line.c, measuring only: OPENDMT3_LINE_WATCH names a file): once the device is made, the
- * score player's update followed when it is where it was measured; at each of the game's presents, before anything of
- * the present's own, a row of the frame (its number) into the file. */
+ * score player's update followed (score.c) when it is where it was measured; at each of the game's presents, before
+ * anything of the present's own, a row of the frame (its number) into the file. */
 void line_attach(struct IDirect3DDevice9 *dev);
 void line_present(long frame);
 

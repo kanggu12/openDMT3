@@ -1,19 +1,20 @@
-"""LAUNCHER: the language, playing without this window, updates, the first-start guide and what openDMT3 is, each on a
-card as OpenDMTQ's LAUNCHER page has them."""
+"""LAUNCHER: the language, the first-start guide, the version and its updates in one group; under it, playing without
+this window beside what openDMT3 is, as OpenDMTQ's LAUNCHER page has its General and About."""
 
 import os
 import threading
 import tkinter as tk
 
 from opendmt3.client import playing, theme, updates, updating, widgets
-from opendmt3.client.pages.common import card, main_button
+from opendmt3.client.pages.common import Pair, card, main_button, pair_card
 
 
 def _play_without_window(app, parent):
-    """A desktop shortcut that plays at once, and playing when Windows starts (client/shortcuts.py), on their card."""
+    """A desktop shortcut that plays at once, and playing when Windows starts (client/shortcuts.py), a group of their
+    own on one side of a pair (`parent`)."""
     from opendmt3.client import shortcuts
     ui, w = app.ui, app.words
-    quick = card(parent, ui, w("about.quick"))
+    quick = pair_card(parent, ui, w("about.quick"))
 
     def make():
         try:
@@ -67,19 +68,23 @@ def build_about(app, parent):
     widgets.divider(general.body, ui)
     widgets.setting_row(general.body, ui, w("about.guide.row"),
                         lambda p: widgets.Button(p, ui, w("about.guide.run"), rerun), None).pack(fill="x")
-    _play_without_window(app, parent)
-    updates_card = card(parent, ui, w("about.updates"))
+    # The version and the look for updates: GENERAL's last row (a card for one key said little but its name).
+    widgets.divider(general.body, ui)
     version = updates.shown_version()
-    # The version as the row's name and Check for updates as its control, in the column the cards above use (the
+    # The version as the row's name and Check for updates as its control, in the column the rows above use (the
     # final review's C-08: the button once stood right after the words, on a line of its own).
-    box = widgets.setting_row(updates_card.body, ui, w("about.version", v=version),
+    box = widgets.setting_row(general.body, ui, w("about.version", v=version),
                               # check is made below: looked up when pressed.
                               lambda p: widgets.Button(p, ui, w("about.check"), lambda: check()))
     box.pack(fill="x")
     # What the look for updates found, and the button that puts an update in: right under the version, and no
     # room taken while there is nothing to say.
-    found = tk.Frame(updates_card.body, bg=theme.PANEL)
+    found = tk.Frame(general.body, bg=general.body.cget("bg"))
     found.pack(fill="x")
+    # Playing without this window beside what openDMT3 is: two short groups, one pair (one under the other in a small
+    # window).
+    pair = Pair(app, parent, last=True)
+    _play_without_window(app, pair.left)
 
     def say(text, fg=theme.MUTED, result=None):
         """Show `text` under the version; with a `result` that has an update, its button below."""
@@ -125,7 +130,7 @@ def build_about(app, parent):
         # the new launcher (client/updating.py).
         updating.run(app, result)
 
-    legal = card(parent, ui, w("about.legal"), last=True)
+    legal = pair_card(pair.right, ui, w("about.legal"), kind="info")
     for i, key in enumerate(("about.license", "about.notice")):
         if i:
             widgets.divider(legal.body, ui, pady=8)

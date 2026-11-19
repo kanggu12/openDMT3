@@ -1,8 +1,12 @@
 """The judgement line's watch (native/cardreader/line.c, OPENDMT3_LINE_WATCH) read back: what the game's own frames
-did with the line, set beside the score player's clock and the music's.
+did with the line, set beside the score player's clock and the music's. A row's "tick" is the count the score player
+counted on its clock, its "shown" the count the game's line, notes and judging read after the update (the count less
+the audio offset's lag, score.c; the same with no offset, and absent before 0.4.2's watch).
 
     python3 tests/e2e/windows/gpu/line.py LINE_CSV [OUT_JSON]
     python3 tests/e2e/windows/gpu/line.py holds LINE_CSV INGAME_LOG [--windows]
+    python3 tests/e2e/windows/gpu/line.py presses INGAME_LOG [--last-music] ASKED=EXPECT [ASKED=EXPECT...]
+    python3 tests/e2e/windows/gpu/line.py lag LINE_CSV MS
 
 holds judges each hold the layer's log names ("hold: the game held still at frame N" ... "goes on at frame N after S s
 held"): between the score's frame N, the last before the hold, and N + 1, the first after it, the score may count only
@@ -11,6 +15,20 @@ ms: the log gives the hold to 10 ms, and the clock the game reads moves in steps
 alone, never by the music: the tests' ALSA null device takes the music faster than real time and its cursor jumps.
 The music's own move is said beside it; with --windows (a sound clock in real time, gpu/holds.sh) also what each hold
 moved the score against the music over 2 s each side. Exit 0 when every hold is judged and held, and at least one is.
+
+presses judges the presses the layer made itself (native/cardreader/press.c, OPENDMT3_PRESS_LATE), those asked ASKED
+ms after their notes against an EXPECT: "on" (judged on the note's time), "early:MS" or "late:MS" (judged that many
+milliseconds before or after it). A press is made at the first frame the score's own count reaches its time, so it is
+judged up to a frame after what was asked: the median within 3 ms before to 20 ms after the expected, and every press
+within 3 ms before to 40 ms after it (a slow frame); the distance the game judged by is the count it took less the
+note's tick. With --last-music only the presses of the last music the log names count (gpu/judge.sh: the song after
+the guest's tutorial, which plays itself), none of them with the judge's own-play flag set. Exit 0 when every ASKED
+had 10 presses at least, all judged as expected.
+
+lag judges the count shown against the score's own (the audio offset's lag, score.c): from 3 s into each score and
+3 s after each change of its tempo (past the lag's growth, two seconds at most), the score's own count less the one
+shown, in milliseconds at the song's tempo, within half a tick of MS in every frame counted. Exit 0 when so, over 600
+frames at least.
 """
 import csv
 import json
@@ -26,6 +44,12 @@ def F32(value):
     import numpy as np
 
     return np.float32(value)
+
+
+def shown(r):
+    """The count a row's frame showed and judged: its "shown" column, or the score's own count where there is none."""
+    value = number(r, "shown", int)
+    return value if value is not None else number(r, "tick", int)
 
 
 def line_pos(tick, row_ticks, width):
@@ -171,16 +195,109 @@ def hold_moves(csv_path, held, frames=120):
     return out
 
 
+PRESS = re.compile(r"press: music from frame (-?\d+), a note at tick (\d+), asked (\d+) ms after it, pressed at the "
+                   r"score's own count ([-+]\d+) \(([-+][0-9.]+) ms\), judged at ([-+]\d+) \(([-+][0-9.]+) ms\): "
+                   r"distance (\d+), level (\d+)(?:, the judge playing itself (\d+))?")
+
+
+def presses(log_path, expects):
+    """The layer's own presses judged against what each EXPECT says of those asked so many ms after their notes (see
+    the module's words); with --last-music first, only those of the last music the log names."""
+    last = expects[:1] == ["--last-music"]
+    expects = expects[1:] if last else expects
+    found = []
+    for line in open(log_path, errors="replace"):
+        m = PRESS.search(line)
+        if m:
+            found.append(m)
+    own_play = 0
+    if last and found:
+        music = max(int(m.group(1)) for m in found)
+        found = [m for m in found if int(m.group(1)) == music]
+        # Its judge's own-play flag at each press: none of them may be the game's own (the tutorial's is).
+        own_play = sum(1 for m in found if m.group(10) and int(m.group(10)))
+        print("  the last music's presses only (it started at frame %d): %d of them, its judge playing itself at "
+              "%d" % (music, len(found), own_play))
+    asked = {}
+    for m in found:
+        judged, judged_ms, distance = int(m.group(6)), float(m.group(7)), int(m.group(8))
+        asked.setdefault(int(m.group(3)), []).append((judged_ms, abs(judged) == distance, int(m.group(9))))
+    failed = 0
+    for expect in expects:
+        late, _, what = expect.partition("=")
+        kind, _, ms = what.partition(":")
+        want = {"on": 0.0, "early": -float(ms or 0), "late": float(ms or 0)}.get(kind)
+        if not late.isdigit() or want is None:
+            print("  %r: not ASKED=on, ASKED=early:MS or ASKED=late:MS" % expect)
+            failed += 1
+            continue
+        got = asked.get(int(late), [])
+        if len(got) < 10:
+            print("  pressed %s ms after their notes: %d presses judged, fewer than 10" % (late, len(got)))
+            failed += 1
+            continue
+        times = [g[0] for g in got]
+        median = statistics.median(times)
+        # Up to a frame after the time asked (the first frame there), 3 ms before it for the tick's rounding.
+        ok = want - 3.0 <= median <= want + 20.0 and all(want - 3.0 <= t <= want + 40.0 for t in times) and \
+            all(g[1] for g in got)
+        failed += not ok
+        levels = {}
+        for g in got:
+            levels[g[2]] = levels.get(g[2], 0) + 1
+        print("  pressed %s ms after their notes: %d presses judged %+.1f ms from them at the median (%+.1f to %+.1f), "
+              "expected %s; the game's levels %s; the distance the count judged: %s; %s" % (
+                  late, len(got), median, min(times), max(times), what,
+                  ", ".join("%d x%d" % (k, levels[k]) for k in sorted(levels, reverse=True)),
+                  "every press" if all(g[1] for g in got) else "NOT every press",
+                  "as expected" if ok else "NOT as expected"))
+    return 0 if not failed and not own_play else 1
+
+
+def lag(csv_path, ms):
+    """The count shown against the score's own, past each score's first 3 s (see the module's words)."""
+    played = [r for r in read(csv_path) if r.get("updated") == "1" and r.get("playing") == "1"]
+    judged = off = 0
+    worst = 0.0
+    first = {}
+    tempo, since = None, 0
+    for r in played:
+        tick, seen, per = number(r, "tick", int), shown(r), number(r, "ms_per_tick")
+        clock = number(r, "clock", int)
+        if None in (tick, seen, per, clock) or per <= 0:
+            continue
+        # A score's start is where its count was 0; its first 3 s (in its own ticks) are the lag's growth.
+        key = clock - int(tick * per * 10000)
+        start = first.setdefault(round(key / 1e7), tick)
+        # A new tempo makes a new lag in ticks, grown into again: 3 s past each change left out too.
+        if per != tempo:
+            tempo, since = per, tick
+        if (tick - start) * per < 3000 or (tick - since) * per < 3000 and since != start:
+            continue
+        judged += 1
+        gap = (tick - seen) * per - float(ms)
+        worst = max(worst, abs(gap))
+        off += abs(gap) > per / 2 + 1e-6
+    print("  the count shown %s ms behind the score's own in %d of %d frames past each score's first 3 s (the worst "
+          "%.2f ms off it)" % (ms, judged - off, judged, worst))
+    return 0 if judged >= 600 and not off else 1
+
+
 def main(argv):
     if argv and argv[0] == "holds":
         sys.exit(holds(argv[1], argv[2], "--windows" in argv[3:]))
+    if argv and argv[0] == "presses":
+        sys.exit(presses(argv[1], argv[2:]))
+    if argv and argv[0] == "lag":
+        sys.exit(lag(argv[1], argv[2]))
     rows = read(argv[0])
     played = [r for r in rows if r.get("updated") == "1" and r.get("playing") == "1"]
     out = {"frames": len(rows), "frames_counted": len(played)}
     pos_ok = row_ok = six_ok = 0
     offsets = {}
     for r in played:
-        tick, rt, w = number(r, "tick", int), number(r, "row_ticks", int), number(r, "width")
+        # The line is drawn where the count shown puts it.
+        tick, rt, w = shown(r), number(r, "row_ticks", int), number(r, "width")
         pos = number(r, "pos")
         mine = line_pos(tick, rt, w)
         pos_ok += abs(float(mine) - pos) <= 1e-3
@@ -245,14 +362,20 @@ def main(argv):
         if key is None or key < 0 or mb is None or mb < 0 or number(a, "music_frame", int) != key:
             continue
         # The score's time from its start: the first frame's ticks at its tempo, then each step at its own.
-        s = songs.setdefault(key, {"chart_ms": number(a, "tick", int) * number(a, "ms_per_tick"), "against": []})
+        s = songs.setdefault(key, {"chart_ms": number(a, "tick", int) * number(a, "ms_per_tick"), "against": [],
+                                   "shown_ms": shown(a) * number(a, "ms_per_tick"), "shown_against": []})
         s["chart_ms"] += (number(b, "tick", int) - number(a, "tick", int)) * number(a, "ms_per_tick")
         s["against"].append(mb - s["chart_ms"])
+        # The same for the count shown and judged: with an audio offset, the offset more behind the music.
+        s["shown_ms"] += (shown(b) - shown(a)) * number(a, "ms_per_tick")
+        s["shown_against"].append(mb - s["shown_ms"])
         # The music lock's own measure beside it: the music less the song's frames at 60 a second (this frame is the
         # song's frame number b - key + 1).
         s.setdefault("lock", []).append(mb - (number(b, "frame", int) + 1 - key) * 1000.0 / 60)
     out["songs"] = {str(k): {"frames": len(v["against"]), "music_less_score_ms_first": round(v["against"][0], 1),
                              "median": round(statistics.median(v["against"]), 1), "last": round(v["against"][-1], 1),
+                             "music_less_shown_ms_median": round(statistics.median(v["shown_against"]), 1),
+                             "music_less_shown_ms_last": round(v["shown_against"][-1], 1),
                              "music_less_frames_ms_first": round(v["lock"][0], 1),
                              "music_less_frames_median": round(statistics.median(v["lock"]), 1),
                              "music_less_frames_last": round(v["lock"][-1], 1)}

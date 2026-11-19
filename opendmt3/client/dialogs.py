@@ -19,7 +19,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 from opendmt3.core import safety
-from opendmt3.client import art, snapshot, theme
+from opendmt3.client import art, snapshot, theme, widgets
 
 log = logging.getLogger("opendmt3.launcher")
 
@@ -41,8 +41,8 @@ MARGIN = 24         # the least room between the panel and the window's edge
 PAD = 38            # inside the panel, left and right of the text
 TAB = 30            # the title tab's height
 SLANT = 14          # how far the tab's sides lean in
-BUTTON = 40         # a button's height
-BUTTON_MIN = 132    # a button's least width
+BUTTON = 34         # a button's height: a page's key's (widgets.Button.HEIGHTS), one role one size everywhere
+BUTTON_MIN = 88     # a button's least width: a page's key's (widgets.Button.LEAST)
 GAP = 12            # between two buttons
 HEAD = 52           # a window of its own: its header (the lockup, minimize and close) over the dialog
 HEAD_MARK = 112     # the lockup's width in that header (its label, no version: too small a DMT3 for one)
@@ -110,6 +110,11 @@ def balanced_width(font, text, width):
     # A few pixels of room: Tk measures a line the same way, but never wraps one that fits exactly.
     return min(width, low + 4)
 
+
+
+def widgets_side():
+    """A page key's room either side of its words (widgets.Button.SIDES), in logical pixels."""
+    return widgets.Button.SIDES["normal"]
 
 class Dialog:
     """One dialog over `root`. buttons: [(words, value, look)]; `default` has the ring at first; `cancel` is the
@@ -244,20 +249,20 @@ class Dialog:
                 "buttons": buttons, "button_w": button_w, "field": field, "link": link}
 
     def _button_row(self, panel_w, y):
-        """The buttons side by side, centred, at height y: each one's left top and width, and the widest width. One
-        width for all while they fit the panel so; where they do not (three buttons, one with long words), each as
-        wide as its own words need."""
+        """The buttons side by side, centred, at height y: each one's left top and width, and the widest width. Each
+        as wide as a page's key with its words is (one room either side of the words, the same least width: a key of
+        one role is one size on every page and dialog); where they do not fit the panel, all of them less by the same
+        share (the check says so then)."""
         px, fonts = self.ui.px, self.ui.fonts
         count = len(self.buttons)
-        # The buttons lean: their words keep clear of both slopes.
-        sides = 2 * (px(16) + int(px(BUTTON) * art.LEAN))
+        # The buttons lean: their words keep clear of both slopes, by a page key's room and half the lean.
+        sides = 2 * (px(widgets_side()) + int(px(BUTTON) * art.LEAN) // 2)
         needs = [max(px(BUTTON_MIN), fonts.dialog_button.measure(b[0]) + sides) for b in self.buttons]
         room = panel_w - 2 * px(22)
         gaps = (count - 1) * px(GAP)
-        widths = [max(needs or [0])] * count
+        widths = list(needs)
         if sum(widths) + gaps > room:
-            # Each its own width; still too wide, all of them less by the same share (the check says so then).
-            widths = needs if sum(needs) + gaps <= room else [n * (room - gaps) // max(1, sum(needs)) for n in needs]
+            widths = [n * (room - gaps) // max(1, sum(needs)) for n in needs]
         row_w = sum(widths) + gaps
         row, x = [], (panel_w - row_w) // 2
         for width in widths:
@@ -287,8 +292,10 @@ class Dialog:
         self._scene, self._panel = ImageTk.PhotoImage(scene, master=c), ImageTk.PhotoImage(panel, master=c)
         c.create_image(0, 0, image=self._scene, anchor="nw", tags=("scene",))
         c.create_image(0, 0, image=self._panel, anchor="nw", tags=("card", "panel"))
-        c.create_text(panel_w // 2, px(TAB) // 2, text=tab_words, font=self.ui.fonts.tab_font(tab_words),
-                      fill=theme.INK, tags=("card", "words"))
+        # The tab's words with their ink in its middle (widgets.ink_top), as a key's are.
+        tab_font = self.ui.fonts.tab_font(tab_words)
+        c.create_text(panel_w / 2.0, widgets.ink_top(c, tab_font, tab_words, 0, px(TAB)), text=tab_words,
+                      font=tab_font, fill=theme.INK, anchor="n", tags=("card", "words"))
         # The buttons: one picture for each look, drawn over the panel's own pixels.
         margin = max(5, int(round(6 * scale)))
         self._images, self._items, self._boxes = [], [], []
@@ -300,9 +307,10 @@ class Dialog:
             tag = "button%d" % i
             picture = c.create_image(bx - margin, by - margin, image=images[("normal", False)], anchor="nw",
                                      tags=("card", tag))
-            c.create_text(bx + bw // 2, by + px(BUTTON) // 2, text=words,
-                          font=self.ui.fonts.dialog_button, fill=art.BUTTON_LOOKS[look]["text"],
-                          tags=("card", tag, "words"))
+            # The words' ink band in the key's middle, as a page's key has it (widgets.ink_top).
+            top = widgets.ink_top(c, self.ui.fonts.dialog_button, words, by, px(BUTTON))
+            c.create_text(bx + bw / 2.0, top, text=words, font=self.ui.fonts.dialog_button, anchor="n",
+                          fill=art.BUTTON_LOOKS[look]["text"], tags=("card", tag, "words"))
             self._images.append(images)
             self._items.append(picture)
             self._boxes.append((bx, by, bx + bw, by + px(BUTTON)))

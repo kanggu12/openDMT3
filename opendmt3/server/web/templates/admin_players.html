@@ -2,49 +2,64 @@
 {% block title %}{{ w("admin.players") }} · {{ w("admin.title") }} · {% endblock %}
 {% block main %}
 {% set tab = "players" %}{% include "_admin_open.html" %}
-  {# After a new account or password: what the player needs, as text to copy (selected whole on focus, site.js). #}
-  {% if message %}
-  <div class="card">
-    <h3><label for="message">{{ w("admin.message") }}</label></h3>
-    <span class="field-slot keyed"><textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea><button type="button" class="slot-key" data-copy="message" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" data-selected="{{ w('form.selected') }}" hidden>{{ w("form.copy") }}</button></span>
-    {# The address in it is one only this PC reaches: which address to send in its place. #}
-    {% if message_local %}<p class="alert look message-local">{{ w("admin.message.local", address=message_local) }}</p>{% endif %}
+  {# The head: how many accounts there are, how many of them have admin rights, how many are disabled. #}
+  <div class="card head k-status">
+    <div class="k-screen">
+      <div class="headline">
+        <div class="hf"><span class="value">{{ rows|length }}</span><span class="label">{{ w("status.accounts.all") }}</span></div>
+        <div class="hf"><span class="value">{{ rows|selectattr("is_admin")|list|length }}</span><span class="label">{{ w("players.head.admins") }}</span></div>
+        <div class="hf"><span class="value">{{ rows|selectattr("disabled")|list|length }}</span><span class="label">{{ w("players.head.disabled") }}</span></div>
+      </div>
+    </div>
   </div>
-  {% endif %}
-  <div class="card">
+  {# A new player's two steps in one group: their account made (the form), and beside it the address they open (the
+     invite, a single fact: never a box of its own). #}
+  <div class="card make">
     <h3>{{ w("admin.make") }}</h3>
+    {# After a new account or password: what the player needs, as text to copy (selected whole on focus, site.js), the
+       group's first part, over the form that made it (never a box of its own for one text). #}
+    {% if message %}
+    <div class="made-message field">
+      <label class="label" for="message">{{ w("admin.message") }}</label>
+      <span class="field-slot keyed"><textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea><button type="button" class="slot-key" data-copy="message" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" data-selected="{{ w('form.selected') }}" hidden>{{ w("form.copy") }}</button></span>
+      {# The address in it is one only this PC reaches: which address to send in its place. #}
+      {% if message_local %}<p class="alert look message-local">{{ w("admin.message.local", address=message_local) }}</p>{% endif %}
+    </div>
+    {% endif %}
+    <div class="make-split">
     {# Each field with its rule under it; what the server refuses goes under the field it is about (field). #}
     <form method="post" action="/admin/players#make" class="form row" id="make" novalidate>
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="make">
-      <div class="field">
+      <div class="field w-id">
         <label class="label" for="make-id">{{ w("account.id") }}</label>
         <input id="make-id" name="login_id" value="{{ typed.login_id if typed }}" maxlength="8" pattern="[A-Za-z0-9]{1,8}" autocapitalize="characters" autocorrect="off" spellcheck="false" required data-missing="{{ w('owner.missing.id') }}" data-invalid="{{ w('admin.make.hint.id') }}" aria-describedby="{{ 'make-id-error' if field == 'id' else 'make-id-hint' }}"{% if field == "id" %} aria-invalid="true" autofocus{% endif %}>
         {% if field == "id" %}<span class="field-error" id="make-id-error" role="alert">{{ error }}</span>{% else %}<p class="field-hint" id="make-id-hint">{{ w("admin.make.hint.id") }}</p>{% endif %}
       </div>
-      <div class="field">
+      <div class="field w-id">
         <label class="label" for="make-dj">{{ w("account.dj") }}<span class="opt">{{ w("form.optional") }}</span></label>
         <input id="make-dj" name="dj_name" value="{{ typed.dj_name if typed }}" maxlength="8" aria-describedby="{{ 'make-dj-error' if field == 'dj' else 'make-dj-hint' }}"{% if field == "dj" %} aria-invalid="true" autofocus{% endif %}>
         {% if field == "dj" %}<span class="field-error" id="make-dj-error" role="alert">{{ error }}</span>{% else %}<p class="field-hint" id="make-dj-hint">{{ w("owner.hint.dj") }}</p>{% endif %}
       </div>
-      <div class="field">
+      <div class="field w-pass">
         <label class="label" for="make-password">{{ w("account.password") }}<span class="opt">{{ w("form.optional") }}</span></label>
         <span class="field-slot keyed"><input id="make-password" name="password" type="password" maxlength="16" pattern="[A-Za-z0-9]{6,16}" autocomplete="new-password" data-invalid="{{ w('owner.hint.password', min=6, max=16) }}" aria-describedby="{{ 'make-password-error' if field == 'password' else 'make-password-hint' }}"{% if field == "password" %} aria-invalid="true" autofocus{% endif %}><button type="button" class="slot-key" data-reveal="make-password" data-show="{{ w('me.password.show') }}" data-hide="{{ w('me.password.hide') }}" aria-pressed="false" aria-label="{{ w('me.password.show') }}: {{ w('account.password') }}" hidden>{{ w("me.password.show") }}</button></span>
         {% if field == "password" %}<span class="field-error" id="make-password-error" role="alert">{{ error }}</span>{% else %}<p class="field-hint" id="make-password-hint">{{ w("admin.make.hint.password") }}</p>{% endif %}
       </div>
-      <div class="field fit"><span class="label" aria-hidden="true"></span><label class="check"><input type="checkbox" name="is_admin">{{ w("account.admin") }}</label></div>
-      <button class="btn primary">{{ w("admin.make") }}</button>
+      {# The tick and the key under the fields, on a line of their own (no label's room above them to leave empty). #}
+      <div class="form-actions make-actions"><label class="check"><input type="checkbox" name="is_admin">{{ w("account.admin") }}</label><button class="btn primary">{{ w("admin.make") }}</button></div>
     </form>
-  </div>
-  {# The invite: the address players open, as text and as a QR code a phone scans from this screen (dark on white,
-     whatever the theme). #}
-  <div class="card invite">
-    <h3>{{ w("admin.invite") }}</h3>
-    <div class="invite-row">
-      <div class="invite-code">{{ invite.svg|safe }}</div>
-      <div>
-        <p><a href="{{ invite.address }}"><code>{{ invite.address }}</code></a></p>
-        {% if not invite.reached %}<p class="alert look">{{ w("admin.invite.local") }}</p>{% endif %}
+    {# The invite: the address players open, as text and as a QR code a phone scans from this screen (dark on white,
+       whatever the theme). #}
+    <div class="invite">
+      <h4>{{ w("admin.invite") }}</h4>
+      <div class="invite-row">
+        <div class="invite-code">{{ invite.svg|safe }}</div>
+        <div>
+          <p><a href="{{ invite.address }}"><code>{{ invite.address }}</code></a></p>
+          {% if not invite.reached %}<p class="alert look">{{ w("admin.invite.local") }}</p>{% endif %}
+        </div>
       </div>
+    </div>
     </div>
   </div>
   {# A column's header sorts by it (its first order: names from A, times and counts from the highest), and again the
@@ -52,8 +67,9 @@
   {% macro sorted(key, label, cls="") %}{% set on = sort == key %}{% set first = "desc" if sorts[key][1] else "asc" %}<th class="{{ cls }}"{% if on %} aria-sort="{{ 'ascending' if order == 'asc' else 'descending' }}"{% endif %}><a class="sort{{ ' on ' + order if on }}" href="/admin/players?sort={{ key }}{% if on and order == first %}&amp;order={{ 'asc' if first == 'desc' else 'desc' }}{% endif %}">{{ label }}</a></th>{% endmacro %}
   {% from "_charts.html" import cells %}{# The words every row repeats, looked up once for the page (every row of 1,000
      players asked for each of them), on this line so the page's markup stays as it was. #}{% set dj_word, days_word, played_word, last_word, never_word, admin_word, off_word = w('account.dj'), w('players.days'), w('players.played'), w('admin.last'), w("admin.never"), w("admin.role"), w("admin.disabled") %}
-  <div class="card">
+  <div class="card accounts k-list">
     <h3>{{ w("players.list") }}</h3>
+    {# The list as a file, at the head of the list's group (its tab's line, at the right). #}
     <p class="players-file"><a class="btn small" href="/admin/players.csv" download>{{ w("players.download") }}</a></p>
     <table class="table players">
       <thead><tr>{{ sorted("id", "ID") }}{{ sorted("dj", w("account.dj")) }}{{ sorted("days", w("players.days")) }}{{ sorted("played", w("players.played")) }}{{ sorted("last", w("admin.last")) }}</tr></thead>
@@ -73,11 +89,9 @@
       {% endfor %}
       </tbody>
     </table>
-  </div>
-  {# Every player's plays reset at once (the database backed up first), asked first in the site's own dialog. #}
-  <div class="card">
-    <h3>{{ w("admin.reset.all") }}</h3>
-    <form method="post" class="form row" data-ask="{{ w('admin.reset.all.ask') }}" data-ask-title="{{ w('admin.reset.all') }}" data-ask-detail="{{ w('admin.reset.all.detail') }}" data-ask-yes="{{ w('admin.reset') }}">
+    {# Every player's plays reset at once (the database backed up first), asked first in the site's own dialog: the
+       list's last line, under a hairline. #}
+    <form method="post" class="group-foot" data-ask="{{ w('admin.reset.all.ask') }}" data-ask-title="{{ w('admin.reset.all') }}" data-ask-detail="{{ w('admin.reset.all.detail') }}" data-ask-yes="{{ w('admin.reset') }}">
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="reset_all">
       <button class="btn danger">{{ w("admin.reset.all") }}</button>
     </form>

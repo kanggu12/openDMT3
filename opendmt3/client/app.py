@@ -34,6 +34,8 @@ HEAD_LEAST = 96
 HEAD_FOOT = 16
 # The room under a page's last card (logical pixels), once the page is scrolled to its foot.
 FOOT = 20
+# The page's margin either side of its column of cards (logical pixels): the column starts where the head's title does.
+PAGE_MARGIN = 32
 # Where the title stands in the head and where the line under it starts (left edge and baseline, left edge and top).
 TITLE_AT, SUB_AT = (32, 60), (32, 78)
 # The room under the column's foot (PLAY, the guide's buttons) to the window's edge, the gap over PLAY, and PLAY's
@@ -687,7 +689,7 @@ class LauncherApp:
         for child in self.body.inner.winfo_children():
             child.destroy()
         content = tk.Frame(self.body.inner, bg=theme.BG)
-        content.pack(fill="both", expand=True, padx=self.ui.px(32), pady=(self.ui.px(4), self.ui.px(FOOT)))
+        content.pack(fill="both", expand=True, padx=self.ui.px(PAGE_MARGIN), pady=(self.ui.px(4), self.ui.px(FOOT)))
         if moved and self.status_tone in ("ok", "bad"):
             # Another page: an earlier action's result (done, or failed) leaves the foot, which says how PLAY stands
             # (the final review's B-15, C-12); a line about how things stand stays, and the page may say its own. While
@@ -705,6 +707,12 @@ class LauncherApp:
         # The status line's sign-in sentence says it as this page needs it (ONLINE is where the sign-in is).
         if self.status_text in (self.words("status.sign_in_first"), self.words("status.sign_in")):
             self.set_status(self.why_not_ready(), self.not_ready_tone())
+
+    def content_width(self):
+        """The width of the page's column of cards (inside the page's margins), or 0 before the window is laid out:
+        the width a page's pair of groups decides by when it is made (pages.Pair)."""
+        inner = self.body.inner.winfo_width()
+        return max(0, inner - 2 * self.ui.px(PAGE_MARGIN)) if inner > 1 else 0
 
     def go_to_setting(self, page, name):
         """Show `page` with its setting row called `name` in view and the keyboard on its control (HELP's lines lead
@@ -779,8 +787,8 @@ class LauncherApp:
         `sub_width` (as the canvas wraps it), with the room under it; never less than the title's own room."""
         from opendmt3.client import snapshot
         px = self.ui.px
-        lines = len(snapshot.wrap(self.fonts.body, sub, sub_width)) if sub else 0
-        return max(px(HEAD_LEAST), px(SUB_AT[1]) + lines * self.fonts.body.metrics("linespace") + px(HEAD_FOOT))
+        lines = len(snapshot.wrap(self.fonts.head_info, sub, sub_width)) if sub else 0
+        return max(px(HEAD_LEAST), px(SUB_AT[1]) + lines * self.fonts.head_info.metrics("linespace") + px(HEAD_FOOT))
 
     # ------------------------------------------------------------------------------ background
 

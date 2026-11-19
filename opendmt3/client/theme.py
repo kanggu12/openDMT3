@@ -101,8 +101,8 @@ def section_colours(page):
     return SECTION_COLOURS[PAGE_SECTIONS.get(page, "technika")]
 
 
-# Bundled font files and the family names Windows and fontconfig give them.
-FONT_FILES = ("DMT3Wide-Regular.ttf", "Pretendard-Regular.ttf", "Pretendard-SemiBold.ttf", "Pretendard-Bold.ttf")
+# Bundled font files (register_fonts adds them on Windows) and the family names Windows and fontconfig give them.
+FONT_FILE_NAMES = ("DMT3Wide-Regular.ttf", "Pretendard-Regular.ttf", "Pretendard-SemiBold.ttf", "Pretendard-Bold.ttf")
 DISPLAY = "DMT3 Wide"
 TEXT_FONT = "Pretendard"
 TEXT_BOLD = "Pretendard SemiBold"
@@ -110,6 +110,70 @@ TEXT_BOLD = "Pretendard SemiBold"
 WIDE_FILE = os.path.join(FONT_DIR, "DMT3Wide-Regular.ttf")
 HANGUL_TITLE_FILE = os.path.join(FONT_DIR, "Pretendard-Bold.ttf")
 TEXT_BOLD_FILE = os.path.join(FONT_DIR, "Pretendard-SemiBold.ttf")
+TEXT_FILE = os.path.join(FONT_DIR, "Pretendard-Regular.ttf")
+# Each family's file, by the weight Tk is asked for: what measures a word's ink as Tk sets it (art.ink_band).
+FONT_FILES = {(DISPLAY, "normal"): WIDE_FILE, (TEXT_FONT, "normal"): TEXT_FILE, (TEXT_FONT, "bold"): HANGUL_TITLE_FILE,
+              (TEXT_BOLD, "normal"): TEXT_BOLD_FILE, (TEXT_BOLD, "bold"): TEXT_BOLD_FILE}
+
+# The text's sizes by role (points; Tk turns them into the screen's pixels): every word of the launcher is set in one
+# of these, and a heading is never smaller than the body under it (the UI check holds both). Hints and a field's
+# name a step under the body; the body, a row's name and a key's words; a large field's words and the figures; the
+# head's line under a page's title; a dialog's question; the big words (PLAY, the records' numbers, the titles).
+TYPE_STEPS = (9, 10, 11, 12, 13, 17, 18, 19, 21)
+
+# The kinds of card the pages are made of, each page naming its own (widgets.Card's kind), each with a background and
+# a shape of its own so that the kinds tell apart at a glance and in grey (the card identity, _work/theme/CARDS.md, the
+# owner 2026-11-19: "each card a shape and colour fitting its content"): a status panel with lamps (the ready check, the
+# checks), the member's card (who plays, a DJ's summary), a result panel (the last game, the scores), a settings plate
+# of rows, a step rail (the connection test), an info plate (what openDMT3 is, what to try, a page's word of what
+# stands), a destructive tray (what puts back and takes away), a list sheet (the players). Every kind's look is here
+# and only here (CARD_LOOKS), so that a kind's look changes no page. One family: the 1 px seam, the cut corner drawn
+# as one seam with the top light following it, light from above on a raised plate and from below in a sunken well.
+CARD_KINDS = ("status", "member", "result", "settings", "steps", "info", "danger", "list")
+# A sunken face (the status panel's screen) or a tray (the destructive kind): darker than the page, its upper inner
+# edge in shade and its lower one catching the light from above, as a recess is lit.
+WELL = "#0c0f13"
+WELL_SHADE = "#06080a"
+WELL_LIGHT = "#2a313a"
+# The result's black glass (the game's result frames): a step under the well, a faint light along its top.
+GLASS = "#08090c"
+GLASS_TOP = "#262c34"
+# An info plate: a step off the page and no light along its top (it says, it does not ask).
+QUIET_FACE = "#14181d"
+# A page's lead (ONLINE's where you play): a status panel cut twice as deep as the family, a little of the head's glass
+# on its face (a step cooler and lighter) and a brighter light along its top; opaque.
+LEAD_CUT = 28
+LEAD_FACE = "#1d242c"
+LEAD_RIM = "#66717e"
+# The member's card (art.member_card): the sites' platinum card as an object held by the plate, never a box's face;
+# its middle stop, rim and inks (dark ink on platinum, 9:1 and more).
+PLATINUM = "#e2e7ea"
+PLATINUM_RIM = "#6f7984"
+PLATINUM_INK = "#13181e"
+PLATINUM_INK_2 = "#4a535d"
+# Each kind's look: its face, the seam round it, the light along its top (`rim`: shade for a sunken kind) and the line
+# along its foot, the name's tab (None: the name as a quiet caption inside) and the words on it, the cut corner (logical
+# pixels); and its parts: `well`, a sunken screen set into the plate that holds the rows; `foot_cut`, a second cut at
+# the foot's left; `rail`, a rail down the left edge; `band`, the name on a band across the whole top.
+_PLATE = {"face": PANEL, "seam": SEAM, "rim": RIM, "foot": FOOT, "tab": LINE, "tab_ink": TEXT, "cut": 14}
+CARD_LOOKS = {
+    # The base: a raised gunmetal plate of rows, its name on the grey tab.
+    "settings": dict(_PLATE),
+    # The cabinet's status panel: the plate holding a sunken screen of lamps; its state lamp after its name.
+    "status": dict(_PLATE, well=WELL),
+    # The member's plate: the base plate, holding the platinum card of the one who plays (art.member_card).
+    "member": dict(_PLATE),
+    # The game's result panel: black glass, cut at two opposite corners.
+    "result": dict(_PLATE, face=GLASS, seam="#20262e", rim=GLASS_TOP, foot="#050607", tab="#1b2027", foot_cut=14),
+    # A step rail: the plate with a rail down its left edge beside the steps' lamps.
+    "steps": dict(_PLATE, rail=LINE),
+    # A quiet info plate: no tab (its name a caption in the hints' grey), no light along its top, a step off the page.
+    "info": dict(_PLATE, face=QUIET_FACE, rim=SEAM, foot=SEAM, tab=None),
+    # The destructive tray: sunken, its shade along its top and the light at its foot; its tab dark, its words grey.
+    "danger": dict(_PLATE, face=WELL, rim=WELL_SHADE, foot=WELL_LIGHT, tab="#1d2228", tab_ink=MUTED),
+    # A list sheet: its name on a band of the slots' dark across its whole top, the rows edge to edge on faint lines.
+    "list": dict(_PLATE, band=FIELD),
+}
 
 
 def register_fonts():
@@ -123,7 +187,7 @@ def register_fonts():
     import ctypes
     # FR_PRIVATE: only this process sees the font, and it goes away when the launcher closes.
     fr_private = 0x10
-    for name in FONT_FILES:
+    for name in FONT_FILE_NAMES:
         ctypes.windll.gdi32.AddFontResourceExW(os.path.join(FONT_DIR, name), fr_private, 0)
 
 
@@ -137,7 +201,7 @@ class Fonts:
     def __init__(self, root, language):
         import tkinter.font as tkfont
         korean = language == "ko"
-        section = (TEXT_BOLD, 10) if korean else (DISPLAY, 8)
+        section = (TEXT_BOLD, 10) if korean else (DISPLAY, 9)
         self.title = tkfont.Font(root, family=TEXT_BOLD if korean else DISPLAY, size=21 if korean else 18)
         # The menu in the wide face, its names in English in both languages as both sites' menus and the game's are
         # (13.3 px); a step smaller where the window is too narrow for the menu in one line at the full size.
@@ -160,10 +224,14 @@ class Fonts:
         self.field = tkfont.Font(root, family=TEXT_FONT, size=11)                    # typed in a large field
         self.key = tkfont.Font(root, family=TEXT_BOLD, size=9)                       # a key inside a field
         self.button_lg = tkfont.Font(root, family=TEXT_BOLD, size=11)                # the sign-in's key
-        # A dialog's title tab: English capitals in the wide face in both languages (THEME.md, as the cards' tabs are);
-        # a tab with Hangul (a title with no English words) in Pretendard at its height (tab_font).
-        self.dialog_tab = tkfont.Font(root, family=DISPLAY, size=8)
-        self.dialog_tab_hangul = tkfont.Font(root, family=TEXT_BOLD, size=10)
+        # A dialog's title tab: English capitals in the wide face in both languages (THEME.md, as the cards' tabs are),
+        # as large as the body (a heading is never smaller than the words under it); a tab with Hangul (a title with no
+        # English words) in Pretendard a step larger (tab_font).
+        self.dialog_tab = tkfont.Font(root, family=DISPLAY, size=10)
+        self.dialog_tab_hangul = tkfont.Font(root, family=TEXT_BOLD, size=11)
+        # The page's head information under its title (where PLAY plays): large, in the head (the composed page's
+        # first fact), a step over the body.
+        self.head_info = tkfont.Font(root, family=TEXT_BOLD, size=12)
         self.dialog_title = tkfont.Font(root, family=TEXT_BOLD, size=13)             # a dialog's question
         self.dialog_button = tkfont.Font(root, family=TEXT_BOLD, size=10)            # a dialog's buttons
         # The same two sizes in each face, for words whose face follows their own letters, not the window's language

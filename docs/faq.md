@@ -6,9 +6,10 @@ For server owners: short answers, each with the guide that has the rest. Problem
 ## Which way should I run the server?
 
 - To play with the other PCs on your network while you play too: the launcher's own server ([In the launcher](server.md#in-the-launcher)).
-- A Windows PC that stays on, without Docker: the Windows server package ([On Windows](server.md#on-windows)).
-- Linux or macOS: Docker with `./dmt3 setup` ([With Docker](server.md#with-docker)), or the one-line install without
-  Docker ([With Python](server.md#with-python)).
+- A Windows PC that stays on, without Docker: the Windows server package, or its one-line install
+  ([On Windows](server.md#on-windows)).
+- Linux or macOS: the release's package for the machine, or its one-line install, without Docker or Python
+  ([On Linux or macOS](server.md#on-linux-or-macos)); or Docker with `./dmt3 setup` ([With Docker](server.md#with-docker)).
 - A Kubernetes cluster: the Helm chart ([On Kubernetes](kubernetes.md)).
 
 Each runs the same server, with the same database in its data folder.
@@ -57,8 +58,9 @@ No: only the song list (with the jackets and the DJ cards), read once from your 
 
 ## Where is my data, and how do I back it up?
 
-In the data folder: `data` beside the Windows package's program, `~/.local/share/opendmt3-server/data` after the
-one-line install, the volume `opendmt3_data` with Docker. The server backs it up once a day and keeps a week; `backup`
+In the data folder: `data` beside a server package's program (Windows, Linux or macOS),
+`~/.local/share/opendmt3-server/data` after the one-line install on Linux or macOS, `data` in
+`%LOCALAPPDATA%\Programs\opendmt3-server` after the one on Windows, the volume `opendmt3_data` with Docker. The server backs it up once a day and keeps a week; `backup`
 makes one now ([Backups](server.md#backups)).
 
 ## How do I update the server?

@@ -19,7 +19,7 @@ def build_records(app, parent):
     box = tk.Frame(parent, bg=theme.BG)
     box.pack(fill="both", expand=True)
     # Until the records come, the page's card says they are being read (an empty page says nothing).
-    waiting = card(box, ui, last=True)
+    waiting = card(box, ui, last=True, kind="info")
     widgets.label(waiting.body, ui, w("records.loading"), fg=theme.MUTED).pack(anchor="w")
     state, host = app.state, app.host
 
@@ -48,7 +48,7 @@ def _records_failed(app, box, error):
     ui, w = app.ui, app.words
     for child in box.winfo_children():
         child.destroy()
-    why = card(box, ui, last=True)
+    why = card(box, ui, last=True, kind="info")
     key = getattr(error, "key", None)
     # Something still to do (sign in, choose a player, play on a server) in amber; what went wrong (a server that does
     # not answer, a file that does not read) in the pink that reads, as on every page.
@@ -65,9 +65,13 @@ def _records_failed(app, box, error):
         # A guest has no records: the player is chosen on the PLAY page.
         widgets.link(why.body, ui, TITLES["play"], lambda: app.go("play")).pack(anchor="w", pady=(ui.px(10), 0))
     else:
-        # A server that did not answer may answer now.
-        widgets.Button(why.body, ui, w("records.again"), lambda: app.go("records")).pack(anchor="w",
-                                                                                       pady=(ui.px(10), 0))
+        # A server that did not answer may answer now: Try again; on another server, beside it the page that has its
+        # address and its connection test (a card for one key said little but the key).
+        ways = tk.Frame(why.body, bg=why.body.cget("bg"))
+        ways.pack(fill="x", pady=(ui.px(10), 0))
+        widgets.Button(ways, ui, w("records.again"), lambda: app.go("records")).pack(side="left")
+        if app.state.mode == "server":
+            widgets.link(ways, ui, TITLES["online"], lambda: app.go("online")).pack(side="left", padx=(ui.px(16), 0))
 
 
 def _records_open_site(app, player):
@@ -83,62 +87,65 @@ def _records_drawn(app, box, dj):
     for child in box.winfo_children():
         child.destroy()
     # ---- the DJ: name, numbers
-    head = widgets.Card(box, ui)
+    head = widgets.Card(box, ui, kind="member")
     head.pack(fill="x", pady=(0, ui.px(CARD_GAP)))
-    top = tk.Frame(head.body, bg=theme.PANEL)
+    top = tk.Frame(head.body, bg=head.body.cget("bg"))
     top.pack(fill="x")
     # The name in the face of its own letters: a Latin name in the wide face in both languages.
     name_font = ui.fonts.by_script(dj["dj_name"], ui.fonts.title_wide, ui.fonts.title_hangul)
-    tk.Label(top, text=dj["dj_name"], font=name_font, fg=theme.TEXT, bg=theme.PANEL).pack(side="left")
+    tk.Label(top, text=dj["dj_name"], font=name_font, fg=theme.TEXT, bg=top.cget("bg")).pack(side="left")
     # The DJ card's level, as the game shows it (an older server sends no card).
     card = dj.get("dj_card") or {}
     if card.get("level"):
         # The level as the game's level badge shows it: its tier's gem (a tier every ten levels), then "Lv n".
         gem = art.level_gem(theme.level_tier(card["level"]), ui.scale)
-        badge = tk.Label(top, bg=theme.PANEL, bd=0)
+        badge = tk.Label(top, bg=top.cget("bg"), bd=0)
         badge.image = ImageTk.PhotoImage(gem, master=badge)
         badge.opendmt3_picture = gem
         badge.configure(image=badge.image)
         badge.pack(side="left", padx=(ui.px(12), ui.px(6)))
-        tk.Label(top, text="Lv %d" % card["level"], font=ui.fonts.body_bold, fg=theme.TEXT, bg=theme.PANEL).pack(
+        tk.Label(top, text="Lv %d" % card["level"], font=ui.fonts.body_bold, fg=theme.TEXT, bg=top.cget("bg")).pack(
             side="left")
+    # At the card's top right, out of its cut corner by the cut (the body's own padding is the rest of the room).
     widgets.Button(top, ui, w("records.site"), lambda: _records_open_site(app, dj["player"])).pack(
-        side="right")
+        side="right", padx=(0, ui.px(head.cut)))
     if card.get("comment"):
         # The comment over the plate in the game.
-        widgets.label(head.body, ui, card["comment"], fg=theme.MUTED, bg=theme.PANEL, wrap_margin=0).pack(
+        widgets.label(head.body, ui, card["comment"], fg=theme.MUTED, bg=head.body.cget("bg"), wrap_margin=0).pack(
             fill="x", pady=(ui.px(4), 0))
     summary, done = dj["summary"], dj["activity"]
     seconds = done["seconds"]
     played = (w("common.hours", h=seconds // 3600, m=(seconds % 3600) // 60) if seconds >= 3600
               else w("common.minutes", m=seconds // 60))
-    numbers = tk.Frame(head.body, bg=theme.PANEL)
+    numbers = tk.Frame(head.body, bg=head.body.cget("bg"))
     numbers.pack(fill="x", pady=(ui.px(14), 0))
     for i, (value, key) in enumerate(((summary["plays"], "records.plays"), (summary["songs"], "records.songs"),
                                       (summary["charts"], "records.charts"), (done["sessions"], "records.sessions"),
                                       (played, "records.time"))):
-        cell = tk.Frame(numbers, bg=theme.PANEL)
+        cell = tk.Frame(numbers, bg=numbers.cget("bg"))
         cell.grid(row=0, column=i, sticky="w", padx=(0, ui.px(28)))
         # Digits and their units in one face ("1시간 3분" whole in Pretendard, "1 h 3 min" in the wide face).
         tk.Label(cell, text=str(value), font=ui.fonts.by_script(str(value), ui.fonts.display_big,
                                                                   ui.fonts.display_big_hangul),
-                 fg=theme.TEXT, bg=theme.PANEL).pack(anchor="w")
-        tk.Label(cell, text=w(key), font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(anchor="w")
+                 fg=theme.TEXT, bg=cell.cget("bg")).pack(anchor="w")
+        tk.Label(cell, text=w(key), font=ui.fonts.small, fg=theme.MUTED, bg=cell.cget("bg")).pack(anchor="w")
     # ---- the last 12 weeks: one bar a week, this week last; the chosen week's number under the chart. A week is
     # chosen by a click or a tap on it, or with the arrow keys once Tab has reached the chart (a cyan ring), never by
     # the pointer alone: a touch screen has no pointer resting over a bar. The pointer over a bar shows its number
     # until it leaves, and the chosen week's comes back.
     weeks = done["weeks"]
     most = max([wk["plays"] for wk in weeks] or [0])
-    widgets.section(head.body, ui, w("records.weeks"), bg=theme.PANEL).pack(fill="x", pady=(ui.px(18), ui.px(8)))
+    widgets.section(head.body, ui, w("records.weeks"), bg=head.body.cget("bg")).pack(fill="x",
+                                                                                     pady=(ui.px(18), ui.px(8)))
     chart_height = ui.px(84)
     ring = max(1, ui.px(2))
-    chart = tk.Canvas(head.body, height=chart_height, bg=theme.PANEL, bd=0, takefocus=1, cursor="hand2",
-                      highlightthickness=ring, highlightbackground=theme.PANEL, highlightcolor=theme.CYAN)
+    chart = tk.Canvas(head.body, height=chart_height, bg=head.body.cget("bg"), bd=0, takefocus=1, cursor="hand2",
+                      highlightthickness=ring, highlightbackground=head.body.cget("bg"), highlightcolor=theme.CYAN)
     chart.pack(fill="x")
     # What it is to the UI run (tests/e2e/ui/shots.py), which chooses its weeks as a person does.
     chart.opendmt3_weeks = True
-    readout = tk.Label(head.body, text=w("records.most", n=most), font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL)
+    readout = tk.Label(head.body, text=w("records.most", n=most), font=ui.fonts.small, fg=theme.MUTED,
+                       bg=head.body.cget("bg"))
     readout.pack(anchor="w", pady=(ui.px(4), 0))
     day = lambda t: time.strftime("%m/%d", time.localtime(t))  # noqa: E731  (a week's ends as month/day)
     # The week chosen (None: none yet, the line says the most in a week and how to choose one) and the one the
@@ -208,20 +215,22 @@ def _records_drawn(app, box, dj):
     row.columnconfigure(0, weight=1, uniform="lists")
     row.columnconfigure(1, weight=1, uniform="lists")
     for column, (title_key, items) in enumerate((("records.recent", dj["recent"]), ("records.bests", dj["bests"][:10]))):
-        card = widgets.Card(row, ui, title=w(title_key))
+        # The scoreboard: the game's result panel (CARDS.md "result"), scores in the game's figures and colour.
+        card = widgets.Card(row, ui, title=w(title_key), kind="result")
         card.grid(row=0, column=column, sticky="nsew", padx=(0, ui.px(CARD_GAP)) if column == 0 else 0)
         if not items:
-            widgets.label(card.body, ui, w("records.none"), fg=theme.MUTED, bg=theme.PANEL, wrap_margin=0).pack(fill="x")
+            widgets.label(card.body, ui, w("records.none"), fg=theme.MUTED, bg=card.body.cget("bg"),
+                          wrap_margin=0).pack(fill="x")
         for i, item in enumerate(items):
             if i:
                 # One play each, parted by the card's faint lines, as PLAY's last game has them.
                 widgets.divider(card.body, ui, pady=8)
             widgets.label(card.body, ui, item["title"], font=ui.fonts.body_bold, wrap_margin=0).pack(fill="x")
-            line = tk.Frame(card.body, bg=theme.PANEL)
+            line = tk.Frame(card.body, bg=card.body.cget("bg"))
             line.pack(fill="x")
             chart_words = (w("records.chart.level", mode=item["mode_name"], n=item["pattern"], level=item["level"])
                            if item.get("level") else w("records.chart", mode=item["mode_name"], n=item["pattern"]))
-            tk.Label(line, text=chart_words, font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(side="left")
+            tk.Label(line, text=chart_words, font=ui.fonts.small, fg=theme.MUTED, bg=line.cget("bg")).pack(side="left")
             # The score in TECHNIKA 3's score colour, in the game's heavy figures.
             tk.Label(line, text="{:,}".format(item["score"]), font=ui.fonts.figures, fg=theme.SCORE,
-                     bg=theme.PANEL).pack(side="right")
+                     bg=line.cget("bg")).pack(side="right")

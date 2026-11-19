@@ -7,6 +7,7 @@
 /* windows.h's old 16-bit words, names of the tests' own variables here. */
 #undef near
 #undef far
+#include <float.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -1701,52 +1702,44 @@ static void test_music_lock(void)
     check(music_lock_step(&m, 0.5, 166666) == 0, "music lock: under 1 ms is left alone");
 }
 
-/* The audio offset: read from the launcher's variable (whole milliseconds, 0 to the most), then a song simulated as in
- * test_music_lock with the lock's target that much later: the frames end up behind the music by the offset, no frame
- * longer than a period and the lock's step on the way, none shorter than a period less a millisecond (the lock's own
- * settling past the target, a drift's step). Returns the seconds the lock took to come within 2 ms of the offset (-1:
- * never). */
-static double offset_song(int offset_ms, double *longest_ms, double *shortest_ms, double *end_off)
+/* The audio offset's lag of a song's chart (logic.c ChartLag), over a song of 30 s simulated as the score counts it: a
+ * tick of `ms_per_tick` ms, a frame each 1/60 s counting the ticks due by then. Returns the seconds the lag took to
+ * reach the offset's ticks (-1: never); *back set when a frame's shown count was below the last one's, *past when one
+ * was past the score's own (a lag below none) or the lag past the offset's ticks, *stopped when the shown count stood
+ * still in a frame the score counted ticks in, *end_lag the lag at the end in ticks, and *ramp_part the shown ticks
+ * over the score's own while the lag grew. */
+static double lag_song(int offset_ms, double ms_per_tick, int *back, int *past, int *stopped, uint32_t *end_lag,
+                       double *ramp_part)
 {
-    const int64_t f = 10000000;
-    Pacer p;
-    MusicLock m;
-    pacer_start(&p, f, GAME_FPS);
-    music_lock_start(&m);
-    int64_t now = 0, last = 0;
-    double base = 0, reached = -1;
-    int primed = 0;
-    *longest_ms = 0;
-    *shortest_ms = 1e9;
-    for (long k = 1; k <= 60 * 30; k++) {
-        now += 50000;
-        if (p.next) {
-            /* The music as it plays (test_music_lock has the cursor's steps), against the frame's place at its tick. */
-            double music = (double)now / f * 1000.0;
-            double until = (double)(p.next - now) * 1000.0 / f;
-            double ahead = music + (until > 0 ? until : 0) - (double)k * 1000.0 / 60.0;
-            if (!primed) {
-                base = ahead;
-                primed = 1;
+    ChartLag c;
+    chart_lag_start(&c);
+    uint32_t target = chart_lag_ticks(offset_ms, ms_per_tick);
+    uint32_t last_real = 0, last_shown = 0, ramp_real = 0, ramp_shown = 0;
+    double reached = -1;
+    *back = *past = *stopped = 0;
+    *end_lag = 0;
+    for (long k = 0; k <= 60 * 30; k++) {
+        /* The ticks the score has counted by this frame. */
+        uint32_t real = (uint32_t)((double)k * 1000.0 / 60.0 / ms_per_tick);
+        uint32_t shown = chart_lag_frame(&c, real, target);
+        if (shown > real || real - shown > target)
+            *past = 1;
+        if (k > 0) {
+            *back |= shown < last_shown;
+            *stopped |= real > last_real && shown == last_shown;
+            /* While the lag was still growing at the frame before: what the shown count moved against the score's. */
+            if (reached < 0) {
+                ramp_real += real - last_real;
+                ramp_shown += shown - last_shown;
             }
-            p.next -= music_lock_step(&m, ahead - base - offset_ms, p.period);
         }
-        now += pacer_wait(&p, now);
-        /* How far behind the music this frame is now, past the game's own start distance. */
-        double behind = (double)now / f * 1000.0 - (double)k * 1000.0 / 60.0 - base;
-        double off = behind - offset_ms;
-        if (reached < 0 && k > 2 && off > -2.0 && off < 2.0)
-            reached = (double)now / f;
-        *end_off = off;
-        if (k > 2) {
-            double gap = (double)(now - last) * 1000.0 / f;
-            if (gap > *longest_ms)
-                *longest_ms = gap;
-            if (gap < *shortest_ms)
-                *shortest_ms = gap;
-        }
-        last = now;
+        if (reached < 0 && real - shown == target)
+            reached = (double)k / 60.0;
+        last_real = real;
+        last_shown = shown;
+        *end_lag = real - shown;
     }
+    *ramp_part = ramp_real ? (double)ramp_shown / ramp_real : 1.0;
     return reached;
 }
 
@@ -1770,11 +1763,11 @@ static void test_display_choices(void)
 }
 
 /* A song locked to its music through resets of the device (hooks.c take_parameters and lock_to_music, logic.c
- * SongLock): the audio offset `offset_ms`; at the song's 20th and 40th second a reset stalls the frames `stall_ms`,
- * then the pacer and the lock's readings start again, as a switch between a window and full screen does. Returns how
- * far behind the music the frames end, past the game's own start (ms: the offset when the lock holds it); the
- * longest and shortest gaps between frames from the first reset on, the resets' own frames left out. */
-static double reset_song(int offset_ms, double stall_ms, double *longest_ms, double *shortest_ms)
+ * SongLock): at the song's 20th and 40th second a reset stalls the frames `stall_ms`, then the pacer and the lock's
+ * readings start again, as a switch between a window and full screen does. Returns how far behind the music the frames
+ * end, past the game's own start (ms: 0 when the lock holds it); the longest and shortest gaps between frames from the
+ * first reset on, the resets' own frames left out. */
+static double reset_song(double stall_ms, double *longest_ms, double *shortest_ms)
 {
     const int64_t f = 10000000;
     Pacer p;
@@ -1805,7 +1798,7 @@ static double reset_song(int offset_ms, double stall_ms, double *longest_ms, dou
             double ahead = music + (until > 0 ? until : 0) - (double)k * 1000.0 / 60.0;
             int began;
             double off;
-            p.next -= song_lock_frame(&s, 1, ahead, offset_ms, p.period, &began, &off);
+            p.next -= song_lock_frame(&s, 1, ahead, p.period, &began, &off);
             if (!started) {
                 start = s.base;
                 started = 1;
@@ -1849,35 +1842,62 @@ static void test_audio_offset(void)
     settings_read(&s, "OPENDMT3_MOTION_CLARITY", "strobe");
     settings_read(&s, "OPENDMT3_FLIP_MODEL", "flipex");
     check(s.motion == MOTION_OFF && !s.flip, "settings: other words leave both off");
+    /* The offset in a song's ticks: the nearest whole one, none for no offset or no tempo read. */
+    check(chart_lag_ticks(80, 2.5) == 32 && chart_lag_ticks(81, 2.54) == 32 && chart_lag_ticks(500, 2.65) == 189,
+          "audio offset: the offset in the nearest whole ticks of the song's tempo");
+    check(chart_lag_ticks(0, 2.5) == 0 && chart_lag_ticks(-20, 2.5) == 0 && chart_lag_ticks(80, 0) == 0 &&
+              chart_lag_ticks(80, -1) == 0 && chart_lag_ticks(80, nan("")) == 0,
+          "audio offset: no lag for no offset, or for a tempo not read");
+    /* Over a song: the lag grows at a quarter of the score's pace, then holds the offset's ticks exactly. */
+    int back, past, stopped;
+    uint32_t end_lag;
+    double part;
+    double at = lag_song(80, 2.54, &back, &past, &stopped, &end_lag, &part);
+    check(at > 0.30 && at < 0.36 && end_lag == chart_lag_ticks(80, 2.54),
+          "audio offset: 80 ms reached in a third of a second, then held to the song's end");
+    check(part > 0.73 && part < 0.77, "audio offset: the notes at three quarters of their pace while the lag grows");
+    check(!back && !past && !stopped, "audio offset: the count shown never back, never past the score's own, never "
+                                      "standing still while the score counts");
+    at = lag_song(500, 2.65, &back, &past, &stopped, &end_lag, &part);
+    check(at > 1.95 && at < 2.05 && end_lag == 189 && !back && !past && !stopped,
+          "audio offset: 500 ms (the most) reached in 2 s, the same way");
+    at = lag_song(0, 2.54, &back, &past, &stopped, &end_lag, &part);
+    check(at == 0 && end_lag == 0 && !back && !past, "audio offset: 0 shows the score's own count");
+    /* A slower tempo (fewer ticks for the offset): the lag down to it at once, the count shown going on, never back. A
+     * count gone back (the game set it back): the lag from none. */
+    ChartLag c;
+    chart_lag_start(&c);
+    uint32_t shown = 0;
+    for (uint32_t real = 0; real <= 400; real += 4)
+        shown = chart_lag_frame(&c, real, 32);
+    uint32_t slower = chart_lag_frame(&c, 404, 20);
+    check(shown == 400 - 32 && slower == 404 - 20, "audio offset: a smaller lag taken at once, the count going on");
+    check(chart_lag_frame(&c, 100, 20) == 100 && chart_lag_frame(&c, 104, 20) == 103,
+          "audio offset: a count set back starts the lag again at none");
+    /* The presses' milliseconds for measuring (press.c): whole numbers split by commas, a value a music. */
+    int ms[8];
+    check(press_values("80,0", ms, 8) == 2 && ms[0] == 80 && ms[1] == 0 && press_values("1000", ms, 8) == 1 &&
+              ms[0] == 1000, "presses: whole milliseconds split by commas read in turn");
+    check(!press_values("", ms, 8) && !press_values("80,", ms, 8) && !press_values(",80", ms, 8) &&
+              !press_values("80;0", ms, 8) && !press_values("1001", ms, 8) && !press_values("-5", ms, 8) &&
+              !press_values("1,2,3", ms, 2), "presses: anything else, past the most or past the room reads as none");
+    /* A song through two resets of the device (a window switch each), 300 ms of stall each: the song keeps its own
+     * start, so the frames end on the music, and each stall is won back. */
     double longest, shortest, end;
-    double at = offset_song(0, &longest, &shortest, &end);
-    check(at >= 0 && at < 0.1 && end > -2.0 && end < 2.0, "audio offset: 0 keeps the game's own start");
-    at = offset_song(40, &longest, &shortest, &end);
-    check(at > 0 && at < 2.0 && end > -2.0 && end < 2.0, "audio offset: 40 ms reached within 2 s of the song's start");
-    check(longest <= 1000.0 / 60.0 + 1.01 && shortest >= 1000.0 / 60.0 - 1.01,
-          "audio offset: 40 ms reached a millisecond a frame at most");
-    at = offset_song(250, &longest, &shortest, &end);
-    check(at > 0 && at < 4.0 && end > -2.0 && end < 2.0, "audio offset: 250 ms reached within 4 s");
-    check(longest <= 1000.0 / 60.0 + 4.01 && shortest >= 1000.0 / 60.0 - 1.01,
-          "audio offset: 250 ms reached 4 ms a frame at most");
-    /* Two resets in a song (a window switch each), 300 ms of stall each: the song keeps its own start, so the frames
-     * end the offset behind the music, never the offset again for each reset, and each stall is won back. */
-    end = reset_song(200, 300.0, &longest, &shortest);
-    check(end > 197.0 && end < 203.0, "music lock: a song through two resets ends its audio offset (200 ms) behind");
+    end = reset_song(300.0, &longest, &shortest);
+    check(end > -3.0 && end < 3.0, "music lock: a song through two resets ends on its music");
     check(shortest >= 1000.0 / 60.0 - 4.01, "music lock: a reset's stall won back 4 ms a frame at most");
-    end = reset_song(0, 300.0, &longest, &shortest);
-    check(end > -3.0 && end < 3.0, "music lock: with no offset, a song through two resets ends on its music");
     /* Another song (its music started at another frame) takes its own start; the same song after a reset keeps its. */
     SongLock sl;
     song_lock_start(&sl);
     int began;
     double off;
-    song_lock_frame(&sl, 100, 5.0, 0, 166667, &began, &off);
+    song_lock_frame(&sl, 100, 5.0, 166667, &began, &off);
     check(began && sl.base == 5.0, "music lock: a song's first frame takes its start");
     song_lock_pause(&sl);
-    song_lock_frame(&sl, 100, 305.0, 0, 166667, &began, &off);
+    song_lock_frame(&sl, 100, 305.0, 166667, &began, &off);
     check(!began && sl.base == 5.0 && off == 300.0, "music lock: after a reset the same song keeps its start");
-    song_lock_frame(&sl, 900, 12.0, 0, 166667, &began, &off);
+    song_lock_frame(&sl, 900, 12.0, 166667, &began, &off);
     check(began && sl.base == 12.0, "music lock: a new song takes its own start");
 }
 
@@ -3161,7 +3181,11 @@ static void test_slot_index(void)
  * read left in each: the read may change EDX:EAX alone. */
 uint32_t g_probe_flags_in, g_probe_flags_out, g_probe_lo, g_probe_hi, g_probe_ecx, g_probe_ebx, g_probe_esi,
     g_probe_edi, g_probe_ebp, g_probe_esp_in, g_probe_esp_out;
+/* What the probe puts in ECX (the score player, where the client's count calls the read). */
+uint32_t g_probe_ecx_in = 0x11223344;
 void clock_score_read(void);
+/* Where the probe's call of the read returns to (as the client's count's call returns to its own place). */
+extern const char clock_probe_back[];
 __attribute__((naked)) void clock_probe(void)
 {
     __asm__(
@@ -3170,7 +3194,7 @@ __attribute__((naked)) void clock_probe(void)
         "    pushl %esi\n"
         "    pushl %edi\n"
         /* Known values in every register the read must leave alone, and in the two it gives its result in. */
-        "    movl $0x11223344, %ecx\n"
+        "    movl _g_probe_ecx_in, %ecx\n"
         "    movl $0x55667788, %ebx\n"
         "    movl $0x99aabbcc, %esi\n"
         "    movl $0xddeeff00, %edi\n"
@@ -3186,6 +3210,8 @@ __attribute__((naked)) void clock_probe(void)
         "    popfl\n"
         "    movl %esp, _g_probe_esp_in\n"
         "    call _clock_score_read\n"
+        ".globl _clock_probe_back\n"
+        "_clock_probe_back:\n"
         /* What the read left: the flags first (nothing before them changes any). */
         "    pushfl\n"
         "    popl _g_probe_flags_out\n"
@@ -3202,6 +3228,93 @@ __attribute__((naked)) void clock_probe(void)
         "    popl %ebx\n"
         "    popl %ebp\n"
         "    ret\n");
+}
+
+/* A score player of this program's own, as the client keeps one (score.c): its table's first word, its tick's length,
+ * its count and its start clock. */
+static BYTE *fake_score(ULONG *mem, double ms_per_tick, uint32_t count, int64_t start)
+{
+    BYTE *p = (BYTE *)mem;
+    *(ULONG *)p = 0x007689dc;
+    *(double *)(p + 0x20) = ms_per_tick;
+    *(uint32_t *)(p + 0x30) = count;
+    *(int64_t *)(p + 0x38) = start;
+    return p;
+}
+
+/* The score player's count set back after each update and put back before the next (score.c), on score players of
+ * this program's own: what the score counts is never lost, what is shown is the offset's lag behind it, a start or a
+ * count the game set itself is kept, and five scores in four places. */
+static void test_score_lag(void)
+{
+    static ULONG mem[5][0x100];
+    BYTE *p = fake_score(mem[0], 2.5, 0, 1000);
+    score_lag_ms(80);
+    uint32_t own = 0, real = 0, shown = 0;
+    int lost = 0, wrong = 0;
+    for (int k = 0; k < 600; k++) {
+        /* The next count: put back first (the clock read at its start), then 4 ticks counted on from it. */
+        score_before_count(p);
+        lost += *(uint32_t *)(p + 0x30) != own;
+        own += 4;
+        *(uint32_t *)(p + 0x30) = own;
+        shown = score_counted(p, &real);
+        wrong += real != own || *(uint32_t *)(p + 0x30) != shown;
+    }
+    check(!lost && !wrong, "score: the count put back before each count as the score left it, and set back after it");
+    check(own - shown == 32, "score: 80 ms at 2.5 ms a tick shows the count 32 ticks behind the score's own");
+    /* The method called again with no count before it: the score's own count is still the one kept. */
+    shown = score_counted(p, &real);
+    check(real == own && own - shown == 32, "score: an update with no count between keeps the score's own count");
+    /* A start between an update and the next count (the count 0, the start clock read again): the 0 kept, and the
+     * lag from none. */
+    *(uint32_t *)(p + 0x30) = 0;
+    *(int64_t *)(p + 0x38) = 2000;
+    score_before_count(p);
+    int kept = *(uint32_t *)(p + 0x30) == 0;
+    *(uint32_t *)(p + 0x30) = 4;
+    shown = score_counted(p, &real);
+    check(kept && real == 4 && shown == 4, "score: a start's count of 0 is kept, its lag begins at none");
+    /* A count the game set itself between an update and the next count: kept as the game set it. */
+    for (own = 4; own < 400; own += 4) {
+        score_before_count(p);
+        *(uint32_t *)(p + 0x30) = own;
+        score_counted(p, &real);
+    }
+    *(uint32_t *)(p + 0x30) = 12345;
+    score_before_count(p);
+    check(*(uint32_t *)(p + 0x30) == 12345, "score: a count the game set itself is not put back");
+    /* No offset: the count left as the score player has it. */
+    score_lag_ms(0);
+    score_before_count(p);
+    *(uint32_t *)(p + 0x30) = 20000;
+    shown = score_counted(p, &real);
+    check(shown == 20000 && *(uint32_t *)(p + 0x30) == 20000, "score: with no offset nothing is written");
+    /* Five scores in four places: the fifth takes the place updated longest ago, its count put back first while its
+     * score player lives; one no longer living (its first word another table's) is never written. */
+    score_lag_ms(80);
+    BYTE *q[5];
+    for (int i = 0; i < 5; i++)
+        q[i] = fake_score(mem[i], 2.5, 0, 3000 + i);
+    for (int i = 0; i < 4; i++) {
+        for (uint32_t c = 4; c <= 40; c += 4) {
+            score_before_count(q[i]);
+            *(uint32_t *)(q[i] + 0x30) = c;
+            score_counted(q[i], &real);
+        }
+    }
+    int set_back = *(uint32_t *)(q[0] + 0x30) < 40 && *(uint32_t *)(q[1] + 0x30) < 40;
+    /* The first one gone (its table word changed, as a destructor leaves it): its count not written again. */
+    *(ULONG *)q[0] = 0x0079d000;
+    uint32_t gone = *(uint32_t *)(q[0] + 0x30);
+    score_counted(q[4], &real);
+    int untouched = *(uint32_t *)(q[0] + 0x30) == gone;
+    /* The next oldest, still living, gets its own count back when its place is taken. */
+    BYTE *r = fake_score(mem[0], 2.5, 0, 4000);
+    score_counted(r, &real);
+    check(set_back && untouched && *(uint32_t *)(q[1] + 0x30) == 40,
+          "score: a place taken from the oldest score, its count put back while it lives, never once it is gone");
+    score_lag_ms(0);
 }
 
 static void test_clock(void)
@@ -3267,6 +3380,38 @@ static void test_clock(void)
     check(clock_turn(code) == CLOCK_LEFT && !memcmp(code, other, sizeof other),
           "clock: a read with other bytes is left as it is");
     VirtualFree(code, 0, MEM_RELEASE);
+
+    /* The read called from the score's count with the audio offset on (its return address the one set, the score
+     * player in ECX): the count set back after the last update put back first, every register but EDX:EAX and the
+     * flags kept all the same; called from anywhere else, it only reads. */
+    static ULONG mem[0x100];
+    BYTE *p = fake_score(mem, 2.5, 0, 5000);
+    score_lag_ms(80);
+    uint32_t real;
+    for (uint32_t c = 4; c <= 400; c += 4) {
+        score_before_count(p);
+        *(uint32_t *)(p + 0x30) = c;
+        score_counted(p, &real);
+    }
+    uint32_t written = *(uint32_t *)(p + 0x30);
+    g_probe_ecx_in = (uint32_t)(uintptr_t)p;
+    g_clock_count_return = 0x0070047e;
+    clock_probe();
+    int elsewhere = *(uint32_t *)(p + 0x30) == written;
+    g_clock_count_return = (ULONG)(uintptr_t)clock_probe_back;
+    before = clock_interrupt_now() - clock_held_total();
+    clock_probe();
+    after = clock_interrupt_now() - clock_held_total();
+    got = ((int64_t)g_probe_hi << 32) | g_probe_lo;
+    check(written == 400 - 32 && elsewhere && *(uint32_t *)(p + 0x30) == 400,
+          "clock: the read at the score's count puts its count back first, from anywhere else only reads");
+    check(g_probe_ecx == (uint32_t)(uintptr_t)p && g_probe_ebx == 0x55667788 && g_probe_esi == 0x99aabbcc &&
+              g_probe_edi == 0xddeeff00 && g_probe_ebp == 0x0badf00d && g_probe_esp_out == g_probe_esp_in &&
+              g_probe_flags_out == g_probe_flags_in && got >= before && got <= after,
+          "clock: putting the count back leaves every register but EDX:EAX, the stack and the flags as they were");
+    g_clock_count_return = 0;
+    g_probe_ecx_in = 0x11223344;
+    score_lag_ms(0);
 }
 
 static void test_unit_floor(void)
@@ -3332,9 +3477,29 @@ static void test_memory_tally(void)
     check(t.run == 0, "memory tally: a region in use ends the free block before it");
 }
 
+/* The counter's readings on the game's thread (logic.c counter_units, counter_ms_since): with the x87 computing in
+ * single precision, as Direct3D leaves the game's thread, and readings of a PC up four and a half days (3.9e12 at
+ * 10 MHz), the 100 ns units whole and a millisecond and a quarter between two readings to a microsecond (as a float,
+ * each reading alone is known only to some 25 ms there). The control word put back after. */
+static void test_single_precision(void)
+{
+    unsigned int was = _controlfp(0, 0);
+    _controlfp(_PC_24, _MCW_PC);
+    const int64_t f = 10000000, big = 3900000000000LL;
+    int64_t units = counter_units(big + 12345, f), units_hpet = counter_units(1396000000007LL, 3579545);
+    double ms = counter_ms_since(big + 12500, big, f);
+    _controlfp(was, _MCW_PC);
+    check(units == big + 12345 && units_hpet == (1396000000007LL / 3579545) * 10000000 +
+                                                     (1396000000007LL % 3579545) * 10000000 / 3579545,
+          "single precision: the counter's readings in 100 ns units, whole");
+    check(fabs(ms - 1.25) < 1e-3, "single precision: a millisecond and a quarter between two readings of a PC up days");
+}
+
 int main(void)
 {
+    test_single_precision();
     test_clock();
+    test_score_lag();
     test_settings();
     test_engine();
     test_render_size();

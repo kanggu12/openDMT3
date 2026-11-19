@@ -99,7 +99,6 @@ TEXT = {
                       "게임은 카드를, 사이트와 런처는 로그인을 거부합니다."),
     "player.unban": ("Lift the ban", "정지 풀기"),
     "player.disabled.hint": ("The account is disabled without a reason.", "사유 없이 비활성화된 계정입니다."),
-    "player.newpass.hint": ("Shown once, with the message to send.", "한 번만 보이며 보낼 메시지가 함께 나옵니다."),
     "player.picture.clear.ask": ("Remove {login_id}'s picture?", "{login_id}의 프로필 사진을 지울까요?"),
     "player.history": ("Changes", "변경 기록"),
     "player.history.none": ("No change yet.", "아직 변경이 없습니다."),

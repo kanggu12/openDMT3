@@ -1,21 +1,32 @@
 {% extends "base.html" %}
 {% block title %}{{ w("download.title") }} · {% endblock %}
-{% block main %}
+{% block top %}
 {# A page that works rather than shows: the low head. What to do after the download is the guides' (docs/play.md). #}
 <section class="page-head"><div class="page-head-text"><h1 class="word">{{ w("download.heading") }}</h1></div></section>
-<section class="narrow wide-ish">
-  <div class="card">
+{% endblock %}
+{% block main %}
+{# One group in the page's column, on the head's left edge: the key that downloads the launcher, then its facts as rows
+   (the name in its column, the value beside it): its version when the file says it, its size, when it was put on this
+   server, and what a player needs besides it. Without an installer here: where it comes from, and this server's address
+   (what a player needs to go on). #}
+<section class="page">
+  <div class="card download k-info">
     {% if installer %}
-    <a class="btn primary big" href="/download/windows">{{ w("download.button") }}</a>
-    {# The file's size and when it was put on this server, with its version when the file says it. #}
-    <p class="muted small file-facts">{{ w("download.facts.version" if installer.version else "download.facts", version=installer.version, size="%.1f"|format(installer.size / 1048576), when=(installer.at|when)) }}</p>
+    <p class="group-lead"><a class="btn primary" href="/download/windows">{{ w("download.button") }}</a></p>
     {% else %}
-    {# No installer here: where the launcher comes from, and the address it asks for (what a player needs to go on). #}
     <p class="alert">{{ w("download.none") }}</p>
-    <p>{{ w("download.releases") }}</p>
-    <p class="file-facts">{{ w("download.address") }} <code>{{ address }}</code></p>
     {% endif %}
-    <p class="muted small">{{ w("download.need") }}</p>
+    <div class="rows">
+      {% if installer %}
+      {% if installer.version %}<div class="row"><p class="row-label">{{ w("download.version") }}</p><p class="row-value">{{ installer.version }}</p></div>{% endif %}
+      <div class="row"><p class="row-label">{{ w("download.size") }}</p><p class="row-value">{{ installer.size|size }}</p></div>
+      <div class="row"><p class="row-label">{{ w("download.added") }}</p><p class="row-value">{{ installer.at|when }}</p></div>
+      {% else %}
+      <div class="row"><p class="row-label">{{ w("download.from") }}</p><p class="row-value">{{ w("download.releases") }}</p></div>
+      <div class="row"><p class="row-label">{{ w("download.address") }}</p><p class="row-value file-facts"><code>{{ address }}</code></p></div>
+      {% endif %}
+      <div class="row"><p class="row-label">{{ w("download.need.label") }}</p><p class="row-value">{{ w("download.need") }}</p></div>
+    </div>
   </div>
 </section>
 {% endblock %}

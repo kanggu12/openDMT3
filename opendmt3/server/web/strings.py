@@ -76,8 +76,8 @@ TEXT = {
     "account.dj": ("DJ name", "DJ 이름"),
     "account.admin": ("Admin rights", "관리자 권한"),
     "home.dj": ('Your DJ', 'Your DJ'),
-    "home.cabinets": ('Connected cabinets', 'Connected cabinets'),
-    "home.cabinets.none": ("No cabinet is connected.", "접속 중인 기체가 없습니다."),
+    # The home page's live line in its head: how many cabinets are connected, then who plays on them.
+    "home.live": ("Connected cabinets", "접속 중인 기체"),
     "home.cabinet.free": ("Free", "비어 있음"),
     "home.cabinet.playing": ("{dj} is playing", "{dj} 플레이 중"),
     "home.mine": ('Your recent plays', 'Your recent plays'),
@@ -85,8 +85,6 @@ TEXT = {
     "home.top": ('Top DJs, {mode}', 'Top DJs, {mode}'),
     "home.top.all": ("The whole ranking", "전체 랭킹 보기"),
     "home.records": ('New records', 'New records'),
-    "home.records.none": ("No new record yet. A play that beats its player's own best on a chart shows here.",
-                          "아직 새 기록이 없습니다. 자기 최고 점수를 넘은 플레이가 여기에 나옵니다."),
     "home.records.before": ("Best before: {score}", "이전 최고 점수: {score}"),
     "home.new.title": ("A new best on this chart when it was played", "플레이했을 때 이 차트의 새 최고 점수"),
     "list.latest": ("The latest {n} of {of}", "전체 {of}개 중 최근 {n}개"),
@@ -97,13 +95,16 @@ TEXT = {
     "download.title": ("Download", "다운로드"),
     "download.button": ("Download openDMT3 for Windows", "Windows용 openDMT3 다운로드"),
     "download.none": ("This server has no installer to hand out.", "이 서버에는 나눠 줄 설치 파일이 없습니다."),
-    # The installer's size (its figure and unit kept together) and when it was added.
-    "download.facts": ("{size}\u00a0MB, added {when}", "{size}\u00a0MB, {when}에 올림"),
-    "download.facts.version": ("Version {version}, {size}\u00a0MB, added {when}",
-                               "버전 {version}, {size}\u00a0MB, {when}에 올림"),
+    # The installer's facts as rows of its group: its version (when the file says it), its size, when it was added,
+    # and where it comes from when this server has none.
+    "download.version": ("Version", "버전"),
+    "download.size": ("Size", "크기"),
+    "download.added": ("Added", "올린 때"),
+    "download.from": ("Where it comes from", "받는 곳"),
+    "download.need.label": ("To play", "플레이하려면"),
     "download.releases": ("The launcher comes from the project's releases on GitHub (openDMT3, Releases).",
                           "런처는 GitHub의 프로젝트 릴리스(openDMT3, Releases)에서 받습니다."),
-    "download.address": ("This server's address:", "이 서버 주소:"),
+    "download.address": ("This server's address", "이 서버 주소"),
     "download.need": ("You need your own TECHNIKA 3 client data; openDMT3 has no game files.",
                       "TECHNIKA 3 클라이언트 데이터를 직접 가지고 있어야 합니다. openDMT3에는 게임 파일이 없습니다."),
     "rankings.none": ("No cleared stage yet.", "아직 클리어한 스테이지가 없습니다."),
@@ -199,9 +200,17 @@ TEXT = {
     "status.now": ("Now", "지금"),
     "status.use": ("Plays", "플레이"),
     "status.facts": ("This server", "이 서버"),
+    # The Status page's group of the players' site's two settings: the notice and maintenance, a row each.
+    "status.announce": ("Notice and maintenance", "공지와 점검"),
     # The lists' cards: the backups kept, the players, a log's lines.
     "backups.list": ("Kept", "보관 중"),
     "players.list": ("Accounts", "계정"),
+    # The Players page's head: of every account, how many have admin rights and how many are disabled.
+    "players.head.admins": ("With admin rights", "관리자 권한"),
+    "players.head.disabled": ("Disabled", "비활성화"),
+    # The Backups page's head: how many backups are kept and the space they take on the disk.
+    "backups.head.kept": ("Backups kept", "보관 중인 백업"),
+    "backups.head.size": ("Space they take", "차지하는 공간"),
     "log.found": ("Found", "찾은 것"),
     "log.lines": ("Lines", "기록"),
     "connected.launchers.title": ("Launchers", "런처"),
@@ -269,7 +278,6 @@ TEXT = {
     "maintenance.started": ("Maintenance is on: the game server refuses card logins.",
                             "점검을 시작했습니다. 게임 서버가 카드 로그인을 거절합니다."),
     "maintenance.ended": ("Maintenance is over: the cabinets log in again.", "점검을 끝냈습니다. 기체에서 다시 로그인할 수 있습니다."),
-    "status.look": ("To look at", "확인할 것"),
     "status.look.backup": ("No backup in the last {days} days.", "최근 {days}일 동안 백업이 없습니다."),
     "status.look.backup.fix": ("Back up on the Backups tab", "백업 탭에서 백업하기"),
     "status.look.songs": ("No song list: songs show as numbers and the DJ cards have nothing to choose from.",
@@ -341,6 +349,8 @@ TEXT = {
     "upload.change": ("Change...", "바꾸기..."),
     "upload.too_big": ("{size}: larger than the {max} limit", "{size}: 제한({max})보다 큽니다"),
     "songlist.upload": ("Upload a song list", "곡 목록 올리기"),
+    # The Song list page's group of the ways to take a song list in (a row each: found on the PC, another folder, upload).
+    "songlist.take": ("Take a song list in", "곡 목록 가져오기"),
     "songlist.upload.file": ("Song list (opendmt3-song-list.zip)", "곡 목록(opendmt3-song-list.zip)"),
     "songlist.upload.button": ("Upload", "올리기"),
     "songlist.upload.hint": ("opendmt3-song-list.zip, up to {mb}\u00a0MB. It replaces this server's song list, jackets and DJ "
@@ -502,6 +512,18 @@ TEXT = {
                              "모든 플레이 기록을 초기화했습니다. 클리어한 스테이지 {n}개를 지웠습니다. 초기화 전 상태는 백업해 두었습니다: {backup}"),
     "admin.delete": ("Delete", "삭제"),
     "admin.delete.ask": ("Delete {login_id}?", "{login_id} 계정을 삭제할까요?"),
+    # The admin's page of a player: the danger tray of what ends sign-ins, takes plays away or removes the player.
+    "player.danger": ("Reset and delete", "초기화와 삭제"),
+    # Its rows: what each acts on (the password and the account by their own words, me.password and
+    # me.section.account), what happens, and the key.
+    "player.danger.password": ("Their sign-ins end; the new one is shown once, with the message to send.",
+                               "로그인한 곳이 모두 로그아웃되고 새 비밀번호는 보낼 메시지와 함께 한 번만 보입니다."),
+    "player.danger.plays": ("Plays", "플레이 기록"),
+    "player.danger.plays.words": ("Their cleared stages leave the rankings and the songs' boards. The database is "
+                                  "backed up first.",
+                                  "클리어한 스테이지가 랭킹과 곡 페이지에서 사라집니다. 먼저 데이터베이스를 백업합니다."),
+    "player.danger.account": ("The account goes, and its cleared stages with it.",
+                              "계정과 클리어한 스테이지 기록을 함께 지웁니다."),
     "admin.delete.title": ("Delete player", "플레이어 삭제"),
     "admin.delete.detail": ("Their cleared stages go with them, and this cannot be undone.",
                             "클리어한 스테이지 기록도 함께 지워지며 되돌릴 수 없습니다."),
@@ -758,6 +780,8 @@ TEXT = {
                                 "직접 실행한 컨테이너(docker run)에서 돌고 있습니다. 나머지는 서버 PC에서 아래 Docker 명령으로 합니다."),
     "server.runs": ("Started by", "켠 곳"),
     "server.data": ("Data folder: {folder}", "데이터 폴더: {folder}"),
+    # The Server page's row of the data folder (its path beside it).
+    "server.data.label": ("Data folder", "데이터 폴더"),
     "server.restart": ("Restart the server", "서버 다시 켜기"),
     "server.restart.ask": ("Restart the server now?", "지금 서버를 다시 켤까요?"),
     "server.restart.detail": ("The game and the site stop and start again in a few seconds. Cabinets connected now: {n}.",

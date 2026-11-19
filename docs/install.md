@@ -21,7 +21,7 @@ everyday play; to run a server for other players' PCs, see [Running a server](se
 
 ## Install
 
-1. Get `opendmt3-launcher-0.4.1-windows-x64-setup.exe` from the
+1. Get `opendmt3-launcher-0.4.1-windows-x64-installer.exe` from the
    [releases](https://github.com/kanggu12/openDMT3/releases/latest), or the installer on your server's **Download**
    page (its name carries the server's address).
 2. Run it. Downloaded with a browser, it may make Windows say it protected your PC: **More info**, then **Run anyway**
@@ -37,8 +37,8 @@ internet, so step 2's question does not come; Smart App Control, when it is on, 
 
 ```powershell
 cd ~
-curl.exe -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-setup.exe
-.\opendmt3-launcher-0.4.1-windows-x64-setup.exe
+curl.exe -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-installer.exe
+.\opendmt3-launcher-0.4.1-windows-x64-installer.exe
 ```
 
 Run again, the installer updates an older openDMT3, offers **Uninstall**, **Repair** or **Open openDMT3** over the
@@ -56,8 +56,8 @@ in-game overlay, updates and **Repair**, drawn on the processor and on a graphic
 3. Download the installer and run it; the launcher opens as on Windows:
 
    ```sh
-   curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-setup.exe
-   wine opendmt3-launcher-0.4.1-windows-x64-setup.exe
+   curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-installer.exe
+   wine opendmt3-launcher-0.4.1-windows-x64-installer.exe
    ```
 
 The launcher looks for client data in your Desktop, Downloads and Documents (Wine shows your own folders there), and
@@ -95,13 +95,13 @@ finds your client data. Everything in it can be changed later:
 | **Offline** | None: everyone plays with **NO ID CARD** | Nothing else |
 
 The **Online** page switches between them. On this PC, it also adds and removes players; the **Play** page chooses who
-plays next. On another server, you sign in once on its **Sign in** card, which comes first once the server is connected,
-naming it with **Change** to connect to another (**Remember my ID on this PC** keeps the ID for the next time, never the
-password); the launcher asks the server for your card at every PLAY, and when that server does
+plays next. On another server, its address, the sign-in and the **Connection test** are parts of **Where you play**:
+once the server answers it is said under the choice, with **Change** to connect to another, and you sign in once under
+it (**Remember my ID on this PC** keeps the ID for the next time, never the password); the launcher asks the server for your card at every PLAY, and when that server does
 not answer, PLAY stops and says so (choose **Offline** to play without it). A wrong ID or password is said under the
 password in one sentence (the server never tells which), a server that does not answer with the way to the
 **Connection test**. When the server no longer takes the sign-in (a new password, a signed-out token), the launcher
-forgets it and the card asks for the password again. **Sign out** ends the sign-in there, on this PC only.
+forgets it and the sign-in asks for the password again. **Sign out** ends the sign-in there, on this PC only.
 
 ## In the game
 
@@ -276,10 +276,11 @@ is read as late as the frame's own work allows.
   steps its driver allows: 2.7 ms with Windows' own audio driver, where 10 ms is usual. Every program playing on the device goes in
   those steps too, until the game closes. After a game, the row says the steps its sound went in on the device chosen
   now; a driver that allows nothing shorter keeps its 10 ms.
-- **Audio offset** (**Sound**, 0 ms by default, up to 500): with **Locked to the music**, a song's notes and their
-  judging are held this many milliseconds behind its music, for a device that plays late, such as Bluetooth
-  headphones or a TV's speakers over HDMI. The frames reach a new offset over the first second or two of a song,
-  running a little slower until then.
+- **Audio offset** (**Sound**, 0 ms by default, up to 500): a song's notes and their judging are held this many
+  milliseconds behind its music, for a device that plays late, such as Bluetooth headphones or a TV's speakers over
+  HDMI, with any frame pacing; the song's own sounds stay with its music. The notes reach a new offset over the song's
+  first moments (a third of a second for 80 ms, two seconds for 500), moving at three quarters of their pace until
+  then.
 When the upscale filter or the anti-aliasing chosen makes frames late on this PC's graphics card, the game steps it
 down one step at a time (SMAA to FXAA to off, then AMD FSR 1, NVIDIA NIS or Anime4K to Smooth) for the rest of the
 run, says so in a notice at the top of the game (after the song, when it steps during one), and the launcher's log

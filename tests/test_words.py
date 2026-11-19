@@ -247,10 +247,11 @@ class WordsTest(unittest.TestCase):
         self.assertIn("This repository " + NOTICE["en"], pages["README.md"])
         self.assertIn("This repository contains no game data. If the copyright holder requests it, this project may "
                       "be made private or shut down", pages[os.path.join("docs", "notice.md")])
-        # Nowhere a person reads (the tables, the guides, the server package's README) says it the old way.
+        # Nowhere a person reads (the tables, the guides, the server packages' READMEs) says it the old way.
         everywhere = [t for table in (i18n.TEXT, strings.TEXT, errors.TEXT) for pair in table.values() for t in pair]
         for path in glob.glob(os.path.join(ROOT, "*.md")) + glob.glob(os.path.join(ROOT, "docs", "*.md")) + \
-                [os.path.join(ROOT, "packaging", "server", "README.md")]:
+                [os.path.join(ROOT, "packaging", "server", "README.txt"),
+                 os.path.join(ROOT, "packaging", "windows", "server-README.txt")]:
             if os.path.basename(path) == "CHANGELOG.md":
                 # The changelog keeps what earlier releases said.
                 continue

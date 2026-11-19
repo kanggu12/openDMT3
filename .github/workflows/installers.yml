@@ -1,0 +1,132 @@
+name: installers
+
+# The server's one-line installers as server owners run them, from a published release: its linux-installer.sh and
+# macos-installer.sh on each system and processor, and its windows-installer.ps1 on Windows on x64 and on Arm, from the
+# addresses the guides give and with nothing set, so each installs the release it came with, from GitHub. Each checks
+# the server is that release, makes the owner's account, starts it and stops it, then removes it, the data kept.
+# packaging/release.sh publishes a release with the maintainer's own login, which starts this workflow; a run by hand
+# names a release (the latest when none is named).
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: the release to install, v0.4.2 or later (default the latest)
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  unix:
+    name: ${{ matrix.system }}-installer.sh on ${{ matrix.runner }}
+    strategy:
+      # Each system's result is seen, whichever fails first.
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            system: linux
+          - runner: ubuntu-24.04-arm
+            system: linux
+          - runner: macos-15-intel
+            system: macos
+          - runner: macos-15
+            system: macos
+    runs-on: ${{ matrix.runner }}
+    # A download and a start: several times what this job takes is a stalled job.
+    timeout-minutes: 15
+    steps:
+      - name: The release
+        id: release
+        env:
+          WANT: ${{ github.event.release.tag_name || inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        # A release typed without its v is the same tag.
+        run: |
+          v=${WANT:-$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)}
+          case "$v" in v*) ;; *) v=v$v ;; esac
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: The one line, as the guide gives it
+        env:
+          V: ${{ steps.release.outputs.version }}
+        # The files' names carry the version without its v, the address with it.
+        run: >-
+          curl -fsSL "https://github.com/${{ github.repository }}/releases/download/$V/opendmt3-server-${V#v}-${{ matrix.system }}-installer.sh" | sh
+
+      - name: That release, set up, started and stopped
+        env:
+          V: ${{ steps.release.outputs.version }}
+        run: |
+          server=$HOME/.local/bin/opendmt3-server
+          test "$("$server" --version)" = "openDMT3 server ${V#v}"
+          "$server" setup --admin BOSS --password pass1234
+          "$server" start
+          "$server" status
+          "$server" stop
+
+      - name: Removed, the data kept
+        env:
+          V: ${{ steps.release.outputs.version }}
+        run: |
+          curl -fsSL "https://github.com/${{ github.repository }}/releases/download/$V/opendmt3-server-${V#v}-${{ matrix.system }}-installer.sh" | sh -s -- --uninstall
+          test ! -e "$HOME/.local/bin/opendmt3-server"
+          test -f "$HOME/.local/share/opendmt3-server/data/openDMT3.sqlite"
+
+  windows:
+    name: windows-installer.ps1 on ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows on Arm runs the x64 package as it runs every x64 program.
+        runner: [windows-2025, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    # Windows PowerShell 5.1, which every Windows 10 and 11 has, as a server owner's terminal runs the line.
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: The release
+        id: release
+        env:
+          WANT: ${{ github.event.release.tag_name || inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = $env:WANT
+          if (-not $v) { $v = gh release view --repo $env:GITHUB_REPOSITORY --json tagName --jq .tagName }
+          if (-not $v.StartsWith('v')) { $v = "v$v" }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: The one line, as the guide gives it
+        env:
+          V: ${{ steps.release.outputs.version }}
+        run: |
+          irm "https://github.com/${{ github.repository }}/releases/download/$env:V/opendmt3-server-$($env:V.Substring(1))-windows-installer.ps1" | iex
+
+      - name: That release, set up, started and stopped
+        env:
+          V: ${{ steps.release.outputs.version }}
+        run: |
+          $server = Join-Path $env:LOCALAPPDATA 'Programs\opendmt3-server\opendmt3-server.exe'
+          $said = & $server --version
+          if ($said -ne "openDMT3 server $($env:V.Substring(1))") { throw "the server says $said" }
+          & $server setup --admin BOSS --password pass1234
+          if ($LASTEXITCODE -ne 0) { throw 'setup failed' }
+          & $server start
+          if ($LASTEXITCODE -ne 0) { throw 'start failed' }
+          & $server status
+          if ($LASTEXITCODE -ne 0) { throw 'it does not run' }
+          & $server stop
+
+      - name: Removed, the data kept
+        env:
+          V: ${{ steps.release.outputs.version }}
+        run: |
+          $env:OPENDMT3_SERVER_UNINSTALL = '1'
+          irm "https://github.com/${{ github.repository }}/releases/download/$env:V/opendmt3-server-$($env:V.Substring(1))-windows-installer.ps1" | iex
+          $folder = Join-Path $env:LOCALAPPDATA 'Programs\opendmt3-server'
+          if (Test-Path (Join-Path $folder 'opendmt3-server.exe')) { throw 'the program is still there' }
+          if (-not (Test-Path (Join-Path $folder 'data\openDMT3.sqlite'))) { throw 'the data is gone' }

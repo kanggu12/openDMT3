@@ -11,16 +11,17 @@
 #   tests/e2e/windows/repair.sh BUILD_DIR OUT_DIR
 #
 # BUILD_DIR is the OUT_DIR of packaging/windows/build.sh: its setup/velopack-setup.exe installs the version first,
-# its releases/opendmt3-launcher-<version>-windows-x64-setup.exe is the installer people run. No game folder is needed.
+# its releases/opendmt3-launcher-<version>-windows-x64-installer.exe is the installer people run. No game folder is
+# needed.
 set -u
 BUILD=$(realpath "${1:?usage: repair.sh BUILD_DIR OUT_DIR}")
 OUT=$(realpath -m "${2:?}")
 VERSION=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$(dirname "$0")/../../../opendmt3/__init__.py")
 mkdir -p "$OUT"
-# The launcher's installer as packaging/windows/build.sh names it (opendmt3-launcher-<version>-windows-x64-setup.exe):
-# the newest, when the folder holds builds of several versions.
-SETUP=$(cd "$BUILD/releases" && ls opendmt3-launcher-*-windows-x64-setup.exe 2>/dev/null | sort -V | tail -1)
-[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-setup.exe in $BUILD/releases"; exit 1; }
+# The launcher's installer as packaging/windows/build.sh names it
+# (opendmt3-launcher-<version>-windows-x64-installer.exe): the newest, when the folder holds builds of several versions.
+SETUP=$(cd "$BUILD/releases" && ls opendmt3-launcher-*-windows-x64-installer.exe 2>/dev/null | sort -V | tail -1)
+[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-installer.exe in $BUILD/releases"; exit 1; }
 C=opendmt3-repair
 docker rm -f "$C" >/dev/null 2>&1
 docker run -d --name "$C" --network none -v "$BUILD/setup/velopack-setup.exe:/setup/Setup.exe:ro" \

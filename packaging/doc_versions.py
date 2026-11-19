@@ -3,7 +3,7 @@
     python3 packaging/doc_versions.py [--write] [--root DIR]
 
 The README and the guides name a release's files by their versioned names (opendmt3-launcher-1.2.3-windows-x64-
-setup.exe, opendmt3-server-1.2.3-linux-macos.zip) and download them from that release's own address
+installer.exe, opendmt3-server-1.2.3-linux-x64.tar.gz) and download them from that release's own address
 (releases/download/v1.2.3/), so a line copied from them fetches the file it names; compose.yaml's default image and
 the Helm chart's Chart.yaml are read the same way. Every such version must be `__version__` (opendmt3/__init__.py);
 so must the bug form's example version. Lists each line that names another and exits 1; --write puts this version in
@@ -25,8 +25,8 @@ V = r"\d+\.\d+\.\d+(?:-(?:rc|alpha|beta)\.\d+)?"
 # The launcher's files (its installer, the OpenAL sources: opendmt3-launcher-1.2.3-openal-sources.zip).
 PATTERNS = [re.compile(r"(?<=opendmt3-launcher-)" + V + r"(?=-)"),
             # The server's: its packages, installers and Helm chart (opendmt3-server-1.2.3-helm-chart.tgz), also at a
-            # line's end or before a space (the folder `cd opendmt3-server-1.2.3-linux-macos` goes into after
-            # unzipping).
+            # line's end or before a space (the folder `cd opendmt3-server-1.2.3-linux-x64` goes into after
+            # unpacking).
             re.compile(r"(?<=opendmt3-server-)" + V + r"(?![\w])"),
             re.compile(r"(?<=/releases/download/v)" + V + r"(?=/)"),
             # The SHA-256 sums' name (opendmt3-1.2.3-sha256sums.txt), and the server's image tag.
@@ -36,7 +36,7 @@ PATTERNS = [re.compile(r"(?<=opendmt3-launcher-)" + V + r"(?=-)"),
             re.compile(r"(?<=^version: )" + V + r"$", re.M), re.compile(r"(?<=^appVersion: \")" + V + r"(?=\")", re.M),
             re.compile(r"(?<=placeholder: )" + V + r"$", re.M)]
 # The pages people copy download lines from (CHANGELOG.md keeps each release's own names, so it is not one).
-PAGES = ["README.md", "CONTRIBUTING.md", "packaging/server/README.md", ".github/ISSUE_TEMPLATE/bug.yml",
+PAGES = ["README.md", "CONTRIBUTING.md", ".github/ISSUE_TEMPLATE/bug.yml",
          # The image compose.yaml runs by default, and the Helm chart's versions: a release moves them with the guides.
          "compose.yaml", "deploy/helm/opendmt3/Chart.yaml"]
 

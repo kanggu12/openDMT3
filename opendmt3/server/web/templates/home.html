@@ -1,50 +1,49 @@
 {% extends "base.html" %}
 {% block title %}{{ w("title.home") }} · {% endblock %}
-{% block main %}
+{% block top %}
 <section class="hero"><div class="shards" aria-hidden="true">{{ stage() }}</div>
   {# The page's one main key: the way to the launcher (the Download page holds the file and its facts). #}
   <div class="hero-text"><h1>TECHNIKA <b>3</b></h1><p class="sub">{{ w("site.tagline") }}</p>
-    <p class="hero-key"><a class="btn primary" href="/download">{{ w("download.heading") }}</a></p></div>
+    <p class="hero-key"><a class="btn primary" href="/download">{{ w("download.heading") }}</a></p>
+    {# Who is at a cabinet now, live, on the head's own line: a lamp lit while anyone plays, how many cabinets are
+       connected, and who is playing on them (one fact: never a box of its own); an admin sees each cabinet's address
+       too, the free ones with it. #}
+    {% set playing = cabinets|selectattr("player")|list %}
+    <p class="hero-live"><span class="dot{{ ' on' if playing }}" aria-hidden="true"></span>{{ w("home.live") }} <b>{{ cabinets|length }}</b>{% for c in cabinets if c.player or c.address %}<span class="who-plays">{% if c.address %}<span class="addr">{{ c.address }}</span> {% endif %}{{ w("home.cabinet.playing", dj=c.player) if c.player else w("home.cabinet.free") }}</span>{% endfor %}</p></div>
 </section>
+{% endblock %}
+{% block main %}
 <section class="grid">
+  {# A list with nothing in it yet is left out (no box that says only "nothing yet"): one's own plays not there yet are
+     said once, in one's own DJ's group; a server with no cleared stage at all shows that group alone, across the page. #}
   {# One's own DJ as the game shows the card, with what the game keeps of them, and the way to change it. #}
-  <div class="card dj">
+  <div class="card dj k-member{{ ' wide' if not top }}">
     <h3 lang="en">{{ w("home.dj") }}</h3>
     {% set name = user.dj_name %}{% include "_djcard.html" %}
     <dl class="facts">
       <div><dt>{{ w("profile.points") }}</dt><dd>{{ "{:,}".format(card.max_points) }}</dd></div>
       <div><dt>{{ w("dj.plays") }}</dt><dd>{{ "{:,}".format(mine_total) }}</dd></div>
     </dl>
+    {% if not mine %}<p class="muted">{{ w("home.plays.none") }}</p>{% endif %}
     <p class="cut"><a href="/account">{{ w("me.title") }}</a> · <a href="/dj/{{ user.id }}">{{ w("me.profile.public") }}</a></p>
   </div>
   {# The first DJs of the mode the Rankings page opens on, and the way to the whole ranking. #}
-  <div class="card">
-    <h3 lang="en">{{ w("home.top", mode=top.name) if top else w("title.rankings") }}</h3>
-    {% if not top %}<p class="muted">{{ w("rankings.none") }}</p>{% else %}
+  {% if top %}
+  <div class="card k-list">
+    <h3 lang="en">{{ w("home.top", mode=top.name) }}</h3>
     <ol class="past-top">
       {% for r in top.rows %}
       <li class="{{ 'me' if r.player == user.id }}"><span class="past-place place-{{ r.place }}">{{ r.place }}</span><a href="/dj/{{ r.player }}">{{ r.dj_name }}</a><span class="score">{{ "{:,}".format(r.total) }}</span></li>
       {% endfor %}
     </ol>
     <p class="cut"><a href="/rankings?mode={{ top.mode }}">{{ w("home.top.all") }}</a></p>
-    {% endif %}
   </div>
-  {# Who is at a cabinet now: across the page, a short list (or one line when none is). #}
-  <div class="card wide">
-    <h3 lang="en">{{ w("home.cabinets") }}</h3>
-    {% if not cabinets %}<p class="muted">{{ w("home.cabinets.none") }}</p>{% endif %}
-    <ul class="cabinets">
-    {% for c in cabinets %}
-      <li><span class="dot {{ 'on' if c.player else '' }}"></span>{% if c.address %}<span class="addr">{{ c.address }}</span>{% endif %}
-        <span class="state">{% if c.player %}{{ w("home.cabinet.playing", dj=c.player) }}{% else %}{{ w("home.cabinet.free") }}{% endif %}</span></li>
-    {% endfor %}
-    </ul>
-  </div>
+  {% endif %}
   {# The newest plays that beat their player's best on the chart before them, each with by how much: the widest
      rows of the page, across both columns. #}
-  <div class="card records wide">
+  {% if records %}
+  <div class="card records wide k-result">
     <h3 lang="en">{{ w("home.records") }}</h3>
-    {% if not records %}<p class="muted">{{ w("home.records.none") }}</p>{% endif %}
     <ul class="plays">
     {% for p in records %}
       <li><a class="song" href="/songs/{{ p.song }}">{{ p.title }}</a>
@@ -53,10 +52,13 @@
     {% endfor %}
     </ul>
   </div>
-  {% for title, plays, total, show_dj in [(w("home.mine"), mine, mine_total, False), (w("home.everyone"), everyone, everyone_total, True)] %}
-  <div class="card">
+  {% endif %}
+  {# The two lists of plays side by side; one alone (the other has nothing yet) takes the page's width. #}
+  {% set lists = [(w("home.mine"), mine, mine_total, False), (w("home.everyone"), everyone, everyone_total, True)]|selectattr(1)|list %}
+  {% for title, plays, total, show_dj in lists %}
+  {# One's own plays are a result (the player's own scores), the server's a list. #}
+  <div class="card{{ ' k-list' if show_dj else ' k-result' }}{{ ' wide' if lists|length == 1 }}">
     <h3 lang="en">{{ title }}</h3>
-    {% if not plays %}<p class="muted">{{ w("home.plays.none") }}</p>{% endif %}
     <ul class="plays">
     {% for p in plays %}
       {# NEW: the play beat its player's best on the chart when it was played. #}

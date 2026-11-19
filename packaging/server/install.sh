@@ -1,75 +1,96 @@
 #!/bin/sh
-# The openDMT3 server @VERSION@ on Linux or macOS with one command, without Docker:
+# The openDMT3 server @VERSION@ on Linux or macOS with one command, without Docker or Python:
 #
 #   curl -fsSL https://github.com/kanggu12/openDMT3/releases/download/v@VERSION@/opendmt3-server-@VERSION@-linux-installer.sh | sh
-#   (on macOS the same file is opendmt3-server-@VERSION@-macos-installer.sh)
+#   (on macOS the same file is opendmt3-server-@VERSION@-macos-installer.sh; the same script, for the system it runs on)
 #
-# It takes this release's server package (opendmt3-server-@VERSION@-linux-macos.zip), checked against the release's
-# SHA-256 sums (opendmt3-@VERSION@-sha256sums.txt), into ~/.local/share/opendmt3-server (OPENDMT3_SERVER_DIR says
-# where), with a Python environment of its own holding the site's libraries at the versions the server's image pins,
-# and the official 7-Zip for the client data's archives; then the command opendmt3-server in ~/.local/bin. Run again,
-# or a newer release's, it makes this version's Python environment first, beside the running server's; only then it
-# stops the server it finds running, puts the new code in place and starts it again: the data stays (accounts, plays,
-# backups, settings). A step that fails before the stop (a download, the libraries) leaves the running server as it
-# was, and says so.
+# It takes this release's server package for this machine (opendmt3-server-@VERSION@-<system>-<processor>.tar.gz:
+# linux or macos, x64 or arm64), checked against the release's SHA-256 sums (opendmt3-@VERSION@-sha256sums.txt), into
+# ~/.local/share/opendmt3-server (OPENDMT3_SERVER_DIR says where), and puts the command opendmt3-server in
+# ~/.local/bin (OPENDMT3_SERVER_BIN). The package brings its own Python, the site's libraries, the official 7-Zip and
+# the launcher's installer for the Download page; the data (accounts, plays, backups, settings) is in the data folder
+# beside it, which every version uses. Run again, or a newer release's, it unpacks this version's package first and
+# starts it once (--version), while the running server goes on; only then it stops the server it finds running, puts
+# the new package in place and starts it again. A step that fails before the stop (a download, a checksum, a package
+# that does not start on this machine) leaves the running server as it was, and says so. An install made by an older
+# release's script (with a Python environment of its own) is taken over the same way, its data kept.
 #
 #   sh -s -- --uninstall      (after the pipe's sh: the server stopped, the program removed, the data kept)
 #
-# Needs curl, unzip or Python's own unzip, and Python 3.10 or newer with its venv module. Everything is in functions,
-# called on the last line: a shell reads a script from a pipe as it goes, so nothing runs from a download cut short.
+# Needs curl, tar and gzip; on Linux, the GNU C library (glibc 2.28 or newer: Debian 10, Ubuntu 20.04, RHEL 8 and
+# newer). Everything is in functions, called on the last line: a shell reads a script from a pipe as it goes, so
+# nothing runs from a download cut short.
 set -eu
 
 VERSION=@VERSION@
 REPO=kanggu12/openDMT3
-# Where the release's files come from; OPENDMT3_SERVER_FILES names a folder of them instead (the install's test).
+# Where the release's files come from; OPENDMT3_SERVER_FILES names a folder of them instead (the install's tests).
 FILES=${OPENDMT3_SERVER_FILES:-https://github.com/$REPO/releases/download/v$VERSION}
-# The site's libraries, the versions packaging/docker/Dockerfile pins.
-LIBRARIES="starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0 python-multipart==0.0.20 pillow==11.3.0"
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'opendmt3-server install: %s\n' "$*" >&2; exit 1; }
 
-# The official 7-Zip for this system, pinned by its hash (the release the server's image and the launcher bring).
-sevenzip() {
-  case "$(uname -s)-$(uname -m)" in
-    Linux-x86_64) printf '%s %s\n' 7z2501-linux-x64.tar.xz 4ca3b7c6f2f67866b92622818b58233dc70367be2f36b498eb0bdeaaa44b53f4 ;;
-    Linux-aarch64|Linux-arm64) printf '%s %s\n' 7z2501-linux-arm64.tar.xz 39c5140f02ce4436599303c59a149f654cb1bbc47cdc105a942120d747ae040d ;;
-    Darwin-*) printf '%s %s\n' 7z2501-mac.tar.xz 26aa75bc262bb10bf0805617b95569c3035c2c590a99f7db55c7e9607b2685e0 ;;
-    *) return 1 ;;
+# This machine as the release's files name it: linux or macos, then x64 (what uname calls x86_64) or arm64 (Linux's
+# aarch64 too). Anything else has no package.
+target() {
+  case "$(uname -s)" in
+    Linux) system=linux ;;
+    Darwin) system=macos ;;
+    *) die "no package for $(uname -s): on Windows, the release's opendmt3-server-$VERSION-windows-installer.ps1" ;;
   esac
+  case "$(uname -m)" in
+    x86_64 | amd64) processor=x64 ;;
+    aarch64 | arm64) processor=arm64 ;;
+    *) die "no package for $(uname -m): the server runs from a copy of the repository with Python there" \
+         "(docs/server.md, With Python)" ;;
+  esac
+  if [ "$system" = linux ] && ! getconf GNU_LIBC_VERSION >/dev/null 2>&1; then
+    # musl (Alpine) and the like: the package's Python is built for the GNU C library.
+    die "the package needs the GNU C library (glibc), which this Linux does not have: the Docker image runs here" \
+        "(docs/server.md, With Docker)"
+  fi
+  printf '%s-%s\n' "$system" "$processor"
 }
 
-# A file of the release, into $2: copied from the folder OPENDMT3_SERVER_FILES names, or downloaded.
+# A file of the release, into $2: copied from the folder OPENDMT3_SERVER_FILES names, or downloaded from GitHub by
+# HTTPS only (redirects too, TLS 1.2 or newer), so no downgrade on the way can hand over another package with its own
+# sums.
 fetch() {
   case $FILES in
-    http*) curl -fsSL --connect-timeout 30 --retry 2 -o "$2" "$FILES/$1" || die "could not download $FILES/$1" ;;
+    http*) curl --proto =https --proto-redir =https --tlsv1.2 -fsSL --connect-timeout 30 --retry 2 -o "$2" "$FILES/$1" \
+             || die "could not download $FILES/$1" ;;
     *) cp "$FILES/$1" "$2" || die "no $1 in $FILES" ;;
   esac
 }
 
-# A SHA-256, by whichever program this system has.
+# A SHA-256, by whichever program this system has (sha256sum on Linux, shasum on macOS).
 sha256() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
 }
 
-# The Python that runs the server: python3, 3.10 or newer, with venv.
-python_found() {
-  command -v python3 >/dev/null 2>&1 || return 1
-  python3 -c 'import sys, venv, ensurepip; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null
+# The command, opendmt3-server, for the package in $1: the package's own program, with the install's data folder
+# (OPENDMT3_DATA still wins), so every version finds the same data.
+write_command() {
+  cat > "$BIN/opendmt3-server.new" <<EOF
+#!/bin/sh
+# The openDMT3 server $VERSION, installed by opendmt3-server-$VERSION-$system-installer.sh into $DIR.
+OPENDMT3_DATA="\${OPENDMT3_DATA:-$DIR/data}"
+export OPENDMT3_DATA
+exec "$1/opendmt3-server" "\$@"
+EOF
+  chmod 0755 "$BIN/opendmt3-server.new"
+  # Renamed into place: the command is whole at every moment, the old or the new.
+  mv "$BIN/opendmt3-server.new" "$BIN/opendmt3-server"
 }
 
-# The command, opendmt3-server, for the environment $1: this install's Python, its code, its 7-Zip and its data folder
-# (OPENDMT3_DATA still wins).
-write_command() {
-  cat > "$BIN/opendmt3-server" <<EOF
-#!/bin/sh
-# The openDMT3 server $VERSION, installed by opendmt3-server-$VERSION-linux-installer.sh (or -macos-) into $DIR.
-export PYTHONPATH="$DIR/code"
-export OPENDMT3_DATA="\${OPENDMT3_DATA:-$DIR/data}"
-[ -x "$DIR/bin/7zz" ] && export OPENDMT3_7ZIP="$DIR/bin/7zz"
-exec "$1/bin/python" -m opendmt3.server.standalone "\$@"
-EOF
-  chmod 0755 "$BIN/opendmt3-server"
+# What an older release's script left beside the data (its code, its Python environments, its 7-Zip), and the
+# packages of other versions: no one's once this version is in place.
+tidy() {
+  for old in "$DIR/code" "$DIR/code.old" "$DIR/venv" "$DIR"/venv-* "$DIR/bin" "$DIR/bin.old" \
+             "$DIR"/opendmt3-server-*; do
+    [ "$old" = "$DIR/$name" ] || [ ! -e "$old" ] || rm -rf "$old"
+  done
+  rm -rf "$DIR/.incoming" "$DIR/.replaced"
 }
 
 uninstall() {
@@ -77,87 +98,74 @@ uninstall() {
     # The server stops by its own command, which started it.
     "$BIN/opendmt3-server" stop || true
   fi
-  rm -rf "$DIR/code" "$DIR/venv" "$DIR"/venv-* "$DIR/bin"
-  rm -f "$BIN/opendmt3-server"
+  name=
+  tidy
+  rm -f "$BIN/opendmt3-server" "$BIN/opendmt3-server.old"
   say "The openDMT3 server is removed. Its data stays in $DIR/data (delete that folder to remove it too)."
 }
 
 install() {
-  command -v curl >/dev/null 2>&1 || die "curl is needed: install it, then run this again"
-  python_found || die "Python 3.10 or newer with venv is needed: on Debian or Ubuntu, sudo apt install python3 python3-venv; on macOS, brew install python"
+  # curl for the release's files (a folder of them needs none).
+  command -v curl >/dev/null 2>&1 || [ "${FILES#http}" = "$FILES" ] \
+    || die "curl is needed: install it, then run this again"
+  command -v tar >/dev/null 2>&1 || die "tar is needed: install it, then run this again"
+  key=$(target)
+  system=${key%-*}
+  name="opendmt3-server-$VERSION-$key"
+  archive="$name.tar.gz"
   work=$(mktemp -d "${TMPDIR:-/tmp}/opendmt3-server.XXXXXX")
   trap 'rm -rf "$work"' EXIT
-  say "openDMT3 server $VERSION into $DIR"
-  zip="opendmt3-server-$VERSION-linux-macos.zip"
-  fetch "$zip" "$work/$zip"
+  say "openDMT3 server $VERSION for $key into $DIR"
+  fetch "$archive" "$work/$archive"
   fetch "opendmt3-$VERSION-sha256sums.txt" "$work/sha256sums.txt"
   # The package as the release made it, or nothing at all.
-  want=$(grep "  $zip\$" "$work/sha256sums.txt" | cut -d' ' -f1)
-  [ -n "$want" ] || die "the release's SHA-256 sums name no $zip"
-  [ "$(sha256 "$work/$zip")" = "$want" ] || die "$zip is not the release's (its SHA-256 differs): run this again"
-  python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$work/$zip" "$work/code"
-  # The package's one top folder (opendmt3-server-<version>-linux-macos/), or its files at the top.
-  top=$(find "$work/code" -mindepth 1 -maxdepth 1 -type d | head -n 1)
-  [ -f "$top/opendmt3/server/standalone.py" ] || top=$work/code
-  [ -f "$top/opendmt3/server/standalone.py" ] || die "$zip holds no server"
-  if seven=$(sevenzip); then
-    set -- $seven
-    # From 7-Zip's own site (a folder of files given for a test may bring it, to need no network).
-    if [ -f "$FILES/$1" ]; then cp "$FILES/$1" "$work/$1"
-    else curl -fsSL --connect-timeout 30 -o "$work/$1" "https://www.7-zip.org/a/$1" || die "could not download 7-Zip"; fi
-    [ "$(sha256 "$work/$1")" = "$2" ] || die "$1 is not the 7-Zip that was tested (its SHA-256 differs)"
-    mkdir -p "$work/bin"
-    # With the data filter where this Python has it (no link or device out of the archive).
-    python3 -c 'import sys, tarfile; tarfile.open(sys.argv[1]).extract("7zz", sys.argv[2], **({"filter": "data"} if hasattr(tarfile, "data_filter") else {}))' "$work/$1" "$work/bin"
-    chmod 0755 "$work/bin/7zz"
-  else
-    say "no 7-Zip of this project's for $(uname -s) $(uname -m): archives are read with a 7z on PATH, if there is one"
-  fi
+  want=$(grep "  $archive\$" "$work/sha256sums.txt" | cut -d' ' -f1)
+  [ -n "$want" ] || die "the release's SHA-256 sums name no $archive"
+  [ "$(sha256 "$work/$archive")" = "$want" ] \
+    || die "$archive is not the release's (its SHA-256 differs): run this again"
   mkdir -p "$DIR" "$BIN"
-  # Whether a server runs now: it is stopped only once everything this version needs is ready, so a failure before
-  # that leaves it running as it was.
+  # Whether a server runs now: it is stopped only once this version is unpacked and has started here, so a failure
+  # before that leaves it running as it was.
   was_running=
   if [ -x "$BIN/opendmt3-server" ] && "$BIN/opendmt3-server" status >/dev/null 2>&1; then
     was_running=yes
   fi
   unchanged="nothing was changed"
   [ -z "$was_running" ] || unchanged="nothing was changed: the server runs as it was"
-  # This version's own Python environment, made beside the one the running server uses (a release's libraries are
-  # pinned with it): made and filled first, while that server still runs.
-  venv="$DIR/venv-$VERSION"
-  made_venv=
-  if [ ! -x "$venv/bin/python" ]; then
-    python3 -m venv "$venv" || { rm -rf "$venv"; die "the Python environment could not be made (python3 -m venv); $unchanged"; }
-    made_venv=yes
-  fi
-  if ! "$venv/bin/python" -m pip install --quiet --disable-pip-version-check $LIBRARIES; then
-    # An environment made for this version alone goes again; one the running server uses (this same version) stays.
-    [ -z "$made_venv" ] || rm -rf "$venv"
-    die "the site's libraries could not be installed (pip); $unchanged"
+  # This version's package unpacked beside the installed ones (on the same disk, so putting it in place is a rename),
+  # then started once: a package this machine cannot run stops here.
+  rm -rf "$DIR/.incoming" && mkdir -p "$DIR/.incoming"
+  tar -xzf "$work/$archive" -C "$DIR/.incoming" \
+    || { rm -rf "$DIR/.incoming"; die "$archive could not be unpacked; $unchanged"; }
+  new="$DIR/.incoming/$name"
+  [ -x "$new/opendmt3-server" ] \
+    || { rm -rf "$DIR/.incoming"; die "$archive holds no $name/opendmt3-server; $unchanged"; }
+  # It must answer with its own version: anything else (a loader's error, nothing at all) is a package this machine
+  # does not run.
+  started=$("$new/opendmt3-server" --version 2>&1) || true
+  if [ "$started" != "openDMT3 server $VERSION" ]; then
+    rm -rf "$DIR/.incoming"
+    die "the package does not start on this machine (${started:-it said nothing}); $unchanged"
   fi
   # Now the running server stops, by its own command, and starts again at the end on the new version.
   if [ -n "$was_running" ]; then
     "$BIN/opendmt3-server" stop
   fi
-  # The old code, 7-Zip and command kept aside until the new ones are in place: put back if that fails, and the old
-  # server started again.
-  rm -rf "$DIR/code.old" "$DIR/bin.old" "$BIN/opendmt3-server.old"
-  [ ! -d "$DIR/code" ] || mv "$DIR/code" "$DIR/code.old"
-  [ ! -d "$DIR/bin" ] || mv "$DIR/bin" "$DIR/bin.old"
+  # The same version installed before (an install run again) is set aside, and the command kept, until the new ones
+  # are in place: put back if that fails, and the old server started again.
+  rm -rf "$DIR/.replaced" && mkdir -p "$DIR/.replaced"
+  [ ! -d "$DIR/$name" ] || mv "$DIR/$name" "$DIR/.replaced/$name"
+  rm -f "$BIN/opendmt3-server.old"
   [ ! -f "$BIN/opendmt3-server" ] || cp "$BIN/opendmt3-server" "$BIN/opendmt3-server.old"
-  if ! { mv "$top" "$DIR/code" && { [ ! -d "$work/bin" ] || mv "$work/bin" "$DIR/bin"; } && write_command "$venv"; }; then
-    rm -rf "$DIR/code" "$DIR/bin"
-    [ ! -d "$DIR/code.old" ] || mv "$DIR/code.old" "$DIR/code"
-    [ ! -d "$DIR/bin.old" ] || mv "$DIR/bin.old" "$DIR/bin"
+  if ! { mv "$new" "$DIR/$name" && write_command "$DIR/$name"; }; then
+    rm -rf "$DIR/$name"
+    [ ! -d "$DIR/.replaced/$name" ] || mv "$DIR/.replaced/$name" "$DIR/$name"
     [ ! -f "$BIN/opendmt3-server.old" ] || mv "$BIN/opendmt3-server.old" "$BIN/opendmt3-server"
     [ -z "$was_running" ] || "$BIN/opendmt3-server" start
     die "the new version could not be put in place in $DIR; the old one is back${was_running:+ and runs again}"
   fi
-  rm -rf "$DIR/code.old" "$DIR/bin.old" "$BIN/opendmt3-server.old"
-  # The environments of other versions (and the one before environments carried a version) are no one's now.
-  for old in "$DIR/venv" "$DIR"/venv-*; do
-    [ "$old" = "$venv" ] || [ ! -d "$old" ] || rm -rf "$old"
-  done
+  rm -f "$BIN/opendmt3-server.old"
+  tidy
   "$BIN/opendmt3-server" --version
   if [ -n "$was_running" ]; then
     "$BIN/opendmt3-server" start

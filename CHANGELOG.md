@@ -6,6 +6,70 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+### Changed
+
+- The launcher's pages are composed, not stacked boxes: **Play** sets the ready check beside the player (their card,
+  who plays, their records) and the last game the full width under them, under a head that says where PLAY plays in
+  large words; **Help** sets its checks beside what to try when the game closes and its tools beside what puts back
+  and takes away; **Launcher** sets playing without the window beside what openDMT3 is, under one General group with
+  the language, the guide and the look for updates. On **Online**, another server's address, the sign-in (or who is
+  signed in) and the connection test are parts of **Where you play**: once the server answers it is said under the
+  choice with **Change**, the test's key stands at the group's title and its steps are on a card only once it runs.
+  This PC's switch for the other PCs and the form that adds a player are rows of their groups, and the first-start
+  guide's steps are one group each. No box holds a single control or a single key. In a small window a pair stands
+  one under the other.
+- Each card has a background and a shape that fit what it holds: the ready check and HELP's checks on a sunken screen
+  with one lamp for the whole check after their name; the player's platinum member card on **Play** (its empty place
+  says NO ID CARD); the last game and the records' scores on the game's black glass, cut at two opposite corners, the
+  scores in the game's colour; the connection test with a rail down its edge; what openDMT3 is and what to try on a
+  quiet plate named by a grey caption; what puts back and removes on a sunken tray; the players on a sheet under a
+  band. **Online**'s where-you-play is the page's lead, cut deeper, the signed-in player's card in miniature and their
+  name after its lamp. A choice and a tick are blue on the pages whose colour means a state (pink only for what
+  failed or removes for good). Cards side by side end on one line, and no key stands in a card's cut corner.
+- A card's and a dialog's name are as large as the words under them; every key of one role is one size on every page
+  and dialog (one height, one room either side of its words), its words centred by their ink, and no key is stretched
+  across its card.
+- Both sites' pages are composed rather than stacked: each admin page opens on its head's figures, groups that go
+  together stand side by side at one height, settings and facts are rows of their group (**Status**'s notice and
+  maintenance, **Server**, **My account**), and no box holds a single key or fact. The notices stand under a page's
+  head, its stage flush under the bar. Keys of one kind have one size and are as wide as their words (the sign-in's
+  too), fields as wide as what they take, and every text is on one scale, a group's name never smaller than its rows.
+- Each box of both sites has the shape and face of what it holds: figures on a status panel's sunken screen, lists as
+  sheets under a dark band, scores and results on the game's black glass cut at two corners, the DJ card a platinum
+  card held on its plate, facts on a quiet plate, and what removes or resets for good on a sunken tray where only its
+  key is pink. A choice, a page's main key and one's own row are openDMT3's blue on every page.
+- The release's files are named as the project's others are. The launcher's installer is
+  `opendmt3-launcher-<version>-windows-x64-installer.exe` (it was `-windows-x64-setup.exe`). The server's
+  `-linux-macos.zip`, which needed Docker or Python, is now a package for each system and processor,
+  `opendmt3-server-<version>-linux-x64.tar.gz`, `-linux-arm64.tar.gz`, `-macos-x64.tar.gz` and `-macos-arm64.tar.gz`,
+  each bringing its own Python, 7-Zip and the launcher's installer, as the Windows package does. The one-line installs
+  on Linux and macOS take the package for the machine, with no Python needed, and take over a server an older line
+  installed; Windows has one too, `opendmt3-server-<version>-windows-installer.ps1`, for the user, without an
+  administrator. With Docker, `./dmt3` runs from a clone of the repository or the release's source archive. The
+  launcher's update files keep their names, `openDMT3-<version>-full.nupkg`: every launcher installed so far takes an
+  update under that name alone. A server of 0.4.1 or older takes the newly named installer through
+  `setup --installer FILE`.
+
+### Fixed
+
+- The audio offset held a song's frames behind its music, which does not move its notes: the notes and their judging
+  stayed with the music at any offset (since 0.2.0). The notes and the judging of the presses are now held behind the
+  music by the offset, with any frame pacing, while the song's own sounds stay with its music. A new offset is reached
+  over the song's first moments (a third of a second for 80 ms, two seconds for 500), the notes moving at three
+  quarters of their pace until then.
+- In Korean, a name whose Korean words another name shares was that other name's English (since 0.4.0): the
+  installer's first step said SETUP, its update and the launcher's own UPDATES, **Game**'s card THE GAME'S FILES and
+  a quick play that could not start YOU PLAY. Each now says what it says in English: INSTALL, UPDATE, GAME FILES,
+  PLAY.
+- The in-game bar's rest and click timing, a tap on its mark, a toast, the sound panel's double-click and the 3, 2, 1
+  before a held song goes on moved in steps that grew with how long the PC had been switched on, up to 64 ms after
+  six days (in every release since 0.1.0). They now keep their times to the millisecond.
+- A word in a table of a Korean page no longer breaks in two when its column is narrow (the admin's page of a player
+  broke "system"). On a phone, a table's cell that takes two lines starts its second where its first began, never
+  under its label, and an English notice's label stands over its words, which keep their whole line.
+- Figures on both sites keep their characters evenly apart in Chrome on Linux, where each was stepped by a whole pixel
+  and a number opened inside itself (the Status page's game port read "487 25", its version "0. 4. 0").
+
 ## [0.4.1] - 2026-11-20
 
 A song's notes wait with its music while the game is held in it; the in-game layer's buttons keep the pointer's

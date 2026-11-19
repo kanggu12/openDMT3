@@ -218,8 +218,10 @@ the cabinet's touch screen library, which hands the game every finger through th
 | `look.c`, `paint.c`, `logic.c` | The pictures (anti-aliased polygons after the game's own panels: its dialogs' title tab and metal frame, its notice's glass, its glossy buttons; the bar's chips in the launcher's leaning button shape) and the decisions (the settings, the frame clock, the keys the game may see, the panels' answers and keys, the layout, when a rest may bring the bar), with no Windows calls |
 | `mark.py` | The product's mark for the bar, drawn by the launcher's own code (`opendmt3/client/art.py` logo) when the DLL is built and carried in it as a resource: the bar shows the launcher's picture of the mark, never letters set in its face |
 | `trace.c` | With `OPENDMT3_INGAME_TRACE` set, how the game draws (its device, its draws' vertex formats, transforms, render targets, copies), into the log; never set by the launcher |
-| `clock.c` | The score's clock: the client's one read of the system's interrupt time, which its score player counts a song's ticks on, turned to openDMT3's, which leaves out the time the game was held still ([holding the game still](#frame-pacing-and-the-music)) |
-| `line.c` | With `OPENDMT3_LINE_WATCH` naming a file, the score watched: a row a frame of the score player's clock, its ticks and tempo, the line's place by the game's own fields and the music's position (`tests/e2e/windows/gpu/line.py` reads it); never set by the launcher |
+| `clock.c` | The score's clock: the client's one read of the system's interrupt time, which its score player counts a song's ticks on, turned to openDMT3's, which leaves out the time the game was held still ([holding the game still](#frame-pacing-and-the-music)); called at the start of the score's count with an audio offset, it first puts the count back (`score.c`) |
+| `score.c` | The score player's update followed, when an audio offset is set or the score is watched: after each update its count set back by the offset's lag, so the notes and the judging are that far behind the music, and put back before the next count ([the audio offset](#frame-pacing-and-the-music)) |
+| `press.c` | With `OPENDMT3_PRESS_LATE` set, each plain note pressed by the layer at a set time after it and its judgement written into the log (measuring only; `tests/e2e/windows/gpu/judge.sh`); never set by the launcher |
+| `line.c` | With `OPENDMT3_LINE_WATCH` naming a file, the score watched (through `score.c`): a row a frame of the score player's clock, its ticks (counted, and shown and judged) and tempo, the line's place by the game's own fields and the music's position (`tests/e2e/windows/gpu/line.py` reads it); never set by the launcher |
 | `test_native.c`, `test.sh` | The tests of the files with no Windows calls (the touch screen's rules read back the way the game reads them), and of the methods' watch, built with the same compiler and run under Wine |
 
 ### The five hooks
@@ -700,15 +702,24 @@ then. The frames are paced against the music all the same, so the frames and the
   display that shows no frame sooner than its refresh takes the frames back in whole frames instead
   ([below](#a-display-that-shows-no-frame-sooner)).
 
-**The audio offset** (**Sound**, 0 to 500 ms, 0 by default; `OPENDMT3_AUDIO_OFFSET`) moves the lock's target: a
-song's frames are held that many milliseconds further behind its music than the game's own start put them, so the
-notes, and the presses judged against them, meet the music where a sound device that plays late (Bluetooth, a TV over
-HDMI) lets it be heard. The lock takes the new distance as it wins back a stall, 4 ms a frame while more than 50 ms
-off and 1 ms a frame after that: no frame is skipped or doubled, the song's first frames only run a little slower.
-The offset is counted once a song, from its own start, through any reset during it (`logic.c` `SongLock`).
-Measured under Wine on the GPU over a whole song at 1920x1080: with 200 ms, the frames went from 184 ms short of it at
-the song's 6th frame to it at the 54th (0.9 s) and kept within 4 ms of it from the 102nd on, but for a stall of the
-busy machine's (81 ms), won back within a second; at the music's stop it was 213 ms ahead of its frames.
+**The audio offset** (**Sound**, 0 to 500 ms, 0 by default; `OPENDMT3_AUDIO_OFFSET`) holds a song's notes, and the
+presses judged against them, that many milliseconds behind its music, so they meet the music where a sound device
+that plays late (Bluetooth, a TV over HDMI) lets it be heard, with any frame pacing (`score.c`). The client's score
+player counts a song in ticks on its clock at each frame's update (a tick is 2.5 to 2.7 ms in the songs measured),
+starts the chart's own sounds at their ticks (its background tracks, the music's own start), then calls a method of
+its own that does nothing; after the update the game's line, its notes and its judging read that count, the judging
+in whole ticks (a press's distance from its note, against windows of whole ticks). That method's place in the score
+player's table is turned to openDMT3's, which sets the count back by the offset's lag in ticks, the nearest whole
+tick to the offset at the song's tempo; the client's clock read at the very start of the next count (`clock.c`, only
+when called from there) puts the count back as the score left it, so the score loses no tick and its own sounds stay
+with its music. A count is put back only when it still holds what was written and the score was not started again
+since; a score started again starts its lag at none. From a score's start the lag grows by a quarter of each frame's
+ticks until it is the offset's (a third of a second for 80 ms, two seconds for 500), so the notes move at three
+quarters of their pace until then and never go back (`logic.c` `ChartLag`). Each place is checked before it is
+turned (the table's entry, the count's first bytes, the clock read openDMT3's); with any of them otherwise there is
+no offset and the log says so. The frames stay with the music: before 0.4.2 the offset held the frames behind it,
+which does not move the notes, as the chart runs on the system's interrupt time and not on frames (an offset of
+80 ms moved the frames 87 ms and the chart against the music 1 to 16 ms).
 
 With VSync on, the display's own phase is read at each tick (`GetRasterStatus`) and the next tick moved by at most a
 64th of a refresh towards the middle of a refresh, so the present waits for the same refresh every frame: on a 240 Hz
@@ -804,11 +815,17 @@ unshown), `OPENDMT3_VBLANK=wait` brings each present back at the display's next 
 `OPENDMT3_REFRESH=60`, Wine's virtual screen, which shows every present at once, then shows no frame sooner, as a
 60 Hz display with VSync), and `OPENDMT3_STALL=MS[,MS...]` stalls a frame that many milliseconds in every song, the
 n-th n times 20 s into its music (four at most), as the game's own hiccups do; `OPENDMT3_LINE_WATCH=FILE` writes a
-row a frame of the score into that file (`line.c`: its clock and ticks, its tempo, the line's place by the game's own
-fields, the music's position), which `tests/e2e/windows/gpu/line.py` reads. `OPENDMT3_POINTER_LOG` logs each
-new point of the pointer in the client with the game pixel the game reads there, and `OPENDMT3_MEMORY_WATCH` the
-32-bit process's address space every ten seconds (free, its largest free block, reserved, committed, walked from a
-thread of its own) and the device's texture memory left as Direct3D counts it.
+row a frame of the score into that file (`line.c`: its clock and ticks, counted and shown, its tempo, the line's place
+by the game's own fields, the music's position), which `tests/e2e/windows/gpu/line.py` reads. `OPENDMT3_POINTER_LOG`
+logs each new point of the pointer in the client with the game pixel the game reads there, and
+`OPENDMT3_MEMORY_WATCH` the 32-bit process's address space every ten seconds (free, its largest free block, reserved,
+committed, walked from a thread of its own) and the device's texture memory left as Direct3D counts it.
+`OPENDMT3_PRESS_LATE=MS[,MS...]` presses each plain note itself at the first frame the score's own count reaches the
+note's time plus those milliseconds, the notes taking the values in turn, the game's own press check not asked, and
+writes each judgement into the log: the music it is in, the count the judge took, the distance and the level the
+game gave (`press.c`: the plain note judge's call of the press check and of the level turned, only when their bytes
+are as measured; the guest's tutorial and the attract screens play themselves, a note there judged on its own once
+the count shown is past it).
 
 While the menu, the question or the sound panel is open during a song (the song's music buffer playing), or the game
 is minimised in one, the game is held still:
@@ -904,17 +921,17 @@ back still shows, a refresh later, so that step stays), and frames are left unsh
   over how long, how far behind after, and frames too late or not left unshown after all, when there were any (`pacing:
   caught up with the music: ...`); one cut short by the song's end or a reset says so.
 
-Simulated as `hooks.c` runs it (`test_native.c`: each present back at the next refresh, or at once with Direct3D's
-queue of one frame; the music 0.05 % fast, read in the sound card's 10 ms steps; the game's work 2.5 to 3.5 ms a
-frame): at 60 Hz with VSync a stall of 100 ms 20 s into a song was won back to within a frame in 0.47 s (six frames
-left unshown) and one of 400 ms at 60 s in 1.97 s, never two in a row, none too late, no frame shown twice, and between
-the catch-ups the frames kept 0 to 18 ms behind (a frame, and the little a median of the cursor's 10 ms steps misses);
-before this, the frames stayed 500 ms behind to the song's end. At 59.94 Hz two minutes with no stall stayed 0 to
-19 ms behind (120 ms behind before). With an audio offset of 80 ms the stalls were won back the same. At 120, 144 and 240 Hz and
-with VSync off nothing was left unshown and the lock won both stalls back itself. With 6 ms of work a frame, two
-frames still fit in a refresh and both stalls were won back; at 9 ms none fit and nothing was left unshown. With the
-chain at 6 ms a frame on the GPU (timed) after 2 ms of the game's own draws, both were won back; with the game's own
-draws at 6 ms (not timed), the first three frames after a skip were judged too late and nothing more was left
+Simulated as `hooks.c` runs it (`test_native.c`: each present back at the next refresh, or at once with Direct3D's queue
+of one frame; the music 0.05 % fast, read in the sound card's 10 ms steps; the game's work 2.5 to 3.5 ms a frame): at 60
+Hz with VSync a stall of 100 ms 20 s into a song was won back to within a frame in 0.47 s (six frames left unshown) and
+one of 400 ms at 60 s in 1.97 s, never two in a row, none too late, no frame shown twice, and between the catch-ups the
+frames kept 0 to 18 ms behind (a frame, and the little a median of the cursor's 10 ms steps misses); before this, the
+frames stayed 500 ms behind to the song's end. At 59.94 Hz two minutes with no stall stayed 0 to 19 ms behind (120 ms
+behind before). With an audio offset of 80 ms (which then held the frames) the stalls were won back the same. At 120,
+144 and 240 Hz and with VSync off nothing was left unshown and the lock won both stalls back itself. With 6 ms of work a
+frame, two frames still fit in a refresh and both stalls were won back; at 9 ms none fit and nothing was left unshown.
+With the chain at 6 ms a frame on the GPU (timed) after 2 ms of the game's own draws, both were won back; with the
+game's own draws at 6 ms (not timed), the first three frames after a skip were judged too late and nothing more was left
 unshown in the song, none shown twice. At 50 Hz the game's 60 frames a second leave one frame in six unshown by
 themselves: the frames stayed within 100 ms of the music for 90 s, where they ended 18 s behind before, but a stall's
 distance is not won back there.

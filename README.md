@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/showcase.webp" alt="openDMT3 in four screens, with made-up players, songs and folders: the launcher's PLAY page with who plays, the ready check and the last game; the players' site's rankings, each mode's DJs by total score with the first three on their plates; the game's own tutorial with openDMT3's overlay bar and its FPS counter at 60 FPS, 16.6 ms; and the admin site's Players page, under its rail of the server's state" width="100%">
+  <img src="docs/images/showcase.webp" alt="openDMT3 in four screens, with made-up players, songs and folders: the launcher's PLAY page with the ready check beside the player's platinum card and the last game under them; the players' site's rankings, each mode's DJs by total score with the first three on their plates over the list; the game's own tutorial with openDMT3's overlay bar and its FPS counter at 60 FPS, 16.6 ms; and the admin site's Players page under its rail of the server's state, its figures (6 accounts, 1 with admin rights, 0 disabled) over the form that makes an account, the invite's code beside it" width="100%">
 </p>
 
 **DJMAX TECHNIKA 3** is a touch-screen arcade rhythm game of 2011. openDMT3 plays your own copy of it on a Windows
@@ -45,7 +45,7 @@ you, and a server of your own in place of the game's online service.
 
 On Windows 10 or 11, with your own client data ([which](docs/client-data.md#which-client-data)):
 
-1. Download **[opendmt3-launcher-0.4.1-windows-x64-setup.exe](https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-setup.exe)**
+1. Download **[opendmt3-launcher-0.4.1-windows-x64-installer.exe](https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-installer.exe)**
    and run it. If Windows says it protected your PC, choose **More info**, then **Run anyway**.
 2. Choose **Install**. The launcher's first-start guide finds your client data and takes you to **PLAY**.
 
@@ -61,21 +61,22 @@ On Linux the same installer runs under Wine ([how](docs/install.md#on-linux-with
 
 ### Run a server
 
-For players on their own PCs. On Linux, macOS or Windows in WSL 2, with Docker (Compose v2) and Python 3, from the
-release's server package (or a clone of the repository: `git clone`, then `./dmt3 setup` in it):
+For players on their own PCs. On Linux, macOS or Windows in WSL 2, with Docker (Compose v2) and Python 3, from a
+copy of the repository (a clone, or the release's source archive):
 
 ```sh
-curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-linux-macos.zip
-unzip opendmt3-server-0.4.1-linux-macos.zip
-cd opendmt3-server-0.4.1-linux-macos
+git clone https://github.com/kanggu12/openDMT3.git
+cd openDMT3
 ./dmt3 setup
 ```
 
 The wizard asks where your client data is (for the song list) and which installer to hand out, then gives the site's
 address and the admin's password. A server also runs [in the launcher](docs/server.md#in-the-launcher), from the
-[Windows server package](docs/server.md#on-windows) without Docker, from a
-[one-line install](docs/server.md#with-python) on Linux or macOS, or [on Kubernetes](docs/kubernetes.md);
-`./dmt3 expose` puts it on [HTTPS for the internet](docs/internet.md). More in [the server guide](docs/server.md).
+release's package for [Windows](docs/server.md#on-windows) or for [Linux and macOS](docs/server.md#on-linux-or-macos)
+without Docker or Python (each with a one-line install,
+`opendmt3-server-0.4.1-windows-installer.ps1` and `opendmt3-server-0.4.1-linux-installer.sh`), or
+[on Kubernetes](docs/kubernetes.md); `./dmt3 expose` puts it on [HTTPS for the internet](docs/internet.md). More in
+[the server guide](docs/server.md).
 
 ## What it does
 

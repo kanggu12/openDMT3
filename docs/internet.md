@@ -79,11 +79,12 @@ answers. `./dmt3 expose dmt3.example.org` without `--admin-public` takes them of
 With an address as the name (`./dmt3 expose 192.168.0.5 --local-ca --admin-public`, a closed network), the admin
 pages are at `https://192.168.0.5:4731/`, with the address's certificate.
 
-The server's own program takes the same `--admin-public` for the Caddy beside it ([below](#on-windows-or-with-python)).
+The server's own program takes the same `--admin-public` for the Caddy beside it ([below](#without-docker)).
 
-## On Windows or with Python
+## Without Docker
 
-The server's own command line writes the same settings for a Caddy you run beside it:
+The server's own program (a server package's on Windows, Linux or macOS, or the one a copy of the repository runs
+with Python) writes the same settings for a Caddy you run beside it:
 
 ```sh
 opendmt3-server expose dmt3.example.org --email you@example.org

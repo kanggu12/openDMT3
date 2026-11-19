@@ -3,27 +3,28 @@
 {% block main %}
 {% set tab = "log" %}{% include "_admin_open.html" %}
   {% set view = "plays" %}{% include "_log_views.html" %}
-  {# The filter: whose plays, how far back, a word of the song's title. #}
-  <div class="card">
-    <form class="form row" method="get" action="/admin/log/plays" role="search">
+  {# The head: what the filter leaves, counted (every page of it), and all of it as a file at the head's right. #}
+  <div class="card head k-status">
+    <div class="k-screen">
+      <div class="head-split">
+        <div class="headline">
+          <div class="hf"><span class="value">{{ "{:,}".format(log.totals.plays) }}</span><span class="label">{{ w("songs.plays") }}</span></div>
+          <div class="hf"><span class="value">{{ "{:,}".format(log.totals.players) }}</span><span class="label">{{ w("songs.players") }}</span></div>
+          <div class="hf"><span class="value">{{ "{:,}".format(log.totals.charts) }}</span><span class="label">{{ w("dj.charts") }}</span></div>
+        </div>
+        <p class="head-tools"><a class="btn small" href="{{ links.csv }}" download>{{ w("log.plays.csv") }}</a></p>
+      </div>
+    </div>
+  </div>
+  {# The lines, under their filter (whose plays, how far back, a word of the song's title): one group. #}
+  <div class="card k-list">
+    <h3>{{ w("log.lines") }}</h3>
+    <form class="form row log-filter" method="get" action="/admin/log/plays" role="search">
       <label>{{ w("log.plays.player") }}<select name="player"><option value="">{{ w("log.plays.everyone") }}</option>{% for p in log.people %}<option value="{{ p.id }}"{{ " selected" if p.id == wanted.player }}>{{ p.dj_name }} ({{ p.login_id }})</option>{% endfor %}</select></label>
       <label>{{ w("log.plays.days") }}<select name="days"><option value="">{{ w("log.plays.days.all") }}</option>{% for d in days %}<option value="{{ d }}"{{ " selected" if d == wanted.days }}>{{ w("log.plays.days.1") if d == 1 else w("log.plays.days.n", n=d) }}</option>{% endfor %}</select></label>
       <label>{{ w("log.plays.word") }}<input name="q" value="{{ wanted.q }}" maxlength="64"></label>
       <button class="btn primary">{{ w("log.plays.show") }}</button>
     </form>
-  </div>
-  {# What the filter leaves, counted (every page of it), and all of it as a file. #}
-  <div class="card">
-    <h3>{{ w("log.found") }}</h3>
-    <div class="stats">
-      <div class="stat"><span class="value">{{ "{:,}".format(log.totals.plays) }}</span><span class="label">{{ w("songs.plays") }}</span></div>
-      <div class="stat"><span class="value">{{ "{:,}".format(log.totals.players) }}</span><span class="label">{{ w("songs.players") }}</span></div>
-      <div class="stat"><span class="value">{{ "{:,}".format(log.totals.charts) }}</span><span class="label">{{ w("dj.charts") }}</span></div>
-      <div class="stat"><a class="btn small" href="{{ links.csv }}" download>{{ w("log.plays.csv") }}</a></div>
-    </div>
-  </div>
-  <div class="card">
-    <h3>{{ w("log.lines") }}</h3>
     {% if not log.plays %}<p class="muted">{{ w("log.plays.none") }}</p>{% else %}
     <table class="table">
       <thead><tr><th>{{ w("log.when") }}</th><th>{{ w("rankings.dj") }}</th><th>{{ w("songs.song") }}</th><th class="num">{{ w("song.score") }}</th></tr></thead>

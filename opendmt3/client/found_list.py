@@ -127,11 +127,11 @@ class FoundList:
             # On a card of its own on the page's field (words never lie on the field outside a card); inside a card
             # already (the GAME page's), on that card.
             if box["bg"] == theme.BG:
-                self.none = widgets.Card(box, ui)
+                self.none = widgets.Card(box, ui, kind="info")
                 widgets.label(self.none.body, ui, w("guide.2.none"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
                 # The two ways to choose one on the same card, in place of the ones under the list: one card says it
                 # and holds what to do (the final review's A-07: the keys stood alone on the page under it).
-                keys = tk.Frame(self.none.body, bg=theme.PANEL)
+                keys = tk.Frame(self.none.body, bg=self.none.body.cget("bg"))
                 keys.pack(fill="x", pady=(ui.px(12), 0))
                 widgets.Button(keys, ui, w("guide.2.choose"), self.choose_folder).pack(side="left")
                 widgets.Button(keys, ui, w("intake.choose_archive"), self.choose_archive).pack(side="left",

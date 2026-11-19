@@ -19,10 +19,10 @@ set -u
 PARENT=$(realpath "${1:?usage: offline_play.sh GAME_PARENT RELEASES_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]}")
 REL=$(realpath "${2:?}")
 OUT=$(realpath -m "${3:?}")
-# The launcher's installer as packaging/windows/build.sh names it (opendmt3-launcher-<version>-windows-x64-setup.exe):
-# the newest, when the folder holds builds of several versions.
-SETUP=$(cd "$REL" && ls opendmt3-launcher-*-windows-x64-setup.exe 2>/dev/null | sort -V | tail -1)
-[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-setup.exe in $REL"; exit 1; }
+# The launcher's installer as packaging/windows/build.sh names it
+# (opendmt3-launcher-<version>-windows-x64-installer.exe): the newest, when the folder holds builds of several versions.
+SETUP=$(cd "$REL" && ls opendmt3-launcher-*-windows-x64-installer.exe 2>/dev/null | sort -V | tail -1)
+[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-installer.exe in $REL"; exit 1; }
 LINKS=${4:-}
 DLLS=${5:-}
 NAME=$(basename "$PARENT")

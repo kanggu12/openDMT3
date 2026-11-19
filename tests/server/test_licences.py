@@ -137,10 +137,11 @@ class PartsListTest(unittest.TestCase):
         release = re.search(r"^SEVENZIP_VERSION=(\S+)$", read("packaging/windows/sevenzip.sh"), re.M).group(1)
         self.assertIsNotNone(row_of("7-Zip " + release))
         self.assertIn("7z%s-linux-x64" % release.replace(".", ""), read("packaging/docker/Dockerfile"))
-        # The image for arm64 takes the same release's arm64 build, and the one-line install the same three.
+        # The image for arm64 takes the same release's arm64 build, and the server's packages for Linux and macOS the
+        # same three.
         self.assertIn("7z%s-linux-arm64" % release.replace(".", ""), read("packaging/docker/Dockerfile"))
         for build in ("linux-x64", "linux-arm64", "mac"):
-            self.assertIn("7z%s-%s" % (release.replace(".", ""), build), read("packaging/server/install.sh"))
+            self.assertIn("7z%s-%s" % (release.replace(".", ""), build), read("packaging/server/bundle.py"))
         # CI's tests of archives take the same release by the same address and hash.
         linux = re.search(r"^SEVENZIP_LINUX_URL=(\S+)\nSEVENZIP_LINUX_SHA256=(\S+)$",
                           read("packaging/windows/sevenzip.sh"), re.M)

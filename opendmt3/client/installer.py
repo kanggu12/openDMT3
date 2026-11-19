@@ -7,9 +7,9 @@ like the launcher's: install, update, repair or go back a version, open or unins
 same choice as the launcher's HELP: keep the settings, players and records, or delete them too), close a launcher that
 is open first, wait while a game is running, and what went wrong if it failed. When it is done the launcher starts.
 
-  opendmt3-launcher-<version>-windows-x64-setup.exe                         the dialogs
-  opendmt3-launcher-<version>-windows-x64-setup.exe --silent [--no-start]   no dialog: install or update, then start
-                                                                            the launcher
+  opendmt3-launcher-<version>-windows-x64-installer.exe                         the dialogs
+  opendmt3-launcher-<version>-windows-x64-installer.exe --silent [--no-start]   no dialog: install or update, then
+                                                                                start the launcher
 """
 
 import glob

@@ -33,8 +33,9 @@ esac
 # maintenance off) x 3 widths (1280, 390, 360) x 2 languages; eight
 # questions (a player deleted, a player's plays reset, a new password, every play reset, a backup deleted, a token
 # revoked, a player banned, one's own account deleted), one message, one list to look at, one songs filter, one token, one upload of each kind and one maintenance
-# off and on, and the toast and the phone's menu sheet pressed each round.
-EXPECTED_PAGES=192
+# off and on, and the toast and the phone's menu sheet pressed each round; then every page of both sites at the
+# browser's 150 % on a 1920 px wide screen (24 a language: the two doors, 10 pages and 12) x 2 languages.
+EXPECTED_PAGES=240
 EXPECTED_DIALOGS=48
 EXPECTED_ROUNDS=6
 # The empty server (empty.js): the first-run page (the admin site's) in 2 languages x 3 widths and once refused in each
@@ -45,6 +46,11 @@ EXPECTED_ROUNDS=6
 # the empty server (6 each), the message (6), a plain player (6).
 EXPECTED_EMPTY_PAGES=167
 EXPECTED_EMPTY_STATES=35
+# Then each server's pages again as the headless shell draws them, for the gaps inside numbers alone (shell.js): its
+# two doors and its pages signed in, x 4 sizes (three widths and the browser's 150 %) x 2 languages. The full server's
+# 1 + 10 pages of the players' site and 1 + 12 of the admin site; the empty server's 1 + 11 and 1 + 10.
+EXPECTED_SHELL_PAGES=192
+EXPECTED_EMPTY_SHELL_PAGES=184
 # Names of this run's own (odt3-*, with its process number), so two runs at once (the self-test's and another's, or
 # CI's) never stop each other's server or use each other's image; each goes when its run ends.
 # (odt3-web-*, or the name OPENDMT3_E2E_NAME gives in its place, so whoever runs several at once tells theirs apart.)
@@ -122,14 +128,16 @@ cleanup
 said=()
 if [ "$PART" != empty ]; then echo "$summary"; said+=("$OUT/shoot.txt"); fi
 if [ "$PART" != full ]; then echo "$empty"; said+=("$OUT/empty.txt"); fi
-grep -hE "STICKS OUT|CUT OFF|NO LABEL|MENU CUT|BUTTON ASKEW|FAULT" "${said[@]}"
+grep -hE "STICKS OUT|CUT OFF|NO LABEL|MENU CUT|BUTTON ASKEW|FAULT|KEYS|WORDS OFF THEIR KEY|TYPE|HEADING|ROWS|LEFT EDGE|SIZING|ONE THING|PAIRS|STAGE|GAPS" "${said[@]}"
 python3 - "$summary" "$status" "$EXPECTED_PAGES" "$EXPECTED_DIALOGS" "$EXPECTED_ROUNDS" "$empty" "$empty_status" \
-  "$EXPECTED_EMPTY_PAGES" "$EXPECTED_EMPTY_STATES" "$PART" <<'PY'
+  "$EXPECTED_EMPTY_PAGES" "$EXPECTED_EMPTY_STATES" "$PART" "$EXPECTED_SHELL_PAGES" "$EXPECTED_EMPTY_SHELL_PAGES" <<'PY'
 import json, sys
 summary, status, pages, dialogs, rounds = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
 empty, empty_status, empty_pages, empty_states = sys.argv[6], int(sys.argv[7]), int(sys.argv[8]), int(sys.argv[9])
 # Which servers' checks ran: both, or one alone (OPENDMT3_WEB_PART); the one that ran is judged whole.
 part = sys.argv[10]
+# The pages measured again as the headless shell draws them, on each server (shell.js).
+shell_pages, empty_shell_pages = int(sys.argv[11]), int(sys.argv[12])
 full, bare = part in ("both", "full"), part in ("both", "empty")
 # A part left out gives nothing to judge (its counts are none, its faults none), never a pass of its own.
 s, e = {}, {}
@@ -150,12 +158,18 @@ if full and s["dialogs"] != dialogs:
     problems.append("opened the questions %d times, not %d" % (s["dialogs"], dialogs))
 if bare and e["pages"] != empty_pages:
     problems.append("looked at %d pages of the empty server, not %d" % (e["pages"], empty_pages))
+if full and s.get("shell_pages", 0) != shell_pages:
+    problems.append("looked at %d pages in the headless shell, not %d" % (s.get("shell_pages", 0), shell_pages))
+if bare and e.get("shell_pages", 0) != empty_shell_pages:
+    problems.append("looked at %d pages of the empty server in the headless shell, not %d" % (e.get("shell_pages", 0),
+                                                                                             empty_shell_pages))
 if bare and (e["states"] != empty_states or e["state_faults"]):
     problems.append("the empty server's states: %d of %d did not hold" % (e["state_faults"], e["states"]))
 # The layout's measure, the full server's pages and the empty one's together: each kind of fault and how many pages
 # have it (the kinds' words are what docs/test-cases.md and selftest.sh look for).
 for what, key in (("pages stick out", "sticking"), ("pages cut words off", "cut"),
-                  ("pages have a cell with no label", "unlabelled"), ("pages cut the phone menu", "menu_cut"),
+                  ("pages have a cell with no label or a value wrapping under its label", "unlabelled"),
+                  ("pages cut the phone menu", "menu_cut"),
                   ("pages have a button's words out of its middle", "askew"),
                   ("pages have boxes touching, words nearer than their padding, a gap off the scale or words on the "
                    "bare page", "spacing"), ("pages have a floating layer off the screen or under something",
@@ -163,8 +177,22 @@ for what, key in (("pages stick out", "sticking"), ("pages cut words off", "cut"
                   ("pages have a form part out of its design (FORMS.md)", "form_faults"),
                   ("pages have their bar, the menu item showing or the side menu off the screen or under something "
                    "(at the top or halfway down), or the other site's frame", "frame_faults"),
-                  ("pages break a number or a date over two lines, or part a figure from its unit or a time from its date",
-                   "wrap_faults")):
+                  ("pages break a number or a date over two lines, or part a figure from its unit or a time from its "
+                   "date, or break a word inside itself", "wrap_faults"),
+                  ("pages have a gap inside a number (a step between its characters off the face's own advance)",
+                   "gap_faults"),
+                  # The composition (measure.js: compose; the owner's rules of 11-19).
+                  ("pages have a key off its role's height or side padding, or wider than its words want", "key_faults"),
+                  ("pages have a key's words off its middle", "ink_faults"),
+                  ("pages have words off the type scale, or a paragraph's lines too close or too far apart", "type_faults"),
+                  ("pages have a heading smaller than the words under it", "heading_faults"),
+                  ("pages have controls of one row off one line, stacked controls off one edge, or a row's name off its "
+                   "value", "row_faults"),
+                  ("pages have words a few pixels off their group's left edge", "align_faults"),
+                  ("pages have a field far wider than what it takes", "sizing_faults"),
+                  ("pages have a box that holds one key or one fact", "single_faults"),
+                  ("pages have groups side by side that end apart", "pair_faults"),
+                  ("pages have the head's stage off the bar or under another box", "stage_faults")):
     if s.get(key, 0) + e.get(key, 0):
         problems.append("%s: %d" % (what, s.get(key, 0) + e.get(key, 0)))
 if empty_status:
@@ -207,9 +235,13 @@ if problems:
     print("FAIL: " + "; ".join(problems))
     sys.exit(1)
 # What held, in the words of the parts that ran.
-held = ("nothing sticks out, no words cut off, no cell without a label, the phone menu whole, every button's words in "
-        "its middle, boxes apart and on the scale, every form in its design, every number and date whole and with its "
-        "unit, each site's frame on screen")
+held = ("nothing sticks out, no words cut off, no cell without a label or with its value under it, the phone menu whole, "
+        "every button's words in its middle, boxes apart and on the scale, every form in its design, every word, number "
+        "and date whole and a figure with its unit, no gap inside a number, each site's frame on screen; pages "
+        "composed: every key at its role's height and padding with its words in its middle and none stretched, the "
+        "words on the type scale and no heading under its words, rows on one "
+        "line, groups' words on their edge, fields as wide as what they take, no box of one thing, pairs of one "
+        "height, the stage flush and clear (at 1280, 390, 360 and the browser's 150 %)")
 full_held = ("the MENU sheets pictured, Copy over plain http fine, the DJ card's pickers opened fine, "
              "%d floating layers whole and on top; the toast and the phone's menu sheet pressed; %d questions fine; %d "
              "upload fields fine; the songs filter, the message to send, the list to look at, the token shown once, "

@@ -36,6 +36,8 @@ from opendmt3.client import widgets  # noqa: E402
 # The boxes and the room round them (OpenDMTQ's spacing check, on openDMT3's widgets).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import spacing  # noqa: E402
+# The composition and the words: keys of one role alike, words centred by their ink, the type's steps (compose.py).
+import compose  # noqa: E402
 from opendmt3.core.formats import pak  # noqa: E402
 
 SETTINGS = (
@@ -500,8 +502,9 @@ def on_screen(widget):
 
 
 def sign_in_card_whole(inside, label, problems):
-    """The sign-in's card that holds `inside` (its form, or a banned account's key), whole on the screen with its page
-    at the top: its fields, what it says, Remember my ID and its key seen without scrolling, at every size."""
+    """The card that holds the sign-in (`inside`: its form, or a banned account's key; Where you play's group), whole
+    on the screen with its page at the top: its fields, what it says, Remember my ID and its key seen without
+    scrolling, at every size."""
     made = inside
     while made is not None and not isinstance(made, widgets.Card):
         made = made.master
@@ -571,17 +574,17 @@ def signin_states_check(app, out, tag, problems):
                 problems.append("%s: no sign-in form on ONLINE while connected and not signed in" % label)
                 return
             if name == "busy":
-                # Tab goes as the screen reads (review round 2, #6): the sign-in's key, then Where you play under it,
-                # then the connection test's key.
-                walk = tab_walk(form.fields["online.id"].entry, 40)
+                # Tab goes as the screen reads (review round 2, #6): the connection test's key at the group's title,
+                # the choice of where you play under it, then the sign-in's ID and its key.
+                tests = [x for x in widgets_of(app.root) if isinstance(x, widgets.Button) and x.winfo_ismapped()
+                         and x.words in (w("server_test.run"), w("server_test.again"))]
+                walk = tab_walk(tests[0], 60) if tests else []
                 seg = [x for x in walk if isinstance(x, widgets.Segmented)]
-                test = [x for x in walk if isinstance(x, widgets.Button) and x.words in (w("server_test.run"),
-                                                                                       w("server_test.again"))]
-                key = form.submit_button
-                if key not in walk or not seg or not test or not (
-                        walk.index(key) < walk.index(seg[0]) < walk.index(test[0])):
-                    problems.append("%s: Tab from the ID does not go as the screen reads: the sign-in's key, Where you "
-                                    "play, the connection test (%s)" % (label, [x.winfo_class() for x in walk]))
+                key, entry = form.submit_button, form.fields["online.id"].entry
+                if not tests or key not in walk or entry not in walk or not seg or not (
+                        walk.index(seg[0]) < walk.index(entry) < walk.index(key)):
+                    problems.append("%s: Tab from the connection test's key does not go as the screen reads: Where you "
+                                    "play, the sign-in's ID, its key (%s)" % (label, [x.winfo_class() for x in walk]))
             form.fields["online.id"].delete(0, "end")
             form.fields["online.id"].insert(0, "NOVA")
             form.fields["online.password"].delete(0, "end")
@@ -664,9 +667,8 @@ def signin_states_check(app, out, tag, problems):
                 if (form.line.link is not None) != server_trouble:
                     problems.append("%s: the way to the connection test is %s" % (
                         label, "missing" if server_trouble else "offered for an account's trouble"))
-        # Connected with nobody signed in, the server's own card is folded into the sign-in's first line: Change there
-        # opens it as it is before connecting, the keyboard on its address chosen whole, and no sign-in until a server
-        # answers.
+        # Connected with nobody signed in, the address is folded into the sign-in's first line: Change there opens it
+        # as it is before connecting, the keyboard on the address chosen whole, and no sign-in until a server answers.
         app.go("online")
         settle(app)
         label = "%s_online-signin-change" % tag
@@ -675,7 +677,7 @@ def signin_states_check(app, out, tag, problems):
         change = [x for x in widgets_of(app.root) if isinstance(x, widgets.tk.Label) and x.winfo_ismapped()
                   and x.cget("text") == w("online.server.change")]
         if servers or not change:
-            problems.append("%s: the server's card is not folded into the sign-in's line, or that line has no Change"
+            problems.append("%s: the address is not folded into the sign-in's line, or that line has no Change"
                             % label)
         else:
             change[0].event_generate("<Button-1>")
@@ -686,7 +688,7 @@ def signin_states_check(app, out, tag, problems):
                        and x.winfo_ismapped()]
             if not servers or app.root.focus_get() is not servers[0].fields["address"].entry \
                     or not servers[0].fields["address"].entry.selection_present():
-                problems.append("%s: Change does not open the server's card with the keyboard on its address, chosen "
+                problems.append("%s: Change does not open the address with the keyboard on it, chosen "
                                 "whole" % label)
             if sign_in_form() is not None:
                 problems.append("%s: the sign-in to the server being changed still shows" % label)
@@ -726,7 +728,14 @@ def server_test_check(app, out, tag, problems):
                 app.go("online")
                 settle(app)
                 if name == "passed":
-                    # Before a test: the card says what it checks.
+                    # Before a test: its key at Where you play's title, no card of its own yet.
+                    from opendmt3.client import i18n
+                    named = i18n.english_of(app.words("server_test")).upper()
+                    cards = [x for x in widgets_of(app.root) if isinstance(x, widgets.Card) and x.winfo_ismapped()
+                             and x.tab is not None and x.tab.words == named]
+                    if cards:
+                        problems.append("%s_online-test-idle: the connection test has a card before any test ran"
+                                        % tag)
                     shot(app, out, "%s_online-test-idle" % tag)
                     measure(app, "%s_online-test-idle" % tag, problems)
                 run = [b for b in widgets_of(app.root) if isinstance(b, widgets.Button)
@@ -1139,6 +1148,9 @@ def measure(app, name, problems):
                                [words for _, words in row.options]))
     # The boxes, their padding and the gaps between them (spacing.py), counted so a run that measured none says so.
     problems.extend(spacing.check(root, app.ui, name))
+    # The composition and the words (compose.py): keys of one role alike, words centred by their ink, the type's
+    # steps, headings no smaller than their body, rows on one line, the decoration off the cards' edges.
+    problems.extend(compose.check(app, name, screen_reader()))
     SPACED.append(name)
     lit_problems(app, name, problems)
     right = root.winfo_rootx() + root.winfo_width()
@@ -1373,7 +1385,8 @@ def scroll_check(app, tag, problems, must=True):
     area, bar = app.body.canvas, app.body.bar
     app.body.to_top()
     wait_out(app, 0.1)
-    if not must and app.body.head_height + app.body.inner.winfo_reqheight() <= area.winfo_height():
+    if not must and app.body.head_height + app.body.inner.winfo_reqheight() <= area.winfo_height() + app.ui.px(48):
+        # It fits, or nearly: a few pixels to scroll leave no room under the thumb to press for a page.
         return
     if not bar.winfo_ismapped():
         problems.append("%s: no scroll bar on a page taller than the window" % tag)
@@ -2163,7 +2176,17 @@ def installer_check(out, tag, problems):
         def __init__(self, root):
             self.root = root
 
-    for name, have, running in (("fresh", None, False), ("update", "0.4.1", True), ("same", __version__, False),
+    # The question each case asks (installer.plan's words), so a case whose versions no longer make its state is
+    # said, not shot as another case under its name.
+    questions = {"fresh": ("setup.install.ask", {"v": __version__}), "update": ("setup.update.ask", {"v": __version__}),
+                 "same": ("setup.installed", {"v": __version__}), "newer": ("setup.back.ask", {})}
+    # The version the update finds installed: the one just before this one (0.4.1: 0.4.0, 0.5.0: 0.4.0, 1.0.0:
+    # 0.0.0), made from this version so it stays older as the launcher's version grows (a fixed 0.4.1 made the update
+    # the newer case until 0.4.1 and the same case at it).
+    major, minor, patch = installer.version_key(__version__)[0]
+    older = ("%d.%d.%d" % (major, minor, patch - 1) if patch else "%d.%d.0" % (major, minor - 1) if minor
+             else "%d.0.0" % (major - 1))
+    for name, have, running in (("fresh", None, False), ("update", older, True), ("same", __version__, False),
                                 ("newer", "9.0.0", False)):
         installed(have)
         installer.launcher_open = lambda running=running: running
@@ -2171,6 +2194,11 @@ def installer_check(out, tag, problems):
         run_until(inst, 0.6)
         shot(Shot(inst.root), out, "%s_setup-%s" % (tag, name), root=inst.root)
         problems.extend("%s_setup-%s: %s" % (tag, name, p) for p in inst.dialog.layout_problems())
+        # The case's own question, in the installer's language (the words the dialog was given).
+        key, values = questions[name]
+        if inst.dialog.message != inst.words(key, **values):
+            problems.append("%s_setup-%s: the installer asks %r, not this case's question"
+                            % (tag, name, inst.dialog.message))
         inst.dialog.canvas.event_generate("<Escape>")
         run_until(inst, 0.3)
     # This version installed: Uninstall beside Repair and Open, then the launcher's HELP choices (Cancel first, Keep
@@ -2275,8 +2303,9 @@ def installer_check(out, tag, problems):
         problems.append("%s: a failure without a log offers %r" % (tag, words))
     inst.dialog.canvas.event_generate("<Return>")
     run_until(inst, 0.3)
-    # A game running on this PC: the installer waits instead of closing the launcher and its server.
-    installed("0.4.1")
+    # A game running on this PC: the installer waits instead of closing the launcher and its server (here before the
+    # update from the version before this one).
+    installed(older)
     installer.game_running = lambda: True
     inst = installer.Installer()
     run_until(inst, 0.5)
@@ -2775,6 +2804,109 @@ def at_smallest(app, out, name, problems):
     settle(app)
 
 
+def planted_composition_check(app, out, tag, problems):
+    """compose.py tried on pages made up to fail it, at this run's own fonts and scale, before it is trusted with the
+    real ones: a key two pixels short, a key whose words stand three pixels low, a key stretched across its card, a
+    label in a size that is none of the type's steps, a setting whose control stands off its name's line, a slider too
+    short to set a value by, a card off the page's left edge, and the stage's colour in the gap beside a card; then, on
+    a short page, a card for one key and its line, and three cards across the whole column one under another (said
+    where the column is wide enough for two side by side); then two cards side by side that end apart and a key flush
+    in a card's cut corner. Each must be said; the run's own page must be said of nothing."""
+    import tkinter as tk
+    from opendmt3.client import theme
+    app.go("controls")
+    settle(app)
+    clean = compose.check(app, "%s_controls" % tag, screen_reader())
+    if clean:
+        problems.append("%s: the composition check says of a page as it is: %s" % (tag, clean[0]))
+    content = app.body.inner.winfo_children()[0]
+    for child in content.winfo_children():
+        child.destroy()
+    made = widgets.Card(content, app.ui, title="Made-up group")
+    made.pack(fill="x")
+    short = widgets.Button(made.body, app.ui, "Short key", lambda: None)
+    short.pack(anchor="w")
+    short.configure(height=short.winfo_reqheight() - app.ui.px(2))
+    low = widgets.Button(made.body, app.ui, "Low words", lambda: None)
+    low.pack(anchor="w", pady=(app.ui.px(8), 0))
+    low.move(low.label, 0, app.ui.px(3))
+    across = widgets.Button(made.body, app.ui, "Across", lambda: None, fill=True)
+    across.pack(fill="x", pady=(app.ui.px(8), 0))
+    tk.Label(made.body, text="Made-up words in seven points", font=("Pretendard", 7), bg=theme.PANEL,
+             fg=theme.TEXT).pack(anchor="w")
+    row = widgets.setting_row(made.body, app.ui, "Made-up setting",
+                              lambda p: widgets.Slider(p, app.ui, 50, lambda v: None, width=120))
+    row.pack(fill="x")
+    row.control.grid_configure(pady=(app.ui.px(12), 0))
+    off = widgets.Card(content, app.ui, title="Made-up offside")
+    off.pack(fill="x", padx=(app.ui.px(10), 0), pady=(app.ui.px(16), 0))
+    tk.Label(off.body, text="A card off the page's left edge", font=app.fonts.body, bg=theme.PANEL,
+             fg=theme.TEXT).pack(anchor="w")
+    # The stage's blue in the gap at the first card's left, where the page's own colour must be (in the page's own
+    # area, round the content, where the content's children could not reach).
+    shard = tk.Frame(app.body.inner, bg=theme.BLUE, width=app.ui.px(6), height=app.ui.px(40))
+    shard.place(in_=made, x=-app.ui.px(6), rely=0.5, anchor="w")
+    settle(app)
+    shot(app, out, "%s_planted-composition" % tag)
+    said = compose.check(app, "%s_planted-composition" % tag, screen_reader())
+    wanted = (("Short key", "tall"), ("Low words", "off the key's middle"), ("Across", "stretched"),
+              ("seven points", "type's steps"), ("Made-up setting", "one line"), ("too short", ""),
+              ("MADE-UP OFFSIDE", "left edge"), ("left of", "page's colour"))
+    for first, second in wanted:
+        if not any(first in p and second in p for p in said):
+            problems.append("%s: the composition check missed a planted %r (%s): it said %s"
+                            % (tag, first, second, said))
+    # A short page of boxes: a card for one key and its line, then two cards of a line each, all across the column.
+    from opendmt3.client.pages.common import PAIR_FROM
+    for child in content.winfo_children():
+        child.destroy()
+    lone = widgets.Card(content, app.ui, title="Made-up lone key")
+    lone.pack(fill="x", pady=(0, app.ui.px(16)))
+    tk.Label(lone.body, text="A made-up line", font=app.fonts.body, bg=theme.PANEL, fg=theme.TEXT).pack(anchor="w")
+    widgets.Button(lone.body, app.ui, "Made-up key", lambda: None).pack(anchor="w")
+    for i, title in enumerate(("Made-up list one", "Made-up list two")):
+        listed = widgets.Card(content, app.ui, title=title)
+        listed.pack(fill="x", pady=(0, app.ui.px(16) if i == 0 else 0))
+        tk.Label(listed.body, text="Made-up words", font=app.fonts.body, bg=theme.PANEL, fg=theme.TEXT).pack(
+            anchor="w")
+        tk.Label(listed.body, text="More made-up words", font=app.fonts.body, bg=theme.PANEL, fg=theme.TEXT).pack(
+            anchor="w")
+    settle(app)
+    label = "%s_planted-boxes" % tag
+    shot(app, out, label)
+    said = compose.check(app, label, screen_reader())
+    wanted = [("MADE-UP LONE KEY", "one control")]
+    if content.winfo_width() >= app.ui.px(PAIR_FROM):
+        wanted.append(("3 cards across the whole column", "list of boxes"))
+    for first, second in wanted:
+        if not any(first in p and second in p for p in said):
+            problems.append("%s: the composition check missed a planted %r (%s): it said %s"
+                            % (tag, first, second, said))
+    # Two cards side by side that end apart, and a key in a card's cut corner (flush against the card's right edge).
+    for child in content.winfo_children():
+        child.destroy()
+    row = tk.Frame(content, bg=content.cget("bg"))
+    row.pack(fill="x")
+    tall = widgets.Card(row, app.ui, title="Made-up tall")
+    tall.pack(side="left", anchor="n", padx=(0, app.ui.px(16)))
+    for words in ("One made-up line", "Another made-up line", "A third made-up line"):
+        tk.Label(tall.body, text=words, font=app.fonts.body, bg=tall.face, fg=theme.TEXT).pack(anchor="w")
+    short = widgets.Card(row, app.ui, title="Made-up short")
+    short.pack(side="left", anchor="n")
+    tk.Label(short.body, text="One made-up line", font=app.fonts.body, bg=short.face, fg=theme.TEXT).pack(anchor="w")
+    widgets.Button(short.head, app.ui, "Cornered", lambda: None, size="small").pack(side="right", padx=0)
+    settle(app)
+    label = "%s_planted-corner" % tag
+    shot(app, out, label)
+    said = compose.check(app, label, screen_reader())
+    for first, second in (("'Cornered'", "cut corner"), ("MADE-UP TALL", "end")):
+        if not any(first in p and second in p for p in said):
+            problems.append("%s: the composition check missed a planted %r (%s): it said %s"
+                            % (tag, first, second, said))
+    app.go("controls")
+    settle(app)
+
+
 def planted_check(app, out, tag, problems):
     """The check for hidden content (hidden) tried on a page made up to need it, at this run's own fonts and scale:
     eighty made-up lines, taller than any window (forty fit the large size beside the menu column), where the page goes.
@@ -2878,7 +3010,7 @@ def guide_states_check(app, out, tag, problems):
             problems.append("%s_guide4-server: Next is %s and the step %s what lets it go on" % (
                 tag, "lit" if guide.next_button.enabled else "off",
                 "says" if w("guide.login.need.server") in labels(app) else "does not say"))
-        # Connected with nobody signed in: the sign-in leads the step, whole on the screen at every size.
+        # Connected with nobody signed in: the sign-in's group whole on the screen at every size.
         app.state.server_url = "http://192.168.0.10:4730"
         app.state.remote = {"game": "192.168.0.10:4725", "version": "0.3.0"}
         guide.show(guide.index)
@@ -2920,6 +3052,14 @@ def main():
     args = parser.parse_args()
     if not safety.on_virtual_display():
         sys.exit("refusing: this opens windows; run it through tests/e2e/ui/run.sh")
+    # Every dialog the run measures (the launcher's and the installer's) is held to compose.py's keys and words too:
+    # what its own layout_problems says, then a page key's size and centring for its keys, and its tab's size.
+    from opendmt3.client import dialogs as dialog_module
+    measured = dialog_module.Dialog.layout_problems
+
+    def with_composition(dialog):
+        return measured(dialog) + compose.check_dialog(dialog, dialog.ui, "dialog")
+    dialog_module.Dialog.layout_problems = with_composition
     if sys.platform == "win32":
         # As the launcher does before its first window: Windows' own pixels at any scaling, not a stretched copy.
         from opendmt3.client import main as launcher_main
@@ -3139,6 +3279,7 @@ def main():
     # ---- PLAY whole at the size the launcher opens at, and the check for hidden content tried on a made-up page
     play_fits_check(app, args.out, tag, problems)
     planted_check(app, args.out, tag, problems)
+    planted_composition_check(app, args.out, tag, problems)
     # ---- another server: not connected, connected, signed in (no network: the remembered state is drawn)
     for name, url, remote_state in (
             ("server-none", None, None),
