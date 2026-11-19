@@ -70,9 +70,12 @@ def build_about(app, parent):
     _play_without_window(app, parent)
     updates_card = card(parent, ui, w("about.updates"))
     version = updates.shown_version()
-    box = tk.Frame(updates_card.body, bg=theme.PANEL)
+    # The version as the row's name and Check for updates as its control, in the column the cards above use (the
+    # final review's C-08: the button once stood right after the words, on a line of its own).
+    box = widgets.setting_row(updates_card.body, ui, w("about.version", v=version),
+                              # check is made below: looked up when pressed.
+                              lambda p: widgets.Button(p, ui, w("about.check"), lambda: check()))
     box.pack(fill="x")
-    widgets.label(box, ui, w("about.version", v=version), font=ui.fonts.body_bold).pack(side="left")
     # What the look for updates found, and the button that puts an update in: right under the version, and no
     # room taken while there is nothing to say.
     found = tk.Frame(updates_card.body, bg=theme.PANEL)
@@ -122,7 +125,6 @@ def build_about(app, parent):
         # the new launcher (client/updating.py).
         updating.run(app, result)
 
-    widgets.Button(box, ui, w("about.check"), check).pack(side="left", padx=(ui.px(16), 0))
     legal = card(parent, ui, w("about.legal"), last=True)
     for i, key in enumerate(("about.license", "about.notice")):
         if i:

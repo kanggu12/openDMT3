@@ -783,8 +783,9 @@ def run_jobs(args, state, play_failed):
         # The guide's search (DISC CHECK): every game folder and archive found, each with what its card says.
         from opendmt3.client import find, i18n, intake
         w = i18n.Words("en")
-        # Found, not picked: each archive said from its listing alone, as the found list says it.
-        found = [intake.inspect(path, picked=False) for path in find.paths()]
+        # Found, not picked: each archive said from its listing alone, as the found list says it; openDMT3's own
+        # downloads left out, as the list leaves them (intake.own_package).
+        found = [item for item in (intake.inspect(path, picked=False) for path in find.paths()) if not item.own]
         for item in sorted(found, key=lambda f: {intake.READY: 0, intake.UNPACK: 1}.get(f.state, 2)):
             say("  %-9s %s  %s" % (STATE_WORDS[item.state], item.path, item.sentence(w)))
         if not found:

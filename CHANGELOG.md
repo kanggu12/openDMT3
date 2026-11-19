@@ -56,6 +56,18 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
   step, a drag moves it from where it was, and a column's value or name only chooses it. **SOUND** shows it opens a
   panel, whose title goes back to the menu, and the panel uses the launcher's words (**MASTER**, **MUSIC**, **KEYS**).
 - The overlay bar's X is quiet like the buttons beside it, and the overlay shrinks with the game in a small window.
+- The launcher's and the installer's dialogs follow one rule: the main key is blue and says what it does, a question
+  that changes or removes something starts on **Cancel**, pink is only for what failed, and the tab names the state
+  (**Older version**, **Game open**, **Not installed**, **Done**). **Uninstall** asks **Remove** (settings, players and
+  records stay) or **Remove all**; work under way, an unpacking or an uninstall included, is blue with moving stripes.
+- The ready check, the **NET** lamp and **PLAY** follow what the launcher last learned: another server that did not
+  answer, another server not chosen yet (**Connect** in place of **Sign in**), or a players' database that cannot be
+  opened stop **PLAY** and say so; on **PLAY** the foot points at the check's line instead of repeating it.
+- The settings' controls start on one line across **Screen**, **Sound**, **Controls** and **Game**, and across
+  **Launcher** and **Help**; **Help**'s lines lead to the setting they name.
+- After **Repair** puts back the launcher's own files, its one key starts the launcher again.
+- In a tall window, **Last game** lists up to six cleared stages.
+- The launcher's report is named in lowercase too: `opendmt3-report-<date>.zip`.
 
 ### Fixed
 
@@ -64,6 +76,15 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
 - On a phone a date no longer breaks from its time, nor a figure from its unit.
 - **Status** counts every account, as the Players list does, and says how many of them are disabled.
 - After an account is made, the Players page's form is empty again.
+- **Disc check** no longer offers openDMT3's own downloads (the launcher's portable zip, the server's packages, the
+  OpenAL sources) as client data, whatever they are called: they are told by what they hold.
+- **Who plays**'s list stays inside its card, and every drop-down's list is whole on the screen; the fifth upscale
+  filter fits the smallest window; Tab scrolls the page to the control it reaches; the menu column no longer moves
+  when the status line grows, which keeps to three lines.
+- Korean lines no longer break inside a phrase, and a long folder path breaks after a separator, never inside a name.
+- The installer's known failures (no room, no access, a missing file) are said in the person's language, and its
+  window after a crash says **SETUP**.
+- A small archive's progress no longer reads "1 MB of 1 MB" while it is under way.
 - The launcher takes an `https://` address without a port as port 443, as a browser does.
 - **QUIT THE GAME** in the game ends it within about a second, silent (a song held still) and the overlay bar saying
   the game is ending; it took 10 seconds, with the song playing on.
@@ -72,7 +93,7 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
   the game.
 - Two starts of this PC's server at once (**Open my records** and PLAY) no longer leave a second server holding the
   game's port.
-- Delete all deletes openDMT3's own folder for playing too: the client copy PLAY made, its card and its settings.
+- **Remove all** deletes openDMT3's own folder for playing too: the client copy PLAY made, its card and its settings.
 - A power cut right after a save no longer leaves the launcher's settings empty, and the command line works past a
   `launcher.json` it cannot read.
 

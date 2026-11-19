@@ -231,4 +231,4 @@ Beside the database, in the data folder:
 | `notice.json`, `maintenance.json` | The notice and maintenance | A line each |
 | `backups/` | The backups | A week of each kind |
 
-The launcher's **Delete all** takes these too, for its built-in server.
+The launcher's **Remove all** takes these too, for its built-in server.

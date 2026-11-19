@@ -301,6 +301,14 @@ def make_intake(desktop, downloads, table, rng):
     with open(os.path.join(downloads, "technika3-broken.7z"), "wb") as f:
         f.write(whole[:len(whole) // 2])
     made["broken"] = os.path.join(downloads, "technika3-broken.7z")
+    # openDMT3's own portable zip, renamed as a player may: its program and a library's .zip inside, as the real one
+    # holds them. The search never offers it (the final review's W-01): it is not on the list at all.
+    import zipfile
+    made["own"] = os.path.join(downloads, "dmt3-launcher.zip")
+    with zipfile.ZipFile(made["own"], "w") as zf:
+        for name in (".portable", "openDMT3.exe", "Update.exe", "current/openDMT3.exe",
+                     "current/_internal/base_library.zip"):
+            zf.writestr(name, b"made up")
     shutil.rmtree(src)
     return made
 
@@ -768,10 +776,11 @@ def server_test_check(app, out, tag, problems):
                     if ticks and ticks[0].value:
                         problems.append("%s: Remember my ID shows ticked though the player never ticked it" % label)
                 if name == "game-closed":
-                    copy = [x for x in widgets_of(app.root) if x.winfo_class() == "Label"
-                            and x.cget("text") == app.words("server_test.copy")]
+                    # A key on the card's foot, pressed as a person presses it.
+                    copy = [x for x in widgets_of(app.root) if isinstance(x, widgets.Button)
+                            and x.words == app.words("server_test.copy")]
                     if copy:
-                        copy[0].event_generate("<Button-1>")
+                        copy[0].press()
                         app.root.update()
                         if str(server.game_port) not in app.root.clipboard_get():
                             problems.append("%s: Copy the result did not copy the steps" % label)
@@ -796,9 +805,11 @@ def admin_link_check(app, out, tag, problems):
     import http.cookiejar
     import urllib.request
     from opendmt3.client import actions
+    import importlib.util
     w = app.words
-    kept = (app.state.mode, actions.open_link)
+    kept = (app.state.mode, actions.open_link, actions.admin_link)
     opened = []
+    web = all(importlib.util.find_spec(m) for m in ("uvicorn", "starlette", "jinja2", "multipart"))
     try:
         app.state.mode = "this_pc"
         app.go("online")
@@ -815,17 +826,33 @@ def admin_link_check(app, out, tag, problems):
             app.root.update()
             time.sleep(0.05)
         settle(app)
-        label = "%s_online-admin-opened" % tag
+        label = "%s_online-admin-%s" % (tag, "opened" if web else "no-site")
         shot(app, out, label)
         measure(app, label, problems)
-        import importlib.util
-        if not all(importlib.util.find_spec(m) for m in ("uvicorn", "starlette", "jinja2", "multipart")):
+        if not web:
             # This run's Python has no web libraries (the UI image): no site starts, and the status line says why, in
             # the product's words. The admin site itself is checked where they are (the unit tests, the Wine tests).
             import types
             wanted = w("status.error", error=w.error(types.SimpleNamespace(key="error.admin.no_site")))
             if opened or app.status_tone != "bad" or app.status_text != wanted:
                 problems.append("%s: without the web libraries, Admin pages said %r (%s)"
+                                % (label, app.status_text, app.status_tone))
+            # The page as it is once the admin site has opened (the final review's C-14: no picture had it): the
+            # site's link made up, the rest the launcher's own.
+            actions.admin_link = lambda state, host: ("http://127.0.0.1:47000/signin/once/made-up", None)
+            keys = [x for x in widgets_of(app.root) if isinstance(x, widgets.Button) and x.winfo_ismapped()
+                    and x.words == w("online.admin")]
+            keys[0].press()
+            end = time.time() + 10
+            while time.time() < end and not opened:
+                app.root.update()
+                time.sleep(0.05)
+            settle(app)
+            label = "%s_online-admin-opened" % tag
+            shot(app, out, label)
+            measure(app, label, problems)
+            if not opened or app.status_tone != "ok" or app.status_text != w("online.admin.opened"):
+                problems.append("%s: an admin site that opened was said as %r (%s)"
                                 % (label, app.status_text, app.status_tone))
             return
         if not opened or app.status_text != w("online.admin.opened"):
@@ -843,7 +870,7 @@ def admin_link_check(app, out, tag, problems):
         if where != admin + "admin/status" or 'class="who-name"' not in body:
             problems.append("%s: the admin site did not open signed in (%s)" % (label, where))
     finally:
-        app.state.mode, actions.open_link = kept
+        app.state.mode, actions.open_link, actions.admin_link = kept
         # The server the check started goes, as when the launcher closes: the checks after it start their own.
         app.host.stop()
         app.refresh_checks()
@@ -1041,6 +1068,18 @@ def list_shot(app, shown, out, name):
                     "+repage", target], check=True)
 
 
+def control_columns(app):
+    """Where the setting rows' controls start on the page on show, from the left edge of their row (one place for a
+    page whose rows share their names' column)."""
+    found = set()
+    for row in widgets_of(app.body.inner):
+        control = getattr(row, "control", None)
+        if hasattr(row, "opendmt3_names") and control is not None and control.winfo_ismapped():
+            # The control's visible edge (a switch keeps its ring's room inside its picture).
+            found.add(control.winfo_rootx() - row.winfo_rootx() + getattr(control, "opendmt3_inset", 0))
+    return sorted(found)
+
+
 def dropdowns_check(app, out, name, problems):
     """Every drop-down on the page on show opened (widgets.Select): its list whole on the screen, clear of its field
     and over everything at its corners (spacing.check_list); the first one's list shot for a look. Then closed with
@@ -1048,10 +1087,12 @@ def dropdowns_check(app, out, name, problems):
     selects = [w for w in widgets_of(app.root) if isinstance(w, widgets.Select) and w.winfo_viewable()]
     for i, select in enumerate(selects):
         before = select.value
-        # Into view first, as a person scrolls to it.
+        # Into view first, as a person scrolls to it, then pressed as a person presses it (the pointer's click).
         app.body.show(select, app.ui.px(16))
         app.root.update()
-        select.open()
+        select.event_generate("<Motion>", x=8, y=8, warp=True)
+        select.event_generate("<Button-1>", x=8, y=8)
+        app.root.update()
         shown = select.list
         if shown is None:
             problems.append("%s: a drop-down did not open" % name)
@@ -1084,6 +1125,13 @@ def measure(app, name, problems):
     # Below the visible area with no scroll to bring it up: counted, so a run that looked at nothing says so.
     HIDDEN_LOOKS.append(hidden(app, name, problems))
     rail_problems(app, name, problems)
+    # A row of choices cut by its card's edge: a choice that cannot be seen or clicked (the final review's B-01).
+    for row in widgets_of(root):
+        if isinstance(row, widgets.Segmented) and row.winfo_ismapped() and \
+                row.winfo_width() + 1 < row.opendmt3_picture.width:
+            problems.append("%s: a row of choices is cut (%d of %d px shown): %s"
+                            % (name, row.winfo_width(), row.opendmt3_picture.width,
+                               [words for _, words in row.options]))
     # The boxes, their padding and the gaps between them (spacing.py), counted so a run that measured none says so.
     problems.extend(spacing.check(root, app.ui, name))
     SPACED.append(name)
@@ -1381,14 +1429,20 @@ def dialogs_check(app, out, tag, problems):
     store.db.close()
     if answer is not False or not kept:
         problems.append("%s: Enter on the remove dialog removed the player (answer %r)" % (tag, answer))
-    # A resize while it is open draws it again for the new size.
+    # A resize while it is open draws it again for the new size; then the run's own size again, so that every dialog
+    # after it is shot at the size this run is about (the final review's C-14: they were all at 960).
     def resized(dialog):
+        back = app.root.geometry()
         app.root.geometry("960x640")
         wait_out(app, 0.6)
         shot(app, out, "%s_dialog-remove-960" % tag)
         problems.extend("%s_dialog-remove-960: %s" % (tag, p) for p in dialog.layout_problems())
         if dialog.size != (app.root.winfo_width(), app.root.winfo_height()):
             problems.append("%s: the dialog was not drawn again after a resize" % tag)
+        app.root.geometry(back)
+        wait_out(app, 0.6)
+        if dialog.size != (app.root.winfo_width(), app.root.winfo_height()):
+            problems.append("%s: the dialog was not drawn again for the run's size" % tag)
     answer = through_dialog(app, out, "%s_dialog-remove-click" % tag, remove[-1].press,
                             lambda d: click_button(d, 1), problems, extra=resized)
     store = app.players()
@@ -1396,7 +1450,8 @@ def dialogs_check(app, out, tag, problems):
     store.db.close()
     if answer is not True or not gone:
         problems.append("%s: clicking Remove did not remove the player (answer %r)" % (tag, answer))
-    # The restore question starts on its main button; hovering lights it.
+    # The restore question starts on Cancel, so Enter alone changes nothing (C-02); the pointer over Put back lights
+    # it; clicking it puts the files back.
     app.go("help")
     settle(app)
 
@@ -1406,10 +1461,19 @@ def dialogs_check(app, out, tag, problems):
                                      warp=True)
         wait_out(app, 0.15)
         shot(app, out, "%s_dialog-restore-hover" % tag)
+        # The pointer really over Put back (the shot once equalled the one without it: C-14), and the ring still
+        # on Cancel, where the question starts.
+        if dialog.hover != 1 or dialog.focus != 0:
+            problems.append("%s_dialog-restore-hover: the pointer over Put back is %r, the ring on %r"
+                            % (tag, dialog.hover, dialog.focus))
     answer = through_dialog(app, out, "%s_dialog-restore" % tag, button(app, app.words("help.restore.confirm")).press,
                             lambda d: d.canvas.event_generate("<Return>"), problems, extra=hovered)
+    if answer is not False:
+        problems.append("%s: Enter on the restore dialog answered %r, not Cancel" % (tag, answer))
+    answer = through_dialog(app, out, "%s_dialog-restore-click" % tag,
+                            button(app, app.words("help.restore.confirm")).press, lambda d: click_button(d, 1), problems)
     if answer is not True:
-        problems.append("%s: Enter on the restore dialog answered %r" % (tag, answer))
+        problems.append("%s: clicking Put back answered %r" % (tag, answer))
     if app.status_tone != "ok":
         problems.append("%s: putting files back did not report (status %r)" % (tag, app.status_text))
     # What the look for updates says, under the version: nothing newer, then an update with its button.
@@ -1503,6 +1567,9 @@ def repair_check(app, out, tag, problems):
                                       "error.repair.not_installed")),
     ]
     real = repair.run
+    # The launcher's own files put back: its one key starts it again (C-10); here the start is only noted.
+    restarted, real_restart = [], app.restart
+    app.restart = lambda: restarted.append(True)
     try:
         for i, (name, outcome) in enumerate(outcomes):
             go, seen = threading.Event(), {}
@@ -1552,6 +1619,10 @@ def repair_check(app, out, tag, problems):
                 problems.append("%s: the dialog stayed after its answer" % label)
     finally:
         repair.run = real
+        app.restart = real_restart
+        if restarted != [True]:
+            problems.append("%s: a repair of the launcher's own files did not start it again once (%r)"
+                            % (tag, restarted))
 
 
 def remove_check(app, out, tag, made, problems):
@@ -1559,7 +1630,7 @@ def remove_check(app, out, tag, made, problems):
 
     Run from source there is nothing to uninstall, and a running game stops it: both are said. Then, with an
     uninstaller made to look present: the question for a game folder that is gone; the question with its two ways on
-    after Cancel (the ring starts on Cancel, Esc and Enter there keep everything, Tab moves the ring); and Delete all,
+    after Cancel (the ring starts on Cancel, Esc and Enter there keep everything, Tab moves the ring); and Remove all,
     through the progress dialog and the last step to the hand-over. The hand-over is caught: the window stays and
     Velopack's uninstall is never started here.
     """
@@ -1628,13 +1699,13 @@ def remove_check(app, out, tag, made, problems):
         app.state.game_folder = folder
 
         def keys(dialog):
-            # Cancel, Keep data, Delete all: the ring starts on Cancel.
+            # Cancel, Remove, Remove all: the ring starts on Cancel.
             if dialog.focus != 0 or [b[1] for b in dialog.buttons] != [None, "keep", "all"]:
-                problems.append("%s: the uninstall question is not Cancel, Keep data, Delete all from Cancel" % tag)
+                problems.append("%s: the uninstall question is not Cancel, Remove, Remove all from Cancel" % tag)
             dialog.canvas.event_generate("<Tab>")
             wait_out(app, 0.1)
             if dialog.focus != 1:
-                problems.append("%s: Tab did not move the ring to Keep data" % tag)
+                problems.append("%s: Tab did not move the ring to Remove" % tag)
             dialog.canvas.event_generate("<Shift-Tab>" if sys.platform == "win32" else "<ISO_Left_Tab>")
             wait_out(app, 0.1)
             # The folder PLAY alone used has nothing to put back: the question says nothing of the game's files.
@@ -1646,7 +1717,7 @@ def remove_check(app, out, tag, made, problems):
         if answer is not None or started or closed:
             problems.append("%s: Enter on the uninstall question did something (answer %r)" % (tag, answer))
 
-        # Delete all, clicked as a person would.
+        # Remove all, clicked as a person would.
         def yes():
             dialog = app.dialog
             if dialog is None:
@@ -1686,7 +1757,7 @@ def remove_check(app, out, tag, made, problems):
         else:
             app.then()
             if started != [(leaving.uninstaller(), True)]:
-                problems.append("%s: the uninstall was not started with Delete all: %r" % (tag, started))
+                problems.append("%s: the uninstall was not started with Remove all: %r" % (tag, started))
     finally:
         gate.set()
         leaving.uninstaller, leaving.start_uninstall, leaving.before_uninstall, app.close = real
@@ -1770,6 +1841,8 @@ def song_list_check(app, out, tag, problems):
         answered with Enter; the dialog of work under way before it shot once. Each look schedules the next before it
         runs the window (a shot does): the dialog that ends the work opens its own wait inside whatever runs the window
         when the work ends, and the next look, already scheduled, answers it there."""
+        gate.clear()
+
         def look(left=tries):
             dialog = app.dialog
             final = dialog is not None and not dialog.progress and len(dialog.buttons) == 1
@@ -1780,9 +1853,15 @@ def song_list_check(app, out, tag, problems):
                     problems.append("%s: no dialog said how %s ended" % (tag, name))
                 if dialog is not None and dialog.progress and name + "-working" not in seen:
                     seen[name + "-working"] = True
+                    wait_out(app, 0.4)
                     shot(app, out, "%s_dialog-%s-working" % (tag, name))
-                    if not dialog.closed:
+                    if dialog.closed:
+                        # The work is held until this shot: a closed dialog here is a shot of the page instead.
+                        problems.append("%s_dialog-%s-working: the work's dialog closed before it was shot"
+                                        % (tag, name))
+                    else:
                         problems.extend("%s_dialog-%s-working: %s" % (tag, name, p) for p in dialog.layout_problems())
+                    gate.set()
                 return
             if key in seen:
                 # Answered already, by a look that ran inside this one's shot.
@@ -1796,6 +1875,19 @@ def song_list_check(app, out, tag, problems):
             dialog.canvas.event_generate("<Return>")
         app.root.after(200, look)
 
+    # The work itself held until the dialog of work under way is shot (the shot once showed the page after it closed:
+    # the final review's C-14).
+    from opendmt3.client import actions
+    gate = threading.Event()
+    real_work = (actions.save_song_list, actions.send_song_list)
+
+    def held(work):
+        def run(*a, **kw):
+            gate.wait(10)
+            return work(*a, **kw)
+        return run
+
+    actions.save_song_list, actions.send_song_list = held(real_work[0]), held(real_work[1])
     app.root.after(300, path_dialog)
     answered("song-list-saved", "saved")
     button(app, w("game.songlist.save")).press()
@@ -1824,7 +1916,8 @@ def song_list_check(app, out, tag, problems):
         wait_out(app, 0.4)
         shot(app, out, "%s_dialog-send-song-list" % tag)
         problems.extend("%s_dialog-send-song-list: %s" % (tag, p) for p in dialog.layout_problems())
-        dialog.canvas.event_generate("<Return>")
+        # A question that replaces something starts on Cancel: its own key is clicked.
+        click_button(dialog, 1)
 
     app.root.after(300, ask_send)
     answered("song-list-not-sent", "not_sent")
@@ -1832,6 +1925,7 @@ def song_list_check(app, out, tag, problems):
     settle(app, 30)
     if seen.get("not_sent") != w("songlist.not_sent"):
         problems.append("%s: a send that could not reach the server was said as %r" % (tag, seen.get("not_sent")))
+    actions.save_song_list, actions.send_song_list = real_work
     app.state.mode, app.state.remote = "this_pc", None
     app.refresh_checks()
 
@@ -1995,7 +2089,7 @@ def installer_check(out, tag, problems):
         inst.dialog.canvas.event_generate("<Escape>")
         run_until(inst, 0.3)
     # This version installed: Uninstall beside Repair and Open, then the launcher's HELP choices (Cancel first, Keep
-    # data, Delete all), the work under way and the last word. Velopack's uninstall is a stand-in here that takes a
+    # data, Remove all), the work under way and the last word. Velopack's uninstall is a stand-in here that takes a
     # second and takes the installed version away (the Wine test remove.sh runs the real one).
     from opendmt3.client import leaving
     asked_for = []
@@ -2020,7 +2114,7 @@ def installer_check(out, tag, problems):
         problems.extend("%s_setup-uninstall-ask: %s" % (tag, p) for p in inst.dialog.layout_problems())
         choices_offered = [b[1] for b in inst.dialog.buttons]
         if choices_offered != ["cancel", "keep", "all"]:
-            problems.append("%s: the installer's Uninstall offers %r, not Cancel, Keep data and Delete all"
+            problems.append("%s: the installer's Uninstall offers %r, not Cancel, Remove and Remove all"
                             % (tag, choices_offered))
         inst.dialog.close("keep")
         run_until(inst, 0.5)
@@ -2032,7 +2126,7 @@ def installer_check(out, tag, problems):
         if inst.dialog.message != inst.words("setup.uninstalled") or installer.installed_version() is not None:
             problems.append("%s: the installer's Uninstall did not end uninstalled: %r" % (tag, inst.dialog.message))
         if asked_for != [(os.path.join(app, "Update.exe"), False)]:
-            problems.append("%s: the installer's Keep data started %r" % (tag, asked_for))
+            problems.append("%s: the installer's Remove started %r" % (tag, asked_for))
         inst.root.destroy()
     finally:
         leaving.start_uninstall = real_uninstall
@@ -2079,8 +2173,10 @@ def installer_check(out, tag, problems):
     run_until(inst, 0.6)
     shot(Shot(inst.root), out, "%s_setup-failed" % tag, root=inst.root)
     problems.extend("%s_setup-failed: %s" % (tag, p) for p in inst.dialog.layout_problems())
-    if "Not enough space" not in (inst.dialog.detail or ""):
-        problems.append("%s: the failure did not show Velopack's error: %r" % (tag, inst.dialog.detail))
+    # Velopack's known cause in the person's own words (the final review's D-05), never its English line under Korean.
+    if inst.words("setup.cause.space") not in (inst.dialog.detail or "") or \
+            (inst.words.language == "ko" and "Not enough space" in (inst.dialog.detail or "")):
+        problems.append("%s: the failure did not say Velopack's cause in its words: %r" % (tag, inst.dialog.detail))
     inst.root.destroy()
     # Velopack's setup missing (an antivirus took it): a failure with no log to open, and Close works.
     os.environ["OPENDMT3_VELOPACK_SETUP"] = os.path.join(home, "missing.exe")
@@ -2179,6 +2275,9 @@ def disc_check(app, out, tag, made, problems):
                                                              found.sentence(app.words)))
     if len(items) != len(EXPECTED):
         problems.append("%s: DISC CHECK lists %d paths, %d were made" % (tag, len(items), len(EXPECTED)))
+    if os.path.normcase(made["own"]) in items:
+        problems.append("%s: DISC CHECK lists openDMT3's own portable zip (%s)"
+                        % (tag, items[os.path.normcase(made["own"])].sentence(app.words)))
     for found in items.values():
         if found.kind == "archive" and found.songs is not None:
             # An archive the search found is said from its listing alone: counting its songs took files out of it.
@@ -2410,7 +2509,7 @@ def game_page_check(app, out, tag, problems):
         settle(app, 10)
         shot(app, out, "%s_game-none" % tag)
         measure(app, "%s_game-none" % tag, problems)
-        if app.status_text != w("status.choose_folder") or app.ready():
+        if app.status_text != w("status.choose_folder.here") or app.ready():
             problems.append("%s_game-none: with no folder the status says %r and PLAY is %s"
                             % (tag, app.status_text, "lit" if app.ready() else "off"))
     finally:
@@ -2454,8 +2553,11 @@ def play_states_check(app, out, tag, made, problems):
         measure(app, "%s_play-%s" % (tag, name), problems)
         return labels(app)
 
-    def held(name, said, *wanted, ready=False, status=None, absent=()):
-        """Each of `wanted` is a label on the page, none of `absent` is; PLAY is lit or not; the status line."""
+    def held(name, said, *wanted, ready=False, status=None, absent=(), tone=None):
+        """Each of `wanted` is a label on the page, none of `absent` is; PLAY is lit or not; the status line and its
+        tone."""
+        if tone is not None and app.status_tone != tone:
+            problems.append("%s_play-%s: the status line's tone is %r, not %r" % (tag, name, app.status_tone, tone))
         for words in wanted:
             if words not in said:
                 problems.append("%s_play-%s: the page does not say %r" % (tag, name, words))
@@ -2477,11 +2579,12 @@ def play_states_check(app, out, tag, made, problems):
         cabinet = w.error(g.GameError("The cabinet's client: does not work here, the PC client is needed.",
                                       "error.game.cabinet_client"))
         said = show("cabinet", os.path.join(desktop, "Venue cabinet", "game"))
-        held("cabinet", said, cabinet, w("play.go.game") + " \u203a", status=cabinet)
+        # The foot says it short and in the check's pink: the sentence is on the card above (A-05, A-06).
+        held("cabinet", said, cabinet, w("play.go.game") + " \u203a", status=w("status.fix_check"), tone="bad")
         # A copy without the file with the tutorial: what the game would do, and the one thing to do.
         said = show("no-tutorial", os.path.join(desktop, "Without tutorial", "game"))
         held("no-tutorial", said, w("intake.line.no_tutorial"), w("play.go.game") + " \u203a",
-             status=w("intake.line.no_tutorial"))
+             status=w("status.fix_check"), tone="bad")
         # A copy whose song list was cut short while it was copied: said with its reason, never a bare line.
         said = show("damaged", os.path.join(desktop, "Unfinished copy", "game"))
         held("damaged", said, w("play.go.game") + " \u203a")
@@ -2889,16 +2992,24 @@ def main():
     store.db.close()
     # ---- every page of the launcher
     from opendmt3.client.app import NAV
+    columns = {}
     for page in NAV:
         app.go(page)
         settle(app)
         name = "%s_%s" % (tag, page)
         shot(app, args.out, name)
         measure(app, name, problems)
+        columns[page] = control_columns(app)
         # Each drop-down on the page opened and measured (a list behind another box, or off the screen, fails).
         dropdowns_check(app, args.out, name, problems)
         if args.smallest:
             at_smallest(app, args.out, name, problems)
+    # The pages that stand together share one column for their settings' controls (the final review's B-17, C-08).
+    from opendmt3.client import pages as page_modules
+    for group in page_modules.common.GROUPS:
+        seen = {page: columns.get(page) for page in group if columns.get(page)}
+        if len(set(x for xs in seen.values() for x in xs)) > 1:
+            problems.append("%s: the controls start at different places on %s: %r" % (tag, "/".join(group), seen))
     # A choice that brings rows makes its own card only; a drop-down chosen by keys; a form's error under its field;
     # a week of the RECORDS chart chosen without a pointer.
     interactions_check(app, args.out, tag, problems)
@@ -2918,15 +3029,23 @@ def main():
     notice = [x for x in widgets_of(app.root) if x.winfo_class() == "Label" and x.cget("text") == app.words("about.notice")]
     if len(notice) != 1 or len(app.words("about.notice").split("\n")) != 2:
         problems.append("%s: the Launcher page does not show the two notice lines" % tag)
-    # ---- the PLAY page after a session with cleared stages (a long title wraps beside its score)
+    # ---- the PLAY page after a session with cleared stages (a long title wraps beside its score): six kept, three
+    #      listed, six where the window is tall (the final review's A-17)
     app.state.last_session = {"seconds": 754, "exit_code": 0, "dumps": 0, "crashed": False, "plays": [
         {"title": "An Extremely Long Made-up Song Title That Wraps Over Lines (Extended Mix)", "pattern": 3,
          "score": 987654},
-        {"title": "가나다라마바사아자차카타파하", "pattern": 1, "score": 4530}]}
+        {"title": "가나다라마바사아자차카타파하", "pattern": 1, "score": 4530}] + [
+        {"title": "Made-up Song %d" % n, "pattern": n % 4 + 1, "score": 100000 * n} for n in range(3, 7)]}
     app.go("play")
     settle(app)
     shot(app, args.out, tag + "_play-session")
     measure(app, tag + "_play-session", problems)
+    listed = [x for x in labels(app) if x.startswith("Made-up Song ") or x == "가나다라마바사아자차카타파하"
+              or x.startswith("An Extremely Long")]
+    wanted = 6 if app.root.winfo_height() >= app.ui.px(900) else 3
+    if len(listed) != wanted:
+        problems.append("%s_play-session: LAST GAME lists %d plays at %dx%d, not %d"
+                        % (tag, len(listed), app.root.winfo_width(), app.root.winfo_height(), wanted))
     if args.smallest:
         at_smallest(app, args.out, tag + "_play-session", problems)
     # ---- PLAY whole at the size the launcher opens at, and the check for hidden content tried on a made-up page
@@ -2997,6 +3116,13 @@ def main():
         settle(app)
         shot(app, args.out, tag + name)
         measure(app, tag + name, problems)
+        if mixer == "openal":
+            # The mixer that did not open is said on a line of its own with the amber lamp, not in the grey hint
+            # (the final review's B-07).
+            lines = [x for x in widgets_of(app.root) if isinstance(x, widgets.Said) and x.winfo_ismapped()
+                     and x.text == app.words("sound.mixer.fell_back")]
+            if not lines or lines[0].tone != "warn":
+                problems.append("%s%s: the mixer that fell back is not said on its own amber line" % (tag, name))
         if args.smallest:
             at_smallest(app, args.out, tag + name, problems)
     app.state.set_value("sound_path", "directsound")

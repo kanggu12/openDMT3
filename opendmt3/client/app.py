@@ -71,6 +71,37 @@ def break_long_words(font, text, width):
     return "\n".join(lines)
 
 
+# The last session's cleared stages kept for PLAY's LAST GAME card: it lists three, and more where the window is tall
+# (pages/play.py's plays_shown; the final review's A-17: at 1600 x 1000 the page used its top half).
+PLAYS_KEPT = 6
+
+# The status line's most lines at the column's foot: the menu above keeps the room for them whatever the line says, so it
+# never moves when a message comes or goes (the final review's A-01); a longer line ends in "…" (the log has it).
+STATUS_LINES = 3
+
+
+def clip_lines(font, text, width, most=STATUS_LINES):
+    """`text` wrapped at `width` pixels as Tk wraps it (at spaces; a long word already broken by break_long_words),
+    kept to `most` lines, the last one ending in "…" when there was more."""
+    lines = []
+    for paragraph in text.split("\n"):
+        line = ""
+        for word in paragraph.split(" "):
+            trial = (line + " " + word) if line else word
+            if line and font.measure(trial) > width:
+                lines.append(line)
+                line = word
+            else:
+                line = trial
+        lines.append(line)
+    if len(lines) <= most:
+        return "\n".join(lines)
+    last = lines[most - 1]
+    while last and font.measure(last + "…") > width:
+        last = last[:-1]
+    return "\n".join(lines[:most - 1] + [last.rstrip() + "…"])
+
+
 class LauncherApp:
     """The whole launcher: owns the Tk root, the remembered state and the game session."""
 
@@ -108,6 +139,7 @@ class LauncherApp:
         self.guide = None                     # the first-start guide, while it is on show
         self.server_open = None               # the server whose folded card Change opened (ONLINE's sign-in line)
         self.admin_opening = False            # ONLINE's Admin pages under way (one opening at a time)
+        self.reached = None                   # the other server answered the last time (None: not asked yet)
         self.main_buttons = []                # the page's main buttons (pages.main_button), lit while PLAY is not
         self.folder_look = None               # what the folder in use is (client/intake.py), for the Game page
         self.game_list = None                 # the Game page's list of folders to change to, while it is open
@@ -198,6 +230,8 @@ class LauncherApp:
         self.status_label = tk.Label(status, text="", font=self.fonts.small, fg=theme.MUTED, bg=theme.BAR,
                                      justify="left", anchor="w", wraplength=wrap, padx=0, pady=0, bd=0)
         self.status_label.pack(side="left", fill="x", expand=True, padx=(px(8), 0))
+        # The column keeps the room for the line's most lines over it (widgets.Rail.fit), whatever it says now.
+        foot.opendmt3_status = (self.status_label, STATUS_LINES * self.fonts.small.metrics("linespace"))
         # A report for whoever helps, a quiet link under the line, its words in the line's own column after the lamp
         # (its keyboard ring's width in from there); the HELP page's Tools has it too, with its hint.
         under = tk.Frame(foot, bg=theme.BAR)
@@ -325,7 +359,7 @@ class LauncherApp:
         if self.busy or (self.session is not None and self.session.running()):
             return
         if not self.ready():
-            self.set_status(self.why_not_ready(), "warn")
+            self.set_status(self.why_not_ready(), self.not_ready_tone())
             self._paint_play()
             return
         self.busy = True
@@ -344,6 +378,9 @@ class LauncherApp:
             try:
                 # Asked for here, off the window's thread: another server is asked for the card at every PLAY.
                 card = actions.card_for(self.state, self.host)
+                if self.state.mode == "server":
+                    # The server answered with the card: NET is lit for what it knows now.
+                    self.post(lambda: self.server_reached(True))
                 session = actions.play(self.state, report=lambda step: self.post(lambda: at(step)),
                                        host=self.host, card=card)
                 self.post(lambda: self._started(session))
@@ -359,14 +396,23 @@ class LauncherApp:
 
     def why_not_ready(self):
         """Why PLAY cannot go, as the status line says it: no folder chosen yet, or the first line of the ready check
-        that stops it, in its own words (never a pointer to another part of the window)."""
+        that stops it, in its own words (never a pointer to another part of the window, nor to the page one is on).
+        On PLAY, where the check is on screen, a failure is not said twice: the short form points at it."""
         if not self.state.game_folder:
-            return self.words("status.choose_folder")
+            return self.words("status.choose_folder.here" if self.page == "game" else "status.choose_folder")
         stopping = actions.blocking(self.checks or [])
         if stopping and stopping[0].key == "remote" and self.page == "online":
             # On the page where the sign-in is: what is missing, never a pointer to the page one is on.
             return self.words("status.sign_in")
+        if stopping and self.page == "play" and actions.failing(stopping[0]):
+            return self.words("status.fix_check")
         return actions.why_not(stopping[0], self.words) if stopping else self.words("status.choose_folder")
+
+    def not_ready_tone(self):
+        """The foot's tone for a PLAY that cannot go: the check line's (pink for what went wrong, amber for what is
+        still to do), so one failure has one colour on the screen."""
+        stopping = actions.blocking(self.checks or [])
+        return "bad" if stopping and actions.failing(stopping[0]) else "warn"
 
     def _step_name(self, step):
         from opendmt3.client import getting_ready
@@ -457,7 +503,7 @@ class LauncherApp:
                     accounts, records = self.host.accounts(), self.host.records()
                     try:
                         row = accounts.by_login(state.player)
-                        rows = records.recent(row["id"], 3, since=since) if row else []
+                        rows = records.recent(row["id"], PLAYS_KEPT, since=since) if row else []
                     finally:
                         accounts.db.close()
                         records.db.close()
@@ -466,7 +512,8 @@ class LauncherApp:
                              for r in rows]
                 elif state.mode == "server" and state.remote and state.remote.get("token"):
                     from opendmt3.client import remote
-                    plays = [p for p in remote.plays(state.server_url, state.remote["token"]) if p["at"] >= since][:3]
+                    plays = [p for p in remote.plays(state.server_url, state.remote["token"])
+                             if p["at"] >= since][:PLAYS_KEPT]
             except Exception as e:  # noqa: BLE001  (the session's line still shows without its plays)
                 log.exception("could not read the session's plays")
                 if getattr(e, "code", None) == "sign_in":
@@ -565,14 +612,20 @@ class LauncherApp:
 
     def player_changed(self):
         """Who plays changed on ONLINE's Players card (picked, added, deleted): the cabinet's lamps and the ready
-        check follow at once, not at the next line of the status."""
+        check follow at once, not at the next line of the status, and an earlier failure leaves the foot."""
         self._paint_cabinet_lamps()
+        if self.status_tone == "bad":
+            self.status_tone = "normal"
         self.refresh_checks()
 
     def _failed(self, error):
         self._ready_shown()
         self.busy = False
         self.set_status(self.words("status.error", error=self.words.error(error)), "bad")
+        if actions.unreachable(error):
+            # The server did not answer: NET goes out and the check says it (refresh_checks follows).
+            self.reached = False
+            self._paint_cabinet_lamps()
         self.refresh_checks()
 
     def _signed_out(self):
@@ -618,7 +671,8 @@ class LauncherApp:
     def go(self, page):
         """Show a page: its name lit in the menu, its head (title and line) and its cards."""
         from opendmt3.client import pages
-        if page != self.page:
+        moved = page != self.page
+        if moved:
             # The server's card opened by Change on ONLINE folds again once the page is left.
             self.server_open = None
         self.page = page
@@ -631,17 +685,50 @@ class LauncherApp:
             child.destroy()
         content = tk.Frame(self.body.inner, bg=theme.BG)
         content.pack(fill="both", expand=True, padx=self.ui.px(32), pady=(self.ui.px(4), self.ui.px(FOOT)))
+        if moved and self.status_tone in ("ok", "bad"):
+            # Another page: an earlier action's result (done, or failed) leaves the foot, which says how PLAY stands
+            # (the final review's B-15, C-12); a line about how things stand stays, and the page may say its own.
+            self._status_from_checks()
         pages.BUILDERS[page](self, content)
         # One column for the names of the page's settings, as wide as the widest in either language and of the rows a
         # choice brings, so the controls stand on one line as rows come and go (OpenDMTQ's pages do the same).
-        widgets.fit_names(content, self.ui, pages.rows_that_come(page))
+        widgets.fit_names(content, self.ui, pages.rows_that_come(page) + pages.group_names(page))
         self.body.to_top()
         # The page's head in the same turn as the page: the stage is kept from the last head at this size
         # (art.stage_ground).
         self._queue_header(now=True)
         # The status line's sign-in sentence says it as this page needs it (ONLINE is where the sign-in is).
         if self.status_text in (self.words("status.sign_in_first"), self.words("status.sign_in")):
+            self.set_status(self.why_not_ready(), self.not_ready_tone())
+
+    def go_to_setting(self, page, name):
+        """Show `page` with its setting row called `name` in view and the keyboard on its control (HELP's lines lead
+        to the setting they name)."""
+        self.go(page)
+        self.root.update_idletasks()
+        found, rows = [self.body.inner], []
+        while found:
+            widget = found.pop(0)
+            if name in getattr(widget, "opendmt3_names", ()):
+                rows.append(widget)
+            found.extend(widget.winfo_children())
+        if rows:
+            self.body.show(rows[0], self.ui.px(14))
+            control = getattr(rows[0], "control", None)
+            if control is not None and str(control.cget("takefocus")) not in ("", "0"):
+                control.focus_set()
+
+    def _status_from_checks(self):
+        """The foot as the ready check stands now, an earlier action's result gone (not while PLAY works or the game
+        runs, nor over a line that must stay)."""
+        if self.busy or (self.session and self.session.running()) or self.status_sticky or self.checks is None:
+            return
+        if not self.state.game_folder:
             self.set_status(self.why_not_ready(), "warn")
+        elif not self.ready():
+            self.set_status(self.why_not_ready(), self.not_ready_tone())
+        else:
+            self.set_status(self.words("status.ready"), "ready")
 
     def redraw(self, page):
         """The page on show drawn again for a choice that adds or takes rows, or an answer that came: where it was
@@ -712,13 +799,34 @@ class LauncherApp:
         self.collector.tick()
         self.root.after(50, self._pump)
 
+    def _database_problem(self):
+        """The error when this PC's players' database cannot be opened (playing on this PC), else None: the check, the
+        foot and ONLINE's forms follow it."""
+        if self.state.mode != "this_pc":
+            return None
+        try:
+            store = self.players()
+        except hosting.HostingError as e:
+            return e
+        store.db.close()
+        return None
+
+    def server_reached(self, reached):
+        """Whether the other server answered the last time it was asked (a sign-in, PLAY's card, RECORDS, the
+        connection test): the NET lamp, the ready check and PLAY follow what the launcher knows, at once."""
+        if reached == self.reached:
+            return
+        self.reached = reached
+        self._paint_cabinet_lamps()
+        self.refresh_checks()
+
     def refresh_checks(self):
         """Make the ready check again on a worker thread; the PLAY page and button follow it."""
         self.checks = None
 
         def work():
             try:
-                checks = actions.readiness(self.state)
+                checks = actions.readiness(self.state, reached=self.reached, database=self._database_problem())
             except Exception as e:  # noqa: BLE001
                 log.exception("ready check failed")
                 # Said under the line in its own words (the player's language when the error has them).
@@ -731,9 +839,9 @@ class LauncherApp:
         self.checks = checks
         if not self.busy and not (self.session and self.session.running()):
             if not self.state.game_folder:
-                self.set_status(self.words("status.choose_folder"), "warn")
+                self.set_status(self.why_not_ready(), self.not_ready_tone())
             elif not self.ready():
-                self.set_status(self.why_not_ready(), "warn")
+                self.set_status(self.why_not_ready(), self.not_ready_tone())
             elif self.status_tone not in ("ok", "bad") and not self.status_sticky:
                 self.set_status(self.words("status.ready"), "ready")
         self._paint_play()
@@ -780,8 +888,10 @@ class LauncherApp:
                   "bad": theme.PINK}[self.status_tone]
         self.status_lamp.show(colour, lit="quiet" if self.status_tone == "normal" else True)
         self._paint_cabinet_lamps()
-        # Tk wraps only at spaces: a word wider than the column's line (an address, a path) is broken in it first.
-        shown = break_long_words(self.fonts.small, self.status_text, int(str(self.status_label.cget("wraplength"))))
+        # Tk wraps only at spaces: a word wider than the column's line (an address, a path) is broken in it first; then
+        # the line keeps to its three lines (the menu above keeps their room: widgets.Rail.fit).
+        wrap = int(str(self.status_label.cget("wraplength")))
+        shown = clip_lines(self.fonts.small, break_long_words(self.fonts.small, self.status_text, wrap), wrap)
         # The words in the hints' ink while there is nothing to report (ready is the usual state, its lamp says it).
         self.status_label.configure(text=shown, fg=theme.MUTED if self.status_tone in ("normal", "ready") else theme.TEXT)
 
@@ -791,7 +901,8 @@ class LauncherApp:
         state = self.state
         if state.mode == "server":
             signed = bool(state.remote and state.remote.get("card"))
-            return {"net": signed, "card": signed}
+            # NET only while the server answered the last time it was asked (or has not been asked since).
+            return {"net": signed and self.reached is not False, "card": signed}
         if state.mode == "this_pc":
             return {"net": bool(getattr(self, "host", None) and self.host.running), "card": bool(state.player)}
         return {"net": False, "card": False}
@@ -853,7 +964,10 @@ class LauncherApp:
             target = os.path.expanduser("~")
         try:
             path = report.make(self.state, target)
-            self.set_status(self.words("help.report.done", path=path), "ok")
+            # The file's name in the narrow foot (a whole path wrapped in the middle of a name: the final review's
+            # C-12); the log has the whole path.
+            log.info("the report is %s", path)
+            self.set_status(self.words("help.report.done", path=os.path.basename(path)), "ok")
         except OSError as e:
             # The system's reason as words (errors.say), never Python's "[Errno 28] ..." form.
             log.warning("the report could not be saved", exc_info=True)

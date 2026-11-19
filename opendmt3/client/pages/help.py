@@ -13,7 +13,7 @@ log = logging.getLogger("opendmt3.launcher")
 # How long Uninstall's last step stays, to be read, before the window closes (as the installer's last one).
 LAST_STEP_MS = 2200
 
-from opendmt3.client.pages.common import TITLES, card
+from opendmt3.client.pages.common import card
 from opendmt3.client.pages.play import refresh_checks
 
 
@@ -29,18 +29,24 @@ def build_help(app, parent):
     app.check_box.pack(fill="x")
     refresh_checks(app)
     crash = card(parent, ui, w("help.crash"))
-    for i, (key, page) in enumerate((("help.crash.1", "screen"), ("help.crash.2", "screen"), ("help.crash.3", None))):
+    lines = (("help.crash.1", "screen", "screen.mode"), ("help.crash.2", "screen", "screen.videos"),
+             ("help.crash.3", None, None))
+    for i, (key, page, setting) in enumerate(lines):
         if i:
             widgets.divider(crash.body, ui, pady=8)
         line = tk.Frame(crash.body, bg=theme.PANEL)
         line.pack(fill="x")
         beside = ()
+        said = widgets.label(line, ui, w(key))
+        said.pack(side="left")
         if page:
-            # The page the line names, by the menu's own name, reached by the mouse or the keyboard.
-            to = widgets.link(line, ui, TITLES[page], lambda p=page: app.go(p))
-            to.pack(side="right", anchor="n")
+            # The setting the line names, by its own name on its page, right after the sentence (the final review's
+            # C-09: a page's name at the card's far end said nothing of what it does); it opens the page on it.
+            to = widgets.link(line, ui, w(key + ".go"), lambda p=page, s=setting: app.go_to_setting(p, w(s)))
+            to.pack(side="left", anchor="n", padx=(ui.px(8), 0))
             beside = (to,)
-        widgets.label(line, ui, w(key), wrap_margin=12, beside=beside).pack(side="left", fill="x")
+        # The sentence wraps at the card's width less its link's.
+        widgets.follow_width(ui, said, margin=12, beside=beside)
     tools = card(parent, ui, w("help.tools"))
     # Each row is named by what it is about, its button by what it does (never the same words twice on a line).
     widgets.setting_row(tools.body, ui, w("help.report"),

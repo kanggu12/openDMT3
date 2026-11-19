@@ -196,6 +196,8 @@ def _server_card(app, parent, rerender, connected, test_link, changing=False):
     def connected_to(base, found):
         actions.use_server(app.state, base, found)
         app.state.save()
+        # It answered: NET follows what the launcher knows now.
+        app.server_reached(True)
         # Connected: the server's card folds into the sign-in's line again.
         app.server_open = None
         app.refresh_checks()
@@ -355,6 +357,9 @@ def _sign_in_form(app, parent, remembered, rerender, test_link, banned, change=N
         form.busy(False)
         remember.enable(True)
         key, code = getattr(error, "key", None), getattr(error, "code", None)
+        if actions.unreachable(error):
+            # The server did not answer: NET goes out and the ready check says it.
+            app.server_reached(False)
         password = form.fields["online.password"]
         if code == "banned":
             # The right password of a banned account: the plate with the owner's reason, in place of the form.
@@ -382,6 +387,7 @@ def _sign_in_form(app, parent, remembered, rerender, test_link, banned, change=N
         form.into_view()
 
     def signed_in(me, login_id):
+        app.server_reached(True)
         asking["now"] = False
         actions.signed_in(app.state, me)
         # Remember my ID: kept for the next sign-in on this PC, or forgotten.
@@ -503,6 +509,15 @@ TEST_LAMPS = {"waiting": (theme.MUTED, "quiet"), "not_run": (theme.FAINT, "quiet
 SLOW_MS = 500
 
 
+def _same_server(typed, server_url):
+    """True when the address typed for the test is the server the launcher is connected to."""
+    from opendmt3.client import remote
+    try:
+        return remote.normalize(typed.strip()) == server_url
+    except Exception:  # noqa: BLE001  (an address that does not read is no server of this launcher's)
+        return False
+
+
 def test_card(app, parent, typed, rerender=None):
     """The connection test's card (client/server_test.py), the page's last: its four steps one under another, each
     with its lamp, its name, what it found and its time, and under a failed one what to do; the outcome under them
@@ -562,8 +577,9 @@ def test_card(app, parent, typed, rerender=None):
             said = (w("server_test.failed", step=w("server_test." + failed[0].key + ".in")) if failed
                     else w("server_test.passed"))
             colour = theme.PINK if failed else theme.NET
-            # The whole result as text, for a message to the server's owner.
-            widgets.link(foot, ui, w("server_test.copy"), copy, fg=theme.MUTED, chevron=False).pack(side="right")
+            # The whole result as text, for a message to the server's owner: a key, as every action on a card is (the
+            # final review's B-13: grey words read as a caption).
+            widgets.Button(foot, ui, w("server_test.copy"), copy).pack(side="right", anchor="n")
         widgets.label(foot, ui, said, fg=colour, wrap_margin=0).pack(side="left", fill="x", expand=True)
 
     def copy():
@@ -606,6 +622,22 @@ def test_card(app, parent, typed, rerender=None):
         draw()
         gone = [s for s in steps if s.key == "sign_in" and s.state == "failed" and s.said
                 and s.said[0] == "server_test.sign_in.gone"]
+        site = [s for s in steps if s.key == "site"]
+        tested_here = bool(app.state.server_url) and _same_server(typed(), app.state.server_url)
+        if not running and site and tested_here:
+            # What the test learned about the server it is connected to: whether it answers (NET and the ready check
+            # follow), and the version it answers with (the server's card shows it, not the one Connect saw).
+            said = site[0].said or ("", {})
+            if site[0].state == server_test.OK:
+                version = said[1].get("version")
+                if version and (app.state.remote or {}).get("version") != version:
+                    app.state.remote = dict(app.state.remote or {}, version=version)
+                    app.state.save()
+                    if rerender is not None and not gone:
+                        app.root.after_idle(rerender)
+                app.server_reached(True)
+            elif said[0] == "server_test.site.none":
+                app.server_reached(False)
         if not running and gone and app.token_refused() and rerender is not None:
             # The server no longer takes the sign-in: forgotten (app.token_refused), and the sign-in card gives way to
             # its form, the ID kept; the test's card shows its result again under it.
@@ -686,6 +718,9 @@ def build_online(app, parent):
             _player_line(app, players.body, r, lambda: sections.redo("players"))
 
     def add_card(holder):
+        if app._database_problem() is not None:
+            # The players cannot be read (said on the Players card): no form offered that could not work.
+            return
         add = card(holder, ui, w("online.add"))
 
         def added(login_id):
@@ -713,7 +748,9 @@ def _player_line(app, parent, r, changed):
     line.pack(fill="x")
     on = r["login_id"] == app.state.player
     # The player who goes in at PLAY has the lit lamp.
-    widgets.Lamp(line, ui, ui.section["accent"] if on else theme.MUTED, lit=on).pack(side="left")
+    # The player who goes in at PLAY has the lit lamp, in the NET green of every "this one, fine" lamp (the section's
+    # pink reads as a problem on this page).
+    widgets.Lamp(line, ui, theme.NET if on else theme.MUTED, lit=on).pack(side="left")
     tk.Label(line, text=r["dj_name"], font=ui.fonts.body_bold, fg=theme.TEXT, bg=theme.PANEL).pack(
         side="left", padx=(ui.px(10), ui.px(8)))
     tk.Label(line, text=r["login_id"], font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(side="left")

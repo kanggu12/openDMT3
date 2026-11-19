@@ -386,14 +386,14 @@ game then starts the way it did before openDMT3. It takes only paths inside the 
 **Help**, **Repair** compares the program's own files with the package the installer left in
 `%LocalAppData%\openDMT3\packages\` and puts back any that are missing or changed (a cleaner or an antivirus took one,
 a disk fault changed one), with no download. A file of the running launcher is moved aside and replaced; the launcher
-then says to open it again. Settings, players, records and the client data are not touched.
+then starts again with its one key, **Restart the launcher**. Settings, players, records and the client data are not touched.
 
 ## Removing openDMT3
 
 **Help**, **Uninstall** asks first, with two ways on:
 
-- **Keep data**: settings, players and records stay on this PC, so a later install picks up where you left off;
-- **Delete all**: they go too, with openDMT3's own folder for playing (`%AppData%\openDMT3\game`: the client copy
+- **Remove**: settings, players and records stay on this PC, so a later install picks up where you left off;
+- **Remove all**: they go too, with openDMT3's own folder for playing (`%AppData%\openDMT3\game`: the client copy
   PLAY made, its card and settings); the question says how much.
 
 Either way it:
@@ -458,7 +458,7 @@ not know is said, with the list of the ones it does.
 | `--put-back [--yes]` | Puts back every game file an older openDMT3 changed in the folder in use (`--restore` is the same) |
 | `--update [--yes]` | Looks for a newer launcher and installs it (only one signed by the openDMT3 project) |
 | `--repair` | Puts back the program's files that are missing or changed, as **Help**, **Repair** does |
-| `--uninstall [--delete-data] [--yes]` | Puts the game's files back and uninstalls openDMT3, as **Help**, **Uninstall** does; `--delete-data` deletes settings, players and records too (**Delete all**) |
+| `--uninstall [--delete-data] [--yes]` | Puts the game's files back and uninstalls openDMT3, as **Help**, **Uninstall** does; `--delete-data` deletes settings, players and records too (**Remove all**) |
 | `--records [--no-browser]` | Opens the chosen player's records on this PC's site (until Ctrl+C) |
 | `--records --text` | Prints the Records page instead |
 | `--lan on` / `--lan off` | Opens this PC's server to the other PCs on your network, or not |

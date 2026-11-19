@@ -23,10 +23,40 @@ ROWS_THAT_COME = {
 }
 
 
+# The pages that stand together in the menu share one column for their settings' names, as wide as the widest name of
+# any of them in either language: the controls start on one line from page to page, never jumping sideways (the final
+# review's B-17, C-08). By their names' keys (tests/e2e/ui/shots.py checks that the controls line up).
+GROUPS = (("screen", "sound", "controls", "game"), ("about", "help"))
+GROUP_NAMES = {
+    "screen": ("screen.mode", "screen.size", "screen.vsync", "screen.pacing", "screen.motion", "screen.fps",
+               "screen.fps.position", "screen.shape", "screen.render", "screen.upscale", "screen.sharpness",
+               "screen.antialiasing", "screen.glow", "screen.videos", "screen.preload", "screen.pass_times",
+               "screen.flip"),
+    "sound": ("sound.master", "sound.music", "sound.keys", "sound.eq_60", "sound.eq_250", "sound.eq_1k", "sound.eq_4k",
+              "sound.eq_12k", "sound.device", "sound.mixer", "sound.low_latency", "sound.offset"),
+    "controls": ("controls.input",),
+    "game": ("game.freeplay", "game.unlock"),
+    "about": ("about.shortcut", "about.autostart", "about.language", "about.guide.row"),
+    "help": ("help.report", "help.logs", "help.repair.row", "help.restore", "help.uninstall.row"),
+}
+
+
 def rows_that_come(page):
     """The names of ROWS_THAT_COME[page] in both languages, for widgets.fit_names."""
     from opendmt3.client import i18n
     return [words for key in ROWS_THAT_COME.get(page, ()) for words in i18n.TEXT[key] if words]
+
+
+def group_names(page):
+    """The settings' names of every page in `page`'s group (GROUPS) in both languages, for widgets.fit_names: one
+    column for them all. LAUNCHER's version row too, with the version this launcher shows."""
+    from opendmt3.client import i18n, updates
+    group = next((pages for pages in GROUPS if page in pages), ())
+    names = [words for member in group for key in GROUP_NAMES.get(member, ()) for words in i18n.TEXT[key] if words]
+    if "about" in group:
+        version = updates.shown_version()
+        names += [words.format(v=version) for words in i18n.TEXT["about.version"] if words]
+    return names
 
 
 def card(parent, ui, title=None, last=False):
@@ -133,7 +163,7 @@ def database_trouble(app, parent, error, bg=None):
     ui, w = app.ui, app.words
     # On the card or the page it is said on.
     bg = bg or parent.cget("bg")
-    widgets.label(parent, ui, w.error(error), fg=theme.PINK, bg=bg, wrap_margin=0).pack(fill="x")
+    widgets.label(parent, ui, w.error(error), fg=theme.BAD_INK, bg=bg, wrap_margin=0).pack(fill="x")
     if getattr(error, "key", None) != "error.host.db.newer":
         # A database from a newer openDMT3 is whole: its own line says what to do, and no backup is put back.
         widgets.label(parent, ui, w("db.broken.hint"), font=ui.fonts.small, fg=theme.MUTED, bg=bg,

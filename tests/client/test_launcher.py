@@ -409,6 +409,46 @@ class LauncherTest(FolderCase):
         checks = actions.readiness(self.state)
         self.assertEqual([(c.key, c.ok) for c in checks], [("folder", False)])
 
+    def test_a_server_that_did_not_answer_stops_play_and_says_so(self):
+        # The final review's A-02, B-04: the foot said the server could not be reached while the check was all green
+        # and PLAY bright. What the window learned (reached) is what the check says.
+        from opendmt3.client import i18n
+        self.state.mode, self.state.server_url = "server", "http://192.0.2.1:4730"
+        self.state.remote = {"game": "192.0.2.1:4725", "card": "1" * 20, "dj_name": "NOVA", "token": "t"}
+        self.assertTrue(actions.can_play(actions.readiness(self.state)))
+        checks = actions.readiness(self.state, reached=False)
+        stop = actions.blocking(checks)[0]
+        self.assertEqual((stop.key, stop.ok, stop.line[0]), ("server", False, "check.server.down"))
+        self.assertTrue(actions.failing(stop))
+        self.assertFalse(actions.can_play(checks))
+        self.assertEqual(i18n.plain(actions.why_not(stop, i18n.Words("en"))), "Cannot reach http://192.0.2.1:4730.")
+        # Answered again: as it was.
+        self.assertTrue(actions.can_play(actions.readiness(self.state, reached=True)))
+
+    def test_another_server_with_no_address_asks_to_connect_first(self):
+        # A-08, B-16: no green "server address" line and no sign-in before there is a server to sign in to.
+        from opendmt3.client import i18n
+        self.state.mode, self.state.server_url, self.state.remote = "server", None, None
+        checks = {c.key: c for c in actions.readiness(self.state)}
+        self.assertNotIn("step:server address", checks)
+        self.assertNotIn("remote", checks)
+        self.assertEqual((checks["server"].ok, checks["server"].line[0]), (False, "check.server.none"))
+        self.assertEqual(actions.why_not(checks["server"], i18n.Words("en")), "Connect to a server first.")
+
+    def test_a_damaged_database_stops_play_on_this_pc(self):
+        # B-05: PLAY stayed bright and the foot green while this PC's players could not be read.
+        from opendmt3.client import hosting
+        error = hosting.HostingError("the server's database cannot be opened", "error.host.db")
+        self.state.mode = "this_pc"
+        checks = actions.readiness(self.state, database=error)
+        stop = actions.blocking(checks)[0]
+        self.assertEqual((stop.key, stop.ok), ("database", False))
+        self.assertTrue(actions.failing(stop))
+        self.assertFalse(actions.can_play(checks))
+        # Offline needs no players' database.
+        self.state.mode = "offline"
+        self.assertTrue(actions.can_play(actions.readiness(self.state, database=error)))
+
     def test_a_line_that_stops_play_says_why_in_the_players_language_and_where_to_fix_it(self):
         from opendmt3.client import i18n
         en, ko = i18n.Words("en"), i18n.Words("ko")
@@ -456,7 +496,7 @@ class LauncherTest(FolderCase):
         self.assertFalse(actions.can_play(checks))
         # The card's own sentence in the player's language, never the reader's ("shorter than an archive's header").
         self.assertEqual(stop.error.key, "error.game.damaged.songs")
-        self.assertEqual(actions.why_not(stop, i18n.Words("ko")),
+        self.assertEqual(i18n.plain(actions.why_not(stop, i18n.Words("ko"))),
                          "곡 목록이 든 파일이 손상됐습니다. 클라이언트 데이터를 다시 복사하거나 압축 파일을 다시 푸세요.")
         self.assertNotIn("header", actions.why_not(stop, i18n.Words("en")))
         # PLAY itself says the same when it is pressed all the same (the command line's --play).
@@ -1011,7 +1051,7 @@ class LauncherTest(FolderCase):
         self.state.mode, self.state.player = "this_pc", None
         with self.assertRaises(g.GameError) as e:
             actions.records_link(self.state, host)
-        self.assertEqual(i18n.Words("ko").error(e.exception), "먼저 플레이할 사람을 고르세요. 손님은 기록 페이지가 없습니다.")
+        self.assertEqual(i18n.plain(i18n.Words("ko").error(e.exception)), "먼저 플레이할 사람을 고르세요. 손님은 기록 페이지가 없습니다.")
         self.assertIsNone(host.thread)
 
     # Every library this PC's site needs (python-multipart too): without one the site is not built at all.
@@ -1099,7 +1139,8 @@ class LauncherTest(FolderCase):
         # silence. The window's words (both languages) and the command line's say it, and only that once.
         from opendmt3.client import cli, i18n
         self.assertEqual(i18n.Words("en")("online.admin.made", login_id="NOVA"), "NOVA is now this server's admin.")
-        self.assertEqual(i18n.Words("ko")("online.admin.made", login_id="NOVA"), "이제 NOVA 계정이 이 서버의 관리자입니다.")
+        self.assertEqual(i18n.plain(i18n.Words("ko")("online.admin.made", login_id="NOVA")),
+                         "이제 NOVA 계정이 이 서버의 관리자입니다.")
 
         class Host:
             admin_url = "http://127.0.0.1:4731/"
@@ -1181,7 +1222,7 @@ class LauncherTest(FolderCase):
             with self.assertRaises(g.GameError) as e:
                 actions.records(self.state, host)
             self.assertEqual(e.exception.key, key)
-            self.assertTrue(i18n.Words("ko").error(e.exception))
+            self.assertTrue(i18n.plain(i18n.Words("ko").error(e.exception)))
         # Another server older than the Records page: its /me has no player number.
         self.state.mode, self.state.server_url, self.state.remote = "server", "http://192.0.2.1:4730", {"token": "t"}
         with mock.patch.object(remote, "me", return_value={"login_id": "NOVA"}):
@@ -1444,7 +1485,7 @@ class LauncherTest(FolderCase):
             self.assertEqual(os.listdir(outside), ["mine.txt"])
 
     def test_delete_all_knows_every_file_the_server_makes(self):
-        # Each name the server's code gives a file in its data folder (a *FILE constant) is one Delete all takes: a new
+        # Each name the server's code gives a file in its data folder (a *FILE constant) is one Remove all takes: a new
         # one is never left behind, as catalog-read.json and catalog.log once were.
         import glob
         import re
@@ -1524,7 +1565,7 @@ class LauncherTest(FolderCase):
             with self.assertRaises(remote.RemoteError) as e:
                 actions.card_for(self.state)
         # What to do, never the system's own reason ("[Errno 101] Network is unreachable" is for the log).
-        self.assertEqual(i18n.Words("ko").error(e.exception),
+        self.assertEqual(i18n.plain(i18n.Words("ko").error(e.exception)),
                          "http://192.0.2.1:4730에 연결할 수 없습니다. 주소와 네트워크를 확인하세요.")
         # A sign-in the server no longer takes still sends the player to sign in again.
         with mock.patch.object(remote, "me", side_effect=remote.RemoteError("sign in first", "sign_in")):
@@ -1556,7 +1597,7 @@ class LauncherTest(FolderCase):
         from opendmt3.client import i18n, shortcuts
         with self.assertRaises(g.GameError) as e:
             shortcuts.launcher_exe()
-        self.assertEqual(i18n.Words("ko").error(e.exception), "설치한 런처(Windows)에서만 만들 수 있습니다.")
+        self.assertEqual(i18n.plain(i18n.Words("ko").error(e.exception)), "설치한 런처(Windows)에서만 만들 수 있습니다.")
 
     def test_the_desktop_shortcut_is_made_by_windows_itself(self):
         from opendmt3.client import shortcuts
@@ -1639,8 +1680,9 @@ class LauncherTest(FolderCase):
         kind, title, message, detail = shown[0][:4]
         # What is so, then why in the player's language (the folder's own line, not the code's English), and the way
         # into the launcher.
-        self.assertEqual((kind, title, message), ("warn", "플레이", "아직 게임을 시작할 수 없습니다."))
-        self.assertIn("아래에 클라이언트 데이터(게임의 PC 클라이언트와 게임 파일)가 없습니다.", detail)
+        from opendmt3.client import i18n
+        self.assertEqual((kind, title, i18n.plain(message)), ("warn", "플레이", "아직 게임을 시작할 수 없습니다."))
+        self.assertIn("아래에 클라이언트 데이터(게임의 PC 클라이언트와 게임 파일)가 없습니다.", i18n.plain(detail))
         self.assertNotIn("no client data", detail)
         self.assertTrue(detail.endswith("런처를 열어 확인하세요."))
         self.assertEqual([b[1] for b in shown[0][4]], ["close", "open"])

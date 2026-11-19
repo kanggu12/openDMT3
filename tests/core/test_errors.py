@@ -107,7 +107,8 @@ class WordsOfErrorsTest(unittest.TestCase):
         error = caught.exception
         # The sentence itself, starting with a capital and ending with a full stop in a window.
         self.assertEqual(i18n.Words("en").error(error), "An ID is 1 to 8 letters or digits (what the game's keypad can type).")
-        self.assertEqual(i18n.Words("ko").error(error), "ID는 영문자와 숫자로 1~8자입니다(게임 키패드로 입력할 수 있는 글자).")
+        self.assertEqual(i18n.plain(i18n.Words("ko").error(error)),
+                         "ID는 영문자와 숫자로 1~8자입니다(게임 키패드로 입력할 수 있는 글자).")
 
     def test_a_game_folder_error_keeps_its_values(self):
         empty = tempfile.mkdtemp()
@@ -116,7 +117,7 @@ class WordsOfErrorsTest(unittest.TestCase):
                 g.Game.find(empty)
         finally:
             os.rmdir(empty)
-        said = i18n.Words("ko").error(caught.exception)
+        said = i18n.plain(i18n.Words("ko").error(caught.exception))
         self.assertTrue(said.startswith(empty + " 아래에 클라이언트 데이터"), said)
         # The folder ends the English sentence: no full stop that would read as part of the path.
         self.assertEqual(i18n.Words("en").error(caught.exception), "N" + str(caught.exception)[1:])
@@ -124,7 +125,8 @@ class WordsOfErrorsTest(unittest.TestCase):
     def test_an_address_error_quotes_what_was_typed(self):
         with self.assertRaises(remote.RemoteError) as caught:
             remote.normalize("host:99999")
-        self.assertEqual(i18n.Words("ko").error(caught.exception), "주소로 읽을 수 없습니다: 'host:99999'")
+        self.assertEqual(i18n.plain(i18n.Words("ko").error(caught.exception)),
+                         "주소로 읽을 수 없습니다: 'host:99999'")
 
     def test_a_sentence_starts_with_a_capital_but_not_an_address_or_the_name(self):
         self.assertEqual(errors.sentence("cannot reach it"), "Cannot reach it")
@@ -153,9 +155,9 @@ class WordsOfErrorsTest(unittest.TestCase):
 
     def test_a_server_code_has_the_launchers_words_and_an_unknown_one_its_sentence(self):
         wrong = remote.RemoteError("that ID and password do not match an account", "wrong_sign_in")
-        self.assertEqual(i18n.Words("ko").error(wrong), "ID 또는 비밀번호가 맞지 않습니다.")
+        self.assertEqual(i18n.plain(i18n.Words("ko").error(wrong)), "ID 또는 비밀번호가 맞지 않습니다.")
         newer = remote.RemoteError("a newer server's sentence", "brand_new_code")
-        self.assertEqual(i18n.Words("ko").error(newer), "A newer server's sentence")
+        self.assertEqual(i18n.plain(i18n.Words("ko").error(newer)), "A newer server's sentence")
         # Anything else (an OSError, a library's own) reads as it is, with a capital.
         self.assertEqual(i18n.Words("ko").error(OSError("disk full")), "Disk full")
 

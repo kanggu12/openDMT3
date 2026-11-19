@@ -1,7 +1,7 @@
 #!/bin/bash
 # Removing openDMT3 under Wine on a virtual screen with no network, the three ways people do it, each on a fresh
 # install and on its own copy of a game folder PLAY has set up:
-#   1. Help's Uninstall, answered Delete all (settings, players and records go too), by mouse and keyboard as a
+#   1. Help's Uninstall, answered Remove all (settings, players and records go too), by mouse and keyboard as a
 #      person would;
 #   2. openDMT3-cmd --uninstall --yes (settings, players and records stay);
 #   3. Windows' app list (the uninstall command Velopack registered for it), first while the game is open, then
@@ -167,7 +167,7 @@ w, h, x, y = map(int, m.groups()) if m else (0, 0, 0, 0)
 print("%d %d" % (x + w // 2, int(sys.argv[1]) + y + h // 2) if w > 1 and h > 0 else "")' "$top"
 }
 
-echo "== 1. Uninstall on Help, Delete all: settings, players and records too"
+echo "== 1. Uninstall on Help, Remove all: settings, players and records too"
 install a
 # Someone else's file among the server's own: it stays when settings, players and records go.
 in_c "echo mine > $CONF/server/notes.txt"
@@ -192,7 +192,7 @@ read -r BX BY <<<"$(lowest_colour 1-02-uninstall-row '#ffb8d9')"
 [ -n "${BX:-}" ] || fail "no Uninstall button on Help"
 in_c "xdotool mousemove $BX $BY sleep 0.2 click 1"
 wait_s 3; shot 1-03-asked
-# The ring starts on Cancel: Tab moves it to Keep data, Tab again to Delete all, and Enter presses that.
+# The ring starts on Cancel: Tab moves it to Remove, Tab again to Remove all, and Enter presses that.
 in_c "xdotool search --name '^openDMT3\$' windowfocus --sync key --delay 150 Tab Tab"
 wait_s 1; shot 1-04-delete-all
 in_c "xdotool search --name '^openDMT3\$' windowfocus --sync key --delay 150 Return"
@@ -278,4 +278,4 @@ in_c "xdotool search --onlyvisible --name . 2>/dev/null" | grep -q . && fail "3b
 removed 3b
 python3 "$HERE/folder_check.py" removed "$OUT/games/c" "$OUT/c-list.json" "$OUT/c-before.json" || fail "3b: the game folder"
 docker rm -f "$C" >/dev/null 2>&1
-echo "PASS: Uninstall on Help (Delete all), openDMT3-cmd --uninstall and the app list (with the game open, then closed) each left no install, shortcut or Run value, and the game folder as its list says"
+echo "PASS: Uninstall on Help (Remove all), openDMT3-cmd --uninstall and the app list (with the game open, then closed) each left no install, shortcut or Run value, and the game folder as its list says"

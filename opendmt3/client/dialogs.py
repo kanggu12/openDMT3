@@ -97,8 +97,9 @@ def balanced_width(font, text, width):
     count = lines(width)
     if count <= 1:
         return width
-    # Never narrower than the longest word (a path has no spaces: Tk would cut it between letters).
-    longest = max([font.measure(word) for word in text.split()] or [0])
+    # Never narrower than the longest word (a path has no spaces: Tk would cut it between letters), a Korean phrase
+    # held by its no-break spaces counted as one (Tk never breaks it: i18n.keep_phrases).
+    longest = max([font.measure(word) for word in re.split(r"[ \n]+", text) if word] or [0])
     low, high = min(width, max(width // 2, longest + 4)), width
     while low < high:
         mid = (low + high) // 2

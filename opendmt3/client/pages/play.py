@@ -17,7 +17,9 @@ def where_play_plays(app):
     if state.mode == "server":
         # The server by its address as the player typed it, without the scheme ("192.168.0.10:4730").
         name = urlsplit(state.server_url or "").netloc
-        return w("play.on.server", name=name) if name else w("app.tagline")
+        # No server chosen yet: where the player is going to play, by the choice's own name (the final review's
+        # A-08: the project's tagline said nothing of it).
+        return w("play.on.server", name=name) if name else w("online.mode.server")
     return w("play.on.offline")
 
 
@@ -41,10 +43,13 @@ def _who_plays(app, parent, changed):
                                       login_id=remote_state.get("login_id", "")), wrap_margin=0).pack(
                 side="left", fill="x", expand=True, padx=(ui.px(8), 0))
             return card
-        # Not signed in: the page's main action is to sign in, on ONLINE (lit while PLAY waits for it).
-        main_button(app, line, w("online.signin"), lambda: app.go("online")).pack(side="right", anchor="n")
-        widgets.label(line, ui, w("play.who.signin"), fg=theme.AMBER, wrap_margin=0).pack(side="left", fill="x",
-                                                                                           expand=True)
+        # Not signed in: the page's main action is the step in front of the person, on ONLINE (lit while PLAY waits
+        # for it): Connect while no server is chosen, else Sign in.
+        chosen = bool(app.state.server_url)
+        main_button(app, line, w("online.signin" if chosen else "online.connect.go"),
+                    lambda: app.go("online")).pack(side="right", anchor="n")
+        widgets.label(line, ui, w("play.who.signin" if chosen else "play.who.connect"), fg=theme.AMBER,
+                      wrap_margin=0).pack(side="left", fill="x", expand=True)
         return card
     if app.state.mode != "this_pc":
         # Offline: everyone is a guest; ONLINE, one press away at the line's end, changes it.
@@ -103,7 +108,7 @@ def build_play(app, parent):
     last = widgets.Card(row, ui, title=w("play.last"))
     last.grid(row=0, column=1, sticky="nsew")
     widgets.label(last.body, ui, _last_session(app), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
-    for play in (app.state.last_session or {}).get("plays", []):
+    for play in (app.state.last_session or {}).get("plays", [])[:plays_shown(app)]:
         # Per cleared stage: the song on its own line (titles run long), then its pattern and the score in lime.
         widgets.divider(last.body, ui, pady=8)
         widgets.label(last.body, ui, play["title"], font=ui.fonts.body_bold, wrap_margin=0).pack(fill="x")
@@ -115,6 +120,13 @@ def build_play(app, parent):
         tk.Label(line, text="{:,}".format(play["score"]), font=ui.fonts.figures, fg=theme.SCORE, bg=theme.PANEL).pack(
             side="right")
     refresh_checks(app)
+
+
+def plays_shown(app):
+    """How many of the last session's cleared stages LAST GAME lists: three, six where the window is tall (900 logical
+    pixels and more), so a large window shows more of the session rather than an empty half (the final review's
+    A-17); the launcher's own size keeps its three, the most that fit it whole."""
+    return 6 if app.root.winfo_height() >= app.ui.px(900) else 3
 
 
 def _last_session(app):
@@ -157,9 +169,9 @@ def refresh_checks(app):
 
     for check in app.checks:
         name = w("check." + check.key)
-        if check.key == "folder" and check.ok:
-            # The folder line shows where the game is, which is what a player wants to confirm.
-            name = "%s  ·  %s" % (name, check.detail)
+        # The folder line shows where the game is, which is what a player wants to confirm: under its name, broken
+        # after its folders' separators, never inside a folder's name ("TECHNIKA / 3" once: the final review's W-07).
+        path = check.detail if check.key == "folder" and check.ok else None
         link = None
         if check.ok:
             state, action = "ok", None
@@ -178,6 +190,8 @@ def refresh_checks(app):
         under = actions.said(check, w)
         next_line()
         widgets.check_line(box, ui, state, name, link, action).pack(fill="x")
+        if path:
+            widgets.check_note(box, ui, path, path=True).pack(fill="x", pady=(ui.px(2), 0))
         if under:
             widgets.check_note(box, ui, under, problem=not check.ok).pack(fill="x", pady=(ui.px(2), 0))
         shown += 1

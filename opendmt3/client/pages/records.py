@@ -27,12 +27,17 @@ def build_records(app, parent):
         try:
             found = actions.records(state, host)
         except Exception as e:  # noqa: BLE001  (shown in the page, never a silent stop)
+            if actions.unreachable(e):
+                # The server did not answer: NET goes out and the ready check says it, as at PLAY.
+                app.post(lambda: app.server_reached(False))
             if getattr(e, "code", None) == "sign_in":
                 # The server no longer takes the sign-in: forgotten, as everywhere a call is refused so; the card
                 # under says so with the way to ONLINE's sign-in.
                 app.post(app.token_refused)
             app.post(lambda e=e: box.winfo_exists() and _records_failed(app, box, e))
             return
+        if state.mode == "server":
+            app.post(lambda: app.server_reached(True))
         app.post(lambda: box.winfo_exists() and _records_drawn(app, box, found))
 
     threading.Thread(target=work, daemon=True, name="records").start()
@@ -44,7 +49,15 @@ def _records_failed(app, box, error):
     for child in box.winfo_children():
         child.destroy()
     why = card(box, ui, last=True)
-    widgets.label(why.body, ui, w.error(error), fg=theme.AMBER, wrap_margin=0).pack(fill="x")
+    key = getattr(error, "key", None)
+    # Something still to do (sign in, choose a player, play on a server) in amber; what went wrong (a server that does
+    # not answer, a file that does not read) in the pink that reads, as on every page.
+    todo = key in ("error.records.signin", "error.records.offline", "error.records.guest")
+    if key == "error.records.signin" and app.state.mode == "server" and not app.state.server_url:
+        words = w("records.connect_first")
+    else:
+        words = w.error(error)
+    widgets.label(why.body, ui, words, fg=theme.AMBER if todo else theme.BAD_INK, wrap_margin=0).pack(fill="x")
     if getattr(error, "key", None) in ("error.records.signin", "error.records.offline", "error.api.sign_in"):
         # The page that fixes it, by the menu's own name, as HELP's lines name theirs.
         widgets.link(why.body, ui, TITLES["online"], lambda: app.go("online")).pack(anchor="w", pady=(ui.px(10), 0))
@@ -74,7 +87,9 @@ def _records_drawn(app, box, dj):
     head.pack(fill="x", pady=(0, ui.px(CARD_GAP)))
     top = tk.Frame(head.body, bg=theme.PANEL)
     top.pack(fill="x")
-    tk.Label(top, text=dj["dj_name"], font=ui.fonts.title, fg=theme.TEXT, bg=theme.PANEL).pack(side="left")
+    # The name in the face of its own letters: a Latin name in the wide face in both languages.
+    name_font = ui.fonts.by_script(dj["dj_name"], ui.fonts.title_wide, ui.fonts.title_hangul)
+    tk.Label(top, text=dj["dj_name"], font=name_font, fg=theme.TEXT, bg=theme.PANEL).pack(side="left")
     # The DJ card's level, as the game shows it (an older server sends no card).
     card = dj.get("dj_card") or {}
     if card.get("level"):
@@ -104,7 +119,10 @@ def _records_drawn(app, box, dj):
                                       (played, "records.time"))):
         cell = tk.Frame(numbers, bg=theme.PANEL)
         cell.grid(row=0, column=i, sticky="w", padx=(0, ui.px(28)))
-        tk.Label(cell, text=str(value), font=ui.fonts.display_big, fg=theme.TEXT, bg=theme.PANEL).pack(anchor="w")
+        # Digits and their units in one face ("1시간 3분" whole in Pretendard, "1 h 3 min" in the wide face).
+        tk.Label(cell, text=str(value), font=ui.fonts.by_script(str(value), ui.fonts.display_big,
+                                                                  ui.fonts.display_big_hangul),
+                 fg=theme.TEXT, bg=theme.PANEL).pack(anchor="w")
         tk.Label(cell, text=w(key), font=ui.fonts.small, fg=theme.MUTED, bg=theme.PANEL).pack(anchor="w")
     # ---- the last 12 weeks: one bar a week, this week last; the chosen week's number under the chart. A week is
     # chosen by a click or a tap on it, or with the arrow keys once Tab has reached the chart (a cyan ring), never by

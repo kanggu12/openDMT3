@@ -118,6 +118,12 @@ def archive_name(name):
         # Not an archive by its name (a path a player picks is judged by its content instead).
         return False
     # Downloads holds other archives too: only those named like the game's are opened to be judged.
+    return archive_word(low)
+
+
+def archive_word(name):
+    """True when a name holds one of the words the game's archives are named with."""
+    low = name.lower()
     return any(word in low for word in GAME_WORDS)
 
 

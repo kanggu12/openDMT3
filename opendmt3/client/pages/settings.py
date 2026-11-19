@@ -40,6 +40,13 @@ def _row(card_, ui, title, control, hint, first=False):
     widgets.setting_row(card_.body, ui, title, control, hint).pack(fill="x")
 
 
+def _not_as_set(card_, ui, text):
+    """A line under the row just made, with the amber lamp of something to look at: what did not go as the row is set
+    (the device chosen is gone, the last game's mixer fell back), never folded into the row's grey hint (the final
+    review's B-07)."""
+    widgets.Said(card_.body, ui).set(text, "warn").pack(fill="x", pady=(ui.px(6), 0))
+
+
 def build_screen(app, parent):
     """Four cards, as OpenDMTQ's SCREEN has its Display, Frames and Quality: the display (full screen or a window, its
     size), the frames (VSync, their pacing, motion clarity, the FPS counter), the picture (its shape, the size it is
@@ -236,7 +243,9 @@ def build_sound(app, parent):
         _row(made, ui, w("sound.device"),
              lambda p: widgets.Select(p, ui, options, chosen,
                                       lambda value: (app.changed("sound_device", value), redo()), width=30),
-             w("sound.device.gone") if gone else None, first=True)
+             None, first=True)
+        if gone:
+            _not_as_set(made, ui, w("sound.device.gone"))
         # Who mixes the game's sounds (native/cardreader/openal.c): Windows' DirectSound, or OpenAL Soft sharing the
         # device or having it to itself; after a game where OpenAL Soft did not open, the page says DirectSound played
         # instead.
@@ -244,8 +253,6 @@ def build_sound(app, parent):
         mixer = v["sound_path"]
         mixer_hint = w("sound.mixer.hint")
         fell_back = actions.sound_mixer_line(session.get("sound_mixer"), mixer, chosen)
-        if fell_back:
-            mixer_hint += " " + w(fell_back)
 
         def set_mixer(value):
             app.changed("sound_path", value)
@@ -256,6 +263,8 @@ def build_sound(app, parent):
              lambda p: widgets.Segmented(p, ui, [(value, w("sound.mixer." + value)) for value in choices.SOUND_PATHS],
                                          mixer, set_mixer),
              mixer_hint)
+        if fell_back:
+            _not_as_set(made, ui, w(fell_back))
         # Windows' sound engine at the shortest period that device offers while the game runs
         # (native/cardreader/engine.c); after a game on the device chosen now, the period it ran at (the in-game
         # overlay's note, actions.sound_notes).
@@ -399,16 +408,15 @@ def build_game(app, parent):
         # The song list said once where it is first shown, on the plate under its button: what it makes, what it holds.
         cards.Card(files.body, app, found, chosen=ready, on_put_back=put_back, extra=extra, thumbs=_thumbs(app),
                    note=w("game.songlist.hint") if ready else None).pack(fill="x")
-    else:
-        # Nothing chosen yet: the card says so, and the list to choose from is open under it.
-        found = intake.Found(w("game.folder.none"), state=intake.NOT_YET)
-        found.line, found.tone = ("game.folder.choose", {}), intake.NOTE
-        cards.Card(files.body, app, found).pack(fill="x")
-        if opened is None:
-            opened = app.game_list = found_list.FoundList(app, on_pick=close_list, hide_chosen=True)
+    elif opened is None:
+        # Nothing chosen yet: the list to choose from, with its two ways to choose one, is the card's whole content
+        # (one card, one sentence: the final review's A-07).
+        opened = app.game_list = found_list.FoundList(app, on_pick=close_list, hide_chosen=True)
     if opened is not None:
-        # The list to change to, under the card in use, on the same card of the page.
-        widgets.divider(files.body, ui, pady=14)
+        # The list to change to, under the card in use, on the same card of the page (a rule between the two only
+        # when there is a card in use above it).
+        if folder:
+            widgets.divider(files.body, ui, pady=14)
         box = tk.Frame(files.body, bg=files.body.cget("bg"))
         box.pack(fill="x")
         opened.build(box)
@@ -487,7 +495,8 @@ def save_song_list(app):
             dialogs.tell(app, "error", w("songlist.save.title"), w("songlist.failed"), w.error(error))
             return
         manifest, size = result
-        app.set_status(w("status.songlist.saved", path=path), "ok")
+        # The file's name in the narrow foot; the dialog under it says the whole path.
+        app.set_status(w("status.songlist.saved", path=os.path.basename(path)), "ok")
         dialogs.tell(app, "info", w("songlist.save.title"), w("songlist.saved", songs=manifest["songs"]),
                      w("songlist.saved.detail", path=path, size=leaving.megabytes(size)))
 

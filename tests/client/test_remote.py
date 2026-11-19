@@ -131,7 +131,7 @@ class RemoteTest(unittest.TestCase):
         with self.assertRaises(remote.RemoteError) as e:
             remote.send_song_list(base, player["token"], path)
         self.assertEqual(e.exception.code, "admin_only")
-        self.assertEqual(i18n.Words("ko").error(e.exception), "이 서버의 관리자만 곡 목록을 보낼 수 있습니다.")
+        self.assertEqual(i18n.plain(i18n.Words("ko").error(e.exception)), "이 서버의 관리자만 곡 목록을 보낼 수 있습니다.")
         # A file that is no song list is refused with the server's reason.
         bad = os.path.join(self.tmp, "bad.zip")
         with open(bad, "wb") as f:

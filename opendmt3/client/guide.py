@@ -126,13 +126,20 @@ class Guide:
         if width < 50:
             return
         key = STEPS[self.index]
-        question, lead = w("guide.%s.title" % key), LEADS.get(key)
-        if lead:
-            question += (" " if question.endswith(("?", ".", "!")) else ". ") + w(lead)
-        # The line under the title, as wide as the brightest shards leave it; the head as tall as its words (a page's).
-        sub_width = max(px(300), int(width * 0.52))
+
+        def question_of(step):
+            question, lead = w("guide.%s.title" % step), LEADS.get(step)
+            if lead:
+                question += (" " if question.endswith(("?", ".", "!")) else ". ") + w(lead)
+            return question
+
+        question = question_of(key)
+        # The line under the title as wide as the shards leave the head (no discs here), and the head one height for
+        # every step, the tallest's: Next never moves the cards up or down (the final review's A-10, W-03).
+        sub_width = max(px(300), int(width * 0.66))
+        tallest = max(self.app.head_height(question_of(step), sub_width) for step in STEPS)
         # The same stage as every page's (one composition), in the title screen's blue.
-        picture = art.header(width, self.app.head_height(question, sub_width), (), title=w("guide.%s.name" % key),
+        picture = art.header(width, tallest, (), title=w("guide.%s.name" % key),
                              scale=self.app.scale, title_at=TITLE_AT)
         self.body.set_head(picture, question, (px(SUB_AT[0]), px(SUB_AT[1])), sub_width)
 
@@ -387,7 +394,7 @@ class Guide:
             return
         ui = self.app.ui
         widgets.divider(body, ui)
-        widgets.label(body, ui, self.app.words(key), fg=theme.AMBER, wrap_margin=0).pack(fill="x")
+        widgets.label(body, ui, self.app.words(key), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
 
     def _choose_player(self, login_id):
         self.app.state.player = login_id

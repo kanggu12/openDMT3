@@ -91,8 +91,9 @@ class Card(tk.Frame):
     def _texts(self, box, bg):
         """The path, then what it holds, then the one line; each wraps at the box's width. Returns the labels."""
         ui, w, found = self.ui, self.ui.words, self.found
-        # The path in the body's bold: what a player recognises first.
-        path = widgets.label(box, ui, found.path, font=ui.fonts.body_bold, bg=bg, wrap_margin=0)
+        # The path in the body's bold: what a player recognises first; broken over lines after its folders'
+        # separators, never inside a folder's name.
+        path = widgets.path_label(box, ui, found.path, font=ui.fonts.body_bold, bg=bg)
         path.pack(fill="x")
         made = [path]
         facts = found.fact_words(w)

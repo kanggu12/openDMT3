@@ -28,7 +28,20 @@ from tests.server.test_sources import LYING_LISTING, lying_gzip, seen, seven_z, 
 
 SEVEN_ZIP = sources.seven_zip()
 FIXTURES = os.path.join(os.path.dirname(__file__), "..", "fixtures", "seven_zip")
-EN, KO = i18n.Words("en"), i18n.Words("ko")
+
+
+class PlainKorean(i18n.Words):
+    """Korean as TEXT holds it, for comparing words: the no-break spaces that keep its phrases on one line
+    (i18n.keep_phrases) as plain spaces."""
+
+    def __call__(self, key, **kw):
+        return i18n.plain(super().__call__(key, **kw))
+
+    def error(self, error):
+        return i18n.plain(super().error(error))
+
+
+EN, KO = i18n.Words("en"), PlainKorean("ko")
 
 
 def fixture(platform):
@@ -633,6 +646,14 @@ class NamesTest(unittest.TestCase):
         self.assertEqual(intake.size_words(int(1.5 * (1 << 30))), "1.5 GB")
         self.assertEqual(intake.size_words(720 << 20), "720 MB")
 
+    def test_small_sizes_keep_a_decimal(self):
+        # Under 10 MB a whole number said "1 MB of 1 MB" while the bar stood at 40 % (the final review's D-10).
+        self.assertEqual(intake.size_words(int(0.4 * (1 << 20))), "0.4 MB")
+        self.assertEqual(intake.size_words(int(1.2 * (1 << 20))), "1.2 MB")
+        self.assertEqual(intake.size_words(int(9.94 * (1 << 20))), "9.9 MB")
+        self.assertEqual(intake.size_words(12 << 20), "12 MB")
+        self.assertEqual(intake.size_words(1000), "0.1 MB")
+
     def test_every_state_has_its_words_in_both_languages(self):
         for state in (intake.READY, intake.UNPACK, intake.NOT_HERE, intake.NOT_YET, intake.CHECKING):
             for key in ("intake.state." + state, "intake.said." + state):
@@ -875,6 +896,55 @@ class CommandLineTest(ArchivesCase):
         self.assertIn("This archive is damaged or not fully downloaded. Download it again.", said)
         from opendmt3.client import state as st
         self.assertIsNone(st.LauncherState.load().game_folder)
+
+
+class OwnFilesTest(unittest.TestCase):
+    """openDMT3's own downloads (the launcher's portable zip, the server's packages, the LGPL sources) are never client
+    data, told by what they hold, whatever their file is called (the final review's W-01: DISC CHECK offered the
+    launcher's portable zip, which holds a library's .zip, as client data to unpack)."""
+
+    def setUp(self):
+        self.folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.folder, True)
+
+    def zip_of(self, name, entries):
+        import zipfile
+        path = os.path.join(self.folder, name)
+        with zipfile.ZipFile(path, "w") as zf:
+            for entry in entries:
+                zf.writestr(entry, b"x" * 64)
+        return path
+
+    def test_the_launchers_portable_zip_by_its_content(self):
+        # Renamed by a player, it still holds openDMT3's program and its library's .zip.
+        path = self.zip_of("dmt3 launcher.zip", [".portable", "openDMT3.exe", "Update.exe", "current/openDMT3.exe",
+                                                  "current/_internal/base_library.zip",
+                                                  "current/_internal/opendmt3/core/update-test-keys.txt"])
+        for picked in (False, True):
+            found = intake.inspect(path, picked=picked)
+            self.assertEqual((found.state, found.own), (intake.NOT_HERE, True), picked)
+            self.assertEqual(found.sentence(EN), "This is openDMT3's own download, not client data.")
+            self.assertEqual(found.sentence(KO), "openDMT3 자체 파일이며 클라이언트 데이터가 아닙니다.")
+
+    def test_the_servers_packages_and_the_lgpl_sources(self):
+        for name, entries in (
+                ("dmt3-server.zip", ["opendmt3-server-0.4.0/dmt3", "opendmt3-server-0.4.0/opendmt3/__init__.py"]),
+                ("dmt3-server-windows.zip", ["opendmt3-server-0.4.0-windows-x64/opendmt3-server.exe",
+                                             "opendmt3-server-0.4.0-windows-x64/_internal/base_library.zip"]),
+                ("dmt3-sources.zip", ["opendmt3-launcher-0.4.0-lgpl-sources/openal-soft-1.25.2.tar.gz",
+                                      "opendmt3-launcher-0.4.0-lgpl-sources/SHA256SUMS"])):
+            found = intake.inspect(self.zip_of(name, entries), picked=False)
+            self.assertEqual((found.state, found.own), (intake.NOT_HERE, True), name)
+
+    def test_an_archive_inside_a_found_one_counts_only_with_a_game_word(self):
+        # Found by the search (its own name has a game word): a library's .zip inside is no client data.
+        path = self.zip_of("technika-tools.zip", ["tools/lib/base.zip", "tools/readme.txt"])
+        found = intake.inspect(path, picked=False)
+        self.assertEqual((found.state, found.own, found.inner), (intake.NOT_HERE, False, False))
+        # One named like the game's is still offered, through both.
+        path = self.zip_of("dmt3-wrapped.zip", ["TECHNIKA3.7z"])
+        found = intake.inspect(path, picked=False)
+        self.assertEqual((found.state, found.inner), (intake.UNPACK, True))
 
 
 if __name__ == "__main__":

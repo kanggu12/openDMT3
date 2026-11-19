@@ -24,6 +24,13 @@ log = logging.getLogger("opendmt3.launcher")
 ARCHIVE_TYPES = (("Archives", "*.zip *.7z *.rar *.001 *.iso"), ("All files", "*.*"))
 
 
+
+def jackets(game):
+    """A ready folder's three jackets for its card: the day's pick, as the PLAY head reads it (app.load_discs) and the
+    GAME page's card shows its first three, so the same folder shows the same jackets everywhere (the final review's
+    A-15; the first ones of a day's pick are the same however many are drawn)."""
+    return art.read_discs(game, 3)
+
 class FoundList:
     """The list and its two buttons, drawn into a frame by build(). on_update() runs after the list is drawn again
     (a pick, a path looked at, an unpacking that ended with a ready folder): DISC CHECK's Next follows it."""
@@ -119,9 +126,10 @@ class FoundList:
             # already (the GAME page's), on that card.
             if box["bg"] == theme.BG:
                 self.none = widgets.Card(box, ui)
-                widgets.label(self.none.body, ui, w("guide.2.none"), fg=theme.AMBER, wrap_margin=0).pack(fill="x")
+                widgets.label(self.none.body, ui, w("guide.2.none"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
             else:
-                self.none = widgets.label(box, ui, w("guide.2.none"), fg=theme.AMBER, bg=box["bg"], wrap_margin=0)
+                # Where nothing is wrong, the helper lines' ink (amber is for something to look at).
+                self.none = widgets.label(box, ui, w("guide.2.none"), fg=theme.MUTED, bg=box["bg"], wrap_margin=0)
         elif not nothing and self.none is not None:
             self.none.destroy()
             self.none = None
@@ -239,14 +247,20 @@ class FoundList:
         if found.state == intake.READY and found.kind == intake.FOLDER:
             # Three of its own jackets: the player's game, at a glance (read here, on the worker).
             try:
-                pictures = art.read_discs(g.Game(found.root), 3, seed="guide")
+                pictures = jackets(g.Game(found.root))
             except Exception:  # noqa: BLE001  (a card without its jackets still says what it is)
                 log.exception("the jackets of %s could not be read", found.root)
         # Tk is touched on the window's thread only.
-        self.app.post(lambda: self._looked(path, found, pictures))
+        self.app.post(lambda: self._looked(path, found, pictures, picked))
 
-    def _looked(self, path, found, pictures):
-        """What a path is, in its place on the list (the path asked for may have been a folder above the game's)."""
+    def _looked(self, path, found, pictures, picked=True):
+        """What a path is, in its place on the list (the path asked for may have been a folder above the game's).
+        openDMT3's own download the search turned up leaves the list (intake.own_package): it is never client data;
+        one the player picked stays, saying what it is."""
+        if found.own and not picked:
+            self.items = [item for item in self.items or [] if os.path.normcase(item.path) != os.path.normcase(path)]
+            self.paint()
+            return
         if pictures:
             self.pictures[found.path] = pictures
         for i, item in enumerate(self.items or []):

@@ -8,6 +8,8 @@ The pages' names are the menu's, in English in both languages as both sites' men
 (pages.TITLES): a sentence that sends the player to a page names it so ("the ONLINE page", "ONLINE 페이지").
 """
 
+import re
+
 from opendmt3.core import errors
 
 TEXT = {
@@ -22,6 +24,12 @@ TEXT = {
     "status.sign_in_first": ("Sign in on the ONLINE page first.", "먼저 ONLINE 페이지에서 로그인하세요."),
     # On the ONLINE page itself: what is missing, never a pointer to the page one is on.
     "status.sign_in": ("Sign in first.", "먼저 로그인하세요."),
+    "status.connect_first": ("Connect to a server first.",
+                             "먼저 서버에 연결하세요."),
+    "status.fix_check": ("Fix the ready check first.",
+                         "준비 점검의 빨간 줄을 먼저 고치세요."),
+    "status.choose_folder.here": ("Choose the client data first.",
+                                  "먼저 클라이언트 데이터를 고르세요."),
     # FREE PLAY, said once: the game is always free to play here.
     "game.freeplay.always": ("Always on", "늘 켬"),
     # The first-start guide as a row of GENERAL on the LAUNCHER page.
@@ -236,7 +244,8 @@ TEXT = {
                          "곡의 노트를 음악보다 이만큼(ms) 늦춥니다. 블루투스, HDMI처럼 소리가 늦게 나는 장치에 맞춥니다."),
     # ----------------------------------------------------------------------------------------- controls
     "controls.device": ("Input", "입력"),
-    "controls.input": ("You play with", "입력 장치"),
+    "controls.input": ("You play with",
+                       "조작"),
     "controls.input.mouse": ("Mouse", "마우스"),
     "controls.input.touch": ("Touch screen", "터치스크린"),
     "controls.input.hint.mouse": ("The pointer stays on screen.", "포인터가 화면에 보입니다."),
@@ -293,7 +302,8 @@ TEXT = {
 
     # ------------------------------------------------------------------------------------------- online
     "online.where": ("Where you play", "플레이 방식"),
-    "online.mode": ("Play", "방식"),
+    "online.mode": ("You play",
+                    "플레이"),
     "online.mode.this_pc": ("On this PC", "이 PC에서"),
     "online.mode.offline": ("Offline", "오프라인"),
     "online.mode.hint.this_pc": ("Sign-ins and records are kept on this PC.",
@@ -372,7 +382,8 @@ TEXT = {
     "server_test.address.unknown": ("No address found for {host}.", "{host}의 주소를 찾지 못했습니다."),
     "server_test.address.unknown.fix": ("Check the name for typos, and that this PC is on the network.",
                                         "이름에 오타가 없는지, 이 PC가 네트워크에 연결돼 있는지 확인하세요."),
-    "server_test.site.ok": ("openDMT3 {version} answered in {ms} ms.", "openDMT3 {version}이 {ms} ms 만에 응답했습니다."),
+    "server_test.site.ok": ("openDMT3 {version} answered in {ms} ms.",
+                            "openDMT3 {version} 서버가 {ms} ms 만에 응답했습니다."),
     "server_test.site.none": ("Nothing answers at {base}.", "{base}에서 응답이 없습니다."),
     "server_test.site.none.fix": ("Check that the server is running, the port in the address (4730 unless its owner "
                                   "gave another), and that a firewall lets it through.",
@@ -403,7 +414,7 @@ TEXT = {
     "server_test.game.closed": ("{ip}:{port} does not take the game's connection.",
                                 "게임 포트 {ip}:{port}: 게임 연결을 받지 않습니다."),
     "server_test.game.closed.fix": ("Ask the server's owner to open TCP port {port} in its firewall and router.",
-                                    "서버 운영자에게 방화벽과 공유기에서 TCP 포트 {port}를 열어 달라고 하세요."),
+                                    "서버 운영자에게 방화벽과 공유기에서 TCP {port} 포트를 열어 달라고 하세요."),
     "server_test.sign_in.none": ("Not signed in yet, so not tested.", "아직 로그인하지 않아 확인하지 않았습니다."),
     "server_test.sign_in.ok": ("Signed in as {dj} ({login_id}).", "{dj}({login_id})로 로그인돼 있습니다."),
     "server_test.sign_in.gone": ("The server no longer takes your sign-in.", "서버가 이 로그인을 더 이상 받지 않습니다."),
@@ -445,8 +456,19 @@ TEXT = {
                      "오프라인: 모두 NO ID CARD로 플레이합니다. ONLINE 페이지에서 바꿀 수 있습니다."),
     "play.who.signin": ("Nobody is signed in to the server yet. Sign in on the ONLINE page.",
                         "아직 서버에 로그인하지 않았습니다. ONLINE 페이지에서 로그인하세요."),
+    "play.who.connect": ("No server chosen yet. Connect to one on the ONLINE page.",
+                         "아직 서버를 고르지 않았습니다. ONLINE 페이지에서 서버에 연결하세요."),
+    "online.connect.go": ("Connect",
+                          "연결"),
     "check.step:game library": ("In-game overlay and card reader", "게임 안 오버레이와 카드 리더"),
-    "check.server": ("Built-in server", "내장 서버"),
+    "check.server": ("Server",
+                     "서버"),
+    "check.server.none": ("No server chosen",
+                          "서버를 아직 고르지 않았습니다"),
+    "check.server.down": ("Cannot reach {base}.",
+                          "서버에 연결할 수 없습니다: {base}"),
+    "check.database": ("Players' database",
+                       "플레이어 데이터베이스"),
     "status.server": ("Starting the server on this PC...", "이 PC의 서버를 켜는 중..."),
     "status.server_failed": ("The server on this PC did not start: {error}", "이 PC의 서버가 켜지지 않았습니다: {error}"),
     "guide.login.name": ("LOG IN", "LOG IN"),
@@ -492,6 +514,8 @@ TEXT = {
     "about.autostart.on": ("The game now starts with Windows.", "이제 Windows가 시작할 때 게임이 시작합니다."),
     "about.autostart.off": ("The game no longer starts with Windows.", "이제 Windows가 시작할 때 게임을 시작하지 않습니다."),
     "records.loading": ("Reading the records...", "기록을 불러오는 중입니다..."),
+    "records.connect_first": ("Connect to a server first, on the ONLINE page.",
+                              "먼저 ONLINE 페이지에서 서버에 연결하세요."),
     "records.site": ("Open on the site", "사이트에서 보기"),
     "records.again": ("Try again", "다시 시도"),
     "records.plays": ("Stages cleared", "클리어한 스테이지"),
@@ -512,11 +536,15 @@ TEXT = {
     "help.checks": ("Checks", "점검"),
     "help.recheck": ("Check again", "다시 점검"),
     "help.crash": ('Game closes', '게임이 닫히면'),
-    # Each with the page it names one press away at its end (SCREEN), as OpenDMTQ's Help has its lines.
+    # Each with the setting it names one press away right after it (on SCREEN), named as SCREEN names it.
     "help.crash.1": ("Play in a window once. If that works, update the graphics driver.",
                      "창 모드로 한 번 플레이해 보세요. 창에서 잘 되면 그래픽 드라이버를 업데이트하세요."),
+    "help.crash.1.go": ("Window mode",
+                        "창 모드"),
     "help.crash.2": ("If it closes when a song starts, turn Background videos off.",
                      "곡이 시작될 때 닫히면 배경 영상을 끄세요."),
+    "help.crash.2.go": ("Background videos",
+                        "배경 영상"),
     "help.crash.3": ("Save a report and attach it to an issue on GitHub.", "보고서를 저장해 GitHub 이슈에 붙여 주세요."),
     "help.tools": ("Tools", "도구"),
     # The card of what puts back and takes away, from the least to the most, as OpenDMTQ's "Reset and remove".
@@ -637,11 +665,9 @@ TEXT = {
                           "먼저 게임을 닫으세요. 업데이트하려면 런처가 닫힙니다."),
     "about.guide": ("First-start guide", "처음 안내"),
     "about.guide.run": ("Show it again", "다시 보기"),
-    "db.broken.hint": ("Its daily backups are in the backups folder beside it. Close the launcher, move "
-                       "openDMT3.sqlite and the files that start with its name away, copy the newest backup there as "
-                       "openDMT3.sqlite, and open the launcher again.",
-                       "매일 만든 백업이 옆의 backups 폴더에 있습니다. 런처를 닫고 openDMT3.sqlite와 그 이름으로 시작하는 파일을 다른 곳으로 옮긴 뒤 가장 최근 "
-                       "백업을 openDMT3.sqlite라는 이름으로 복사하고 런처를 다시 여세요."),
+    "db.broken.hint": ("Its daily backups are beside it, in the backups folder; the troubleshooting guide says how "
+                       "to put one back.",
+                       "매일 만든 백업이 그 옆 backups 폴더에 있습니다. 백업을 되돌리는 방법은 문제 해결 안내에 있습니다."),
     "db.broken.open": ("Open the folder", "폴더 열기"),
     "quick.failed.title": ("Play", "플레이"),
     "quick.failed": ("The game cannot start yet.", "아직 게임을 시작할 수 없습니다."),
@@ -815,6 +841,8 @@ TEXT = {
     "intake.in_use": ("In use", "쓰는 중"),
     # The one problem with the one thing to do, or a note: one line under the card.
     "intake.line.nested": ("It holds another archive. Both are opened.", "안에 다른 압축 파일이 있습니다. 함께 엽니다."),
+    "intake.line.own": ("This is openDMT3's own download, not client data.",
+                        "openDMT3 자체 파일이며 클라이언트 데이터가 아닙니다."),
     "intake.line.modified": ("Played without the screen fit.", "화면 맞춤 없이 씁니다."),
     "intake.line.older_changes": ("An older openDMT3 changed files here. Put back makes them original again.",
                                   "예전 openDMT3가 바꾼 파일이 있습니다. 되돌리면 원본으로 돌아갑니다."),
@@ -883,7 +911,8 @@ TEXT = {
     "unpack.password.go": ("Open", "열기"),
     "unpack.checking": ("Checking the password...", "암호를 확인하는 중..."),
     "guide.3.name": ("SOUND CHECK", "SOUND CHECK"),
-    "guide.3.title": ('', ''),
+    "guide.3.title": ("How it looks and sounds.",
+                      "화면과 소리를 맞춥니다."),
     "guide.4.name": ("STAGE START", "STAGE START"),
     "guide.4.title": ("Ready for stage 1", "1스테이지 준비 끝"),
     "guide.4.text": ("Press PLAY. Your client data is not changed.",
@@ -892,8 +921,49 @@ TEXT = {
 }
 
 
+# A no-break space: a line is never broken at it (Tk breaks lines only at plain spaces).
+NBSP = "\u00a0"
+# Korean breaks a line at any space, and a line broken inside a phrase reads as machine-set: "설치 / 프로그램",
+# "준비하는 / 중입니다", "할 수 / 없습니다", "(약 / 14 MB)" (the final review's C-03). The spaces inside these stay.
+KO_NOUNS = ("클라이언트 데이터", "곡 목록", "압축 파일", "게임 파일", "설치 프로그램", "설치 파일", "서버 운영자",
+            "게임 포트", "DJ 카드", "DJ 이름", "관리 페이지", "배경 영상", "준비 점검", "창 모드", "화면 모드",
+            "데이터베이스 파일", "키음 음량", "입력 장치", "출력 장치", "그래픽 드라이버", "문제 해결", "로그 파일",
+            "새 버전", "TCP 포트", "동적 새로 고침 빈도", "새로 고침 빈도", "디스플레이 설정", "프레임 간격", "전체 화면",
+            "창 크기", "사운드 장치", "연결 테스트", "관리자 페이지", "문제 해결 안내", "처음 시작 안내")
+KO_KEEP = (
+    # "할 수 있다/없다", "할 수도 있다": one phrase.
+    (re.compile(r"(?<=\S) (수도?) (?=있|없)"), NBSP + r"\1" + NBSP),
+    # "하는 중", "실행 중입니다": the word before "중" stays with it.
+    (re.compile(r"(?<=\S) (?=중(?:입니다|이|에|인|입|$|[\s.,)]))"), NBSP),
+    # A number and its unit, and "약" before a number ("약 14 MB").
+    (re.compile(r"(?<=\d) (?=(?:MB|GB|KB|ms|Hz|kHz|fps|px|%)(?![A-Za-z]))"), NBSP),
+    (re.compile(r"(?:(?<=^)|(?<=[\s(]))약 (?=\d)"), "약" + NBSP),
+    # A word that points at the next one: "이 PC", "다른 서버", "이 설치 파일", "한 번".
+    (re.compile(r"(?:(?<=^)|(?<=[\s(]))(이|그|저|다른|새|모든|각|한|두|세) (?=\S)"), r"\1" + NBSP),
+)
+
+
+def keep_phrases(text):
+    """Korean `text` with no-break spaces inside the phrases a line must not be broken in (KO_NOUNS, KO_KEEP); any
+    other text as it is."""
+    if not text or not any("\uac00" <= ch <= "\ud7a3" for ch in text):
+        return text
+    for noun in KO_NOUNS:
+        if noun in text:
+            text = text.replace(noun, noun.replace(" ", NBSP))
+    for pattern, kept in KO_KEEP:
+        text = pattern.sub(kept, text)
+    return text
+
+
+def plain(text):
+    """`text` with its no-break spaces as plain ones (what TEXT holds)."""
+    return text.replace(NBSP, " ") if text else text
+
+
 class Words:
-    """Looks words up in the chosen language; a missing Korean entry falls back to English."""
+    """Looks words up in the chosen language; a missing Korean entry falls back to English. Korean comes with its
+    phrases kept on one line (keep_phrases)."""
 
     def __init__(self, language="en"):
         self.language = language
@@ -904,7 +974,8 @@ class Words:
             key += ".one"
         en, ko = TEXT.get(key, (key, key))
         text = ko if self.language == "ko" and ko else en
-        return text.format(**kw) if kw else text
+        text = text.format(**kw) if kw else text
+        return keep_phrases(text) if self.language == "ko" else text
 
     def error(self, error):
         """What a raised error says, in this language: the launcher's own words when its key is one of the launcher's
@@ -912,7 +983,8 @@ class Words:
         key = getattr(error, "key", None)
         if key in TEXT:
             return self(key, **getattr(error, "params", {}))
-        return errors.say(error, self.language)
+        text = errors.say(error, self.language)
+        return keep_phrases(text) if self.language == "ko" else text
 
 
 _ENGLISH = {}
@@ -927,7 +999,7 @@ def english_of(text):
             if en:
                 _ENGLISH.setdefault(ko, en)
                 _ENGLISH.setdefault(en, en)
-    return _ENGLISH.get(text, text)
+    return _ENGLISH.get(plain(text), text)
 
 
 def every_language(text):
@@ -936,7 +1008,8 @@ def every_language(text):
     when none is."""
     found = {text}
     for en, ko in TEXT.values():
-        if text in (en, ko):
-            # A Korean entry left empty falls back to the English words (Words): only the words a page can show.
-            found.update(words for words in (en, ko) if words)
+        if plain(text) in (en, ko):
+            # A Korean entry left empty falls back to the English words (Words): only the words a page can show, as
+            # Words shows them.
+            found.update(keep_phrases(words) for words in (en, ko) if words)
     return sorted(found)

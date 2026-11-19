@@ -210,6 +210,11 @@ class Rail(tk.Frame):
         foot = 0
         if self.foot is not None and self.foot.winfo_exists():
             foot = self.foot.winfo_reqheight() + getattr(self.foot, "opendmt3_under", 0)
+            status = getattr(self.foot, "opendmt3_status", None)
+            if status is not None and status[0].winfo_exists():
+                # The status line's room at its most lines, not its present height: the menu never moves when a
+                # message comes or goes (the final review's A-01).
+                foot += status[1] - status[0].winfo_reqheight()
         self.list.fit(height - top - foot - px(self.ABOVE_FOOT))
 
     def set_current(self, key):
@@ -473,6 +478,16 @@ class ScrollArea(tk.Frame):
         # The wheel scrolls whatever is under the pointer, so bind only while the pointer is over this area.
         self.bind("<Enter>", lambda e: self._wheel(True))
         self.bind("<Leave>", lambda e: self._wheel(False))
+        # The keyboard's place kept in sight: a control Tab reaches under the window's foot (or over its top) scrolls
+        # into view, the least it takes (the final review's B-02). Only after Tab: a page that puts the keyboard
+        # somewhere itself keeps its own scroll.
+        # Added after Tk's own Tab and Shift+Tab on every widget, which move the keyboard first: Tk 8.6 binds them as
+        # <<NextWindow>> and <<PrevWindow>> (a binding of <Tab> itself would take Tab's place, not follow it).
+        for sequence in ("<<NextWindow>>", "<<PrevWindow>>"):
+            if not str(self.tk.call("bind", "all", sequence)).strip():
+                # A Tk that binds Tab itself: added to that.
+                sequence = "<Tab>" if sequence == "<<NextWindow>>" else "<Shift-Tab>"
+            self.bind_all(sequence, lambda e: self.after_idle(self._keyboard_moved), add="+")
 
     def set_head(self, picture, sub="", sub_at=(0, 0), sub_width=0):
         """The page's head: `picture` (PIL, as wide as the area) at the page's top, and `sub`, the line of words under
@@ -541,13 +556,27 @@ class ScrollArea(tk.Frame):
         # Windows reports 120 per notch.
         self.canvas.yview_scroll(int(-event.delta / 40), "units")
 
+    def _keyboard_moved(self):
+        if not self.winfo_exists() or not self.inner.winfo_exists():
+            return
+        try:
+            widget = self.focus_get()
+        except (KeyError, tk.TclError):
+            # The keyboard is in a window Tk does not name (a dialog's own) or none.
+            return
+        if widget is not None and str(widget).startswith(str(self.inner) + ".") and widget.winfo_ismapped():
+            self.show(widget, self.ui.px(14))
+
     def to_top(self):
         self.canvas.yview_moveto(0)
 
-    def show(self, widget, margin=0):
-        """Scroll the least that brings `widget` (somewhere inside `inner`) into view, with `margin` pixels of air."""
-        # The sizes below are the ones after whatever was just packed is laid out.
+    def show(self, widget, margin=0, below=0):
+        """Scroll the least that brings `widget` (somewhere inside `inner`) into view, with `margin` pixels of air;
+        `below`: as many pixels under it as well (an open drop-down's list)."""
+        # The sizes below are the ones after whatever was just packed is laid out, and the scrolled region theirs (its
+        # own <Configure> comes only with the next turn of the window).
         self.update_idletasks()
+        self._region()
         # The whole page: the head and the cards under it.
         total = self.head_height + self.inner.winfo_height()
         seen = self.canvas.winfo_height()
@@ -557,7 +586,7 @@ class ScrollArea(tk.Frame):
         # The widget's top on the page: its place among the cards, under the head.
         top = self.head_height + widget.winfo_rooty() - self.inner.winfo_rooty()
         first = self.canvas.canvasy(0)
-        start = view_start(top - margin, top + widget.winfo_height() + margin, first, seen)
+        start = view_start(top - margin, top + widget.winfo_height() + below + margin, first, seen)
         if start != first:
             self.canvas.yview_moveto(max(0, start) / total)
 
@@ -878,7 +907,11 @@ class Toggle(tk.Label):
         bg = bg or parent.cget("bg")
         super().__init__(parent, bg=bg, cursor="hand2", bd=0, takefocus=1, highlightthickness=0)
         self.ui, self.value, self.command = ui, bool(value), command
-        self.colours = ui.section
+        # On, in the page's section colour; on a page whose colour means a state elsewhere (the problem's pink on
+        # ONLINE and RECORDS, the something-to-look-at amber on LAUNCHER and HELP), the cabinet's NET green, as every
+        # "on, fine" lamp: a switch that is on is never read as wrong or as waiting (the final review's B-03).
+        self.colours = ui.section if ui.section["accent"] not in (theme.PINK, theme.AMBER) else dict(
+            ui.section, accent=theme.NET, fill=theme.NET, ink=theme.INK, light=theme.NET)
         # Where the track's visible edge starts inside the picture (the ring's room): setting rows line it up.
         self.opendmt3_inset = ui.px(art.TICK_RING_ROOM)
         self.over, self.focused, self.enabled = False, False, True
@@ -997,8 +1030,10 @@ class Segmented(tk.Label):
         super().__init__(parent, bg=bg, cursor="hand2", bd=0, takefocus=1, anchor="nw", highlightthickness=0)
         self.ui, self.command, self.options, self.value = ui, command, list(options), value
         self.colours = ui.section
-        # The pictures are made as they are first shown: one for each (chosen, pointed at, ring) look.
-        self.hover, self.focused, self.edges, self.pictures = None, False, [], {}
+        # The pictures are made as they are first shown: one for each (chosen, pointed at, ring) look; `room` is the
+        # width the row has (its keys take their side room in when they would not fit: art.choice_row).
+        self.hover, self.focused, self.edges, self.pictures, self.room = None, False, [], {}, None
+        parent.bind("<Configure>", lambda e: self._fit(), add="+")
         self.bind("<Button-1>", self._click)
         self.bind("<Motion>", lambda e: self._point(self._at(e.x, e.y)))
         self.bind("<Leave>", lambda e: self._point(None))
@@ -1015,13 +1050,24 @@ class Segmented(tk.Label):
         self.focused = on
         self._paint()
 
+    def _fit(self):
+        """The row's room as its box now has it (the box's width less where the row starts in it): drawn again only
+        when that changes whether its keys fit."""
+        if not self.winfo_exists():
+            return
+        room = self.master.winfo_width() - self.winfo_x()
+        if room > 1 and room != self.room:
+            self.room = room
+            self.pictures = {}
+            self._paint()
+
     def _paint(self):
         keys = [key for key, _ in self.options]
         chosen = keys.index(self.value) if self.value in keys else None
         look = (chosen, self.hover, chosen if self.focused else None)
         if look not in self.pictures:
             picture, self.edges = art.choice_row([words for _, words in self.options], look[0], look[1],
-                                                 self.colours, self.ui.scale, focused=look[2])
+                                                 self.colours, self.ui.scale, focused=look[2], room=self.room)
             self.pictures[look] = (picture, ImageTk.PhotoImage(picture, master=self))
         # A dialog draws the window behind it from the widgets (snapshot.py): this is the row's part.
         self.opendmt3_picture, image = self.pictures[look]
@@ -1268,8 +1314,13 @@ class Select(tk.Canvas):
 
 
 class SelectList(tk.Toplevel):
-    """A Select's open list: a window of its own with no frame, over everything, as wide as the field, under it or
-    above it, its choices drawn on a canvas (Select says how it looks and takes the keys)."""
+    """A Select's open list: a window of its own with no frame, over everything, as wide as the field, under it, its
+    choices drawn on a canvas (Select says how it looks and takes the keys).
+
+    It never crosses another box's edge (CONTEXT.md's rule for what floats): on a card, the list stays inside that
+    card, which grows under the field for as long as the list is open (the cards under it move down, never covered),
+    and the page scrolls the least that shows the whole list. A field on no card opens it under it, or above it where
+    the screen's foot is too near."""
 
     # A choice's height, the most that show at once, the room before the words, the rule's width (logical pixels).
     ROW, MOST, PAD, RULE = 32, 8, 10, 3
@@ -1284,9 +1335,14 @@ class SelectList(tk.Toplevel):
         shown = min(count, self.MOST)
         width = max(select.winfo_width(), px(80))
         height = shown * px(self.ROW) + 2
-        # Under the field, or above it where the screen's foot is too near (a field low on a small screen).
+        # The room the card makes under the field while the list is open (None: it had room, or there is no card).
+        self.room = None
+        card = self._card()
+        if card is not None:
+            self._make_room(card, height)
+        # Under the field; on no card, above it where the screen's foot is too near (a field low on a small screen).
         x, below = select.winfo_rootx(), select.winfo_rooty() + select.winfo_height() + px(2)
-        self.above = below + height > select.winfo_screenheight()
+        self.above = card is None and below + height > select.winfo_screenheight()
         y = select.winfo_rooty() - height - px(2) if self.above else below
         # Never past the screen's right edge either.
         x = max(0, min(x, select.winfo_screenwidth() - width))
@@ -1325,6 +1381,42 @@ class SelectList(tk.Toplevel):
             # Not viewable yet on a slow screen: the keys still come by the focus below.
             pass
         self.canvas.focus_force()
+
+    def _card(self):
+        """The card the field is on (None for a field on no card)."""
+        holder = self.select.master
+        while holder is not None and not isinstance(holder, Card):
+            holder = holder.master
+        return holder
+
+    def _make_room(self, card, height):
+        """The card grown under the field by what the list needs past the card's foot (its own padding kept under the
+        list), and the page scrolled the least that shows the field and the whole list."""
+        select, px = self.select, self.ui.px
+        # Where the list's foot falls, and the foot of the card's inside (its body: the card's padding is under it).
+        foot = select.winfo_rooty() + select.winfo_height() + px(2) + height
+        inside = card.body.winfo_rooty() + card.body.winfo_height()
+        if foot > inside:
+            # A strip of the card's own colour at the end of its body: packed or gridded as the body's rows are.
+            self.room = tk.Frame(card.body, bg=card.body.cget("bg"), height=foot - inside, width=1)
+            if card.body.grid_slaves() and not card.body.pack_slaves():
+                self.room.grid(row=max(int(w.grid_info()["row"]) for w in card.body.grid_slaves()) + 1, column=0)
+            else:
+                self.room.pack(side="top", fill="x")
+        area = select.master
+        while area is not None and not isinstance(area, ScrollArea):
+            area = area.master
+        if area is not None:
+            # The field and, under it, the whole list in view (the page's foot may have hidden them).
+            area.show(select, px(8), below=px(2) + height)
+        select.update_idletasks()
+
+    def destroy(self):
+        # The room the card made goes with the list: the card is as it was.
+        if self.room is not None and self.room.winfo_exists():
+            self.room.destroy()
+        self.room = None
+        super().destroy()
 
     def _row_at(self, y):
         """The choice at height `y` of the canvas, or None past the last."""
@@ -1502,13 +1594,69 @@ def divider(parent, ui, pady=12):
     return line
 
 
+def wrap_path(font, path, width):
+    """`path` over as many lines as `width` pixels of `font` need, each line broken just after a folder's separator
+    ("\\" or "/"), never inside a folder's name: Tk wraps a label only at spaces, and "drive d" came apart as "\\drive"
+    / "d\\DMT3" (the final review's W-07). A folder's name wider than a whole line is broken where the line is full."""
+    if width <= 0 or font.measure(path) <= width:
+        return path
+    # The path in pieces that each end with their separator ("C:\\", "Games\\", "DMT3").
+    pieces, start = [], 0
+    for i, ch in enumerate(path):
+        if ch in "\\/":
+            pieces.append(path[start:i + 1])
+            start = i + 1
+    if start < len(path):
+        pieces.append(path[start:])
+    lines, line = [], ""
+    for piece in pieces:
+        if line and font.measure(line + piece) > width:
+            lines.append(line)
+            line = ""
+        while font.measure(piece) > width and len(piece) > 1:
+            # A name wider than the line: as much of it as fits, then the rest on the next lines.
+            cut = len(piece) - 1
+            while cut > 1 and font.measure(piece[:cut]) > width:
+                cut -= 1
+            lines.append(piece[:cut])
+            piece = piece[cut:]
+        line += piece
+    if line:
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def path_label(parent, ui, path, font=None, fg=theme.TEXT, bg=None):
+    """A label holding a path, broken over lines after its separators at its box's width (wrap_path), as the box's
+    width changes; packed by the caller (fill="x")."""
+    font = font or ui.fonts.body
+    shown = tk.Label(parent, text=path, font=font, fg=fg, bg=bg or parent.cget("bg"), justify="left", anchor="w",
+                     padx=0, pady=0, bd=0)
+
+    def fit(event=None):
+        if not shown.winfo_exists():
+            return
+        # The box's width (the label's master gets its width from the card, never from the label).
+        width = parent.winfo_width()
+        if width > 1:
+            text = wrap_path(font, path, width)
+            if text != shown.cget("text"):
+                shown.configure(text=text)
+    # Until the box has a width: broken at a modest one, so that a long path never widens the box first.
+    shown.configure(text=wrap_path(font, path, ui.px(300)))
+    parent.bind("<Configure>", fit, add="+")
+    return shown
+
+
 def link(parent, ui, text, command, fg=None, bg=None, chevron=True):
     """Words that take the player somewhere (a page by its menu's name, the launcher from the guide's last step): a
-    click, or Enter or Space once Tab has reached them (a cyan ring). In the section's light with a chevron after them
+    click, or Enter or Space once Tab has reached them (a cyan ring). In link blue with a chevron after them
     by default, on the parent's colour unless told."""
     bg = bg or parent.cget("bg")
+    # Link blue on every page (the final review's A-13): a link is openDMT3's own way on, never a section's colour
+    # (pink on RECORDS and ONLINE read as a problem).
     words = tk.Label(parent, text=text + (" \u203a" if chevron else ""), font=ui.fonts.body_bold,
-                     fg=fg or ui.section["accent"], bg=bg, cursor="hand2", takefocus=1,
+                     fg=fg or theme.BLUE_HI, bg=bg, cursor="hand2", takefocus=1,
                      highlightthickness=max(1, ui.px(2)), highlightbackground=bg, highlightcolor=theme.CYAN)
     for sequence in ("<Button-1>", "<Return>", "<KP_Enter>", "<space>"):
         words.bind(sequence, lambda e: command())
@@ -1616,14 +1764,20 @@ def check_line(parent, ui, state, text, action_text=None, action=None, bg=None):
     return row
 
 
-def check_note(parent, ui, text, problem=False, bg=None):
+def check_note(parent, ui, text, problem=False, bg=None, path=False):
     """What stands under a ready-check line, small, under the line's words (past its lamp): why a failed line stops
-    PLAY, in the error colour, or a note on a line that is fine, in the hint colour. On its parent's colour unless
-    told."""
+    PLAY, in the error colour, or a note on a line that is fine, in the hint colour; `path`: the text is a path, broken
+    after its separators (path_label). On its parent's colour unless told."""
     bg = bg or parent.cget("bg")
     row = tk.Frame(parent, bg=bg)
     # As far in as the line's words: the lamp's width and the gap after it.
     indent = art.lamp(theme.MUTED, True, ui.scale).width + ui.px(8)
+    if path:
+        # In a box of its own, as wide as the room after the indent: the path breaks at that width.
+        box = tk.Frame(row, bg=bg)
+        box.pack(fill="x", padx=(indent, 0))
+        path_label(box, ui, text, font=ui.fonts.small, fg=theme.MUTED, bg=bg).pack(fill="x")
+        return row
     words = label(row, ui, text, font=ui.fonts.small, fg=theme.PINK if problem else theme.MUTED, bg=bg, wrap_margin=0)
     words.pack(fill="x", padx=(indent, 0))
     return row
@@ -1939,6 +2093,10 @@ class Form(tk.Frame):
         self.grid_frame.pack(anchor="w", fill="x" if width else None)
         self.keys = None
         self.line = Said(self, ui)
+        if width:
+            # The form's own line wraps at the form's width: a long line never makes the form (and its key) wider
+            # (the final review's B-09).
+            self.line.words.configure(wraplength=max(1, ui.px(width) - self.line.lamp.winfo_reqwidth() - ui.px(8)))
 
     def field(self, key, name, width=24, secret=False, placeholder=None, row=None, column=0, size="md", mark=None,
               hint=None):
@@ -1962,6 +2120,9 @@ class Form(tk.Frame):
         made.pack(anchor="w", fill="x")
         made.opendmt3_place = (row, column)
         error = Said(box, self.ui)
+        # What is said under a field wraps at the field's own width: an error never widens its column and moves the
+        # fields beside it (the final review's B-08).
+        error.words.configure(wraplength=max(1, made.winfo_reqwidth() - error.lamp.winfo_reqwidth() - px(8)))
         if hint:
             # What the field takes, under it until an error takes its place.
             error.set(hint)

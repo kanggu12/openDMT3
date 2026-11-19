@@ -69,6 +69,7 @@ class Found:
         self.free = None                # an archive: the free room beside it, in bytes
         self.parts = 0                  # a split archive: its parts present
         self.inner = False              # an archive: the game is in an archive inside it
+        self.own = False                # an archive: openDMT3's own download, never client data (own_package)
         self.password = False           # an archive: it has a password (asked for before unpacking)
         self.inside = None              # an archive: the game folder's path inside it ("" at its top)
 
@@ -107,12 +108,18 @@ class Found:
 # --------------------------------------------------------------------------------------------- sizes and room
 
 def size_words(size):
-    """A size for a sentence: "41 GB", "1.5 GB", "720 MB" (the same in both languages)."""
+    """A size for a sentence: "41 GB", "1.5 GB", "720 MB", "1.2 MB" (the same in both languages): one decimal under 10,
+    so that a small archive's progress never reads "1 MB of 1 MB" while its bar is under way (the final review's
+    D-10)."""
     if size >= 10 << 30:
         return "%d GB" % round(size / float(1 << 30))
     if size >= 1 << 30:
         return "%.1f GB" % (size / float(1 << 30))
-    return "%d MB" % max(1, round(size / float(1 << 20)))
+    if size >= 10 << 20:
+        return "%d MB" % round(size / float(1 << 20))
+    # Down to the tenth (the part done never reads as the whole before it is), a hair under a tenth counted as it (a
+    # size of 0.4 MB in bytes is 0.39999...), and never "0.0 MB" for something there.
+    return "%.1f MB" % max(0.1, int(size / float(1 << 20) * 10 + 0.05) / 10.0)
 
 
 def free_room(folder):
@@ -352,6 +359,29 @@ def _file(found, cancel, picked=True):
     return found
 
 
+# What openDMT3's own downloads hold, and the game's archives never do: its programs, its Python package's folder, the
+# folder each release file opens into ("opendmt3-server-0.4.0/", "opendmt3-launcher-0.4.0-lgpl-sources/"), and the
+# LGPL libraries' sources the launcher brings.
+OWN_PROGRAMS = ("opendmt3.exe", "opendmt3-cmd.exe", "opendmt3-server.exe", "opendmt3-setup.exe")
+OWN_SOURCES = ("openal-soft-", "dsoal-")
+
+
+def own_package(entries):
+    """True when an archive's listing is one of openDMT3's own downloads (the launcher's portable zip, the server's
+    packages, the LGPL sources), told by what it holds, never by the archive's own name, which a player may change."""
+    for e in entries:
+        parts = [p.lower() for p in e.name.replace("\\", "/").strip("/").split("/") if p]
+        if not parts:
+            continue
+        folders = parts if e.folder else parts[:-1]
+        if any(p == "opendmt3" or p.startswith("opendmt3-") for p in folders):
+            return True
+        if not e.folder and (parts[-1] in OWN_PROGRAMS or (parts[-1].startswith(OWN_SOURCES)
+                                                          and parts[-1].endswith((".tar.gz", ".tar.bz2", ".zip")))):
+            return True
+    return False
+
+
 def _archive(found, cancel, password=None, picked=True):
     """An archive: listed (never unpacked) to find the game folder in it, the room it takes and the room there is. One
     the player picked has its songs counted from its song list's few files (_songs_inside); one the search found is
@@ -384,7 +414,18 @@ def _archive(found, cancel, password=None, picked=True):
         return found
     root = sources.game_in(entries)
     if root is None:
+        if own_package(entries):
+            # openDMT3's own download, by what it holds whatever it is called: never offered as client data (the
+            # search's list leaves it out; one picked by hand says what it is).
+            found.own = True
+            found.state, found.line = NOT_HERE, ("intake.line.own", {})
+            return found
         inside = sources.inner_archives(entries)
+        if not picked:
+            from opendmt3.client import find
+            # Found by the search for its name: an archive inside counts only when it is named like the game's too (a
+            # program's own library .zip is nothing to unpack). One the player picked is opened whatever it holds.
+            inside = [e for e in inside if find.archive_word(os.path.basename(e.name.rstrip("/")))]
         if not inside:
             found.state, found.line = NOT_HERE, said("error.source.nothing")
             return found

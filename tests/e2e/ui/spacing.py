@@ -3,7 +3,8 @@ its own: two boxes that touch or overlap without meaning to (cards, fields, butt
 and its foot), words over a box they are no part of or right against one beside them, words closer to the edge of
 the box they sit in than its padding, words lying on the page's own field outside any card, and gaps between boxes
 stacked one after another that are off the launcher's spacing scale (SCALE). Also an opened drop-down's list
-(check_list): on the screen whole, clear of its field, and over everything at its corners.
+(check_list): on the screen whole, clear of its field, over everything at its corners, inside its own card and the
+page's view, and across no other card's edge (CONTEXT.md: what floats never crosses another box's edge).
 
 shots.py runs check() on every screen it measures, at every size and in both languages; it reads the widgets' places
 from Tk, never from the code that put them there.
@@ -377,6 +378,30 @@ def check_list(shown, ui, name, screen_pixel):
     gap = ly - (sy + sh) if ly >= sy else sy - (ly + lh)
     if gap < ui.px(2) - SLACK:
         problems.append("%s: the opened list touches its field (%d px apart)" % (name, gap))
+    # Inside its own card and the page's view, and over no other card: the boxes as the screen has them now.
+    card = select.master
+    while card is not None and not isinstance(card, widgets.Card):
+        card = card.master
+    if card is not None:
+        cx, cy = card.winfo_rootx(), card.winfo_rooty()
+        if lx < cx or ly < cy or lx + lw > cx + card.winfo_width() or ly + lh > cy + card.winfo_height():
+            problems.append("%s: the opened list crosses its own card's edge (list %d..%d, card %d..%d)"
+                            % (name, ly, ly + lh, cy, cy + card.winfo_height()))
+        area = card.master
+        while area is not None and not isinstance(area, widgets.ScrollArea):
+            area = area.master
+        if area is not None:
+            ay = area.canvas.winfo_rooty()
+            if ly < ay or ly + lh > ay + area.canvas.winfo_height():
+                problems.append("%s: the opened list is not whole in the page's view (list %d..%d, view %d..%d)"
+                                % (name, ly, ly + lh, ay, ay + area.canvas.winfo_height()))
+        for other in _all(select.winfo_toplevel()):
+            if isinstance(other, widgets.Card) and other is not card and other.winfo_ismapped():
+                ox, oy, ow, oh = other.winfo_rootx(), other.winfo_rooty(), other.winfo_width(), other.winfo_height()
+                if lx < ox + ow and ox < lx + lw and ly < oy + oh and oy < ly + lh:
+                    problems.append("%s: the opened list lies over another card (%d..%d over %d..%d)"
+                                    % (name, ly, ly + lh, oy, oy + oh))
+                    break
     edge = art._rgb(theme.LINE)
     for x, y in ((lx, ly), (lx + lw - 1, ly), (lx, ly + lh - 1), (lx + lw - 1, ly + lh - 1)):
         seen = screen_pixel(x, y)

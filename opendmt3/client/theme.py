@@ -164,7 +164,21 @@ class Fonts:
         self.dialog_tab = tkfont.Font(root, family=tab[0], size=tab[1])              # a dialog's title tab
         self.dialog_title = tkfont.Font(root, family=TEXT_BOLD, size=13)             # a dialog's question
         self.dialog_button = tkfont.Font(root, family=TEXT_BOLD, size=10)            # a dialog's buttons
+        # The same two sizes in each face, for words whose face follows their own letters, not the window's language
+        # (by_script: a Latin DJ name stays wide in Korean, "1시간 3분" is set in one face).
+        self.title_wide = tkfont.Font(root, family=DISPLAY, size=18)
+        self.title_hangul = tkfont.Font(root, family=TEXT_BOLD, size=21)
+        self.display_big_hangul = tkfont.Font(root, family=TEXT_BOLD, size=19)
         self.language = language
+
+    @staticmethod
+    def has_hangul(text):
+        return any("\uac00" <= ch <= "\ud7a3" or "\u3131" <= ch <= "\u318e" for ch in text or "")
+
+    def by_script(self, text, wide, hangul):
+        """`wide` (a DMT3 Wide font, which has no Hangul) for words it can draw whole, `hangul` (Pretendard at the
+        same height) for words with Hangul: a word's face follows its own letters (the final review's A-13)."""
+        return hangul if self.has_hangul(text) else wide
 
 
 def scale_of(root):

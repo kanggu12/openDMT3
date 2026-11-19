@@ -481,5 +481,106 @@ class WrapTest(unittest.TestCase):
         self.assertGreaterEqual(dialogs.balanced_width(font, text, 600), font.measure(text.split("\n")[1]))
 
 
+class FinalReviewTest(unittest.TestCase):
+    """The launcher's final review (0.4.0): paths broken after their separators, the same jackets for the same folder,
+    the status line held to its lines, and a row of choices that fits its room."""
+
+    class Font:
+        """Every character 10 pixels wide."""
+        def measure(self, text):
+            return 10 * len(text)
+
+    def test_a_path_breaks_after_a_separator_never_inside_a_name(self):
+        # W-07: "drive d" once came apart at its space.
+        path = "C:\\Games\\TECHNIKA 3 (International Final Version)\\drive d\\DMT3"
+        lines = widgets.wrap_path(self.Font(), path, 420).split("\n")
+        self.assertEqual("".join(lines), path)
+        self.assertIn("drive d\\DMT3", lines[-1])
+        for line in lines[:-1]:
+            self.assertTrue(line.endswith("\\"), lines)
+        # A name wider than a line is still cut, and nothing is lost.
+        self.assertEqual("".join(widgets.wrap_path(self.Font(), "C:\\" + "x" * 30, 100).split("\n")),
+                         "C:\\" + "x" * 30)
+        self.assertEqual(widgets.wrap_path(self.Font(), "C:\\a", 500), "C:\\a")
+
+    def test_the_same_folder_shows_the_same_jackets(self):
+        # A-15: DISC CHECK draws three, the PLAY head four of which the GAME page's card shows three: the same day's
+        # pick starts with the same ones.
+        import io
+        from PIL import Image
+
+        class Entry:
+            def __init__(self, name):
+                self.name = name
+
+        class Pak:
+            entries = [Entry("disc_%03d_0.png" % i) for i in range(200)] + [Entry("disc_001_1.png")]
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self, entry):
+                picture = Image.new("RGB", (4, 4), (int(entry.name[5:8]) % 256, 0, 0))
+                out = io.BytesIO()
+                picture.save(out, "PNG")
+                return out.getvalue()
+
+        class Game:
+            def pak_path(self, name):
+                return name
+
+            def open_pak(self, path):
+                return Pak()
+
+        from opendmt3.client import found_list
+        three = [p.getpixel((0, 0)) for p in found_list.jackets(Game())]
+        four = [p.getpixel((0, 0)) for p in art.read_discs(Game())]
+        self.assertEqual(three, four[:3])
+
+    def test_the_status_line_keeps_to_three_lines(self):
+        # A-01: the menu above keeps the room of three lines; a longer line ends in an ellipsis.
+        from opendmt3.client import app
+        text = " ".join(["word"] * 40)
+        shown = app.clip_lines(self.Font(), text, 100)
+        self.assertEqual(len(shown.split("\n")), 3)
+        self.assertTrue(shown.endswith("\u2026"))
+        self.assertEqual(app.clip_lines(self.Font(), "short line", 100), "short line")
+
+    def test_korean_lines_never_break_inside_a_phrase(self):
+        # C-03: "설치 / 프로그램", "준비하는 / 중입니다", "할 수 / 없습니다", "(약 / 14 MB)" came apart in dialogs.
+        from opendmt3.client import i18n
+        ko = i18n.Words("ko")
+        nbsp = i18n.NBSP
+        self.assertIn("설치" + nbsp + "프로그램", ko("help.repair.source"))
+        self.assertIn("연결할" + nbsp + "수" + nbsp + "없습니다", i18n.keep_phrases("서버에 연결할 수 없습니다."))
+        self.assertIn("준비하는" + nbsp + "중입니다", i18n.keep_phrases("제거를 준비하는 중입니다."))
+        self.assertIn("(약" + nbsp + "14" + nbsp + "MB)", i18n.keep_phrases("곡 목록 (약 14 MB)"))
+        # A dialog's even lines never cut such a phrase: the narrowest width keeps it whole.
+        font = self.Font()
+        text = i18n.keep_phrases("이 런처는 openDMT3 설치 프로그램으로 설치하지 않았습니다.")
+        for line in snapshot.wrap(font, text, dialogs.balanced_width(font, text, 300)):
+            self.assertFalse(line.endswith("설치") and "프로그램" not in line, line)
+        # English and the words as TEXT holds them are as they were.
+        self.assertEqual(i18n.keep_phrases("Hello world"), "Hello world")
+        self.assertEqual(i18n.plain(ko("help.repair.source")), i18n.TEXT["help.repair.source"][1])
+        # A card's English name is found from its Korean words with their kept phrases.
+        self.assertEqual(i18n.english_of(ko("songlist.send.title")), i18n.TEXT["songlist.send.title"][0])
+
+    def test_a_row_of_choices_fits_its_room(self):
+        # B-01: the fifth upscale filter was cut by the card's edge at the smallest window.
+        texts = ["Nearest", "Bilinear", "Bicubic", "Lanczos", "Anime4K"]
+        colours = theme.SECTION_COLOURS["technika"]
+        wide, _ = art.choice_row(texts, 0, None, colours)
+        narrow, edges = art.choice_row(texts, 0, None, colours, room=wide.width - 40)
+        self.assertLessEqual(narrow.width, wide.width - 40)
+        self.assertEqual(len(edges), 5)
+        # With room enough it is as it always was.
+        same, _ = art.choice_row(texts, 0, None, colours, room=wide.width + 100)
+        self.assertEqual(same.width, wide.width)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -955,21 +955,31 @@ def level_gem(tier, scale=1.0, size=12):
     return img.resize((s, s), Image.LANCZOS)
 
 
-# A row of choices in each look it shows (its choice, the pointer, the keyboard): each visit drew them again.
+# A row of choices in each look it shows (its choice, the pointer, the keyboard) and in the room it has (`room` is part
+# of what it is kept by): each visit drew them again.
 @_kept(48)
-def choice_row(texts, chosen, hover, colours, scale=1.0, focused=None, enabled=True):
+def choice_row(texts, chosen, hover, colours, scale=1.0, focused=None, enabled=True, room=None):
     """A row of 2 to 4 choices of which one is on (FORMS.md's segmented keys): the game's leaning keys side by side, 2
     px apart, 34 px tall, the metal with words in the ash's grey, the metal's lighter shade with chalk words under the
     pointer, the chosen one filled in the section's colour with its ink; the keyboard's cyan two pixels inside the key
     it is on (`focused`); quieter while it cannot be used.
 
-    texts: the words; chosen, hover, focused: indexes (hover and focused may be None). Returns (an RGBA picture, each
-    choice's left and right edge in it at half its height, for telling which one a click is on).
+    texts: the words; chosen, hover, focused: indexes (hover and focused may be None); room: the width it has, when
+    known: a row wider than that takes its keys' side room in, down to 8 px, so that every choice is seen (SCREEN's
+    five upscale filters at the window's smallest size). Returns (an RGBA picture, each choice's left and right edge in
+    it at half its height, for telling which one a click is on).
     """
     font = ImageFont.truetype(theme.TEXT_BOLD_FILE, int(round(13.33 * scale)))
     height = int(round(34 * scale))
     pad, gap = int(round(18 * scale)), int(round(2 * scale))
     lean = int(height * LEAN)
+
+    def across(side):
+        return sum(int(font.getlength(text)) + 2 * side + lean - lean + gap for text in texts) - gap + lean
+
+    least = int(round(8 * scale))
+    while room and pad > least and across(pad) > room:
+        pad -= 1
     widths = [int(font.getlength(text)) + 2 * pad + lean for text in texts]
     # Each key starts where the one before ends less the lean: their slanted ends run side by side, a gap apart.
     total = sum(w - lean + gap for w in widths) - gap + lean

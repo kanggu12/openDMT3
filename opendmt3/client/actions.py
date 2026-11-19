@@ -32,7 +32,9 @@ class Check:
 
 
 # Ready-check lines that stop PLAY until the player fixes them (the others PLAY fixes by itself).
-BLOCKING = ("folder", "client", "files", "running", "remote")
+BLOCKING = ("folder", "client", "files", "running", "remote", "server", "database")
+# The lines that say something went wrong (pink in the check and at the foot), not something still to do (amber).
+FAILING = ("client", "files", "server", "database")
 
 
 def can_play(checks):
@@ -60,9 +62,26 @@ def said(check, w):
 def why_not(check, w):
     """Why a line stops PLAY, as one sentence for the status line and for the window of a PLAY that could not go:
     what stands under the line, or the launcher's own sentence for a line whose name says it."""
-    # A sign-in that is missing and a game that is open are fixed elsewhere: each has its sentence.
+    # A sign-in that is missing and a game that is open are fixed elsewhere: each has its sentence; with no server
+    # chosen yet, the step in front of the person is Connect.
+    if check.key == "server" and check.line and check.line[0] == "check.server.none":
+        return w("status.connect_first")
     own = {"remote": "status.sign_in_first", "running": "status.game_open"}
     return said(check, w) or (w(own[check.key]) if check.key in own else w("check." + check.key))
+
+
+# The errors that say the other server did not answer (its address, the network), not that it refused something.
+UNREACHABLE = ("error.remote.unreachable", "error.remote.unknown_host", "error.remote.not_an_answer")
+
+
+def unreachable(error):
+    """True for an error that says the other server could not be reached."""
+    return getattr(error, "key", None) in UNREACHABLE
+
+
+def failing(check):
+    """True for a line that says something went wrong (pink), not something still to do."""
+    return not check.ok and (check.key in FAILING and not (check.line and check.line[0] == "check.server.none"))
 
 
 def damaged(game):
@@ -92,8 +111,10 @@ def damaged(game):
                        "error.game.damaged")
 
 
-def readiness(state):
-    """The ready check shown on the PLAY page and by --check, in the order a player would fix things."""
+def readiness(state, reached=None, database=None):
+    """The ready check shown on the PLAY page and by --check, in the order a player would fix things. `reached`:
+    False when the other server did not answer the last time it was asked (the window knows it: the NET lamp goes
+    out, and the check says it); `database`: the error when this PC's players' database cannot be opened."""
     lines = []
     try:
         game = state.game()
@@ -135,10 +156,22 @@ def readiness(state):
         return lines + [Check("files", False, "The first song the game shows has no charts: the game stops when it "
                                               "starts. Copy the client data again, or unpack the archive again.",
                               page="game", line=("intake.line.first_song_no_charts", {}))]
-    if state.mode == "server":
+    if state.mode == "server" and not state.server_url:
+        # No server chosen yet: one line; the step in front of the person is Connect, not a sign-in.
+        lines.append(Check("server", False, "no server chosen", page="online", line=("check.server.none", {})))
+    elif state.mode == "server":
         signed = bool(state.remote and state.remote.get("card"))
-        # Without a sign-in there is no card to put in: the Online page signs in.
-        lines.append(Check("remote", signed, (state.remote or {}).get("dj_name") or "not signed in", page="online"))
+        if signed and reached is False:
+            # The server did not answer the last time: said as the problem it is, and PLAY waits for it.
+            lines.append(Check("server", False, "cannot reach %s" % state.server_url, page="online",
+                               line=("check.server.down", {"base": state.server_url})))
+        else:
+            # Without a sign-in there is no card to put in: the Online page signs in.
+            lines.append(Check("remote", signed, (state.remote or {}).get("dj_name") or "not signed in",
+                               page="online"))
+    if state.mode == "this_pc" and database is not None:
+        # This PC's players cannot be read: no card to put in, and the server PLAY starts would not open either.
+        lines.append(Check("database", False, str(database), page="online", error=database))
     own = state.own()
     if launch.running_clients(own) or launch.running_clients(game):
         # Rewriting openDMT3's copies under a running game would break it.
@@ -155,8 +188,9 @@ def readiness(state):
         except (g.GameError, OSError, ValueError) as e:
             # A step that cannot tell (a file it reads is damaged): PLAY says the same when it tries.
             status = steps.Status(False, str(e))
-        if state.mode == "offline" and step.name == "server address" and status.done:
-            # Offline with the game's own address: nothing to say about it.
+        if (state.mode == "offline" or (state.mode == "server" and not state.server_url)) and \
+                step.name == "server address" and status.done:
+            # Offline (or with no server chosen yet) the game keeps its own address: nothing to say about it.
             continue
         # Steps that are not done are done by PLAY itself; they are listed so the player sees what will change.
         lines.append(Check("step:" + step.name, status.done, status.detail))
