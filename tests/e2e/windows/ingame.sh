@@ -241,9 +241,25 @@ away() { x "xdotool mousemove 960 700"; wait_s 1.5; }
 # The game's window given the keyboard (Wine, with no window manager, may leave it with the launcher's window).
 focus() { x "xdotool search --name '^ClientApp$' windowfocus --sync" 2>/dev/null; }
 # The frame rate chip on or off through the menu's Show FPS (its second row: Down, Enter), the menu closed after.
+# Judged by the layer's own lines, never by fixed waits alone: the menu opened (on a busy machine a click on its chip
+# can open nothing: under load 85 one did, the chip was left off and the corner's check failed; clicked again, three
+# times at most), then the chip turned (5 s at most each); how long it took is said.
 fps_menu() {
-  show_bar; x "xdotool mousemove $MENU_AT sleep 0.4 click 1"; wait_s 1; focus
-  x "xdotool key Down"; wait_s 0.3; x "xdotool key Return"; wait_s 0.5; x "xdotool key Escape"; away
+  local turned opened i t0
+  turned=$(seen "layer: frame rate chip (on|off)")
+  t0=$(now_ms)
+  for i in 1 2 3; do
+    opened=$(seen "layer: menu opened")
+    show_bar; x "xdotool mousemove $MENU_AT sleep 0.4 click 1"
+    wait_more "layer: menu opened" "$opened" 5 && break
+    echo "  the menu's chip opened nothing (try $i of 3)"
+    [ $i = 3 ] && fail "the menu's chip did not open the menu for Show FPS"
+  done
+  wait_s 0.5; focus
+  x "xdotool key Down"; wait_s 0.3; x "xdotool key Return"
+  wait_more "layer: frame rate chip (on|off)" "$turned" 5 || fail "the menu's Show FPS did not turn the chip"
+  x "xdotool key Escape"; away
+  echo "  Show FPS: the chip $(grep -oE 'layer: frame rate chip (on|off)' "$OUT/ingame.log" | tail -1 | awk '{print $NF}') after $(python3 -c "print('%.1f' % (($(now_ms) - $t0) / 1000.0))") s"
 }
 # Quit through the bar's X: its question, Right to Quit the game, Enter.
 quit_by_x() { show_bar; x "xdotool mousemove $X_AT sleep 0.4 click 1"; wait_s 1.5; focus; x "xdotool key Right"; wait_s 0.5; x "xdotool key Return"; }
@@ -813,8 +829,11 @@ python3 -c "import sys; d = (${gone:-0} - $left) / 1000.0; sys.exit(0 if 0.55 <=
   || fail "the bar did not go about 0.7 s after the pointer left it"
 # The chip in its corner checked after the song (the song needs its time first: the tutorial lasts four minutes).
 echo "== the chip in the corner: the menu's Show FPS"
-# The pointer off the bar (it rested on minimise): the bar gone, the mark and the chip alone.
+# The pointer off the bar (it rested on minimise): the bar gone, the mark and the chip alone. The chip on, by the
+# layer's own last turn of it (the rounds' last Show FPS turned it on), before its frame is looked at.
 away
+[ "$(grep -oE 'layer: frame rate chip (on|off)' "$OUT/ingame.log" | tail -1 | awk '{print $NF}')" != off ] \
+  || fail "the chip was left off by the menu's last Show FPS ($(grep -E 'layer: frame rate chip' "$OUT/ingame.log" | tail -2 | tr '\n' ' '))"
 drew c1 mark chip || fail "the chip is not showing in the bottom right corner beside FREE PLAY, or something is in the middle"
 # The log holds the rounds' lines already: each step below is judged by the line it adds.
 opened=$(seen "layer: menu opened"); off=$(seen "layer: frame rate chip off"); on=$(seen "layer: frame rate chip on")
