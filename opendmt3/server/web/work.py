@@ -30,8 +30,9 @@ REQUEST = contextvars.ContextVar("opendmt3_request", default=None)
 SITE_THREADS = 2
 # Long pieces of work (a password's check, a song list read or taken, a backup made, put back or checked, the server
 # PC looked through for the game's files) run on threads of their own, this many at once, so the site's two never
-# wait behind them: two password checks at once (app.HASHING_AT_ONCE) and one more.
-LONG_THREADS = 3
+# wait behind them: two password checks at once at the players' door (app.HASHING_AT_ONCE), one at the admin door
+# (app.ADMIN_HASHING_AT_ONCE: a crowd at the players' door never holds up the owner's), and one more.
+LONG_THREADS = 4
 # (the loop whose pool limit was set, the pool of long work's limiter on it) (limit_threads, long), weakly: a test's
 # loop that ended is not kept. Only the loop reads and sets them.
 _limited = [None, None]
@@ -50,7 +51,7 @@ def limit_threads():
 class Request:
     """What one request keeps while it is answered (REQUEST)."""
 
-    __slots__ = ("connection", "accounts", "cpu", "banned")
+    __slots__ = ("connection", "accounts", "cpu", "banned", "admin")
 
     def __init__(self):
         # Its connection to the database, opened at its first use (app.Site.connect), closed by app.Work.
@@ -62,6 +63,9 @@ class Request:
         # (the ID, the ban's reason) when its password check found a banned account's own password
         # (common._check_password), which control.ban_note says without checking the password again.
         self.banned = None
+        # True for a request to the admin site (its own port, common.admin_side): its password work takes the admin
+        # door's turns (app.Site.gate).
+        self.admin = False
 
 
 def charged(fn):

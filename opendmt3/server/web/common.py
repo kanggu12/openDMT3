@@ -228,7 +228,8 @@ async def _check_password(site, request, login_id, password):
     Every try counts against the address's sign-ins a minute. Right before the check, with nothing awaited between,
     the limits on wrong passwords are read and the try is counted as wrong, then taken back if it was right: tries
     sent at once see each other, so none slips past the limit while others are being checked, and right ones in a
-    burst never hold each other back (only HASHING_AT_ONCE are being checked at any moment). Wrong passwords hold
+    burst never hold each other back (only HASHING_AT_ONCE are being checked at any moment at the players' door, and
+    ADMIN_HASHING_AT_ONCE at the admin door, each in turns of its own: Site.gate). Wrong passwords hold
     back the ID at the address they came from (other IDs behind it go on), the address once they pass its own looser
     ceiling for any IDs, and the ID from every address but the server PC (app.TRIES, ADDRESS_TRIES, ID_TRIES).
 

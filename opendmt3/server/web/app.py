@@ -98,8 +98,12 @@ SIGN_INS, SIGN_IN_WINDOW = 20, 60
 # Addresses (and IDs) with recent tries kept in memory at most; past it the oldest go (a flood forgets itself).
 ADDRESSES_KEPT = 10_000
 # Password checks and new passwords (PBKDF2, tens of milliseconds each) on worker threads at once, at most: the
-# event loop the game server shares never waits for one, and a burst of sign-ins cannot take every core.
+# event loop the game server shares never waits for one, and a burst of sign-ins cannot take every core. Each door
+# has turns of its own (Site.gate): the players' site's HASHING_AT_ONCE, the admin site's ADMIN_HASHING_AT_ONCE. In
+# one queue for both, 60 sign-ins at once at the players' door held the owner's admin sign-in for 1.8 s, and a
+# crowd's queue would hold it as long as the crowd lasts (measured against a real server: 120 at once took 5.6 s).
 HASHING_AT_ONCE = 2
+ADMIN_HASHING_AT_ONCE = 1
 # The largest request body read: every form and API call here is a few hundred bytes.
 BODY_LIMIT = 64 * 1024
 # The routes an admin uploads a file to (a backup on the Backups tab and its API twin, a song list on the Song list tab
@@ -213,8 +217,9 @@ class Site:
         # hold back the admin door, and the other way (an outsider's guesses at the players' port kept the owner out of
         # the admin site).
         self.players_door, self.admin_door = Door(), Door()
-        # (the event loop, a semaphore on it) for hashed(): made on the loop that first needs it.
-        self._gate = None
+        # Each door's (the event loop, a semaphore on it) for its password work (gate, hashed()), by whether it is the
+        # admin site's: made on the loop that first needs it.
+        self._gates = {}
         # One-use sign-in links the launcher on this PC hands the browser: token -> (account id, expiry).
         self.onces = {}
         # once() runs on the launcher's thread, redeem() on the server's.
@@ -366,12 +371,18 @@ class Site:
         return row
 
     def gate(self):
-        """The semaphore that lets HASHING_AT_ONCE password checks run at a time, on the running event loop."""
+        """The semaphore that lets the door of the request being answered run its password work, on the running event
+        loop: HASHING_AT_ONCE checks at a time at the players' site, ADMIN_HASHING_AT_ONCE at the admin site (its own
+        port: work.Request.admin), each in a queue of its own."""
         loop = asyncio.get_running_loop()
-        if self._gate is None or self._gate[0] is not loop:
+        work = REQUEST.get()
+        # Outside a request (a test's direct call), the players' door's.
+        admin = work is not None and work.admin
+        kept = self._gates.get(admin)
+        if kept is None or kept[0] is not loop:
             # A semaphore belongs to one loop: the server has one for good, the tests a new one per client.
-            self._gate = (loop, asyncio.Semaphore(HASHING_AT_ONCE))
-        return self._gate[1]
+            kept = self._gates[admin] = (loop, asyncio.Semaphore(ADMIN_HASHING_AT_ONCE if admin else HASHING_AT_ONCE))
+        return kept[1]
 
     def turns(self):
         """The table of turns (Shares) of the running event loop: made on the loop that first needs it, as gate() is."""
@@ -958,6 +969,8 @@ class Work:
         # The worker threads the work may take at once (work.SITE_THREADS), set once for this loop.
         limit_threads()
         work = _Request()
+        # Which site the request came to (Side marked it): its door's turns for password work (Site.gate).
+        work.admin = admin_side(scope)
         token = REQUEST.set(work)
         try:
             await self.app(scope, receive, send)

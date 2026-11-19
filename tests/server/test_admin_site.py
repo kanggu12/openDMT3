@@ -397,6 +397,52 @@ class LockoutTest(AdminSiteBase):
             self.assertEqual(self.sign_in(at(self.admin_app, "172.17.0.1", "http://127.0.0.1:4731"), "BOSS").status_code,
                              429)
 
+    def test_a_crowd_at_the_players_door_never_holds_up_the_admin_doors_password_check(self):
+        # The password checks (PBKDF2, tens of ms each) took turns in one queue for both doors: 60 sign-ins at once at
+        # the players' door held the owner's admin sign-in for 1.8 s (120 for longer), measured against a real
+        # server. Each door has its own turns now. Here the players' checks are held until the admin's is done:
+        # the admin's never waits for them.
+        import asyncio
+        import threading
+        import httpx
+        from opendmt3.server.web import common
+        self.admin()
+        for n in range(4):
+            self.make("P%d" % n, dj="P%d" % n)
+        release = threading.Event()
+        real = common._password_matches
+
+        def held(site, login_id, password):
+            # A player's check waits (on its thread of the long work) until the admin's sign-in is answered.
+            if login_id != "BOSS":
+                release.wait(20)
+            return real(site, login_id, password)
+
+        async def sign_in(app, base, address, login_id):
+            transport = httpx.ASGITransport(app=app, client=(address, 50000))
+            async with httpx.AsyncClient(transport=transport, base_url=base) as client:
+                page = (await client.get("/signin")).text
+                token = page.split('name="csrf" value="', 1)[1].split('"', 1)[0]
+                r = await client.post("/signin", data={"csrf": token, "login_id": login_id, "password": "pass1234"})
+                return r.status_code
+
+        async def main():
+            # Four players, each from an address of their own: two being checked, two waiting their turn.
+            players = [asyncio.ensure_future(sign_in(self.app, "http://192.168.0.5:4730", "203.0.113.%d" % (10 + n),
+                                                     "P%d" % n)) for n in range(4)]
+            await asyncio.sleep(0.5)
+            try:
+                # The owner at the admin door on the server PC, while every player's check is held.
+                admin = await asyncio.wait_for(sign_in(self.admin_app, "http://127.0.0.1:4731", "127.0.0.1", "BOSS"),
+                                               10)
+            finally:
+                release.set()
+            return admin, await asyncio.gather(*players)
+        with mock.patch.object(common, "_password_matches", held):
+            admin, players = asyncio.run(main())
+        self.assertEqual(admin, 303)
+        self.assertEqual(players, [303] * 4)
+
     def test_compose_says_who_reaches_the_admin_pages_and_where(self):
         from opendmt3.server import __main__ as server_cli
 
