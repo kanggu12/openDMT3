@@ -74,7 +74,7 @@ def make(state, folder, now=None):
     names = sorted({getpass.getuser(), os.path.basename(home), home, home.replace("\\", "/")}, key=len, reverse=True)
     private = _private(state)
     stamp = time.strftime("%Y%m%d-%H%M", time.localtime(now))
-    path = os.path.join(folder, "openDMT3-report-%s.zip" % stamp)
+    path = os.path.join(folder, "opendmt3-report-%s.zip" % stamp)
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("about.txt", "openDMT3 %s\nmade %s\n" % (__version__, time.strftime("%Y-%m-%d %H:%M:%S")))
         # The launcher's own files: its settings and its logs (rotated, so at most a few megabytes).

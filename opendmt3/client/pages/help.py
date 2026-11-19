@@ -76,7 +76,7 @@ def build_help(app, parent):
     # What puts back and takes away, on a card of its own as OpenDMTQ's "Reset and remove": the least first.
     remove = card(parent, ui, w("help.remove"), last=True)
     widgets.setting_row(remove.body, ui, w("help.restore"),
-                        lambda p: widgets.Button(p, ui, w("help.restore.confirm"), restore, kind="danger"),
+                        lambda p: widgets.Button(p, ui, w("help.restore.confirm"), restore),
                         w("help.restore.hint")).pack(fill="x")
     widgets.divider(remove.body, ui)
     # The last, as in the OpenDMTQ PC client: the one that takes everything away.
@@ -111,14 +111,21 @@ def repair_program(app):
         if error is not None:
             # A launcher run from a plain folder has nothing to repair from: said as a fact, not a failure.
             plain = getattr(error, "key", None) == "error.repair.not_installed"
-            dialogs.tell(app, "info" if plain else "error", title, w.error(error) if plain else w("help.repair.failed"),
-                         None if plain else w.error(error))
+            if plain:
+                # The fact as the heading, the way under it.
+                dialogs.tell(app, "info", title, w("help.repair.source"), w("help.repair.source.detail"))
+            else:
+                dialogs.tell(app, "error", title, w("help.repair.failed"), w.error(error))
         elif result.failed:
             dialogs.tell(app, "warn", title, w("help.repair.partly"),
                          w("help.repair.partly.detail", n=result.restored, failed=len(result.failed)))
+        elif result.restored and result.needs_restart:
+            # Some files are the launcher's own: its one key starts it again to use them (no chore left to the person).
+            dialogs.tell(app, "info", title, w("help.repair.done"), w("help.repair.done.restart", n=result.restored),
+                         ok=w("help.repair.restart.key"))
+            app.restart()
         elif result.restored:
-            detail = "help.repair.done.restart" if result.needs_restart else "help.repair.done.detail"
-            dialogs.tell(app, "info", title, w("help.repair.done"), w(detail, n=result.restored))
+            dialogs.tell(app, "info", title, w("help.repair.done"), w("help.repair.done.detail", n=result.restored))
         else:
             dialogs.tell(app, "info", title, w("help.repair.fine"), w("help.repair.fine.detail", n=result.checked))
 
@@ -137,7 +144,7 @@ def uninstall(app):
         return
     if app.busy:
         # PLAY is writing the game folder right now.
-        dialogs.tell(app, "info", title, w("help.uninstall.busy.play"))
+        dialogs.tell(app, "info", title, w("help.uninstall.busy.play"), w("help.uninstall.busy.play.detail"))
         return
     updater = leaving.uninstaller()
     if updater is None:
@@ -148,14 +155,17 @@ def uninstall(app):
     changed = leaving.changed_before(app.state)
     first = ([w("help.uninstall.game")] if changed else []) + [w("help.uninstall.closes")]
     detail = "%s\n\n%s" % (" ".join(first), w("help.uninstall.choices", size=size))
-    # Cancel first, with the ring: Enter alone takes nothing away.
+    # Cancel first, with the ring: Enter alone takes nothing away. Remove is the one main key (blue: the settings,
+    # players and records stay); Remove all is quiet, in the colour of taking away.
     choice = dialogs.choose(app, "danger", title, w("help.uninstall.ask"), detail,
-                            [(w("help.uninstall.keep"), "keep", "warn"), (w("help.uninstall.all"), "all", "danger")])
+                            [(w("help.uninstall.keep"), "keep", "info"),
+                             (w("help.uninstall.all"), "all", "danger_quiet")])
     if choice not in ("keep", "all"):
         return
     everything = choice == "all"
     # While files go back the dialog says so; with nothing to put back it only says what is under way.
-    app.dialog = dialogs.Dialog(app.root, app.ui, "danger", title,
+    # Work going on as asked: blue, with the busy stripes (pink is for what went wrong).
+    app.dialog = dialogs.Dialog(app.root, app.ui, "info", title,
                                 w("help.uninstall.working" if changed else "help.uninstall.working.plain"),
                                 w("help.uninstall.working.detail" if changed else "help.uninstall.closes"),
                                 progress=True)
@@ -189,7 +199,7 @@ def uninstall(app):
         lines = ([w("help.uninstall.done.game")] if outcome.put_back else []) + [w("help.uninstall.closes")]
         if everything:
             lines.append(w("help.uninstall.done.all"))
-        app.dialog = dialogs.Dialog(app.root, app.ui, "danger", title, w("help.uninstall.done"), " ".join(lines),
+        app.dialog = dialogs.Dialog(app.root, app.ui, "info", title, w("help.uninstall.done"), " ".join(lines),
                                     progress=True)
         app.root.after(LAST_STEP_MS, hand_over)
 

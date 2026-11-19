@@ -27,7 +27,7 @@ The first account, with the admin pages:
 {{- end }}
 
 The song list: on the admin pages, Song list, upload the song list the launcher saved. Or copy it in and import it:
-  kubectl -n {{ .Release.Namespace }} cp openDMT3-song-list.zip <pod>:/data/openDMT3-song-list.zip
-  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "opendmt3.fullname" . }} -- python -m opendmt3.server --data /data --catalog /data/openDMT3-song-list.zip --setup-only
+  kubectl -n {{ .Release.Namespace }} cp opendmt3-song-list.zip <pod>:/data/opendmt3-song-list.zip
+  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "opendmt3.fullname" . }} -- python -m opendmt3.server --data /data --catalog /data/opendmt3-song-list.zip --setup-only
 
 Guide: https://github.com/kanggu12/openDMT3/blob/main/docs/kubernetes.md

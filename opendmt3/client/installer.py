@@ -107,6 +107,26 @@ def failure_line(log_path):
     return lines[-1].split("[ERROR]", 1)[1].strip()[:300] or None
 
 
+# Velopack's last error, in the installer's words when it is one of the causes a person can act on (the raw line,
+# English, stays in the log): (what the line says, the words' key).
+CAUSES = (("not enough space", "setup.cause.space"), ("disk is full", "setup.cause.space"),
+          ("access is denied", "setup.cause.denied"), ("permission denied", "setup.cause.denied"),
+          ("no such file", "setup.cause.missing"), ("cannot find the file", "setup.cause.missing"),
+          ("could not find file", "setup.cause.missing"))
+
+
+def cause_words(line, w):
+    """Velopack's last error line as the installer says it: a known cause in the installer's language; any other line
+    as it is in English, and in another language nothing (the log has it). None for no line."""
+    if not line:
+        return None
+    lowered = line.lower()
+    for found, key in CAUSES:
+        if found in lowered:
+            return w(key)
+    return line if w.language == "en" else None
+
+
 def start_launcher():
     """Start the installed launcher the way its shortcut does (Velopack's stub picks the current version)."""
     stub = os.path.join(app_dir(), "openDMT3.exe")
@@ -166,7 +186,9 @@ def plan(have, here, running, words=None):
         return ("info", w("setup.tab.update"), w("setup.update.ask", v=here),
                 w("setup.update.detail", have=have) + closing, w("setup.update"), "update")
     if version_key(have) > version_key(here):
-        return ("warn", w("setup.tab"), w("setup.back.ask"), w("setup.back.detail", have=have, here=here) + closing,
+        # Going back a version is a plain choice the sentence explains: a blue step whose tab names the state.
+        return ("info", w("setup.tab.older"), w("setup.back.ask"),
+                w("setup.back.detail", have=have, here=here) + closing,
                 w("setup.back", here=here), "back")
     return None
 
@@ -193,7 +215,8 @@ class Installer:
         path = setup_file()
         self.preset = preset.read(path) if path else None
         self.words = i18n.Words(self.language)
-        # Its header says what this window is: openDMT3's lockup with SETUP under the version it installs.
+        # Its header says what this window is: openDMT3's lockup with SETUP at DMT3's foot (no version over it: the
+        # header's DMT3 is too small for one, and the window's question names the version it installs).
         self.root, self.ui = dialogs.window_root(title=self.words("setup.window"), language=self.language,
                                                  label="SETUP")
         self.dialog = None
@@ -221,7 +244,8 @@ class Installer:
         log.info("installed %s, this %s, launcher open %s", have, __version__, running)
         if have is not None and game_running():
             # Velopack would close the launcher, and with it the server the game plays on.
-            self.show("warn", w("setup.tab"), w("setup.game"), w("setup.game.detail"),
+            # A state to wait out, not a warning: a blue step whose tab names it (GAME OPEN).
+            self.show("info", w("setup.tab.game"), w("setup.game"), w("setup.game.detail"),
                       [(w("setup.close"), "cancel", "neutral"), (w("setup.again"), "again", "info")], default=1,
                       cancel="cancel")
             return
@@ -283,7 +307,9 @@ class Installer:
             self.process = run_setup(self.log_path)
         except OSError as e:
             log.exception("could not start Velopack's setup")
-            self.failed(w("setup.no_setup", error=w.error(e)))
+            # The cause in a sentence; the error itself (a temporary path) goes to the log.
+            log.error("the setup inside this installer did not start: %s", e)
+            self.failed(w("setup.no_setup"))
             return
         self.started_at = time.time()
         self.root.after(100, self._wait)
@@ -302,7 +328,7 @@ class Installer:
         log.info("Velopack's setup ended with %s", code)
         found = installed_version()
         if code != 0:
-            self.failed(failure_line(self.log_path) or self.words("setup.code", code=code))
+            self.failed(cause_words(failure_line(self.log_path), self.words) or self.words("setup.code", code=code))
             return
         if found != __version__:
             self.failed(self.words("setup.wrong_version", found=found, here=__version__))
@@ -321,7 +347,8 @@ class Installer:
 
     def ask_uninstall(self):
         """Uninstall, asked as the launcher's HELP asks it: Cancel (with the ring: Enter alone takes nothing away),
-        Keep data, or Delete all, with the size of what Delete all takes."""
+        Remove (the one main key: the settings, players and records stay) or Remove all (quiet, in the colour of taking
+        away), with the size of what Remove all takes."""
         from opendmt3.client import leaving
         from opendmt3.client import state as st
         w = self.words
@@ -329,8 +356,8 @@ class Installer:
         closing = (" " + w("setup.closing")) if launcher_open() else ""
         detail = "%s%s\n\n%s" % (w("setup.uninstall.detail"), closing, w("help.uninstall.choices", size=size))
         self.show("danger", w("setup.uninstall"), w("help.uninstall.ask"), detail,
-                  [(w("setup.cancel"), "cancel", "neutral"), (w("help.uninstall.keep"), "keep", "warn"),
-                   (w("help.uninstall.all"), "all", "danger")], default=0, cancel="cancel")
+                  [(w("setup.cancel"), "cancel", "neutral"), (w("help.uninstall.keep"), "keep", "info"),
+                   (w("help.uninstall.all"), "all", "danger_quiet")], default=0, cancel="cancel")
 
     def uninstall(self, everything):
         """Velopack's uninstall, silent, as the launcher's HELP starts it (leaving.start_uninstall): it closes a
@@ -343,12 +370,14 @@ class Installer:
         updater = os.path.join(app_dir(), "Update.exe")
         if game_running():
             # Asked between the first screen and now: the game came up meanwhile.
-            self.show("warn", w("setup.tab"), w("setup.game"), w("setup.game.detail"),
+            # A state to wait out, not a warning: a blue step whose tab names it (GAME OPEN).
+            self.show("info", w("setup.tab.game"), w("setup.game"), w("setup.game.detail"),
                       [(w("setup.close"), "cancel", "neutral"), (w("setup.again"), "again", "info")], default=1,
                       cancel="cancel")
             return
         self.everything = everything
-        self.show("danger", w("setup.work.uninstall"), w("help.uninstall.working.plain"), None,
+        # Work going on as asked: blue, busy stripes (pink is for what went wrong).
+        self.show("info", w("setup.work.uninstall"), w("help.uninstall.working.plain"), None,
                   progress=True)
         try:
             self.process = leaving.start_uninstall(updater, everything)
@@ -389,7 +418,8 @@ class Installer:
                       [(w("setup.close"), "close", "neutral"), (w("setup.open_log"), "log", "info")], default=1,
                       cancel="close")
         else:
-            self.show("error", w("setup.tab"), title, why, [(w("setup.close"), "close", "info")], default=0,
+            # The same failure, the same tab (NOT INSTALLED), log or none.
+            self.show("error", w("setup.tab.failed"), title, why, [(w("setup.close"), "close", "info")], default=0,
                       cancel="close")
 
     def _close_window(self):
@@ -475,9 +505,11 @@ def run(argv=None):
         from opendmt3.client import i18n
         lang = language()
         w = i18n.Words(lang)
+        # The installer's own header (SETUP), not the launcher's: the launcher may not be installed yet.
         dialogs.standalone("error", w("crash.title"), w("crash.message"),
                            w("crash.detail", error=errors.closed(errors.say(e, lang), {}), path=log_path),
-                           [(w("common.close"), "close", "info")], default=0, cancel="close", language=lang)
+                           [(w("common.close"), "close", "info")], default=0, cancel="close", language=lang,
+                           label="SETUP")
         return 2
 
 

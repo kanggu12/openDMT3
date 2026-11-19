@@ -7,6 +7,7 @@ command always run the same checks.
 import logging
 import os
 import re
+import sys
 import time
 
 from opendmt3.client import sound_file
@@ -678,7 +679,7 @@ def send_song_list(state):
     token = (state.remote or {}).get("token")
     if state.mode != "server" or not state.server_url or not token:
         raise g.GameError("sign in on the ONLINE page first", "error.records.signin")
-    folder = tempfile.mkdtemp(prefix="openDMT3-song-list-")
+    folder = tempfile.mkdtemp(prefix="opendmt3-song-list-")
     try:
         path = os.path.join(folder, songlist.NAME)
         save_song_list(state, path)
@@ -786,6 +787,20 @@ def admin_link(state, host):
         raise g.GameError("add a player on this PC first: the admin pages are signed in to as one",
                           "error.admin.no_player")
     return link, made
+
+
+def start_again():
+    """Start a new launcher that waits for this one to end before it opens its window (main: OPENDMT3_AFTER_PID), as
+    the shortcut starts it: a repair that put back the launcher's own files, used from its next start."""
+    import subprocess
+    from opendmt3.core import safety
+    safety.refuse_windows_in_tests("a new launcher")
+    env = dict(os.environ, OPENDMT3_AFTER_PID=str(os.getpid()))
+    if getattr(sys, "frozen", False):
+        command, folder = [sys.executable], os.path.dirname(sys.executable)
+    else:
+        command, folder = [sys.executable, "-m", "opendmt3.client"], None
+    subprocess.Popen(command, env=env, cwd=folder, close_fds=True)
 
 
 def open_link(url):

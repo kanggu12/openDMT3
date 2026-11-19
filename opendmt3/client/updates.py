@@ -164,7 +164,7 @@ def _refuse(result, why):
     """An update that is not the project's own release of the version offered is not put in: the log says what was
     wrong with it, the player reads the one sentence."""
     log.warning("refused the update to %s from %s: %s", result.version, result.source, why)
-    raise UpdateError("the update to %s is not signed by the openDMT3 project, so it was not put in" % result.version,
+    raise UpdateError("the update to %s is not signed by the openDMT3 project. It was not installed" % result.version,
                       "error.update.unsigned", version=result.version)
 
 

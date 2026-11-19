@@ -16,18 +16,21 @@ import re
 import sys
 import tkinter as tk
 
-from PIL import ImageTk
+from PIL import Image, ImageTk
 
 from opendmt3.core import safety
 from opendmt3.client import art, snapshot, theme
 
 log = logging.getLogger("opendmt3.launcher")
 
-# Each kind: its colour (the light along the track of work under way), its tab (top and bottom of the gradient;
-# dark words on it) and the look of its main button (art.BUTTON_LOOKS).
+# Each kind: its colour (the stripes along the track of work under way), its tab (top and bottom of the gradient;
+# dark words on it) and the look of its main button (art.BUTTON_LOOKS). The colours by meaning (the final review): the
+# main key is always blue, as openDMT3's own parts are; the tab carries the tone: blue for a step, amber for something
+# to look at before going on (a question that changes or removes something), pink only for what went wrong. A question
+# that removes something for good ("danger") starts on Cancel.
 KINDS = {
-    "danger": {"accent": theme.PINK, "tab": ("#ff7ab8", "#f0388f"), "button": "danger"},
-    "warn": {"accent": theme.AMBER, "tab": ("#ffcd70", "#f5a52a"), "button": "warn"},
+    "danger": {"accent": theme.AMBER, "tab": ("#ffcd70", "#f5a52a"), "button": "info"},
+    "warn": {"accent": theme.AMBER, "tab": ("#ffcd70", "#f5a52a"), "button": "info"},
     "info": {"accent": theme.BLUE_HI, "tab": ("#8fb0ff", "#5b8cff"), "button": "info"},
     "error": {"accent": theme.PINK, "tab": ("#ff7ab8", "#f0388f"), "button": "info"},
 }
@@ -168,7 +171,7 @@ class Dialog:
         px, fonts, c = self.ui.px, self.ui.fonts, self.canvas
         panel_w = max(px(280), min(px(WIDTH), width - 2 * px(MARGIN)))
         text_w = panel_w - 2 * px(PAD)
-        tab_words = self.title.upper() if self.ui.words.language == "en" else self.title
+        tab_words = self.tab_words()
         tab_w = min(panel_w - 2 * px(20), fonts.dialog_tab.measure(tab_words) + 2 * px(26) + 2 * px(SLANT))
         # The question stands right under its tab: nothing between the two.
         y = px(TAB) + px(30)
@@ -336,6 +339,9 @@ class Dialog:
             self._entry.bind("<KP_Enter>", lambda e: self.choose(len(self.buttons) - 1))
             self._entry.bind("<Escape>", lambda e: self.close(self.cancel_value))
             self._entry.insert(0, self.value)
+            # After a try that did not do, the field itself says so (its refused edge) until the next key typed.
+            if self.field_error:
+                self._entry.set_error(True)
             # Tab and Shift+Tab go round inside the dialog: the words, Show, the buttons.
             self._trap_field(self._entry)
         self._window = self.canvas.create_window(x, y, window=self._entry, anchor="nw", width=width, height=height,
@@ -371,47 +377,43 @@ class Dialog:
             c.delete(item)
         end = left + (right - left) * max(0.0, min(1.0, self.fraction))
         c.create_rectangle(left, top, end, bottom, fill=self.style["accent"], width=0, tags=("card", "fill"))
-        # The sweeping light stands down once the share is known.
-        for item in getattr(self, "_slices", []):
-            c.coords(item, left, top, left, bottom)
+        # The busy stripes stand down once the share is known.
+        c.itemconfigure("busy", state="hidden")
 
     def _track(self, track):
-        """The progress track and its light: thin slices fading in and out, moved along every frame."""
+        """The progress track: while the share done is not known, the whole track in the dialog's colour with the
+        game's moving stripes over it, as a busy key has them (FORMS.md): work going on, never a part done (a light
+        sweeping part of the track read as a bar a third full)."""
         c = self.canvas
         left, top, right, bottom = track
         c.create_rectangle(left, top, right, bottom, fill=theme.RAIL, width=0, tags=("card", "track"))
+        width, height = max(1, int(right - left)), max(1, int(bottom - top))
         accent, rail = art._rgb(self.style["accent"]), art._rgb(theme.RAIL)
-        self._slices = []
-        count = 24
-        for i in range(count):
-            # Brightest in the middle of the light, the track's own colour at its ends.
-            k = 1 - abs((i + 0.5) / count * 2 - 1)
-            colour = "#%02x%02x%02x" % tuple(int(r + (a - r) * k) for a, r in zip(accent, rail))
-            self._slices.append(c.create_rectangle(left, top, left, bottom, fill=colour, width=0, tags=("card",)))
-        self._light = {"at": 0.0}
+        # The track a step towards the dialog's colour, the stripes light over it.
+        base = Image.new("RGB", (width, height), tuple(int(r + (a - r) * 0.55) for a, r in zip(accent, rail)))
+        self._busy_pictures = []
+        for i in range(8):
+            stripes = art.busy_stripes(width, height, i / 8.0, self.ui.scale)
+            frame = base.copy()
+            frame.paste(Image.new("RGB", (width, height), (255, 255, 255)), (0, 0), stripes.getchannel("A"))
+            self._busy_pictures.append(ImageTk.PhotoImage(frame, master=c))
+        self._busy_frame = 0
+        c.create_image(left, top, image=self._busy_pictures[0], anchor="nw", tags=("card", "busy"))
         self._sweep(self.generation)
 
     def _sweep(self, generation):
-        """Move the light one step (it runs only while work is going on, and stops with the dialog)."""
+        """Move the stripes one step (they run only while work is going on, and stop with the dialog)."""
         if self.closed or generation != self.generation or not self.canvas.winfo_exists():
             return
         if self.fraction is not None:
-            # The share done is drawn instead (_fill); the light waits, still running, in case it is not known again.
+            # The share done is drawn instead (_fill); the stripes wait, in case it is not known again.
             self._fill()
             self._later(100, self._sweep, generation)
             return
-        # Where the track is now (the card may still be rising).
-        left, top, right, bottom = self.canvas.coords(self.canvas.find_withtag("track")[0])
-        span = right - left
-        width = span * 0.34
-        self._light["at"] = (self._light["at"] + span / 70.0) % (span + width)
-        start = left - width + self._light["at"]
-        step = width / len(self._slices)
-        for i, item in enumerate(self._slices):
-            x0 = max(left, min(right, start + i * step))
-            x1 = max(left, min(right, start + (i + 1) * step + 1))
-            self.canvas.coords(item, x0, top, x1, bottom)
-        self._later(16, self._sweep, generation)
+        self.canvas.itemconfigure("busy", state="normal")
+        self._busy_frame = (self._busy_frame + 1) % len(self._busy_pictures)
+        self.canvas.itemconfigure("busy", image=self._busy_pictures[self._busy_frame])
+        self._later(60, self._sweep, generation)
 
     def _rise(self, generation, frame, offset):
         """Ease the panel up into place, quickly at first and slowing at the end."""
@@ -440,10 +442,10 @@ class Dialog:
             c.bind(key, lambda e, s=step: self.move(s))
         for key, step in (("<Tab>", 1), ("<Shift-Tab>", -1), ("<ISO_Left_Tab>", -1)):
             c.bind(key, lambda e, s=step: self.tab(s))
-        if self.keys:
-            # The ring shows where the keyboard is: off the buttons while it is on the window's own keys.
-            c.bind("<FocusIn>", lambda e: self._show_ring(True), add="+")
-            c.bind("<FocusOut>", lambda e: self._show_ring(False), add="+")
+        # The ring shows where the keyboard is: off the buttons while it is in the dialog's field or on the window's own
+        # keys (one keyboard mark on the screen, never two).
+        c.bind("<FocusIn>", lambda e: self._show_ring(True), add="+")
+        c.bind("<FocusOut>", lambda e: self._show_ring(False), add="+")
         # The page underneath must not scroll while the dialog is up.
         for wheel in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             c.bind(wheel, lambda e: "break")
@@ -468,6 +470,7 @@ class Dialog:
         if self._entry is not None and self._entry.winfo_exists():
             # A dialog that asks for words takes them at once.
             self._entry.focus_set()
+            self._show_ring(False)
         else:
             self.canvas.focus_set()
 
@@ -484,6 +487,12 @@ class Dialog:
             except tk.TclError:
                 pass
         self._jobs.clear()
+
+    def tab_words(self):
+        """The tab's name: English capitals in both languages, as a card's name (THEME.md), one word set for every
+        window."""
+        from opendmt3.client import i18n
+        return i18n.english_of(self.title).upper()
 
     def tab(self, step):
         """Tab: the next button, or the previous one; past the last (or before the first), the window's own keys when
@@ -668,7 +677,7 @@ class Dialog:
                 problems.append("dialog: text outside the panel: %r" % text)
             if "button" not in " ".join(c.gettags(item)) and tops and box[3] > min(tops):
                 problems.append("dialog: text runs into the buttons: %r" % text)
-        tab_words = self.title.upper() if self.ui.words.language == "en" else self.title
+        tab_words = self.tab_words()
         if self.ui.fonts.dialog_tab.measure(tab_words) > self._tab_room:
             problems.append("dialog: the title does not fit its tab: %r" % tab_words)
         for i, (left, top, right, bottom) in enumerate(self._boxes):
@@ -685,10 +694,11 @@ def _buttons(words, kind, confirm, cancel):
 
 
 def ask(app, kind, title, message, detail, confirm, cancel=None):
-    """Ask before doing something; True when the player chose `confirm`. Removing for good starts on Cancel, so
-    Enter alone never removes anything; other questions start on their main button."""
+    """Ask before doing something; True when the player chose `confirm`. A question that changes or removes something
+    (amber: "warn", "danger") starts on Cancel, so Enter alone never does it; other questions start on their main
+    button."""
     dialog = Dialog(app.root, app.ui, kind, title, message, detail, _buttons(app.words, kind, confirm, cancel),
-                    default=0 if kind == "danger" else 1, cancel=False)
+                    default=0 if kind in ("danger", "warn") else 1, cancel=False)
     app.dialog = dialog
     try:
         return bool(dialog.wait())
@@ -724,8 +734,9 @@ def window_root(title="openDMT3", language="en", label="LAUNCHER"):
 
     It wears the product's own header, not the system's caption: openDMT3's lockup with `label` at DMT3's foot (SETUP
     for the installer, LAUNCHER for the launcher's own windows; no version, which a DMT3 this small has no room over,
-    and which the installer's question says) and a minimize and a close key drawn as the product's keys, which Tab reaches past the dialog's buttons; the window is dragged by the header, and a pixel of edge keeps it
-    off the desktop. On Windows the system's caption and frame are taken away (frameless) while the taskbar button,
+    and which the installer's question says) and a minimize and a close key drawn as the product's keys, which Tab
+    reaches past the dialog's buttons; the window is dragged by the header, and a pixel of edge keeps it off the
+    desktop. On Windows the system's caption and frame are taken away (frameless) while the taskbar button,
     Alt+Tab, the system menu and minimizing from the taskbar stay; elsewhere the system's frame stays over it. The
     window's title stays set for the taskbar (and for the tests that find the window by it)."""
     safety.refuse_windows_in_tests("a dialog window")
@@ -923,10 +934,11 @@ def set_icon(root):
         pass
 
 
-def window(kind, title, message, detail=None, buttons=(), default=0, cancel=None, language="en"):
+def window(kind, title, message, detail=None, buttons=(), default=0, cancel=None, language="en", label="LAUNCHER"):
     """A dialog in a window of its own, over the title screen's shards, for when the launcher cannot open its
-    window. Returns (root, dialog); the window closes itself once the dialog is answered."""
-    root, ui = window_root(language=language)
+    window (`label`: the header's role word, SETUP for the installer's). Returns (root, dialog); the window closes
+    itself once the dialog is answered."""
+    root, ui = window_root(language=language, label=label)
     dialog = Dialog(root, ui, kind, title, message, detail, buttons, default=default, cancel=cancel,
                     window=lambda w, h: art.shards(w, h, seed=29), on_close=lambda value: root.destroy())
     fit(root, ui, dialog)
@@ -934,9 +946,9 @@ def window(kind, title, message, detail=None, buttons=(), default=0, cancel=None
     return root, dialog
 
 
-def standalone(kind, title, message, detail=None, buttons=(), default=0, cancel=None, language="en"):
+def standalone(kind, title, message, detail=None, buttons=(), default=0, cancel=None, language="en", label="LAUNCHER"):
     """window() and wait for the answer: the chosen button's value (`cancel` when the window is closed)."""
-    root, dialog = window(kind, title, message, detail, buttons, default, cancel, language)
+    root, dialog = window(kind, title, message, detail, buttons, default, cancel, language, label)
     root.mainloop()
     return dialog.result
 
@@ -994,6 +1006,7 @@ class PathDialog(Dialog):
         super()._take_input()
         if not self.closed and self.entry is not None and self.canvas.winfo_viewable():
             self.entry.focus_set()
+            self._show_ring(False)
             self.entry.select_range(0, "end")
             self.entry.icursor("end")
 

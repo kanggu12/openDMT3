@@ -106,7 +106,7 @@ TEXT = {
     "screen.pacing.even": ("Even", "고르게"),
     "screen.pacing.hint": ("Even makes every frame the same length; Locked to the music also keeps a song's notes on "
                            "its music.",
-                           "고르게는 모든 프레임 간격을 같게 합니다. 음악에 맞춤은 노트도 곡의 음악에 맞춥니다."),
+                           "‘고르게’는 모든 프레임 간격을 같게 합니다. ‘음악에 맞춤’은 노트도 곡의 음악에 맞춥니다."),
     "screen.motion": ("Motion clarity", "잔상 줄이기"),
     "screen.motion.off": ("Off", "끔"),
     "screen.motion.crt": ("CRT beam", "CRT 빔"),
@@ -137,7 +137,7 @@ TEXT = {
     "screen.shape.keep": ("Keep", "비율 유지"),
     "screen.shape.fill": ("Fill", "채우기"),
     "screen.shape.hint": ("Keep leaves bars beside the game's 5:3 picture; Fill stretches it.",
-                          "비율 유지는 5:3 그대로 두어 남는 곳에 띠가 생깁니다. 채우기는 화면에 맞게 늘립니다."),
+                          "‘비율 유지’는 5:3 그대로 두어 남는 곳에 띠가 생깁니다. ‘채우기’는 화면에 맞게 늘립니다."),
     "screen.render": ("Drawn at", "그리는 크기"),
     "screen.render.game": ("1280×768", "1280×768"),
     "screen.render.display": ("Screen size", "화면 크기"),
@@ -181,14 +181,13 @@ TEXT = {
     "sound.music": ("Music", "음악"),
     # Measured (the review's L7): the game applies its own music volume to a song's music only, and none to its key
     # sounds; the rows say what that leaves to the player.
-    "sound.music.hint": ("A song's music, as the game's own setting has it; the menus' music follows Master.",
-                         "곡의 음악으로, 게임 자체 설정과 같습니다. 메뉴 음악은 전체 음량을 따릅니다."),
+    # One fact each (the final review): the menus' music follows Master, which a person would not guess.
+    "sound.music.hint": ("A song's music; the menus' music follows Master.",
+                         "곡의 음악입니다. 메뉴 음악은 전체 음량을 따릅니다."),
     # The in-game sound panel's word for the same row (its column has room for KEYS, not KEYSOUNDS): both say Keys.
     "sound.keys": ("Keys", "키음"),
-    "sound.keys.hint": ("openDMT3's own: the game never applied its setting to the key sounds, so a value set before "
-                        "0.4.0 had no effect and they start at 100 %.",
-                        "openDMT3가 맞추는 음량입니다. 게임은 자체 키음 설정을 적용한 적이 없어 0.4.0 전의 값은 효과가 "
-                        "없었고, 100%에서 시작합니다."),
+    "sound.keys.hint": ("The key sounds' volume, set by openDMT3.",
+                        "openDMT3가 맞추는 키음 음량입니다."),
     "sound.eq": ("Equalizer", "이퀄라이저"),
     "sound.eq_60": ("60 Hz", "60 Hz"),
     "sound.eq_250": ("250 Hz", "250 Hz"),
@@ -206,10 +205,11 @@ TEXT = {
     "sound.mixer.directsound": ("DirectSound", "DirectSound"),
     "sound.mixer.openal": ("OpenAL Soft", "OpenAL Soft"),
     "sound.mixer.openal-exclusive": ("Exclusive", "단독"),
-    "sound.mixer.hint": ("DirectSound is Windows' own; OpenAL Soft takes a shorter way to the device; Exclusive keeps the "
-                         "device for the game alone. Where OpenAL Soft cannot open the device, DirectSound plays.",
-                         "DirectSound는 Windows가 섞고, OpenAL Soft는 더 짧은 경로로 장치에 보내며, 단독은 장치를 게임 "
-                         "혼자 씁니다. OpenAL Soft가 장치를 열지 못하면 DirectSound로 납니다."),
+    "sound.mixer.hint": ("DirectSound is Windows' own; OpenAL Soft takes a shorter way to the device; Exclusive "
+                         "keeps the device for the game alone. Where OpenAL Soft cannot open the device, DirectSound "
+                         "plays.",
+                         "DirectSound는 Windows가 섞고, OpenAL Soft는 더 짧은 경로로 장치에 보내며, ‘단독’은 장치를 게임 혼자 씁니다. OpenAL Soft가 "
+                         "장치를 열지 못하면 소리는 DirectSound로 납니다."),
     "sound.mixer.fell_back": ("In the last game, OpenAL Soft could not open the device, so DirectSound played.",
                               "지난 게임에서는 OpenAL Soft가 장치를 열지 못해 DirectSound로 소리를 냈습니다."),
     "sound.mixer.not_loaded": ("In the last game, OpenAL Soft's libraries did not load, so DirectSound played. "
@@ -252,7 +252,8 @@ TEXT = {
     "game.songlist.hint": ("The song list, with the jackets and the DJ cards, is the file a server's admin uploads.",
                           "곡 목록(자켓과 DJ 카드 포함)은 서버 관리자가 올리는 파일입니다."),
     "game.songlist.save": ("Save the song list...", "곡 목록 저장..."),
-    "game.songlist.send": ("Send the song list to this server", "이 서버로 곡 목록 보내기"),
+    "game.songlist.send": ("Send the song list to this server…",
+                           "이 서버로 곡 목록 보내기…"),
     "songlist.save.title": ("Save the song list", "곡 목록 저장"),
     "songlist.save.message": ("Where should the song list go?", "곡 목록을 어디에 저장할까요?"),
     "songlist.save.detail": ("The song list, its jackets and the DJ cards from your client data, about 14 MB, for a "
@@ -273,7 +274,7 @@ TEXT = {
     "songlist.send.title": ("Send the song list", "곡 목록 보내기"),
     "songlist.send.ask": ("Send the song list to this server?", "이 서버로 곡 목록을 보낼까요?"),
     "songlist.send.detail": ("{server}: it replaces the song list, the jackets and the DJ cards there.",
-                             "{server}: 그 서버의 곡 목록, 자켓, DJ 카드를 바꿉니다."),
+                             "{server} 서버의 곡 목록, 자켓, DJ 카드를 바꿉니다."),
     "songlist.send.button": ("Send", "보내기"),
     "songlist.sending.title": ("Sending", "보내는 중"),
     "songlist.sending": ("Sending the song list to this server...", "이 서버로 곡 목록을 보내는 중..."),
@@ -295,11 +296,12 @@ TEXT = {
     "online.mode": ("Play", "방식"),
     "online.mode.this_pc": ("On this PC", "이 PC에서"),
     "online.mode.offline": ("Offline", "오프라인"),
-    "online.mode.hint.this_pc": ("Logins and records are kept on this PC.", "로그인과 기록을 이 PC에 둡니다."),
+    "online.mode.hint.this_pc": ("Sign-ins and records are kept on this PC.",
+                                 "로그인과 기록을 이 PC에 둡니다."),
     "online.mode.hint.offline": ("No server: everyone plays with NO ID CARD, and nothing is recorded.",
                                  "서버 없이 모두 NO ID CARD로 플레이합니다. 기록은 남지 않습니다."),
     "online.mode.server": ("Another server", "다른 서버"),
-    "online.mode.hint.server": ("A server someone runs: its owner gives you the address, your ID and a password. Logins and records are kept there.",
+    "online.mode.hint.server": ("A server someone runs: its owner gives you the address, your ID and a password. Sign-ins and records are kept there.",
                                 "누군가 운영하는 서버입니다. 운영자가 주소와 ID, 비밀번호를 줍니다. 로그인과 기록은 그 서버에 남습니다."),
     "online.server": ("Server", "서버"),
     "online.address": ("The site's address", "사이트 주소"),
@@ -315,7 +317,8 @@ TEXT = {
     "online.players": ("Players", "플레이어"),
     "online.players.none": ("No player yet. Add one: their card goes in when they play.",
                             "아직 플레이어가 없습니다. 추가하면 그 사람이 플레이할 때 카드가 꽂힙니다."),
-    "online.plays": ("Who plays", "플레이할 사람"),
+    "online.plays": ("Plays next",
+                     "다음에 플레이"),
     "online.pick": ("Choose", "고르기"),
     "online.add": ("Add a player", "플레이어 추가"),
     "online.id": ("ID", "ID"),
@@ -324,9 +327,10 @@ TEXT = {
     "online.id.example": ("NOVA", "NOVA"),
     "online.dj.example": ("DJ NOVA", "DJ NOVA"),
     "online.address.example": ("192.168.0.10:4730", "192.168.0.10:4730"),
-    "online.id.hint": ("Up to {max} letters and digits.", "영문과 숫자 {max}자까지."),
-    "online.password.hint": ("{min} to {max} letters and digits.", "영문과 숫자 {min}~{max}자."),
-    "online.dj.hint": ("Up to {max} characters, shown in the game.", "{max}자까지. 게임에 표시됩니다."),
+    "online.id.hint": ("Up to {max} letters or digits.", "영문과 숫자 {max}자까지."),
+    "online.password.hint": ("{min} to {max} letters or digits.", "영문과 숫자 {min}~{max}자."),
+    "online.dj.hint": ("Up to {max} characters.",
+                       "{max}자까지."),
     # The sign-in (FORMS.md's door): the server it signs in to, Remember my ID, a wrong ID or password in one sentence
     # (as the site says it), the way back when the password is gone, a banned account's plate, signed in.
     "online.signin.to": ("Signing in to", "로그인할 서버"),
@@ -360,7 +364,8 @@ TEXT = {
     "server_test.game": ("The game's port", "게임 포트"),
     "server_test.sign_in": ("Sign-in", "로그인"),
     "server_test.address.ok": ("{base} is {ip}.", "{base}의 주소는 {ip}입니다."),
-    "server_test.address.bad": ("{address} is not an address.", "{address}는 주소가 아닙니다."),
+    "server_test.address.bad": ("{address} is not an address.",
+                                "주소 형식이 아닙니다: {address}"),
     "server_test.address.fix": ("Type the address the server's owner gave you, such as 192.168.0.10 or "
                                 "https://dmt3.example.org.",
                                 "서버 운영자에게 받은 주소를 입력하세요. 예: 192.168.0.10, https://dmt3.example.org"),
@@ -374,7 +379,7 @@ TEXT = {
                                   "서버가 켜져 있는지, 주소의 포트(운영자가 따로 알려 주지 않았다면 4730)가 맞는지, "
                                   "방화벽이 막지 않는지 확인하세요."),
     "server_test.site.other": ("{base} does not answer as an openDMT3 server does.",
-                               "{base}는 openDMT3 서버처럼 응답하지 않습니다."),
+                               "{base} 주소의 응답이 openDMT3 서버와 다릅니다."),
     "server_test.site.other.fix": ("Check the address: it is the site's, the one the server's owner gave you.",
                                    "주소를 확인하세요. 서버 운영자가 알려 준 사이트 주소여야 합니다."),
     # Something answers with bytes that are no HTTP: the game's port typed for the site's.
@@ -393,9 +398,10 @@ TEXT = {
                                                "런처를 업데이트하세요: openDMT3-cmd.exe --update."),
     "server_test.site.version.fix.older": ("Ask the server's owner to update the server.",
                                            "서버 운영자에게 서버 업데이트를 요청하세요."),
-    "server_test.game.ok": ("{ip}:{port} takes the game's connection.", "{ip}:{port}가 게임 연결을 받습니다."),
+    "server_test.game.ok": ("{ip}:{port} takes the game's connection.",
+                            "게임 포트 {ip}:{port}: 게임 연결을 받습니다."),
     "server_test.game.closed": ("{ip}:{port} does not take the game's connection.",
-                                "{ip}:{port}가 게임 연결을 받지 않습니다."),
+                                "게임 포트 {ip}:{port}: 게임 연결을 받지 않습니다."),
     "server_test.game.closed.fix": ("Ask the server's owner to open TCP port {port} in its firewall and router.",
                                     "서버 운영자에게 방화벽과 공유기에서 TCP 포트 {port}를 열어 달라고 하세요."),
     "server_test.sign_in.none": ("Not signed in yet, so not tested.", "아직 로그인하지 않아 확인하지 않았습니다."),
@@ -481,7 +487,8 @@ TEXT = {
     "about.shortcut.hint": ("TECHNIKA 3 on the desktop starts the game at once, with the player and settings chosen here.",
                             "바탕 화면의 TECHNIKA 3 바로 가기가 여기서 고른 플레이어와 설정으로 게임을 바로 시작합니다."),
     "about.shortcut.done": ("Made on the desktop: {name}", "바탕 화면에 만들었습니다: {name}"),
-    "about.autostart": ("Play when Windows starts", "Windows 시작 때 플레이"),
+    "about.autostart": ("Play when Windows starts",
+                        "Windows를 켜면 바로 플레이"),
     "about.autostart.on": ("The game now starts with Windows.", "이제 Windows가 시작할 때 게임이 시작합니다."),
     "about.autostart.off": ("The game no longer starts with Windows.", "이제 Windows가 시작할 때 게임을 시작하지 않습니다."),
     "records.loading": ("Reading the records...", "기록을 불러오는 중입니다..."),
@@ -520,7 +527,8 @@ TEXT = {
                           "예전 openDMT3가 클라이언트 데이터에서 바꾼 파일을 모두 원래대로 되돌리고 더한 파일은 지웁니다."),
     "help.restore.title": ("Put files back", "파일 되돌리기"),
     "help.restore.ask": ("Put every changed file back?", "바꾼 파일을 모두 되돌릴까요?"),
-    "help.restore.detail": ("The client data is as it was before openDMT3.", "클라이언트 데이터는 openDMT3 전과 같아집니다."),
+    "help.restore.detail": ("The client data goes back to how it was before openDMT3.",
+                            "클라이언트 데이터는 openDMT3 전과 같아집니다."),
     "help.restore.confirm": ("Put back", "되돌리기"),
     "help.restore.done": ("Files put back: {n}.", "파일 {n}개를 되돌렸습니다."),
     "help.restore.nothing": ("Nothing to put back.", "되돌릴 것이 없습니다."),
@@ -545,14 +553,22 @@ TEXT = {
     "help.repair.fine.detail": ("All {n} files of the program are as installed.",
                                 "프로그램 파일 {n}개가 모두 설치된 그대로입니다."),
     "help.repair.done": ("Repaired.", "복구했습니다."),
-    "help.repair.done.detail": ("Files put back: {n}.", "되돌린 파일: {n}개."),
-    "help.repair.done.restart": ("Files put back: {n}. Some are the launcher's own: close the launcher and open it "
-                                 "again.", "되돌린 파일: {n}개. 런처 파일도 되돌렸으니 런처를 닫고 다시 여세요."),
+    "help.repair.done.detail": ("{n} of the program's files put back.",
+                                "프로그램 파일 {n}개를 되돌렸습니다."),
+    "help.repair.done.restart": ("{n} of the program's files put back, the launcher's own among them: it starts "
+                                 "again to use them.",
+                                 "프로그램 파일 {n}개를 되돌렸고, 그중에 런처 자신의 파일이 있어 런처를 다시 시작해 씁니다."),
+    "help.repair.restart.key": ("Restart the launcher",
+                                "런처 다시 시작"),
     "help.repair.partly": ("Not everything could be repaired.", "일부를 복구하지 못했습니다."),
-    "help.repair.partly.detail": ("Files put back: {n}. Not put back: {failed}. Run the openDMT3 installer again "
-                                  "and choose Repair.", "되돌린 파일: {n}개. 되돌리지 못한 파일: {failed}개. "
-                                  "openDMT3 설치 프로그램을 다시 실행해 복구를 고르세요."),
+    "help.repair.partly.detail": ("{n} put back, {failed} could not be. Run the openDMT3 installer again and choose "
+                                  "Repair.",
+                                  "파일 {n}개를 되돌렸고 {failed}개는 되돌리지 못했습니다. openDMT3 설치 프로그램을 다시 실행해 복구를 고르세요."),
     "help.repair.failed": ("Repair failed.", "복구하지 못했습니다."),
+    "help.repair.source": ("This launcher was not installed by the openDMT3 installer.",
+                           "이 런처는 openDMT3 설치 프로그램으로 설치하지 않았습니다."),
+    "help.repair.source.detail": ("Repair works in the launcher the installer puts in.",
+                                  "복구는 설치 프로그램으로 설치한 런처에서 됩니다."),
     "help.uninstall": ("Uninstall", "제거"),
     "help.uninstall.row": ("openDMT3", "openDMT3"),
     "help.uninstall.hint": ("Removes openDMT3 from this PC. You choose then whether the settings, players and "
@@ -563,11 +579,13 @@ TEXT = {
                             "예전 openDMT3가 클라이언트 데이터에서 바꾼 파일을 원래대로 되돌립니다."),
     "help.uninstall.closes": ("The launcher closes and the program is gone a few seconds later.",
                               "런처가 닫히고 몇 초 뒤 프로그램이 지워집니다."),
-    "help.uninstall.choices": ("Keep data: the settings, players and records stay for a later install.\nDelete all: "
-                               "they go too ({size}).",
-                               "데이터 남기기: 설정, 플레이어, 기록을 남겨 다시 설치할 때 그대로 씁니다.\n모두 삭제: 설정, 플레이어, 기록도 지웁니다({size})."),
-    "help.uninstall.keep": ("Keep data", "데이터 남기기"),
-    "help.uninstall.all": ("Delete all", "모두 삭제"),
+    "help.uninstall.choices": ("Remove keeps the settings, players and records for a later install; Remove all "
+                               "deletes them too ({size}).",
+                               "제거는 설정, 플레이어, 기록을 다음 설치에 쓰도록 남기고, 모두 제거는 이것들도 지웁니다({size})."),
+    "help.uninstall.keep": ("Remove",
+                            "제거"),
+    "help.uninstall.all": ("Remove all",
+                           "모두 제거"),
     "help.uninstall.working": ("Putting the game's files back...", "게임 파일을 되돌리는 중..."),
     "help.uninstall.working.plain": ("Uninstalling openDMT3...", "openDMT3를 제거하는 중..."),
     "help.uninstall.working.detail": ("Then the launcher closes and the program is gone a few seconds later.",
@@ -577,8 +595,10 @@ TEXT = {
     "help.uninstall.done.all": ("The settings, players and records go too.", "설정, 플레이어, 기록도 지웁니다."),
     "help.uninstall.busy": ("Close the game first.", "먼저 게임을 닫으세요."),
     "help.uninstall.busy.detail": ("Uninstalling closes the launcher.", "제거하면 런처가 닫힙니다."),
-    "help.uninstall.busy.play": ("PLAY is getting the game ready. Try again once it is done.",
-                                 "PLAY가 게임을 준비하는 중입니다. 끝난 뒤 다시 시도하세요."),
+    "help.uninstall.busy.play": ("PLAY is getting the game ready.",
+                                 "PLAY가 게임을 준비하는 중입니다."),
+    "help.uninstall.busy.play.detail": ("Try again once it is done.",
+                                        "끝난 뒤 다시 해 보세요."),
     "help.uninstall.not_installed": ("Uninstalling works in the launcher installed by the openDMT3 installer.",
                                      "제거는 openDMT3 설치 프로그램으로 설치한 런처에서 됩니다."),
     "help.uninstall.not_installed.detail": ("This launcher runs from a folder without being installed. Delete the "
@@ -642,6 +662,10 @@ TEXT = {
     "setup.tab.failed": ("Not installed", "설치 안 됨"),
     "setup.tab.update": ("Update", "업데이트"),
     "setup.tab.done": ("Done", "완료"),
+    "setup.tab.game": ("Game open",
+                       "게임 실행 중"),
+    "setup.tab.older": ("Older version",
+                        "이전 버전"),
     "setup.install.ask": ("Install openDMT3 {v}?", "openDMT3 {v} 버전을 설치할까요?"),
     "setup.install.detail": ("It goes into your user folder with a desktop shortcut and needs no administrator rights.",
                              "사용자 폴더에 설치되고 바탕 화면에 바로 가기가 생깁니다. 관리자 권한은 필요 없습니다."),
@@ -652,7 +676,7 @@ TEXT = {
     "setup.update": ("Update", "업데이트"),
     "setup.back.ask": ("A newer openDMT3 is installed.", "더 새로운 openDMT3가 설치돼 있습니다."),
     "setup.back.detail": ("{have} is installed; this installer has {here} and would go back to it.",
-                          "설치된 버전은 {have}, 이 설치 파일은 {here}입니다. 설치하면 이 버전으로 돌아갑니다."),
+                          "지금 설치된 버전은 {have}이고, 이 설치 파일의 버전은 {here}입니다."),
     "setup.back": ("Install {here}", "{here} 버전 설치"),
     "setup.closing": ("The launcher is open: it closes first.", "열려 있는 런처는 먼저 닫힙니다."),
     "setup.for": ("It is set up for {name}.", "이 설치 파일은 {name}용입니다."),
@@ -688,22 +712,34 @@ TEXT = {
     "setup.starting": ("Starting the launcher...", "런처를 여는 중..."),
     "setup.done": ("openDMT3 {v} is installed.", "openDMT3 {v} 버전을 설치했습니다."),
     "setup.failed": ("openDMT3 could not be installed.", "openDMT3를 설치하지 못했습니다."),
+    "setup.cause.space": ("There is not enough room on the disk.",
+                          "디스크에 공간이 부족합니다."),
+    "setup.cause.denied": ("Windows did not let the setup write a file.",
+                           "Windows가 설치 프로그램의 파일 쓰기를 막았습니다."),
+    "setup.cause.missing": ("A file the setup needs is missing.",
+                            "설치에 필요한 파일이 없습니다."),
     "setup.failed.log": ("{why}\nThe log is {path}", "{why}\n로그 파일: {path}"),
     "setup.open_log": ("Open the log", "로그 열기"),
     "setup.not_started": ("openDMT3 did not start.", "openDMT3가 열리지 않았습니다."),
     "setup.not_started.detail": ("openDMT3 is installed, but it did not start: {error}", "openDMT3는 설치됐지만 열리지 않았습니다: {error}"),
-    "setup.no_setup": ("The setup inside this installer did not start: {error}", "설치 파일 안의 설치 프로그램이 시작되지 않았습니다: {error}"),
+    "setup.no_setup": ("This installer is incomplete. Download it again.",
+                       "이 설치 파일이 온전하지 않습니다. 다시 내려받으세요."),
     "setup.too_long": ("The setup did not finish in {m} minutes.", "설치가 {m}분 안에 끝나지 않았습니다."),
     "setup.code": ("The setup ended with code {code}.", "설치 프로그램 종료 코드: {code}"),
     "setup.wrong_version": ("The setup finished, but the installed version is {found} (this installer has {here}).",
                             "설치는 끝났지만 설치된 버전이 {found}입니다(이 설치 파일은 {here})."),
-    "crash.title": ("openDMT3 stopped", "openDMT3가 멈춤"),
+    "crash.title": ("Stopped",
+                    "멈춤"),
     "crash.message": ("openDMT3 stopped because of an error.", "오류로 openDMT3가 멈췄습니다."),
     "crash.detail": ("{error}\n\nWhat happened is in the log: {path}", "{error}\n\n자세한 내용은 로그에 있습니다: {path}"),
     "crash.logs": ("Open the log folder", "로그 폴더 열기"),
     "crash.action.title": ("Error", "오류"),
-    "crash.action.message": ("That did not work.", "그 작업을 하지 못했습니다."),
-    "crash.action.detail": ("{error}\nThe details are in the launcher's log.", "{error}\n자세한 내용은 런처 로그에 있습니다."),
+    "crash.action.message": ("That did not work.",
+                             "그 작업을 하지 못했습니다."),
+    "crash.action.named": ("{action} did not work.",
+                           "‘{action}’ 작업을 하지 못했습니다."),
+    "crash.action.detail": ("The details are in the launcher's log.",
+                            "자세한 내용은 런처 로그에 있습니다."),
     "about.legal": ("About", "정보"),
     # The licence alone: the notice under it says what the software holds and how to use it.
     "about.license": ("openDMT3 is MIT licensed.", "openDMT3는 MIT 라이선스입니다."),
@@ -816,6 +852,10 @@ TEXT = {
     "intake.choose_archive": ("Choose an archive...", "압축 파일 고르기..."),
     # ---------------------------------------------------------------------- unpacking (client/unpacking.py)
     "unpack.title": ("Unpack", "풀기"),
+    "unpack.tab.done": ("Done",
+                        "완료"),
+    "unpack.tab.failed": ("Not unpacked",
+                          "풀지 못함"),
     "unpack.ask": ("Unpack the client data from this archive?", "이 압축 파일에서 클라이언트 데이터를 풀까요?"),
     "unpack.ask.nested": ("Unpack the client data from the archive inside this one?",
                           "이 압축 파일 안의 압축 파일에서 클라이언트 데이터를 풀까요?"),
@@ -873,6 +913,21 @@ class Words:
         if key in TEXT:
             return self(key, **getattr(error, "params", {}))
         return errors.say(error, self.language)
+
+
+_ENGLISH = {}
+
+
+def english_of(text):
+    """The English words of the entry whose words (in either language) are `text`, or the text as it is: a card's and
+    a dialog's name are English capitals in both languages (THEME.md: "이름표는 영어 대문자, 내용은 한국어"), as the
+    menu's and the game's own labels are."""
+    if not _ENGLISH:
+        for en, ko in TEXT.values():
+            if en:
+                _ENGLISH.setdefault(ko, en)
+                _ENGLISH.setdefault(en, en)
+    return _ENGLISH.get(text, text)
 
 
 def every_language(text):

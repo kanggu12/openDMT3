@@ -9,7 +9,7 @@ from tkinter import ttk
 
 from PIL import ImageTk
 
-from opendmt3.client import art, theme
+from opendmt3.client import art, i18n, theme
 
 
 class Ui:
@@ -690,7 +690,8 @@ def section(parent, ui, text, bg=None):
     song select): white words on a dark leaning plate (art.name_plate), on its parent's colour unless told."""
     bg = bg or parent.cget("bg")
     row = tk.Frame(parent, bg=bg)
-    words = text.upper() if ui.words.language == "en" else text
+    # A name in English capitals in both languages, as a card's (THEME.md).
+    words = i18n.english_of(text).upper()
     # Black on a card, as the game's plates sit on its bright bars; a step lighter than the page on the page itself,
     # where black would not show.
     picture = art.name_plate(words, ui.scale, fill=theme.INK if bg == theme.PANEL else theme.PANEL_HI)
@@ -824,8 +825,10 @@ class Button(tk.Canvas):
             self.command()
 
     def press(self):
-        """What a click does, for the keyboard and the tests."""
+        """What a click does, for the keyboard and the tests. The key's words are kept while its action runs, so a
+        failure nobody caught names the action it stopped (LauncherApp.report_callback_exception)."""
         if self.enabled and self.command:
+            self.ui.last_action = self.words
             self.command()
 
     def enable(self, on):
@@ -1535,8 +1538,9 @@ class Card(tk.Frame):
         self.head.pack(fill="x")
         self.tab = None
         if title:
-            # A card's name in the game's capitals (English in both languages, as the menu's; Hangul has none).
-            words = title.upper()
+            # A card's name in the game's capitals, English in both languages as the menu's (THEME.md), the content in
+            # the page's language.
+            words = i18n.english_of(title).upper()
             picture = art.name_plate(words, ui.scale, fill=theme.LINE)
             image = ImageTk.PhotoImage(picture, master=self)
             self.tab = tk.Label(self.head, image=image, bg=theme.PANEL, bd=0)
@@ -1762,7 +1766,9 @@ class Field(tk.Canvas):
             self.under = under
         if not self.winfo_exists() or self._face is None:
             return
-        state = ("disabled" if not self.enabled else "focus" if self.focused else "error" if self.error
+        # Refused wins over the keyboard's ring until the next key typed takes it away (_typed): after a wrong try the
+        # field itself says it, not only the line under it (the final review's D-09).
+        state = ("disabled" if not self.enabled else "error" if self.error else "focus" if self.focused
                  else "hover" if self.under else "normal")
         self.itemconfigure(self._face, image=self.images[state])
         # A dialog draws the window behind it from the widgets (snapshot.py): the face as it looks now.

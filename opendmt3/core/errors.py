@@ -247,8 +247,8 @@ TEXT = {
         "the installed package cannot be read (run the openDMT3 installer again and choose Repair)",
         "설치된 패키지를 읽을 수 없습니다. openDMT3 설치 프로그램을 다시 실행해 복구를 고르세요."),
     # An update whose package lacks the project's signature (client/updates.py).
-    "error.update.unsigned": ("the update to {version} is not signed by the openDMT3 project, so it was not put in",
-                              "{version} 업데이트에 openDMT3 프로젝트의 서명이 없어 설치하지 않았습니다."),
+    "error.update.unsigned": ("the update to {version} is not signed by the openDMT3 project. It was not installed",
+                              "{version} 업데이트에 openDMT3 프로젝트의 서명이 없습니다. 설치하지 않았습니다."),
     # An update that could not be fetched: no answer, a file cut short, no room (client/updates.py).
     "error.update.download": ("The update to {version} could not be downloaded. Check the connection and try again.",
                               "{version} 업데이트를 내려받지 못했습니다. 연결을 확인하고 다시 해 보세요."),

@@ -51,7 +51,9 @@ def run(app, result):
 
     def failed(text):
         shown.close()
-        dialogs.tell(app, "error", w("about.update_failed.title"), w("about.apply_failed", error=text))
+        # The fact as the heading, what to do (or what followed) under it: never "failed" twice in a glued sentence.
+        heading, _, rest = text.partition(". ")
+        dialogs.tell(app, "error", w("about.update_failed.title"), heading + ("." if rest else ""), rest or None)
 
     def work():
         try:

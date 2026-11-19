@@ -41,7 +41,7 @@ def unpack_archive(app, found):
             return None
         if found.state != intake.UNPACK:
             # With its password the archive said what it holds, and it is not a game folder to unpack.
-            dialogs.tell(app, "error", w("unpack.title"), w("unpack.failed"), found.line_words(w))
+            dialogs.tell(app, "error", w("unpack.tab.failed"), w("unpack.failed"), found.line_words(w))
             return None
     # Beside the archive unless the player picks another folder.
     parent = ask_where(app, found, unpack.default_parent(found.path))
@@ -139,8 +139,9 @@ def ask_where(app, found, parent):
 
         message = w("unpack.ask.nested" if found.inner else "unpack.ask")
         # Unpack only where it fits: else Cancel and Another folder... are the ways on.
-        buttons = [(w("common.cancel"), None, "neutral")] + ([(w("unpack.go"), True, "warn")] if fits else [])
-        dialog = dialogs.Dialog(app.root, app.ui, "warn", w("unpack.title"), message, detail, buttons,
+        buttons = [(w("common.cancel"), None, "neutral")] + ([(w("unpack.go"), True, "info")] if fits else [])
+        # A step of the guide, not a warning: blue, as every main action (amber stays the DISC CHECK chip's).
+        dialog = dialogs.Dialog(app.root, app.ui, "info", w("unpack.title"), message, detail, buttons,
                                 default=len(buttons) - 1, cancel=None, link=(w("unpack.other"), other))
         app.dialog = dialog
         try:
@@ -193,7 +194,7 @@ def work(app, found, parent, password):
     threading.Thread(target=run, daemon=True, name="unpack").start()
     while True:
         # The line under the track says the archive is being read until 7-Zip gives its first percent.
-        dialog = dialogs.Dialog(app.root, app.ui, "warn", w("unpack.title"), w("unpack.working"), found.path,
+        dialog = dialogs.Dialog(app.root, app.ui, "info", w("unpack.title"), w("unpack.working"), found.path,
                                 [(w("unpack.stop"), "stop", "neutral")], default=0, cancel="stop", progress=True,
                                 status=w("unpack.starting"))
         holder["dialog"] = dialog
@@ -214,7 +215,7 @@ def work(app, found, parent, password):
         break
     if not outcome:
         # Stopping: 7-Zip ends at once, and what it made is removed; the light sweeps until that is done.
-        waiting = dialogs.Dialog(app.root, app.ui, "warn", w("unpack.title"), w("unpack.stop.detail"), None,
+        waiting = dialogs.Dialog(app.root, app.ui, "info", w("unpack.title"), w("unpack.stop.detail"), None,
                                  progress=True)
         holder["dialog"] = waiting
         app.dialog = waiting
@@ -224,12 +225,13 @@ def work(app, found, parent, password):
             app.dialog = None
     if outcome.get("folder"):
         # Where it went, said once: the folder is listed ready and used under the dialog.
-        dialogs.tell(app, "info", w("unpack.title"), w("unpack.done"), outcome["folder"])
+        # The tab names the state, as the installer's do (DONE, NOT UNPACKED).
+        dialogs.tell(app, "info", w("unpack.tab.done"), w("unpack.done"), outcome["folder"])
         return outcome["folder"]
     if outcome.get("stopped"):
         dialogs.tell(app, "info", w("unpack.title"), w("unpack.stopped"))
         return None
     error = outcome.get("error")
     # Why, in the player's words: the archive damaged, a part missing, the disk full, a password...
-    dialogs.tell(app, "error", w("unpack.title"), w("unpack.failed"), w.error(error) if error else None)
+    dialogs.tell(app, "error", w("unpack.tab.failed"), w("unpack.failed"), w.error(error) if error else None)
     return None

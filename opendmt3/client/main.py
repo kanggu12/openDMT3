@@ -7,6 +7,7 @@ import logging
 import logging.handlers
 import os
 import sys
+import time
 
 from opendmt3 import __version__
 from opendmt3.client import actions, cli
@@ -110,6 +111,29 @@ def _dpi_aware():
         ctypes.windll.user32.SetProcessDPIAware()
 
 
+def _wait_for_previous():
+    """A launcher started again by the one before it (a repair put back its own files) waits, 15 s at most, for that
+    one to end before it takes the window (actions.start_again sets OPENDMT3_AFTER_PID)."""
+    pid = os.environ.pop("OPENDMT3_AFTER_PID", "")
+    if not pid.isdigit():
+        return
+    if sys.platform == "win32":
+        import ctypes
+        # SYNCHRONIZE: enough to wait on the process.
+        handle = ctypes.windll.kernel32.OpenProcess(0x00100000, False, int(pid))
+        if handle:
+            ctypes.windll.kernel32.WaitForSingleObject(handle, 15000)
+            ctypes.windll.kernel32.CloseHandle(handle)
+        return
+    end = time.time() + 15
+    while time.time() < end:
+        try:
+            os.kill(int(pid), 0)
+        except OSError:
+            return
+        time.sleep(0.2)
+
+
 def _single_instance():
     """True when no other launcher window is open; otherwise bring that one forward and return False."""
     if sys.platform != "win32":
@@ -147,7 +171,7 @@ def _cannot_start(error):
         return False
     answer = dialogs.standalone("error", w("start.title"), w("start.broken"),
                                 w("start.broken.detail", path=error.path),
-                                [(w("common.close"), "close", "neutral"), (w("start.over"), "reset", "warn")],
+                                [(w("common.close"), "close", "neutral"), (w("start.over"), "reset", "info")],
                                 default=1, cancel="close", language=language)
     if answer != "reset":
         return False
@@ -207,6 +231,7 @@ def main(argv=None):
     if not jobs:
         # The window copy: sharp at any scaling and only once, settled before any window (a dialog too) opens.
         _dpi_aware()
+        _wait_for_previous()
         if not _single_instance():
             return 0
     try:

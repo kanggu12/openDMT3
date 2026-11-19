@@ -386,12 +386,13 @@ class LauncherApp:
             return
         self._telling_failure = True
         try:
-            from opendmt3.core import errors
             from opendmt3.client import dialogs
             w = self.words
-            # A line of its own: it ends with a full stop like the lines around it, whatever error it was.
-            dialogs.tell(self, "error", w("crash.action.title"), w("crash.action.message"),
-                         w("crash.action.detail", error=errors.closed(w.error(value), {})))
+            # The action it stopped, named by the key that started it (its words, without a trailing "..."); the
+            # error's own text goes to the log and the report, never in English under Korean.
+            action = (getattr(self.ui, "last_action", None) or "").rstrip(".…").strip()
+            message = w("crash.action.named", action=action) if action else w("crash.action.message")
+            dialogs.tell(self, "error", w("crash.action.title"), message, w("crash.action.detail"))
         except Exception:  # noqa: BLE001  (the log has it; a second failure is not told again)
             log.exception("could not tell a failed window action")
         finally:
@@ -555,6 +556,12 @@ class LauncherApp:
             self.post(lambda: done(said, "ok"))
 
         threading.Thread(target=work, daemon=True, name="admin").start()
+
+    def restart(self):
+        """The launcher started again (a repair put back its own files): the new one waits for this one to end, and
+        this window closes as at a close (the settings saved, this PC's server stopped)."""
+        actions.start_again()
+        self.close()
 
     def player_changed(self):
         """Who plays changed on ONLINE's Players card (picked, added, deleted): the cabinet's lamps and the ready

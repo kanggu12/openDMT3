@@ -279,8 +279,8 @@ class WholePackageTest(UpdateCase):
                     error = self.refused(self.result())
                 # The log says what was wrong with it and where it came from; the player reads the one sentence.
                 self.assertIn("refused the update to 9.9.9 from %s: " % self.feed, logged.output[-1])
-                self.assertEqual(str(error), "the update to 9.9.9 is not signed by the openDMT3 project, so it was "
-                                             "not put in")
+                self.assertEqual(str(error), "the update to 9.9.9 is not signed by the openDMT3 project. It was not "
+                                             "installed")
 
     def test_without_a_signature_the_package_is_not_even_fetched(self):
         os.remove(self.release() + ".sig")
@@ -783,14 +783,14 @@ class UpdateDialogsTest(unittest.TestCase):
                 self.assertEqual((self.told, app.closed), ([], [True]))
 
     def test_an_update_that_is_refused_is_told_in_the_launchers_own_dialog(self):
+        # The fact as the heading, what to do (or what followed) under it (the final review's C-05): never "failed"
+        # twice in one glued sentence.
         refusals = {
-            UNSIGNED: {"en": "The update failed: The update to 9.9.9 is not signed by the openDMT3 project, so it was "
-                             "not put in.",
-                       "ko": "업데이트하지 못했습니다: 9.9.9 업데이트에 openDMT3 프로젝트의 서명이 없어 설치하지 않았습니다."},
+            UNSIGNED: {"en": ("The update to 9.9.9 is not signed by the openDMT3 project.", "It was not installed."),
+                       "ko": ("9.9.9 업데이트에 openDMT3 프로젝트의 서명이 없습니다.", "설치하지 않았습니다.")},
             "error.update.download": {
-                "en": "The update failed: The update to 9.9.9 could not be downloaded. Check the connection and try "
-                      "again.",
-                "ko": "업데이트하지 못했습니다: 9.9.9 업데이트를 내려받지 못했습니다. 연결을 확인하고 다시 해 보세요."},
+                "en": ("The update to 9.9.9 could not be downloaded.", "Check the connection and try again."),
+                "ko": ("9.9.9 업데이트를 내려받지 못했습니다.", "연결을 확인하고 다시 해 보세요.")},
         }
         for key, said in refusals.items():
             for language, words in said.items():
@@ -803,7 +803,7 @@ class UpdateDialogsTest(unittest.TestCase):
                     # The dialog for work under way is closed, and the reason is told in a dialog of the launcher's:
                     # an error, with the launcher's title and the error's own words in the player's language.
                     self.assertTrue(Dialog.made[0].closed)
-                    self.assertEqual(self.told, [("error", app.words("about.update_failed.title"), words)])
+                    self.assertEqual(self.told, [("error", app.words("about.update_failed.title")) + words])
                     # The launcher stays open, on no dialog.
                     self.assertEqual((app.closed, app.dialog), ([], None))
 
@@ -812,7 +812,7 @@ class UpdateDialogsTest(unittest.TestCase):
         with mock.patch.object(updates, "apply", side_effect=RuntimeError("velopack said no")), \
                 self.assertLogs("opendmt3.launcher"):
             self.updating.run(app, self.result)
-        self.assertEqual(self.told, [("error", "업데이트 실패", "업데이트하지 못했습니다: Velopack said no")])
+        self.assertEqual(self.told, [("error", "업데이트 실패", "Velopack said no", None)])
 
 
 class StartTest(unittest.TestCase):

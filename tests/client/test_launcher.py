@@ -1659,7 +1659,7 @@ class LauncherTest(FolderCase):
                 mock.patch.object(dialogs, "standalone", lambda *a, **kw: shown.append(a) or "close"):
             self.assertEqual(main.run([]), 2)
         kind, title, message, detail = shown[0][:4]
-        self.assertEqual((kind, title), ("error", "openDMT3 stopped"))
+        self.assertEqual((kind, title), ("error", "Stopped"))
         # In the window's words (a sentence starts with a capital letter).
         self.assertIn("a surprise", detail.lower())
         # The console copy prints it instead (no window).
