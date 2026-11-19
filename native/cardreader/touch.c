@@ -131,7 +131,9 @@ static void game_point(HWND w, POINT c, int *gx, int *gy)
     PicRect r;
     post_picture(&r.x, &r.y, &r.w, &r.h);
     if (r.w <= 0 || r.h <= 0) {
-        RECT rc;
+        /* No size when the window gives none (gone, or not yet shown): the point is then handed on as it is
+         * (game_pixel_under), never sized by a rectangle GetClientRect left unwritten. */
+        RECT rc = {0, 0, 0, 0};
         GetClientRect(w, &rc);
         r.x = r.y = 0;
         r.w = rc.right;

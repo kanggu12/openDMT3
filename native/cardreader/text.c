@@ -149,8 +149,16 @@ static Kept *render(const char *utf8, int face, int size, int edge)
     g_renders++;
     HDC dc = CreateCompatibleDC(NULL);
     HFONT old = SelectObject(dc, f->font);
-    SIZE extent;
-    GetTextExtentPoint32W(dc, words, n, &extent);
+    /* The words' size; a measure GDI refused (no DC to be had) leaves nothing to size a picture by, where the size it
+     * left unwritten was used as it happened to be (a bitmap and memory of any size asked for). Not drawn then. */
+    SIZE extent = {0, 0};
+    if (!dc || !GetTextExtentPoint32W(dc, words, n, &extent) || extent.cx <= 0 || extent.cy <= 0) {
+        if (dc) {
+            SelectObject(dc, old);
+            DeleteDC(dc);
+        }
+        return NULL;
+    }
     /* Room round the words for a dark edge (the game's labels on its bright plates have one; the mark's chrome a thinner
      * one, as the launcher's logo, about 2 pixels at the bar's size). */
     int e = edge ? (size / 14 > 1 ? size / 14 : 1) : 0;
