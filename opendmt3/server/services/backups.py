@@ -2,8 +2,9 @@
 one before plays are reset, and the database files the admin uploads.
 
 A backup is SQLite's own copy of the database at one moment (the part still in the write-ahead log included, which
-a file copy would miss), written as openDMT3-<date>-<time>-<kind>.sqlite in the data folder's backups/ and moved
-into place only when complete. The newest KEEP of each kind stay; older ones are removed as new ones come.
+a file copy would miss), written as opendmt3-backup-<date>-<time>-<kind>.sqlite in the data folder's backups/ (in
+lowercase, the tool, what it is and when, as the release's files are named; a backup an older openDMT3 named
+openDMT3-<date>-<time>-<kind>.sqlite still counts) and moved into place only when complete. The newest KEEP of each kind stay; older ones are removed as new ones come.
 A restore first backs up the database as it is, then copies the backup over it and brings it up to this
 openDMT3's version, so a restore can itself be undone.
 
@@ -38,7 +39,10 @@ DAY = 86400
 # daily: made by the server once a day; manual: asked for; restore: made right before a restore; reset: made right
 # before the admin resets plays; upload: a database file the admin brought from elsewhere (upload_part, keep_upload).
 KINDS = ("daily", "manual", "restore", "reset", "upload")
-NAME = re.compile(r"^openDMT3-(\d{8})-(\d{6})-(daily|manual|restore|reset|upload)\.sqlite$")
+# A backup's name: this openDMT3's, or an older one's (still listed, restored and deleted as any other).
+NAME = re.compile(r"^(?:opendmt3-backup|openDMT3)-(\d{8})-(\d{6})-(daily|manual|restore|reset|upload)\.sqlite$")
+# The name a new backup gets, from its moment and its kind.
+NEW_NAME = "opendmt3-backup-%s-%s.sqlite"
 # Every change to the backups' folder (a backup made, an upload kept, a restore, a backup deleted, the oldest removed)
 # runs one at a time in this process: the site's threads, its long work's and the day's backup may ask at once, and
 # two backups of the same second took the same name (_free_name) and wrote the same file ("disk I/O error", or one
@@ -117,7 +121,7 @@ def _free_name(where, kind, now=None):
     for each one already there, so two in the same second each get their own."""
     moment = int(now if now is not None else time.time())
     while True:
-        name = "openDMT3-%s-%s.sqlite" % (time.strftime("%Y%m%d-%H%M%S", time.localtime(moment)), kind)
+        name = NEW_NAME % (time.strftime("%Y%m%d-%H%M%S", time.localtime(moment)), kind)
         if not os.path.exists(os.path.join(where, name)):
             return name
         moment += 1

@@ -372,7 +372,7 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
       // is told on the page and never sent; then the song list the seed saved is uploaded, taken in and said, the page
       // measured.
       await page.goto(admin + '/admin/song_list', {waitUntil: 'networkidle0'});
-      await drop(lang, width, 'song-list', '/out/openDMT3-song-list.zip', 'openDMT3-song-list.zip');
+      await drop(lang, width, 'song-list', '/out/opendmt3-song-list.zip', 'opendmt3-song-list.zip');
       await page.goto(admin + '/admin/song_list', {waitUntil: 'networkidle0'});
       await (await page.$('form.upload input[type=file]')).uploadFile('/tmp/notes.txt');
       await page.evaluate(() => { document.querySelector('form[data-upload-most]').dataset.uploadMost = '4'; });
@@ -390,7 +390,7 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
       });
       await (await page.$('.card:has(form.upload)')).screenshot({path: `/out/${lang}-upload-song-list-too-big-${width}.png`});
       await page.goto(admin + '/admin/song_list', {waitUntil: 'networkidle0'});
-      await (await page.$('form.upload input[type=file]')).uploadFile('/out/openDMT3-song-list.zip');
+      await (await page.$('form.upload input[type=file]')).uploadFile('/out/opendmt3-song-list.zip');
       await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('form.upload button.send')]);
       // What the import did, or why it did not, is said in the toast in the bar's place.
       const taken = await page.evaluate(() => ({ok: (document.querySelector('.toast[data-toast]:not(.bad) .toast-words') || {}).textContent || '',

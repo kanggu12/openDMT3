@@ -38,7 +38,7 @@ ARCHIVE = {"kind": "archive", "ready": True, "path": "/games/technika.7z", "key"
            "line": "Client data in an archive: ready (the server takes out only what it needs)", "parts": []}
 LOCKED = dict(ARCHIVE, path="/games/locked.7z", ready=False, key="error.source.password",
               line="This archive has a password. Enter it.")
-SONG_LIST = {"kind": "song list", "ready": True, "path": "/files/openDMT3-song-list.zip", "key": "source.song_list",
+SONG_LIST = {"kind": "song list", "ready": True, "path": "/files/opendmt3-song-list.zip", "key": "source.song_list",
              "line": "Song list saved by openDMT3, 3 songs: ready", "parts": [(True, "song list: 3 songs")]}
 
 
@@ -57,7 +57,7 @@ class FakeEnv:
         self.accounts_found, self.built, self.readable = accounts, built, readable
         self.surveys = {"/games/made-up": WHOLE, "/games/no-cards": NO_CARDS, "/games/technika.7z": ARCHIVE,
                         "/games/locked.7z": LOCKED, ("/games/locked.7z", "made-up"): dict(ARCHIVE, path="/games/locked.7z"),
-                        "/files/openDMT3-song-list.zip": SONG_LIST}
+                        "/files/opendmt3-song-list.zip": SONG_LIST}
         # The output and exit code of each step by its key; the check's lines.
         self.outputs = outputs or {}
         self.checked = check if check is not None else [(True, "the site answers")]
@@ -295,7 +295,7 @@ class PagesTest(unittest.TestCase):
         looked(p, a, env)
         self.assertIsNone(p.leave(a, env))
         # A song list the launcher saved.
-        a.game, a.archive_password = "/files/openDMT3-song-list.zip", ""
+        a.game, a.archive_password = "/files/opendmt3-song-list.zip", ""
         looked(p, a, env)
         self.assertEqual(p.preview(a, env)[:2], [(SONG_LIST["line"], "ok"), ("song list: 3 songs", "ok")])
         self.assertIsNone(p.leave(a, env))

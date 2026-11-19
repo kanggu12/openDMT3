@@ -47,9 +47,17 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
 - The release's files are named for what each holds and where it runs: `opendmt3-server-0.4.0-linux-macos.zip`
   (0.3.1: `opendmt3-server-0.3.1.zip`), `opendmt3-0.4.0-sha256sums.txt` (`opendmt3-0.3.1-checksums.txt`) and
   `opendmt3-launcher-0.4.0-openal-sources.zip` (`opendmt3-launcher-0.3.1-lgpl-sources.zip`).
+- Backups, the CSV files and the song list are named in lowercase with the tool, what they are and their date:
+  `opendmt3-backup-<date>-<time>-<kind>.sqlite`, `opendmt3-plays-<date>.csv`, `opendmt3-song-list.zip`.
+- **Rankings** light each mode's key in its own colour (STAR's lime, POP's pink) and one's own row in openDMT3's blue.
 
 ### Fixed
 
+- **Copy** works over plain http on the network too (the API token shown once, the message to send a player), where
+  the browser gives a page no clipboard.
+- On a phone a date no longer breaks from its time, nor a figure from its unit.
+- **Status** counts every account, as the Players list does, and says how many of them are disabled.
+- After an account is made, the Players page's form is empty again.
 - The launcher takes an `https://` address without a port as port 443, as a browser does.
 - Two starts of this PC's server at once (**Open my records** and PLAY) no longer leave a second server holding the
   game's port.
@@ -70,6 +78,8 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
   `./dmt3 expose NAME --admin-public`, at `https://NAME:4731/`. `--admin-on-site-port` keeps them on the site's port
   too, at `/admin/`.
 - Old `/admin` bookmarks on the site's port go on to the admin site from wherever it can be reached.
+- Backups made before keep their names (`openDMT3-<date>-<time>-<kind>.sqlite`) and stay listed, restorable and
+  deletable; a song list saved as `openDMT3-song-list.zip` is read as before.
 - Players and launchers stay signed in. Admins sign in again on the admin site, which keeps its own sign-in; signing
   out on either site ends the account's sign-ins on both.
 - The server upgrades its database on its first start, after keeping a copy beside it

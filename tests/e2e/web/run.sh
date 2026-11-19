@@ -60,7 +60,7 @@ docker build -q -f "$REPO/packaging/docker/Dockerfile" -t "$TAG" "$REPO" >/dev/n
 docker run --rm --name "$NAME-seed-$$" --network none -e PYTHONPATH=/app -v "$OUT/data:/data" -v "$REPO/tests/e2e/web:/t:ro" --entrypoint python "$TAG" /t/seed.py /data \
   || { echo "FAIL: the data did not seed"; exit 1; }
 # The song list the seed saved, where the browser can upload it from.
-cp "$OUT/data/openDMT3-song-list.zip" "$OUT/shots/"
+cp "$OUT/data/opendmt3-song-list.zip" "$OUT/shots/"
 docker network create --internal "$NET" >/dev/null
 # The server is given the address its players reach it at (as ./dmt3 setup keeps the one chosen): the message to send
 # a player must carry that one, not the address the browser of this run reaches it by (http://site:4730).

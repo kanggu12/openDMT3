@@ -5,17 +5,11 @@
 {% block main %}
 {% set tab = "song_list" %}{% include "_admin_open.html" %}
   {% include "_job.html" %}
-  {# What the server takes from the game, as OpenDMTQ's setup page shows each thing: what it is, the forms it may come
-     in, whether it is needed; then whether the server has it, part by part. #}
+  {# Whether the server has the song list, part by part (what it is and where it comes from is docs/admin.md's: no
+     guidance on the page). #}
   <div class="card song-list">
     <h3>{{ w("songlist.title") }}</h3>
     <p class="lead">{{ w("songlist.lead") }}</p>
-    <div class="takes">
-      <div class="take">
-        <p>{{ w("songlist.take.text") }}</p>
-        <p class="muted small">{{ w("songlist.take.need") }}</p>
-      </div>
-    </div>
     <div class="states">
       {% for part in ("songs", "jackets", "cards") %}{% set item = data[part] %}
       <div class="state-item">
@@ -64,11 +58,11 @@
     <p class="muted small">{{ w("songlist.found.where") }} {% for place in found.places %}<code>{{ place }}</code>{{ ", " if not loop.last }}{% endfor %}</p>
     {% endif %}
   </div>
-  {# Another folder of the server PC: a path typed or pasted, its quick folders, and a folder browser to click through
-     (in Docker the server sees only the folder kept for it, so the page names the command instead). #}
+  {# Another folder of the server PC: a path typed or pasted, its quick folders, and a folder browser to click through.
+     In Docker the server sees only the folder kept for it: no card (docs/admin.md names ./dmt3 catalog for the rest). #}
+  {% if browsing %}
   <div class="card">
     <h3>{{ w("songlist.other") }}</h3>
-    {% if browsing %}
     <form method="get" action="/admin/song_list" class="form path-row">
       <label class="grow">{{ w("songlist.other.path") }}<input name="browse" value="{{ browsing.path }}" spellcheck="false" autocomplete="off"></label>
       <button class="btn">{{ w("songlist.other.open") }}</button>
@@ -95,11 +89,8 @@
         <button class="btn">{{ w("songlist.other.here") }}</button>
       </form>
     </div>
-    {% else %}
-    <p class="muted">{{ w("songlist.other.container") }}</p>
-    <p><code>{{ command }}</code></p>
-    {% endif %}
   </div>
+  {% endif %}
   {# A song list the launcher saved (or ./dmt3 catalog --save made): its token comes first in the form, so the server
      reads no byte of the file before it; one past the limit is told here before it is sent (site.js). #}
   <div class="card">

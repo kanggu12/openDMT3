@@ -22,7 +22,7 @@
           {# On a phone the row is a block and the headers are gone: each cell says what it is. #}
           <td data-label="{{ w('admin.cabinet.player') }}">{% if c.connected %}<span class="tag ok">{{ w("cabinets.now") }}</span> {{ c.player or w("cabinets.guest") }}{% else %}<span class="muted">-</span>{% endif %}</td>
           <td class="wide-only" data-label="{{ w('admin.cabinet.client') }}">{{ c.version or "-" }}</td>
-          <td class="wide-only muted" data-label="{{ w('cabinets.last') }}">{{ c.last_seen|when }}</td>
+          <td class="wide-only muted when" data-label="{{ w('cabinets.last') }}">{{ c.last_seen|when }}</td>
           <td class="num" data-label="{{ w('cabinets.sessions') }}">{{ c.sessions }}</td>
           <td class="num" data-label="{{ w('cabinets.plays') }}">{{ c.plays }}</td>
         </tr>
@@ -45,7 +45,7 @@
           <td><span class="dot{{ ' on' if l.now }}" aria-hidden="true"></span> <a href="/admin/players/{{ l.login_id }}">{{ l.dj_name }}</a> <code>{{ l.login_id }}</code></td>
           <td data-label="{{ w('connected.pc') }}"><code>{{ l.address }}</code></td>
           <td data-label="{{ w('connected.version') }}">{{ l.version }}</td>
-          <td class="muted" data-label="{{ w('connected.last') }}">{{ l.last_seen|when }}{% if l.now %} · {{ w("connected.now") }}{% endif %}</td>
+          <td class="muted when" data-label="{{ w('connected.last') }}">{{ l.last_seen|when }}{% if l.now %} · {{ w("connected.now") }}{% endif %}</td>
         </tr>
       {% endfor %}
       </tbody>

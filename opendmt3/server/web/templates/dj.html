@@ -9,7 +9,8 @@
   <div class="card wide">
     {# The player's picture on the site beside the DJ card the game shows; a way to change both on one's own page. #}
     <div class="dj-head">
-      {% if dj.picture %}<div class="avatar" aria-hidden="true"><img src="/pictures/{{ dj.player }}.png?v={{ dj.picture }}" alt="" width="64" height="64"></div>{% endif %}
+      {# At the size the admin's page of the player shows it (128 px; 96 on a phone), its top level with the card's. #}
+      {% if dj.picture %}<div class="avatar big" aria-hidden="true"><img src="/pictures/{{ dj.player }}.png?v={{ dj.picture }}" alt="" width="128" height="128"></div>{% endif %}
       {% set card = dj.dj_card %}{% set name = dj.dj_name %}{% include "_djcard.html" %}
       {% if user.id == dj.player %}<a class="btn small dj-edit" href="/account">{{ w("dj.edit") }}</a>{% endif %}
     </div>

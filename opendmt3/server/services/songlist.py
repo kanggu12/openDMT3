@@ -1,4 +1,4 @@
-"""The song list a server takes, saved by openDMT3 into one file (openDMT3-song-list.zip): the song list, its jackets
+"""The song list a server takes, saved by openDMT3 into one file (opendmt3-song-list.zip): the song list, its jackets
 and the DJ cards, exactly as a server keeps them after reading a game folder, and nothing else of the game.
 
   manifest.json               what the file is and holds: {"format": "openDMT3 song list", "version": 1, "saved",
@@ -38,8 +38,9 @@ from opendmt3.server.services import cards, catalog, files, pictures, progress
 # What a song list says it is, and the newest version of its form this openDMT3 writes and reads.
 FORMAT = "openDMT3 song list"
 VERSION = 1
-# The name the launcher and ./dmt3 save it under.
-NAME = "openDMT3-song-list.zip"
+# The name the launcher and ./dmt3 save it under: in lowercase, the tool and what it is, as the release's files are
+# named. A song list is known by what it holds, never by its name: one saved as openDMT3-song-list.zip is read the same.
+NAME = "opendmt3-song-list.zip"
 MANIFEST = "manifest.json"
 # The largest song list taken, as uploaded (a whole game's is about 14 MB: its pictures are already compressed), and
 # the most all its entries may unpack to (about 16 MB from a whole game).

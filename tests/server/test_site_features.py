@@ -318,14 +318,16 @@ class SongListPagesTest(SiteBase):
         self.assertIn("imported the song list from /games/made-up: 1 songs, jackets missing, cards missing",
                       self.client.get("/admin/log").text)
 
-    def test_in_docker_the_tab_names_the_command_instead_of_a_folder_browser(self):
+    def test_in_docker_the_tab_has_no_folder_browser_and_no_command_card(self):
         from unittest import mock
         from opendmt3.server.services import sources
         self.admin()
         with mock.patch.object(sources, "in_container", lambda: True), \
                 mock.patch.object(sources, "found", lambda where: []):
             page = self.client.get("/admin/song_list").text
-        self.assertIn("<code>./dmt3 catalog PATH</code>", page)
+        # The server sees only its own folder there: no browser of others, and no card of a command (the guide says
+        # ./dmt3 catalog for another folder: docs/admin.md).
+        self.assertNotIn("./dmt3 catalog", page)
         self.assertNotIn("Import from this folder", page)
         self.assertIn("This server sees no folder of the server PC to look in.", page)
 
@@ -548,7 +550,7 @@ class PlaysLogTest(SiteBase):
         import io
         r = self.client.get("/admin/log/plays.csv")
         self.assertEqual(r.headers["content-type"], "text/csv; charset=utf-8")
-        self.assertRegex(r.headers["content-disposition"], r'attachment; filename="openDMT3-plays-\d{8}\.csv"')
+        self.assertRegex(r.headers["content-disposition"], r'attachment; filename="opendmt3-plays-\d{8}\.csv"')
         # The mark that tells a spreadsheet the file is UTF-8, then the columns.
         self.assertTrue(r.content.startswith("\ufeff".encode()))
         rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"))))
@@ -1048,7 +1050,8 @@ class HomeSongsDownloadTest(SiteBase):
         os.utime(path, (moment, moment))
         page = browser.get("/download").text
         # The date whole on its line: a word joiner after each hyphen (app._when).
-        self.assertIn("3.0 MB, put on this server 2026-\u206011-\u206002 09:30", page)
+        # The size with its unit, the moment whole: a word joiner after each hyphen, no break before the time (app._when).
+        self.assertIn("3.0\u00a0MB, added 2026-\u206011-\u206002\u00a009:30", page)
         self.assertNotIn("Version", page.split('class="muted small file-facts"', 1)[1].split("</p>", 1)[0])
         # Step 1 names the file as it comes, with this server's address in it.
         # The key and its facts only: what to do after the download is the guides' (no steps, no Windows tip).
@@ -1060,7 +1063,7 @@ class HomeSongsDownloadTest(SiteBase):
         # A program with a version resource: its version too.
         with open(path, "wb") as f:
             f.write(windows_program((1, 2, 3, 0)))
-        self.assertIn("Version 1.2.3, 0.0 MB", browser.get("/download").text)
+        self.assertIn("Version 1.2.3, 0.0\u00a0MB", browser.get("/download").text)
         browser.cookies.set("opendmt3_lang", "ko")
         page = browser.get("/download").text
         self.assertIn("버전 1.2.3", page)

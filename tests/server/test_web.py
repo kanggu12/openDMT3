@@ -420,7 +420,7 @@ class WebTest(WebBase):
         page = self.client.get("/admin/backups").text
         token = page.split('name="csrf" value="', 1)[1].split('"', 1)[0]
         r = self.client.post("/admin/backups", data={"csrf": token, "action": "make"})
-        self.assertIn("Backed up: openDMT3-", r.text)
+        self.assertIn("Backed up: opendmt3-backup-", r.text)
         name = r.text.split("Backed up: ", 1)[1].split("<", 1)[0].strip()
         self.make("RIO")
         # The file, as the admin keeps it elsewhere.

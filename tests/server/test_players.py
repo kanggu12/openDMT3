@@ -525,7 +525,7 @@ class AccountAreaTest(ApiBase):
     def test_a_picture_past_its_limit_stops_at_that_byte(self):
         r = self.upload(bytes(players.PICTURE_UPLOAD_MOST + 10))
         self.assertEqual(r.headers["location"], "/account?picture=size#profile")
-        self.assertIn("A picture is up to 2 MB.", self.client.get(r.headers["location"]).text)
+        self.assertIn("A picture is up to 2\u00a0MB.", self.client.get(r.headers["location"]).text)
         # Through the API, the body itself.
         token = self.token()
         self.refused(self.call("POST", "/api/v1/me/picture", token, content=bytes(players.PICTURE_UPLOAD_MOST + 10)),

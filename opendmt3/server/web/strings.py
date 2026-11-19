@@ -33,6 +33,9 @@ TEXT = {
     "signin.remember": ("Remember my ID on this browser", "이 브라우저에 ID 기억하기"),
     "signin.lost": ("Forgot your password? The server's owner can give you a new one.",
                     "비밀번호를 잊었다면 서버 운영자에게 새 비밀번호를 받으세요."),
+    # The admin site's door: only admins sign in there, the owner among them.
+    "signin.lost.admin": ("Forgot your password? Another admin can give you a new one.",
+                          "비밀번호를 잊었다면 다른 관리자에게 새 비밀번호를 받으세요."),
     "signin.banned.head": ("This account is banned", "이용이 정지된 계정입니다"),
     "signin.banned.reason": ("Reason", "사유"),
     "signin.banned.lift": ("The server's owner can lift the ban.", "서버 운영자가 정지를 풀 수 있습니다."),
@@ -62,6 +65,8 @@ TEXT = {
     "admin.nothing.account": ("There is no account {login_id}.", "{login_id} 계정이 없습니다."),
     "admin.make.hint.password": ("Left empty, the server makes one and shows it once.", "비워 두면 서버가 만들어 한 번 보여 줍니다."),
     "form.copied": ("Copied", "복사함"),
+    # A value the browser would not copy for the page: selected whole, for the keyboard's copy.
+    "form.selected": ("Selected", "선택함"),
     "me.dj.missing": ("Type a DJ name.", "DJ 이름을 입력하세요."),
     "me.password.missing": ("Type the password.", "비밀번호를 입력하세요."),
     "me.password.rules": ("{min} to {max} letters or digits.", "영문과 숫자 {min}~{max}자로 입력하세요."),
@@ -92,9 +97,10 @@ TEXT = {
     "download.title": ("Download", "다운로드"),
     "download.button": ("Download openDMT3 for Windows", "Windows용 openDMT3 다운로드"),
     "download.none": ("This server has no installer to hand out.", "이 서버에는 나눠 줄 설치 파일이 없습니다."),
-    "download.facts": ("{size} MB, put on this server {when}", "{size} MB, {when}에 이 서버에 올렸습니다."),
-    "download.facts.version": ("Version {version}, {size} MB, put on this server {when}",
-                               "버전 {version}, {size} MB, {when}에 이 서버에 올렸습니다."),
+    # The installer's size (its figure and unit kept together) and when it was added.
+    "download.facts": ("{size}\u00a0MB, added {when}", "{size}\u00a0MB, {when}에 올림"),
+    "download.facts.version": ("Version {version}, {size}\u00a0MB, added {when}",
+                               "버전 {version}, {size}\u00a0MB, {when}에 올림"),
     "download.releases": ("The launcher comes from the project's releases on GitHub (openDMT3, Releases).",
                           "런처는 GitHub의 프로젝트 릴리스(openDMT3, Releases)에서 받습니다."),
     "download.address": ("This server's address:", "이 서버 주소:"),
@@ -167,8 +173,9 @@ TEXT = {
     "dj.top": ('Most played', 'Most played'),
     "dj.sessions": ("Sessions", "세션"),
     "dj.time": ("Time played", "플레이 시간"),
-    "common.hours": ("{h} h {m} min", "{h}시간 {m}분"),
-    "common.minutes": ("{m} min", "{m}분"),
+    # A figure and its unit never part at a line's end (U+00A0); Korean writes them together.
+    "common.hours": ("{h}\u00a0h {m}\u00a0min", "{h}시간 {m}분"),
+    "common.minutes": ("{m}\u00a0min", "{m}분"),
     "dj.none": ("No cleared stage yet.", "아직 클리어한 스테이지가 없습니다."),
     "dj.place": ("{n} / {of}", "{n} / {of}"),
     "dj.place.label": ("{mode} ranking by total", "{mode} 총점 랭킹"),
@@ -227,7 +234,8 @@ TEXT = {
     "status.started": ("Running since", "시작한 때"),
     "status.connected": ("Connected cabinets", "접속 중인 기체"),
     "status.accounts.all": ("Accounts", "계정"),
-    "status.accounts": ("Accounts ({n} disabled)", "계정(비활성화 {n})"),
+    # Every account (as the Players list counts them), and how many of them are disabled.
+    "status.accounts": ("Accounts · {n} disabled", "계정 · 비활성화 {n}"),
     "status.cabinets": ("Cabinets seen", "접속했던 기체"),
     "status.today": ("Today", "오늘"),
     "status.week": ("7 days", "7일"),
@@ -305,12 +313,6 @@ TEXT = {
     # another folder of it, an upload.
     "songlist.title": ("The song list", "곡 목록"),
     "songlist.lead": ("The song list holds the jackets and the DJ cards too.", "곡 목록에는 자켓과 DJ 카드도 들어 있습니다."),
-    "songlist.take.text": ("From client data on the server PC, in a folder or an archive (.zip, .7z, .rar), or from a song "
-                           "list the launcher saved. No charts, music or videos are read.",
-                           "서버 PC의 클라이언트 데이터(폴더나 .zip, .7z, .rar 압축 파일) 또는 런처가 저장한 곡 목록에서 가져옵니다. "
-                           "차트, 음악, 영상은 읽지 않습니다."),
-    "songlist.take.need": ("Without it songs show as numbers and every DJ card keeps the basic icon and plate.",
-                           "없으면 곡이 번호로 나오고 모든 DJ 카드가 기본 아이콘과 플레이트로 나옵니다."),
     "songlist.state.ready": ("ready", "쓸 수 있음"),
     "songlist.state.not_yet": ("not yet", "아직 없음"),
     "songlist.found": ("Found on the server PC", "서버 PC에서 찾은 파일"),
@@ -331,9 +333,6 @@ TEXT = {
     "songlist.other.empty": ("No folder in it.", "안에 폴더가 없습니다."),
     "songlist.other.here": ("Import from this folder", "이 폴더에서 가져오기"),
     "songlist.other.path_import": ("Import this path", "이 경로에서 가져오기"),
-    "songlist.other.container": ("This server runs in Docker and sees only the folder kept for it. For another "
-                                 "folder or file, run this on the server PC:",
-                                 "이 서버는 Docker에서 실행 중이라 연결해 둔 폴더만 볼 수 있습니다. 다른 폴더나 파일은 서버 PC에서 이 명령으로 가져오세요:"),
     # The upload fields' own words (templates/_upload.html, site.js), OpenDMTQ's upload box's with the launcher's
     # "Choose ..." for its button; {size} and {max} are filled in on the page.
     "upload.none": ("No file chosen yet", "아직 고른 파일이 없습니다"),
@@ -342,11 +341,11 @@ TEXT = {
     "upload.change": ("Change...", "바꾸기..."),
     "upload.too_big": ("{size}: larger than the {max} limit", "{size}: 제한({max})보다 큽니다"),
     "songlist.upload": ("Upload a song list", "곡 목록 올리기"),
-    "songlist.upload.file": ("Song list (openDMT3-song-list.zip)", "곡 목록(openDMT3-song-list.zip)"),
+    "songlist.upload.file": ("Song list (opendmt3-song-list.zip)", "곡 목록(opendmt3-song-list.zip)"),
     "songlist.upload.button": ("Upload", "올리기"),
-    "songlist.upload.hint": ("openDMT3-song-list.zip, up to {mb} MB. It replaces this server's song list, jackets and DJ "
+    "songlist.upload.hint": ("opendmt3-song-list.zip, up to {mb}\u00a0MB. It replaces this server's song list, jackets and DJ "
                              "cards.",
-                             "openDMT3-song-list.zip, {mb} MB까지. 이 서버의 곡 목록, 자켓, DJ 카드를 바꿉니다."),
+                             "opendmt3-song-list.zip, {mb}\u00a0MB까지. 이 서버의 곡 목록, 자켓, DJ 카드를 바꿉니다."),
     "songlist.done": ("Imported the song list: {songs} songs.", "곡 목록을 가져왔습니다. 곡 {songs}개입니다."),
     "songlist.busy": ("A song list is being imported already.", "이미 곡 목록을 가져오는 중입니다."),
     "songlist.not_read": ("The song list could not be read. {why}", "곡 목록을 읽지 못했습니다. {why}"),
@@ -432,7 +431,7 @@ TEXT = {
     "backups.upload": ("Upload a backup", "백업 올리기"),
     "backups.upload.file": ("Database file", "데이터베이스 파일"),
     "backups.upload.button": ("Upload", "올리기"),
-    "backups.upload.hint": ("An openDMT3 database file, up to {mb} MB.", "openDMT3 데이터베이스 파일, {mb} MB까지."),
+    "backups.upload.hint": ("An openDMT3 database file, up to {mb}\u00a0MB.", "openDMT3 데이터베이스 파일, {mb}\u00a0MB까지."),
     "backups.uploaded": ("Uploaded and checked: {name}", "올리고 검사했습니다: {name}"),
     "backups.restore": ("Restore", "복원"),
     "backups.restore.ask": ("Put the database back to {when}?", "{when} 시점으로 복원할까요?"),
@@ -509,7 +508,7 @@ TEXT = {
     "common.cancel": ("Cancel", "취소"),
     "download.heading": ("Get the launcher", "런처 다운로드"),
     "admin.last": ("Last login", "마지막 로그인"),
-    "admin.never": ("never", "없음"),
+    "admin.never": ("Never", "없음"),
     "admin.role": ("Admin", "관리자"),
     "admin.disabled": ("Disabled", "비활성화됨"),
     "admin.cabinet.address": ("Address", "주소"),
@@ -612,11 +611,15 @@ TEXT = {
     "me.card.icon": ("Icon", "아이콘"),
     "me.card.plate": ("Plate", "플레이트"),
     "me.card.pattern": ("Plate pattern", "플레이트 패턴"),
-    "me.card.count": ("{n} to choose from", "{n}개 중에서"),
+    # A picker's heading: how many of the kind there are to pick from.
+    "me.card.count.icon": ("{n} icons", "아이콘 {n}개"),
+    "me.card.count.plate": ("{n} plates", "플레이트 {n}개"),
+    "me.card.count.pattern": ("{n} plate patterns", "플레이트 패턴 {n}개"),
     "me.card.number": ("No. {n}", "{n}번"),
     "me.card.save": ("Save the card", "카드 저장"),
-    "me.card.hint": ("The game shows your card from your next login. The comment is up to {max} characters.",
-                     "다음 로그인부터 게임에 이 카드가 보입니다. 코멘트는 {max}자까지 씁니다."),
+    "me.card.hint": ("The game shows your card from your next login.", "다음 로그인부터 게임에 이 카드가 보입니다."),
+    # The comment's limit, under the comment.
+    "me.card.comment.hint": ("Up to {max} characters.", "최대 {max}자"),
     "me.card.no_pictures": ("The icons and plates to choose from show once the server's owner imports the song list. "
                             "The comment can be set now.",
                             "고를 아이콘과 플레이트는 서버 운영자가 곡 목록을 가져오면 나옵니다. 코멘트는 지금도 정할 수 있습니다."),
@@ -625,7 +628,7 @@ TEXT = {
     "me.dj.new": ("New name", "새 이름"),
     "me.dj.save": ("Change the name", "이름 바꾸기"),
     "me.dj.hint": ("Shown on your DJ card in the game and on this site, up to {max} characters.",
-                   "게임의 DJ 카드와 이 사이트에 나옵니다. {max}자까지 씁니다."),
+                   "게임의 DJ 카드와 이 사이트에 나옵니다. 최대 {max}자"),
     "me.dj_name.done": ("Your DJ name is changed. The game shows it from your next login.",
                         "DJ 이름을 바꿨습니다. 게임에는 다음 로그인부터 나옵니다."),
     "me.password": ("Password", "비밀번호"),
@@ -648,7 +651,7 @@ TEXT = {
     "me.tokens.none": ("No token yet.", "아직 토큰이 없습니다."),
     "me.tokens.created": ("Made", "만든 때"),
     "me.tokens.used": ("Last used", "마지막 사용"),
-    "me.tokens.never": ("never", "없음"),
+    "me.tokens.never": ("Never", "없음"),
     "me.tokens.revoke": ("Revoke", "폐기"),
     "me.tokens.revoke.title": ("Revoke token", "토큰 폐기"),
     "me.tokens.revoke.ask": ("Revoke the token {name}?", "{name} 토큰을 폐기할까요?"),
@@ -782,7 +785,6 @@ TEXT = {
     "server.remove.launcher": ("The launcher removes its server: Help, Uninstall, which asks whether its data goes too.",
                                "런처 서버는 런처에서 제거합니다. 도움말의 제거가 데이터까지 지울지 묻습니다."),
     "server.remove.other": ("Remove it where it was installed.", "설치한 곳에서 제거하세요."),
-    "server.remove.backup": ("A backup to keep elsewhere first:", "먼저 다른 곳에 둘 백업:"),
     "server.going.stop.title": ("Stopping", "끄는 중"),
     "server.going.restart.title": ("Restarting", "다시 켜는 중"),
     "server.going.remove_data.title": ("Removing", "제거하는 중"),
@@ -836,7 +838,7 @@ TEXT = {
     "requests.past": ("This page is past the last one.", "마지막 쪽을 지난 쪽입니다."),
     "requests.last": ("Go to page {n}, the last", "마지막 쪽인 {n}쪽으로"),
     "requests.csv": ("Download CSV", "CSV 다운로드"),
-    "requests.kept": ("The log keeps {mb} MB at most, {days} days, now {size}. Style, font and picture files and the "
+    "requests.kept": ("The log keeps {mb}\u00a0MB at most, {days} days, now {size}. Style, font and picture files and the "
                       "health check are left out.",
                       "로그는 최대 {mb}MB, {days}일까지 보관하며 지금 {size}입니다. 스타일·글꼴·그림 파일과 상태 확인 요청은 "
                       "기록하지 않습니다."),

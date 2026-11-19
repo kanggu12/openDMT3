@@ -37,7 +37,8 @@
     {% if error and not field %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
     <div class="form-actions"><button class="btn primary lg">{{ w("signin.button") }}</button></div>
   </form>
-  <p class="lost">{{ w("signin.lost") }}</p>
+  {# Who gives a new password: on the admin site's door (admins only, the owner among them), another admin. #}
+  <p class="lost">{{ w("signin.lost.admin") if console else w("signin.lost") }}</p>
   {% endif %}
 </section>
 {% endblock %}

@@ -607,8 +607,8 @@ class DatesTest(unittest.TestCase):
     def test_a_date_is_joined_after_each_hyphen_and_reads_as_before(self):
         from opendmt3.server.web.app import JOINER, _when
         shown = _when(time.mktime((2026, 11, 17, 9, 30, 0, 0, 0, -1)))
-        self.assertEqual(shown, "2026-%s11-%s17 09:30" % (JOINER, JOINER))
-        self.assertEqual(shown.replace(JOINER, ""), "2026-11-17 09:30")
+        self.assertEqual(shown, "2026-%s11-%s17\u00a009:30" % (JOINER, JOINER))
+        self.assertEqual(shown.replace(JOINER, "").replace("\u00a0", " "), "2026-11-17 09:30")
         self.assertEqual(_when(None), "")
 
 

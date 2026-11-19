@@ -641,8 +641,8 @@ class GameFolderTest(unittest.TestCase):
             dmt3.parser().parse_args(["catalog", "--help"])
         text = out.getvalue()
         # Broken at spaces only: the file's name (and a flag's) is never cut at a hyphen.
-        self.assertIn("openDMT3-song-list.zip", text)
-        self.assertNotRegex(text, r"openDMT3-\n|song-\n")
+        self.assertIn("opendmt3-song-list.zip", text)
+        self.assertNotRegex(text, r"opendmt3-\n|song-\n")
         # An account's ID is for the site and the launcher (the PC client logs in by card: nothing is typed at it).
         out = io.StringIO()
         with contextlib.redirect_stdout(out), self.assertRaises(SystemExit):
@@ -669,7 +669,7 @@ class CatalogFormsTest(unittest.TestCase):
         folder = os.path.dirname(self.archive)
         self.assertIn("%s:%s:ro" % (folder, folder), command)
         self.assertEqual(command[-3:], ["--catalog", self.archive, "--setup-only"])
-        out = os.path.join(self.tmp, "out", "openDMT3-song-list.zip")
+        out = os.path.join(self.tmp, "out", "opendmt3-song-list.zip")
         os.makedirs(os.path.dirname(out))
         command = dmt3.catalog_command(self.archive, save=out)
         self.assertIn("%s:%s" % (os.path.dirname(out), os.path.dirname(out)), command)

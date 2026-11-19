@@ -180,11 +180,11 @@ a.who:hover .who-name, a.who.on .who-name { color: var(--accent); }
 body.lang-ko .site-notice .label { font: 600 13px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
 .site-notice .text { min-width: 0; overflow-wrap: anywhere; }
 .notices { position: relative; box-sizing: border-box; width: 100%; max-width: 1180px; margin: 12px auto; padding: 0 32px; }
+/* The notices' sheet: glass, with the game's cut corner and its seam as every cut part has it (the ring of .card::after
+   below: one line along the top, down the cut and round the rest), never a box's own edge cut off by the corner. */
 .notices-sheet { position: relative; background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0, transparent 38%),
                                                  rgba(20, 24, 30, 0.74);
-                 -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost);
-                 box-shadow: var(--float-rim), inset 0 0 0 1px rgba(255, 255, 255, 0.08), var(--relief);
-                 clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
+                 -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
 .notices .site-notice { background: transparent; border-bottom: 1px solid rgba(255, 255, 255, 0.07); padding: 11px 18px; }
 .notices .site-notice:last-child { border-bottom: 0; }
 /* On a phone a long notice keeps to two lines until it is opened (site.js: the strip itself is the key). */
@@ -363,8 +363,9 @@ main { flex: 1; }
    runs along the top, down the cut and down the right edge, its two edges anti-aliased by the shape itself and in
    their place at any zoom; it passes over a tab head at the top left too, as the part's own edge. The inner shape's
    cut is the outer's moved 1 px inward across it: 0.4142 px (the square root of 2, less 1) along each edge. */
-.card, .plate, .ask .panel { clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
-.card::after, .plate::after, .ask .panel::after {
+.card, .plate, .ask .panel, .notices-sheet {
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
+.card::after, .plate::after, .ask .panel::after, .notices-sheet::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; background: var(--rim);
   clip-path: polygon(evenodd, 0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%, 0 0,
                      1px 1px, 1px calc(100% - 1px), calc(100% - 1px) calc(100% - 1px),
@@ -647,6 +648,11 @@ details > summary:focus-visible { outline: 2px solid var(--cyan); outline-offset
 body.lang-ko .tabs a { font: 600 13px/1 var(--text-face); text-transform: none; letter-spacing: 0; }
 .tabs a:hover { color: var(--chalk); background: var(--rail-up); text-decoration: none; }
 .tabs a.on { color: var(--accent-ink); background: var(--accent-fill); }
+/* The modes' keys (Rankings): each mode lit in its own colour, whatever the page's section: STAR MIXING's lime, POP
+   MIXING's pink, the other modes the title screen's blue. */
+.tabs.modes a.on { color: #fff; background: var(--blue); }
+.tabs.modes a.on.mode-0 { color: var(--ink); background: var(--lime); }
+.tabs.modes a.on.mode-1 { color: var(--ink); background: var(--pink); }
 .table { width: 100%; border-collapse: collapse; }
 .table th { text-align: left; font: 400 10px/1.4 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash);
             padding: 8px 10px; border-bottom: 1px solid var(--seam); }
@@ -675,11 +681,17 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 .board tr.p1 .place { color: var(--gold); }
 .board tr:is(.p2, .p3) .place { color: var(--silver); }
 /* My row: the section's colour as a faint wash and on my place (no bar down its side: the "You" tag says it). */
-.table tr.me td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.table tr.me .place { color: var(--accent); }
+/* One's own row: openDMT3's own blue (one's own, never a colour that reads as a refusal or a section's), a faint wash
+   and the place in it; its tag says You. */
+.table tr.me td { background: color-mix(in srgb, var(--blue-hi) 10%, transparent); }
+.table tr.me .place { color: var(--blue-hi); }
+.tag.you { color: #fff; background: var(--blue); }
 .table tr.quiet td { color: var(--faint); }
 .table tr.quiet a { color: var(--ash); }
 .table a { color: var(--chalk); font-weight: 600; }
+/* A name or a title that opens its page says so without a pointer to show it (on a phone too): a small chevron after
+   it, quiet. Keys and the headers' sorting are not such links. */
+.table td a:not(.btn)::after { content: "\203A"; margin-left: 6px; color: var(--faint); font-weight: 400; }
 .table a:hover { color: var(--accent); }
 /* The first three on metal plates; the place in the game's big chrome digits, the first one lit. */
 .podium { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 14px; margin-bottom: 18px; }
@@ -708,7 +720,9 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 .songs .by { display: block; color: var(--ash); font-size: 12px; font-weight: 400; }
 /* Two boards a row at most: each needs room for a name, a score and a date on one line. */
 .charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 18px; }
-.board td.when { white-space: nowrap; }
+/* A moment in a table's cell (every cell that shows one is .when) stays whole: its column grows to hold it rather than
+   break it (Korean pages let a word break anywhere it must: a moment is not such a word). */
+.board td.when, .table td.when { white-space: nowrap; }
 .charts .card { margin-bottom: 0; }
 .hero h1.title { font: 700 34px/1.2 var(--text-face); letter-spacing: -0.02em; background: none; color: var(--chalk);
                  filter: none; overflow-wrap: anywhere; }
@@ -783,15 +797,18 @@ body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: no
 .picker summary { cursor: pointer; padding: 6px 0; }
 .choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; max-height: 320px;
            overflow-y: auto; padding: 6px; background: var(--well); }
-.choices.plate { grid-template-columns: repeat(auto-fill, minmax(204px, 1fr)); }
+/* Each kind's box by a class of its own (choices-plate, not plate: that is the podium's plate, cut and ringed). */
+.choices-plate { grid-template-columns: repeat(auto-fill, minmax(204px, 1fr)); }
 /* Patterns keep the plate's own width, so their columns are that wide too: the gap between them stays the grid's step. */
-.choices.pattern { grid-template-columns: repeat(auto-fill, minmax(0, 204px)); }
+.choices-pattern { grid-template-columns: repeat(auto-fill, minmax(0, 204px)); }
 .choice { position: relative; display: block; cursor: pointer; }
 .choice input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-.choice img { display: block; width: 100%; max-width: 204px; height: auto; border-radius: 3px; outline: 2px solid transparent; outline-offset: 1px; }
+/* The ring of the chosen one lies inside its picture's edge: at the box's edge (the last of a row, the first under its
+   top) it never crosses the well the pictures sit in. */
+.choice img { display: block; width: 100%; max-width: 204px; height: auto; border-radius: 3px; outline: 2px solid transparent; outline-offset: -2px; }
 /* Icons at the game's own size (stretched, they blur); patterns over the plate chosen now, at the plate's size. */
-.choices.icon .choice img { max-width: 104px; }
-.choices.pattern .choice { width: 204px; max-width: 100%; background-size: 100% 100%; border-radius: 3px; }
+.choices-icon .choice img { max-width: 104px; }
+.choices-pattern .choice { width: 204px; max-width: 100%; background-size: 100% 100%; border-radius: 3px; }
 .choice input:checked + img { outline-color: var(--accent); }
 .choice input:focus-visible + img { outline-color: var(--cyan); }
 .stat { display: grid; gap: 4px; }
@@ -1067,7 +1084,8 @@ textarea.message { font-size: 14px; }
 
 /* Admin: a cabinet's name edited in its row; a game message without a handler shows its first bytes. */
 .inline-name { display: flex; gap: 6px; align-items: center; }
-.inline-name input { min-width: 0; width: 180px; }
+/* The name fills its cell (a long name shows whole), down to what a phone's row leaves beside its key. */
+.inline-name input { flex: 1 1 240px; min-width: 0; width: auto; }
 /* In a table row the name's box is as tall as the row's small buttons, so a row with both keeps one height. */
 .table .inline-name input { height: var(--ctl-sm); padding: 0 10px; font-size: 14px; }
 .table .hex { font-size: 12px; color: var(--ash); word-break: break-all; }
@@ -1092,7 +1110,8 @@ textarea.message { font-size: 14px; }
 .past-top li:last-child { border-bottom: 0; }
 .past-top a { color: var(--chalk); font-weight: 600; overflow-wrap: anywhere; }
 .past-top a:hover { color: var(--accent); }
-.past-top li.me a { color: var(--accent); }
+/* One's own name in a past month's top: openDMT3's own blue, as one's own row. */
+.past-top li.me a { color: var(--blue-hi); }
 .past-top .score { font: 800 14px/1 var(--text-face); font-variant-numeric: tabular-nums; color: var(--ash); }
 .past-place { font: 800 15px/1 var(--text-face); font-variant-numeric: tabular-nums; color: var(--ash); }
 .past-place.place-1 { color: var(--gold); }
@@ -1144,14 +1163,9 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 /* Admin, Status: maintenance's state and its one button, on one row like the notice's. */
 .form.maintenance p { margin: 0; }
 
-/* Admin, Song list: OpenDMTQ's setup page in this site's look. The lead under the title; the thing the server takes
-   in a panel of its own; its state part by part with a lamp (lime for ready, amber for not yet). */
+/* Admin, Song list: the lead under the title, then the song list's state part by part with a lamp (lime for ready,
+   amber for not yet). */
 .song-list .lead { color: var(--ash); max-width: 760px; margin: 0 0 16px; }
-.takes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; margin-bottom: 16px; }
-.take { padding: 14px 16px; background: var(--well); border: 1px solid var(--seam); }
-.take h4 { margin: 0 0 6px; font: 600 15px/1.4 var(--text-face); color: var(--chalk); }
-.take p { margin: 0 0 6px; }
-.take p:last-child { margin-bottom: 0; }
 .states { display: flex; flex-wrap: wrap; gap: 10px 26px; margin-bottom: 12px; }
 .state-item { display: grid; gap: 4px; }
 .state-item .label { font-size: 12px; color: var(--ash); }
@@ -1247,7 +1261,8 @@ textarea.token { font: 13px/1.6 ui-monospace, Consolas, monospace; word-break: b
 .heat-wrap { padding-top: 30px; margin-top: -24px; }
 /* Twenty-four hours fit a phone too: on its width a cell is 10 px or so wide, the hours' labels every third. */
 .heat { display: grid; grid-template-columns: 30px repeat(24, minmax(0, 1fr)); gap: 2px; }
-.heat-hour { font-size: 11px; color: var(--faint); line-height: 1.6; }
+/* An hour's figure stands whole over its column, running into the two empty ones after it (it never breaks in two). */
+.heat-hour { font-size: 11px; color: var(--faint); line-height: 1.6; white-space: nowrap; overflow: visible; }
 .heat-day { font-size: 12px; color: var(--ash); line-height: 18px; }
 .heat i, .heat-key i, .daycells i { position: relative; display: block; height: 18px; border-radius: 2px; background: var(--rail); outline: none; }
 .heat i:focus-visible { box-shadow: 0 0 0 2px var(--cyan); }

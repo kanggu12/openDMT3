@@ -1,8 +1,8 @@
 {# openDMT3's mark, one drawing for the family (the launcher's art.logo draws the same lockup): OPEN and its slab over
    DMT3 with the TECHNIKA 3 logo's blue 3, the role word on DMT3's baseline right after the 3, and, where a version is
-   shown, the version over the role word, beside DMT3 under the slab's end. The players' site's role word is SERVER; the
-   admin site's is ADMIN, with the server's version over it. `more`: classes of the mark's own (the door's, twice the
-   size). Drawn in site.css (.logo). #}
+   shown, the version over the role word, beside DMT3 under the slab's end. The players' site's role word is SERVER, the
+   admin site's ADMIN, each with the server's version over it (as the launcher's LAUNCHER has its own). `more`: classes
+   of the mark's own (the door's, twice the size). Drawn in site.css (.logo). #}
 {% macro mark(role, version=none, more="") -%}
 <span class="logo{{ ' ' ~ more if more }}" aria-hidden="true"><span class="o">OPEN</span><span class="m">DMT<b>3</b></span>{% if version %}<span class="tail"><i class="v">v{{ version }}</i><span class="s">{{ role }}</span></span>{% else %}<span class="s">{{ role }}</span>{% endif %}</span>
 {%- endmacro %}

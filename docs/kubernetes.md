@@ -65,9 +65,9 @@ the launcher (**Game**, **Save the song list...**) or with `./dmt3 catalog PATH 
 
 ```sh
 POD=$(kubectl -n opendmt3 get pod -l app.kubernetes.io/instance=dmt3 -o name | head -1)
-kubectl -n opendmt3 cp openDMT3-song-list.zip "${POD#pod/}":/data/openDMT3-song-list.zip -c server
+kubectl -n opendmt3 cp opendmt3-song-list.zip "${POD#pod/}":/data/opendmt3-song-list.zip -c server
 kubectl -n opendmt3 exec deploy/dmt3-opendmt3 -c server -- \
-  python -m opendmt3.server --data /data --catalog /data/openDMT3-song-list.zip --setup-only
+  python -m opendmt3.server --data /data --catalog /data/opendmt3-song-list.zip --setup-only
 ```
 
 The site shows the new song list at once. To hand out the launcher, copy the release's installer into the

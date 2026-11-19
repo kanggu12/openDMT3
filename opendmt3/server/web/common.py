@@ -817,7 +817,8 @@ def _plays_csv(site, wanted, now=None):
 def _plays_file(site, wanted):
     """Every play a filter of the plays log leaves as a CSV file (_plays_csv), named after today, as the Logs page and
     its API twin hand it out: written as it is read, so a long history never sits in memory whole."""
-    name = "openDMT3-plays-%s.csv" % time.strftime("%Y%m%d")
+    # In lowercase: the tool, what it holds and the day (as the release's files are named).
+    name = "opendmt3-plays-%s.csv" % time.strftime("%Y%m%d")
     return StreamingResponse(_counted(_plays_csv(site, wanted)), media_type="text/csv; charset=utf-8",
                              headers={"Content-Disposition": 'attachment; filename="%s"' % name})
 

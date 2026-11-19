@@ -112,16 +112,37 @@
   });
 
   // Copy, beside a value to copy (a token, a message, an address): the whole value, and the key says so for a while.
+  // The browser's clipboard is a page's only over HTTPS or on this PC; over plain http on the network (the usual way to a
+  // server on a LAN) the value is selected whole and copied as the browser's own Copy does it (execCommand), which works
+  // there; where even that is refused, the value stays selected and the key says so, for the keyboard's copy.
   document.querySelectorAll("button[data-copy]").forEach(function (key) {
     var field = document.getElementById(key.dataset.copy);
-    if (!field || !navigator.clipboard) { return; }
+    if (!field) { return; }
     key.hidden = false;
+    function say(word) {
+      key.textContent = word;
+      key.classList.add("on");
+      window.clearTimeout(key.sayTimer);
+      key.sayTimer = window.setTimeout(function () { key.textContent = key.dataset.word; key.classList.remove("on"); }, 2000);
+    }
+    function selected() {
+      // The whole value, selected in its own (read-only) field.
+      field.focus();
+      if (typeof field.select === "function") { field.select(); }
+      try { field.setSelectionRange(0, field.value.length); } catch (ignored) { /* a field that keeps no caret */ }
+    }
+    function byHand() {
+      selected();
+      var copied = false;
+      try { copied = document.execCommand("copy"); } catch (ignored) { copied = false; }
+      if (copied) { say(key.dataset.done); } else { selected(); say(key.dataset.selected || key.dataset.done); }
+    }
     key.addEventListener("click", function () {
-      navigator.clipboard.writeText(field.value || field.textContent).then(function () {
-        key.textContent = key.dataset.done;
-        key.classList.add("on");
-        window.setTimeout(function () { key.textContent = key.dataset.word; key.classList.remove("on"); }, 2000);
-      });
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(field.value || field.textContent).then(function () { say(key.dataset.done); }, byHand);
+      } else {
+        byHand();
+      }
     });
   });
 

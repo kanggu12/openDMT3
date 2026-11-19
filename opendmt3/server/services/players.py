@@ -138,7 +138,8 @@ class Players:
         if amount is None:
             raise PlayerError("MAX points are 0 to %d" % POINTS_MOST, "error.player.points", most=POINTS_MOST)
         self.db.execute("UPDATE accounts SET max_points = ? WHERE id = ?", (amount, row["id"]))
-        self.accounts._log(who, "set the MAX points of %s to %d" % (login_id, amount), login_id)
+        # The figure with its thousands' separators, as every MAX figure the pages show.
+        self.accounts._log(who, "set the MAX points of %s to %s" % (login_id, "{:,}".format(amount)), login_id)
         return amount
 
     def add_points(self, login_ids, amount, who="system"):
@@ -156,7 +157,7 @@ class Players:
             # Kept within the range in the change itself, so two changes at once cannot pass it.
             self.db.execute("UPDATE accounts SET max_points = MAX(0, MIN(?, max_points + ?)) WHERE id = ?",
                             (POINTS_MOST, amount, row["id"]))
-            self.accounts._log(who, "%s %d MAX points %s %s" % ("gave" if amount >= 0 else "took", abs(amount),
+            self.accounts._log(who, "%s %s MAX points %s %s" % ("gave" if amount >= 0 else "took", "{:,}".format(abs(amount)),
                                                                   "to" if amount >= 0 else "from", row["login_id"]),
                                row["login_id"])
         return len(rows)

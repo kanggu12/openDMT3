@@ -34,7 +34,7 @@
         <td class="muted when">{{ r.at|when }}</td>
         <td class="path" data-label="{{ w('requests.request') }}"><code>{{ r.method }} {{ r.path }}</code></td>
         <td class="num" data-label="{{ w('requests.status') }}">{% if r.status >= 400 %}<span class="tag bad">{{ r.status }}</span>{% else %}{{ r.status }}{% endif %}</td>
-        <td class="num" data-label="{{ w('requests.ms') }}">{{ "%.0f"|format(r.ms) }} ms</td>
+        <td class="num" data-label="{{ w('requests.ms') }}">{{ "%.0f"|format(r.ms) }}&nbsp;ms</td>
         <td data-label="{{ w('requests.address') }}"><a href="/admin/log/requests?q={{ r.address|urlencode }}">{{ r.address }}</a></td>
         <td data-label="{{ w('requests.who') }}">{{ r.who or "-" }}</td>
       </tr>{% endfor %}</tbody>

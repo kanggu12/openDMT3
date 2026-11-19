@@ -3,6 +3,7 @@
    mark (ADMIN, the server's version over it) and line. #}
 {% from "_mark.html" import mark %}
 <div class="door">
-  {{ mark("ADMIN", version, "door-mark") if console else mark("SERVER", none, "door-mark") }}
+  {# The family's lockup on both doors: the role word, the server's version over it. #}
+  {{ mark("ADMIN" if console else "SERVER", version, "door-mark") }}
   <p class="door-line">{{ w("admin.door") if console else w("site.tagline") }}</p>
 </div>

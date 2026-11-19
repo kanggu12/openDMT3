@@ -317,7 +317,7 @@ to another player, or taken, on the admin pages' **Players**.
 
 A server takes one thing from the game: the song list, which holds the jackets and the DJ cards too
 ([what a server takes](client-data.md#what-a-server-takes)). **Game**, **Save the song list...** saves it from your
-client data into one file, `openDMT3-song-list.zip` (about 13 MB), in the launcher's own Save dialog (on the desktop
+client data into one file, `opendmt3-song-list.zip` (about 13 MB), in the launcher's own Save dialog (on the desktop
 unless you type another path); the server's admin uploads it on the admin pages' **Song list**. Signed in to
 another server as its admin (**Online**, **Another server**), **Send the song list to this server** sends it there at
 once, asked first. The client data is only read; the file is checked as a server takes it before it is saved.
@@ -443,7 +443,7 @@ not know is said, with the list of the ones it does.
 | `--language en` / `ko` / `system` | The launcher's language (`system`: the one Windows is shown in) |
 | `--guide` | Opens the first-start guide again at the next start of the window |
 | `--report [FOLDER]` | Saves a report for an issue (on the desktop when no folder is given) |
-| `--save-song-list [FILE]` | Saves the song list for a server, as **Game**, **Save the song list...** does (`openDMT3-song-list.zip` on the desktop when no file is given, in it when a folder is) |
+| `--save-song-list [FILE]` | Saves the song list for a server, as **Game**, **Save the song list...** does (`opendmt3-song-list.zip` on the desktop when no file is given, in it when a folder is) |
 | `--send-song-list` | Sends the song list to the server this launcher is signed in to, as its admin, as **Game**, **Send the song list to this server** does |
 | `--open-log` | Shows the launcher's log folder |
 | `--play` | Gets the game ready and starts it, as PLAY does |

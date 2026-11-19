@@ -55,9 +55,10 @@ class NamedTokensTest(ApiBase):
         listed = page.split('<table class="table tokens">', 1)[1].split("</table>", 1)[0]
         self.assertIn('<td class="token-name">chat bot</td>', listed)
         self.assertIn(">Read only</span>", listed)
-        # When made and when last used, each cell with its column's name for a phone's stacked rows.
-        self.assertEqual(listed.count('<td class="muted" data-label="Made">'), 1)
-        self.assertEqual(listed.count('<td class="muted" data-label="Last used">'), 1)
+        # When made and when last used, each cell with its column's name for a phone's stacked rows, and kept whole
+        # (.when: a moment never breaks in its cell).
+        self.assertEqual(listed.count('<td class="muted when" data-label="Made">'), 1)
+        self.assertEqual(listed.count('<td class="muted when" data-label="Last used">'), 1)
         self.assertNotIn(">never<", listed)
         # Revoked after the site's own question: the form asks first, in the site's dialog.
         revoke = [f for f in asking_forms(page) if f["data-ask-yes"] == "Revoke"]

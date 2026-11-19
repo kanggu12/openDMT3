@@ -20,15 +20,15 @@ TEXT = {
     "profile.points.short": ("MAX", "MAX"),
     # The picture: the site's own.
     "me.picture": ("Picture", "프로필 사진"),
-    "me.picture.file": ("A picture", "사진 파일"),
-    "me.picture.rules": ("PNG, JPEG, WebP or GIF, up to {mb} MB, made a square of {size} pixels. The game shows your DJ "
+    "me.picture.file": ("Picture file", "사진 파일"),
+    "me.picture.rules": ("PNG, JPEG, WebP or GIF, up to {mb}\u00a0MB, made a square of {size} pixels. The game shows your DJ "
                          "icon.",
                          "PNG, JPEG, WebP, GIF, {mb}MB까지. {size}픽셀 정사각형으로 맞춥니다. 게임에는 DJ 아이콘이 보입니다."),
     "me.picture.upload": ("Upload", "올리기"),
     "me.picture.clear": ("Remove the picture", "사진 지우기"),
     "me.picture.clear.ask": ("Remove your picture?", "프로필 사진을 지울까요?"),
     "me.picture.none": ("This server cannot take pictures right now.", "이 서버는 지금 사진을 받을 수 없습니다."),
-    "me.picture.size": ("A picture is up to {mb} MB.", "사진은 {mb}MB까지 올릴 수 있습니다."),
+    "me.picture.size": ("A picture is up to {mb}\u00a0MB.", "사진은 {mb}MB까지 올릴 수 있습니다."),
     "me.picture.kind": ("That file is not a picture. Upload a PNG, JPEG, WebP or GIF.",
                         "사진 파일이 아닙니다. PNG, JPEG, WebP, GIF 파일을 올려 주세요."),
     "me.picture.pixels": ("That picture has too many pixels. Upload one of up to 4096 × 4096.",

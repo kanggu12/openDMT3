@@ -558,23 +558,30 @@ class Door:
 JOINER = "\u2060"
 
 
+# A space no line breaks at (U+00A0): between a moment's date and its time, and between a figure and its unit, so the
+# two go to the next line together and never part at the window's edge ("2026-11-05" over "19:23", "7.8" over "GB").
+TOGETHER = "\u00a0"
+
+
 def _when(t):
     """A time as the pages show it: the date and the time on the server's clock, "2026-11-17 09:30", which never breaks
-    inside the date (JOINER after each hyphen) nor inside the time (a colon between digits never breaks); "" for none."""
+    inside the date (JOINER after each hyphen) nor inside the time (a colon between digits never breaks), nor between the
+    two (TOGETHER); "" for none."""
     if not t:
         return ""
-    return time.strftime("%Y-%m-%d %H:%M", time.localtime(t)).replace("-", "-" + JOINER)
+    return time.strftime("%Y-%m-%d" + TOGETHER + "%H:%M", time.localtime(t)).replace("-", "-" + JOINER)
 
 
 def _size_words(n):
-    """Bytes as a page says them: whole KB under a megabyte, then MB and GB with one decimal."""
+    """Bytes as a page says them: whole KB under a megabyte, then MB and GB with one decimal; the figure and its unit
+    kept together (TOGETHER). Every size on the pages is said this way, so one file reads the same wherever it shows."""
     if n is None:
         return "-"
     if n < 1024 * 1024:
-        return "%d KB" % max(0, round(n / 1024))
+        return "%d%sKB" % (max(0, round(n / 1024)), TOGETHER)
     if n < 1024 ** 3:
-        return "%.1f MB" % (n / 1024 ** 2)
-    return "%.1f GB" % (n / 1024 ** 3)
+        return "%.1f%sMB" % (n / 1024 ** 2, TOGETHER)
+    return "%.1f%sGB" % (n / 1024 ** 3, TOGETHER)
 
 
 def _id_key(login_id):

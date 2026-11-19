@@ -5,7 +5,8 @@
   <div class="hero-text"><h1 class="word">{{ w("nav.rankings") }}</h1></div>
 </section>
 <section class="page">
-  {% if modes %}<nav class="tabs">{% for m, name in modes %}<a href="/rankings?mode={{ m }}&amp;by={{ by }}" class="{{ 'on' if m == mode }}">{{ name }}</a>{% endfor %}</nav>
+  {# Each mode's key lit in its own mode's colour (STAR's lime, POP's pink; the others the title screen's blue). #}
+  {% if modes %}<nav class="tabs modes">{% for m, name in modes %}<a href="/rankings?mode={{ m }}&amp;by={{ by }}" class="mode-{{ m }}{{ ' on' if m == mode }}">{{ name }}</a>{% endfor %}</nav>
   <nav class="tabs quiet">{% for key in ("total", "best30", "month") %}<a href="/rankings?mode={{ mode }}&amp;by={{ key }}" class="{{ 'on' if by == key }}">{{ w("rankings.by." + key, n=best_of) }}</a>{% endfor %}</nav>
   {% if by == "best30" %}<p class="page-note muted small">{{ w("rankings.best30.hint", n=best_of) }}</p>{% endif %}
   {% if by == "month" %}<p class="page-note muted small">{{ w("rankings.month.hint", month=month.name) }}</p>{% endif %}{% endif %}
@@ -19,7 +20,7 @@
     {% for r in rows if r.place <= 3 %}
     <a class="plate place-{{ r.place }}{{ ' me' if r.player == user.id }}" href="/dj/{{ r.player }}">
       <span class="numeral">{{ r.place }}</span>
-      <span class="who"><span class="name">{{ r.dj_name }}{% if r.player == user.id %} <span class="tag">{{ w("rankings.you") }}</span>{% endif %}</span><span class="total">{{ "{:,}".format(r.total) }}</span><span class="label">{{ value_label }} · {{ w("rankings.best30.charts", n=r.charts, of=best_of) if by == "best30" else w("rankings.charts.n", n=r.charts) }}</span></span>
+      <span class="who"><span class="name">{{ r.dj_name }}{% if r.player == user.id %} <span class="tag you">{{ w("rankings.you") }}</span>{% endif %}</span><span class="total">{{ "{:,}".format(r.total) }}</span><span class="label">{{ value_label }} · {{ w("rankings.best30.charts", n=r.charts, of=best_of) if by == "best30" else w("rankings.charts.n", n=r.charts) }}</span></span>
     </a>
     {% endfor %}
   </div>
@@ -28,7 +29,7 @@
       <thead><tr><th class="num">#</th><th>{{ w("rankings.dj") }}</th><th class="num wide-only">{{ w("rankings.charts") }}</th><th class="num">{{ value_label }}</th></tr></thead>
       <tbody>
       {% for r in rows[:shown] %}
-        <tr class="{{ ['me' if r.player == user.id else '', 'p%d' % r.place if r.place <= 3 else '']|select|join(' ') }}"><td class="num place">{{ r.place }}</td><td><a href="/dj/{{ r.player }}">{{ r.dj_name }}</a>{% if r.player == user.id %} <span class="tag">{{ w("rankings.you") }}</span>{% endif %}</td><td class="num wide-only">{{ r.charts }}</td><td class="num score">{{ "{:,}".format(r.total) }}</td></tr>
+        <tr class="{{ ['me' if r.player == user.id else '', 'p%d' % r.place if r.place <= 3 else '']|select|join(' ') }}"><td class="num place">{{ r.place }}</td><td><a href="/dj/{{ r.player }}">{{ r.dj_name }}</a>{% if r.player == user.id %} <span class="tag you">{{ w("rankings.you") }}</span>{% endif %}</td><td class="num wide-only">{{ r.charts }}</td><td class="num score">{{ "{:,}".format(r.total) }}</td></tr>
       {% endfor %}
       </tbody>
     </table>

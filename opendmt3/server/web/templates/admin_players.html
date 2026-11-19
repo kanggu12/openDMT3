@@ -6,7 +6,7 @@
   {% if message %}
   <div class="card">
     <h3><label for="message">{{ w("admin.message") }}</label></h3>
-    <span class="field-slot keyed"><textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea><button type="button" class="slot-key" data-copy="message" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" hidden>{{ w("form.copy") }}</button></span>
+    <span class="field-slot keyed"><textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea><button type="button" class="slot-key" data-copy="message" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" data-selected="{{ w('form.selected') }}" hidden>{{ w("form.copy") }}</button></span>
     {# The address in it is one only this PC reaches: which address to send in its place. #}
     {% if message_local %}<p class="alert look message-local">{{ w("admin.message.local", address=message_local) }}</p>{% endif %}
   </div>
@@ -66,8 +66,8 @@
           {# On a phone the row is a block and the headers are gone: a cell that is not its own name says what it is. #}
           {# The last two weeks, a cell a day on one scale for every row, and its sum beside it. #}
           <td class="days" data-label="{{ w('players.days') }}">{{ cells(r.days, days, most, w) }} <span class="muted small">{{ r.plays_days }}</span></td>
-          <td class="muted time" data-label="{{ w('players.played') }}">{{ r.last_play|when if r.last_play else w("admin.never") }}</td>
-          <td class="muted time" data-label="{{ w('admin.last') }}">{{ r.last_login|when if r.last_login else w("admin.never") }}</td>
+          <td class="muted time when" data-label="{{ w('players.played') }}">{{ r.last_play|when if r.last_play else w("admin.never") }}</td>
+          <td class="muted time when" data-label="{{ w('admin.last') }}">{{ r.last_login|when if r.last_login else w("admin.never") }}</td>
         </tr>
       {% endfor %}
       </tbody>

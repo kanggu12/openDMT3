@@ -69,6 +69,9 @@ def routes(site):
                         notice = w("admin.made", login_id=login_id, password=password)
                         # What the player needs, ready to send: the address, the ID, the password, the steps.
                         message = _message(site, request, w, login_id, password)
+                        # Made: the form is empty again for the next account (the made one is in the notice and the
+                        # message; its ID left in the field would only be refused as taken).
+                        typed = None
                     elif action == "password":
                         password = _new_password()
                         await site.hashed(_accounts_call, site, "set_password", login_id, password,
@@ -314,7 +317,7 @@ def routes(site):
             data=_song_list_state(site, w), found=found, browsing=browsing, browse_error=browse_error, notice=done,
             error=error,
             upload_most=songlist.MOST, upload_mb=songlist.MOST >> 20, too_large=w.error(songlist.too_large()),
-            quote=quote, command="./dmt3 catalog PATH", job=job if job and job["state"] == "running" else None))
+            quote=quote, job=job if job and job["state"] == "running" else None))
 
     def _followed(request, w):
         """The job a page follows (?job= of the kind the page starts), in the page's words, or None."""

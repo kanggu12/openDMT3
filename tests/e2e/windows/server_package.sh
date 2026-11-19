@@ -26,7 +26,7 @@ docker rm -f "$C" >/dev/null 2>&1
 # The made-up song list, as the launcher saves one, made with this tree's own code (no game file anywhere).
 PYTHONPATH="$REPO" python3 "$REPO/tests/e2e/web/seed.py" "$OUT/seed" > "$OUT/seed.log" 2>&1 \
   || { cat "$OUT/seed.log"; echo "FAIL the made-up song list"; exit 1; }
-mounts=(-v "$ZIP:/in/package.zip:ro" -v "$OUT/seed/openDMT3-song-list.zip:/in/song-list.zip:ro" -v "$OUT:/out")
+mounts=(-v "$ZIP:/in/package.zip:ro" -v "$OUT/seed/opendmt3-song-list.zip:/in/song-list.zip:ro" -v "$OUT:/out")
 [ -n "$LAUNCHER" ] && mounts+=(-v "$LAUNCHER:/in/launcher.nupkg:ro")
 docker run --rm --name "$C" --network none -e PYTHONDONTWRITEBYTECODE=1 "${mounts[@]}" opendmt3-wine:local bash -c '
   set -u

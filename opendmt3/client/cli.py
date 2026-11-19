@@ -56,7 +56,7 @@
   openDMT3.exe --language en|ko|system the launcher's language (system: the one Windows is shown in)
   openDMT3.exe --guide                 open the first-start guide again at the next start of the window
   openDMT3.exe --report [FOLDER]       save a report for an issue (on the desktop when no folder is given)
-  openDMT3.exe --save-song-list [FILE] save the song list for a server (openDMT3-song-list.zip on the desktop
+  openDMT3.exe --save-song-list [FILE] save the song list for a server (opendmt3-song-list.zip on the desktop
                                        when no file is given; a folder: the file in it)
   openDMT3.exe --send-song-list        send the song list to the server this launcher is signed in to (as its
                                        admin)
@@ -735,7 +735,7 @@ def parse(argv):
     p.add_argument("--report", nargs="?", const="", metavar="FOLDER",
                    help="save a report for an issue (on the desktop when no folder is given)")
     p.add_argument("--save-song-list", nargs="?", const="", metavar="FILE",
-                   help="save the song list (with its jackets and the DJ cards) for a server: openDMT3-song-list.zip on "
+                   help="save the song list (with its jackets and the DJ cards) for a server: opendmt3-song-list.zip on "
                         "the desktop when no file is given, in the folder when a folder is given")
     p.add_argument("--send-song-list", action="store_true",
                    help="send the song list to the server this launcher is signed in to, as its admin")

@@ -197,7 +197,7 @@ A backup kept elsewhere goes back on the server as an upload, then a restore:
 
 ```sh
 NAME=$(curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/octet-stream' \
-  --data-binary @openDMT3-20261101-040000-daily.sqlite http://SERVER:4730/api/v1/backups/upload \
+  --data-binary @opendmt3-backup-20261101-040000-daily.sqlite http://SERVER:4730/api/v1/backups/upload \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["uploaded"])')
 curl -s -X POST -H "Authorization: Bearer $TOKEN" http://SERVER:4730/api/v1/backups/$NAME/restore
 ```
@@ -297,7 +297,7 @@ A song list saved by the launcher goes to a server through the same call, as its
 
 ```sh
 curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/zip' \
-  --data-binary @openDMT3-song-list.zip http://SERVER:4730/api/v1/server/song_list
+  --data-binary @opendmt3-song-list.zip http://SERVER:4730/api/v1/server/song_list
 ```
 
 ## Errors

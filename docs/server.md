@@ -207,7 +207,7 @@ After a game update, or from another PC's client data:
 ```sh
 ./dmt3 catalog /path/to/client/data          # the client data in a folder
 ./dmt3 catalog ~/Downloads/technika.7z.001   # in an archive, a split one by its first part
-./dmt3 catalog openDMT3-song-list.zip        # a song list the launcher saved
+./dmt3 catalog opendmt3-song-list.zip        # a song list the launcher saved
 ./dmt3 catalog /path/to/client/data --save . # save a song list here, for a server elsewhere
 ```
 
@@ -621,7 +621,7 @@ openDMT3 makes these files readable by their owner only (on Linux and macOS).
 | `--admin-host-bind ADDRESS`, `--admin-host-port N` | In a container, the server PC's side of the admin port, which compose passes (`OPENDMT3_ADMIN_HOST_BIND` from `ADMIN_BIND`, `OPENDMT3_ADMIN_HOST_PORT` from `ADMIN_PORT`): a loopback address keeps the admin pages to this PC (and their door never holds back its visits), any other opens them to the network; the links and redirects to them name that port. Outside a container the listener's own address and port say it |
 | `--admin-address URL` | The admin pages' public address behind the proxy, which `./dmt3 expose --admin-public` passes (`OPENDMT3_ADMIN_ADDRESS`, `https://NAME:PORT/`): the links and redirects to them name it as it is |
 | `--catalog PATH` | Imports the song list (with its jackets and the DJ cards) from the client data in a folder or in an archive (`OPENDMT3_ARCHIVE_PASSWORD` for its password), or from a song list, each part one line, then starts. Run as root on a data folder someone else owns, root only reads: the data folder is written as its owner |
-| `--catalog PATH --save FILE` | Saves the song list from `PATH` into `FILE` (a folder: `openDMT3-song-list.zip` in it) instead, checked as a server takes it, and exits; the server's data is not touched |
+| `--catalog PATH --save FILE` | Saves the song list from `PATH` into `FILE` (a folder: `opendmt3-song-list.zip` in it) instead, checked as a server takes it, and exits; the server's data is not touched |
 | `--game FOLDER` | The folder holding the client data, which the admin pages' **Song list** finds and imports again (`OPENDMT3_GAME`; in Docker, `GAME_DIR`) |
 | `--site-address URL` | The site's address as the players reach it, for the message to send a player, the invite and the admin pages' links to the players' site (`OPENDMT3_SITE_ADDRESS`; in Docker, `SITE_ADDRESS`); without it, the host the admin's browser used, on the site's port |
 | `--add-player ID [--password P] [--dj NAME] [--admin]` | Makes an account, prints it, and exits |

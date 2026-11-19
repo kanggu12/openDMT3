@@ -115,7 +115,7 @@ and pictures) too. No charts, music or videos: every player has the whole game o
 | :--- | :--- |
 | Client data in a folder on the server PC, at the path given or up to four levels below it | `./dmt3 setup` (the wizard's song list page), `./dmt3 catalog PATH`, or the admin pages' **Song list** |
 | Client data in an archive, in any of the forms above | The same; only the files the server needs are taken out, into a folder of the reading's own, and removed after |
-| A song list the launcher saved (`openDMT3-song-list.zip`, about 13 MB) | The launcher's **Game**, **Save the song list...**; then the site's **Upload a song list**, or `./dmt3 catalog FILE` |
+| A song list the launcher saved (`opendmt3-song-list.zip`, about 13 MB) | The launcher's **Game**, **Save the song list...**; then the site's **Upload a song list**, or `./dmt3 catalog FILE` |
 | The launcher itself, signed in to the server as its admin | **Game**, **Send the song list to this server** |
 
 The jackets and the DJ cards are optional: without the jackets the songs show without them, without the DJ cards every

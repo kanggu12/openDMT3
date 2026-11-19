@@ -1740,7 +1740,7 @@ COMMANDS = [
 
 
 class _Help(argparse.HelpFormatter):
-    """argparse's help, its lines never broken inside a name (openDMT3-song-list.zip, --keep-game): only at spaces,
+    """argparse's help, its lines never broken inside a name (opendmt3-song-list.zip, --keep-game): only at spaces,
     as the launcher's own help is."""
 
     def _split_lines(self, text, width):
@@ -1781,7 +1781,7 @@ def parser():
                                    "list the launcher saved (the folder kept mounted, GAME_DIR in .env, when not "
                                    "given)")
     p["catalog"].add_argument("--save", metavar="FILE",
-                              help="save the song list into FILE (or a folder: openDMT3-song-list.zip in it) instead of "
+                              help="save the song list into FILE (or a folder: opendmt3-song-list.zip in it) instead of "
                                    "importing it, for a server elsewhere")
     p["up"].add_argument("--no-build", action="store_true",
                          help="start from the image as it is (one loaded from a file): neither pulled nor built")

@@ -8,7 +8,7 @@
   {% if message %}
   <div class="card">
     <h3><label for="message">{{ w("admin.message") }}</label></h3>
-    <textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea>
+    <span class="field-slot keyed"><textarea id="message" class="message" readonly rows="{{ message.count('\n') + 1 }}">{{ message }}</textarea><button type="button" class="slot-key" data-copy="message" data-word="{{ w('form.copy') }}" data-done="{{ w('form.copied') }}" data-selected="{{ w('form.selected') }}" hidden>{{ w("form.copy") }}</button></span>
     {% if message_local %}<p class="alert look message-local">{{ w("admin.message.local", address=message_local) }}</p>{% endif %}
   </div>
   {% endif %}
@@ -135,10 +135,10 @@
         </div>
         <button class="btn">{{ w("admin.rename") }}</button>
       </form>
-      {# The account's other changes side by side, each a key that says what it does (the ones that cannot be undone ask
-         first in the site's own dialog). #}
-      <div class="form-actions key-row">
-        <form method="post" data-ask="{{ w('admin.newpass.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.newpass') }}" data-ask-detail="{{ w('admin.newpass.detail') }}" data-ask-yes="{{ w('admin.newpass') }}" data-ask-tone="warn"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="password"><button class="btn small">{{ w("admin.newpass") }}</button> <span class="muted small">{{ w("player.newpass.hint") }}</span></form>
+      {# The account's other changes, one key a row with its own line under it (the ones that cannot be undone ask first
+         in the site's own dialog). #}
+      <div class="key-row">
+        <form method="post" data-ask="{{ w('admin.newpass.ask', login_id=p.login_id) }}" data-ask-title="{{ w('admin.newpass') }}" data-ask-detail="{{ w('admin.newpass.detail') }}" data-ask-yes="{{ w('admin.newpass') }}" data-ask-tone="warn"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="password"><button class="btn small">{{ w("admin.newpass") }}</button><span class="muted small key-hint">{{ w("player.newpass.hint") }}</span></form>
         <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ 'admin_off' if p.is_admin else 'admin_on' }}"><button class="btn small">{{ w("admin.rights.take") if p.is_admin else w("admin.rights.give") }}</button></form>
         {% if p.picture %}
         <form method="post" data-ask="{{ w('player.picture.clear.ask', login_id=p.login_id) }}" data-ask-title="{{ w('me.picture') }}" data-ask-yes="{{ w('me.picture.clear') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="picture_clear"><button class="btn small danger">{{ w("me.picture.clear") }}</button></form>
@@ -176,7 +176,7 @@
       {% if p.history %}
       <table class="table history">
         <thead><tr><th>{{ w("log.when") }}</th><th>{{ w("log.who") }}</th><th>{{ w("log.what") }}</th></tr></thead>
-        <tbody>{% for h in p.history %}<tr><td class="muted" data-label="{{ w('log.when') }}">{{ h.at|when }}</td><td data-label="{{ w('log.who') }}">{{ h.who }}</td><td data-label="{{ w('log.what') }}">{{ h.said }}</td></tr>{% endfor %}</tbody>
+        <tbody>{% for h in p.history %}<tr><td class="muted when" data-label="{{ w('log.when') }}">{{ h.at|when }}</td><td data-label="{{ w('log.who') }}">{{ h.who }}</td><td data-label="{{ w('log.what') }}">{{ h.said }}</td></tr>{% endfor %}</tbody>
       </table>
       {% else %}<p class="muted">{{ w("player.history.none") }}</p>{% endif %}
     </div>

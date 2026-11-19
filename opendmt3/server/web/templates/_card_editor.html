@@ -17,15 +17,17 @@
     <span class="cp-points" title="{{ w('profile.points') }}">{{ w("profile.points.short") }} {{ "{:,}".format(card.max_points) }}</span>
   </span>
 </div>
-{# The comment: its label with the count of what is typed at its right end (site.js keeps it), the game's limit. #}
+{# The comment: its label with the count of what is typed at its right end (site.js keeps it), and the game's limit
+   under it, as every field's rule stands under its field (FORMS.md). #}
 <div class="field comment-field">
   <label class="label" for="card-comment">{{ w("me.card.comment") }}<span class="count" id="comment-count" data-count-for="card-comment" aria-live="polite">{{ comment|length }} / {{ comment_max }}</span></label>
-  <input id="card-comment" name="comment" value="{{ comment }}" maxlength="{{ comment_max }}" aria-describedby="comment-count">
+  <input id="card-comment" name="comment" value="{{ comment }}" maxlength="{{ comment_max }}" aria-describedby="comment-count comment-hint">
+  <p class="field-hint" id="comment-hint">{{ w("me.card.comment.hint", max=comment_max) }}</p>
 </div>
 {% if choices.icon %}
 {% for kind, now in (("icon", card.icon), ("plate", card.plate), ("pattern", card.pattern)) %}
-<details class="picker"><summary>{{ w("me.card." + kind) }} <span class="muted">{{ w("me.card.count", n=choices[kind]|length) }}</span></summary>
-  <div class="choices {{ kind }}" role="radiogroup" aria-label="{{ w('me.card.' + kind) }}">
+<details class="picker"><summary>{{ w("me.card.count." + kind, n=choices[kind]|length) }}</summary>
+  <div class="choices choices-{{ kind }}" role="radiogroup" aria-label="{{ w('me.card.' + kind) }}">
     {# A pattern is seen over the plate chosen now (pattern 0, none, is the plate alone). #}
     {% for c in choices[kind] %}<label class="choice" title="{{ w('me.card.number', n=c.number) }}{{ ' · ' + c.grade if c.grade }}"{% if kind == "pattern" %} style="background-image: url(/cards/plate/{{ card.plate }}.png)"{% endif %}><input type="radio" name="{{ kind }}" value="{{ c.number }}"{{ " checked" if c.number == now }}><img src="/cards/{{ kind }}/{{ c.number }}.png" alt="{{ w('me.card.number', n=c.number) }}" loading="lazy" width="{{ 104 if kind == 'icon' else 204 }}" height="64"></label>{% endfor %}
   </div>

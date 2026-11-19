@@ -19,7 +19,8 @@
       <div class="stat date"><span class="value small-value">{{ server.started|when if server.started else "-" }}</span><span class="label">{{ w("status.started") }}</span></div>
       <div class="stat"><span class="value">{{ server.connected }}</span><span class="label">{{ w("status.connected") }}</span></div>
       <div class="stat"><span class="value">{{ server.cabinets }}</span><span class="label">{{ w("status.cabinets") }}</span></div>
-      <div class="stat"><span class="value">{{ server.accounts.all - server.accounts.disabled }}</span><span class="label">{{ w("status.accounts", n=server.accounts.disabled) if server.accounts.disabled else w("status.accounts.all") }}</span></div>
+      {# Every account, as the Players list counts them; the label says how many of them are disabled. #}
+      <div class="stat"><span class="value">{{ server.accounts.all }}</span><span class="label">{{ w("status.accounts", n=server.accounts.disabled) if server.accounts.disabled else w("status.accounts.all") }}</span></div>
     </div>
   </div>
   <div class="card">
@@ -39,7 +40,8 @@
     <h3>{{ w("status.facts") }}</h3>
     <div class="stats">
       <div class="stat"><span class="value small-value">{{ server.version }}</span><span class="label">{{ w("status.version") }}</span></div>
-      <div class="stat"><span class="value small-value">{{ "{:,}".format(server.database_bytes // 1024) }} KB</span><span class="label">{{ w("status.database") }}</span></div>
+      {# Said as every size on the pages is (the size filter): the same as the database's line in What takes the disk. #}
+      <div class="stat"><span class="value small-value">{{ server.database_bytes|size }}</span><span class="label">{{ w("status.database") }}</span></div>
       <div class="stat date"><span class="value small-value">{{ server.last_backup|when if server.last_backup else w("status.no_backup") }}</span><span class="label">{{ w("status.last_backup") }}</span></div>
       <div class="stat"><span class="value small-value">{{ server.game_port }}</span><span class="label">{{ w("status.game_port") }}</span></div>
     </div>
@@ -61,7 +63,7 @@
       {% endfor %}
       <div class="stat">
         <span class="value small-value">{{ (w("common.hours", h=f.uptime // 3600, m=(f.uptime % 3600) // 60) if f.uptime >= 3600 else w("common.minutes", m=f.uptime // 60)) if f.uptime is not none else "-" }}</span>
-        <span class="label">{{ w("machine.uptime") }}{% if f.load %} · {{ w("machine.load") }} {{ f.load|join(" ") }}{% endif %}</span>
+        <span class="label">{{ w("machine.uptime") }}{% if f.load %} · {{ w("machine.load") }} {% for v in f.load %}{{ "%.2f"|format(v) }}{{ " " if not loop.last }}{% endfor %}{% endif %}</span>
       </div>
     </div>
     {% for key in ("cpu", "memory", "disk") %}
@@ -110,7 +112,7 @@
         {% for part in ("songs", "jackets", "cards") %}{% set item = data[part] %}
         <tr><td>{{ w("data." + part) }}</td>
           <td class="num" data-label="{{ w('data.count') }}">{% if not item.at %}-{% elif part == "cards" %}{{ w("data.count.cards", **item.count) }}{% else %}{{ w("data.count." + part, n=item.count) }}{% endif %}</td>
-          <td class="muted" data-label="{{ w('data.at') }}">{{ item.at|when if item.at else w("data.never") }}</td></tr>
+          <td class="muted when" data-label="{{ w('data.at') }}">{{ item.at|when if item.at else w("data.never") }}</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -8,10 +8,11 @@
   {# Every form names this page: the page also shows at the upload's own address, after an upload. #}
   <div class="card">
     <h3>{{ w("backups.make") }}</h3>
-    <form method="post" action="/admin/backups" class="form row">
+    {# The line first, its key under it at the left, as every card's key stands by its form's start. #}
+    <form method="post" action="/admin/backups" class="form">
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="make">
       <p class="muted small">{{ w("backups.hint", keep=keep) }}</p>
-      <button class="btn primary">{{ w("backups.make") }}</button>
+      <div class="form-actions"><button class="btn primary">{{ w("backups.make") }}</button></div>
     </form>
   </div>
   {# A database file from elsewhere joins the list, to restore as any other. Its token comes first in the form: the
@@ -34,10 +35,10 @@
       <tbody>
       {% for b in backups %}
         <tr>
-          <td>{{ b.at|when }}</td>
+          <td class="when">{{ b.at|when }}</td>
           {# On a phone the row is a block and the headers are gone: each cell says what it is. #}
           <td data-label="{{ w('backups.kind') }}"><span class="tag">{{ w("backups.kind." + b.kind) }}</span></td>
-          <td class="num muted wide-only" data-label="{{ w('backups.size') }}">{{ "{:,}".format(b.size // 1024) }} KB</td>
+          <td class="num muted wide-only" data-label="{{ w('backups.size') }}">{{ b.size|size }}</td>
           <td class="actions">
             <a class="btn small" href="/admin/backups/{{ b.name }}" download>{{ w("backups.download") }}</a>
             <form method="post" action="/admin/backups" data-ask="{{ w('backups.restore.ask', when=(b.at|when)) }}" data-ask-title="{{ w('backups.restore') }}" data-ask-detail="{{ w('backups.restore.detail') }}" data-ask-yes="{{ w('backups.restore') }}" data-ask-tone="warn"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="restore"><input type="hidden" name="name" value="{{ b.name }}"><button class="btn small">{{ w("backups.restore") }}</button></form>

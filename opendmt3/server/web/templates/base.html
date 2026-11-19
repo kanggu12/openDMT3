@@ -36,7 +36,7 @@
 {# The players' sections; the admin pages are a site of their own (the footer's way to them, for an admin). #}
 {% set sections = [("/", "nav.home", path == "/"), ("/rankings", "nav.rankings", path.startswith("/rankings") or path.startswith("/dj/")), ("/songs", "nav.songs", path.startswith("/songs")), ("/download", "nav.download", path.startswith("/download"))] %}
 <header class="bar{{ ' door-bar' if door }}">
-  <a class="brand" href="/" aria-label="openDMT3"{% if door %} tabindex="-1" aria-hidden="true"{% endif %}>{{ mark("SERVER") }}</a>
+  <a class="brand" href="/" aria-label="openDMT3"{% if door %} tabindex="-1" aria-hidden="true"{% endif %}>{{ mark("SERVER", version) }}</a>
   {% if user %}
   {# The menu: the item of the page showing is lit and says so to screen readers (aria-current). On a phone it moves
      into the sheet MENU opens; the bar then says where one is. #}

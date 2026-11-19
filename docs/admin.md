@@ -151,6 +151,12 @@ it can be asked and the commands for the rest.
 Found on the server PC, another folder of it (a path, quick folders and a folder browser; not in Docker), or a song
 list the launcher saved, uploaded. What it takes and why: [server.md](server.md#the-song-list).
 
+The song list comes from client data on the server PC, in a folder or an archive (.zip, .7z, .rar), or from a song list
+the launcher saved (`opendmt3-song-list.zip`); no charts, music or videos are read. Without it songs show as numbers
+and every DJ card keeps the basic icon and plate. The page shows what the server has, part by part, and the ways to
+take it in. In Docker the server sees only the folder of client data kept for it: another folder or file is taken in with
+`./dmt3 catalog PATH` on the server PC.
+
 An import runs as a job. When it is done within a few seconds, the tab says so at once; otherwise a progress card
 follows it: a bar of how far the whole import has come, the step it is on (taking an archive's files out, checking an
 uploaded song list, reading the songs, the jackets with how many of how many, the DJ cards, putting it in place), and

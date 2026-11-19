@@ -44,8 +44,9 @@
 <ul class="key"><li><i class="ok"></i>{{ w("requests.key.ok") }}</li><li><i class="bad"></i>{{ w("requests.key.bad") }}</li></ul>
 {% endmacro %}
 
-{# When players play: a row a day of the week, a cell an hour, stronger with more (five steps of the section's
-   colour: past that the eye cannot tell them apart). hours is insights.play_hours'. #}
+{# When players play: a row a day of the week, a cell an hour, stronger with more (none, then four steps of the
+   section's colour: past that the eye cannot tell them apart; the busiest hour is the fourth, the strongest the
+   stylesheet has: .heat i.h1 to .h4). hours is insights.play_hours'. #}
 {% macro heat(hours, w) %}
 <div class="heat-wrap">
 <div class="heat" role="group" aria-label="{{ w('hours.title') }}">
@@ -53,7 +54,7 @@
   {% for h in range(24) %}<span class="heat-hour" aria-hidden="true">{{ h if h % 3 == 0 else "" }}</span>{% endfor %}
   {% for row in hours.grid %}{% set day = w("day." ~ loop.index0) %}
   <span class="heat-day" aria-hidden="true">{{ day }}</span>
-  {% for n in row %}{% set step = 0 if not n or not hours.most else 1 + [4, (4 * n / hours.most)|int]|min %}{% set tip = w("hours.tip", day=day, hour=loop.index0, n=n) %}
+  {% for n in row %}{% set step = 0 if not n or not hours.most else 1 + [3, (4 * n / hours.most)|int]|min %}{% set tip = w("hours.tip", day=day, hour=loop.index0, n=n) %}
   <i class="h{{ step }}" tabindex="0" role="img" aria-label="{{ tip }}"><span class="tip" aria-hidden="true">{{ tip }}</span></i>
   {% endfor %}
   {% endfor %}

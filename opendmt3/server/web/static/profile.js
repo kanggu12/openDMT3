@@ -4,6 +4,22 @@
 (function () {
   "use strict";
 
+  // A picker opened shows its chosen picture: its box scrolled (never the page) so the chosen one is whole in it.
+  document.querySelectorAll("details.picker").forEach(function (picker) {
+    picker.addEventListener("toggle", function () {
+      var box = picker.querySelector(".choices"), chosen = picker.querySelector("input:checked");
+      if (!picker.open || !box || !chosen) { return; }
+      // The chosen one's place inside the box's scrolled content, from both boxes on screen (an offsetTop would be
+      // measured from whichever ancestor is positioned, the box itself on one page and its card on another).
+      var item = chosen.closest(".choice"), seen = item.getBoundingClientRect(), frame = box.getBoundingClientRect();
+      var top = seen.top - frame.top - box.clientTop + box.scrollTop, room = box.clientHeight;
+      // Scrolled only when it is not whole already, then to the box's middle (the ones around it in sight too).
+      if (top < box.scrollTop || top + seen.height > box.scrollTop + room) {
+        box.scrollTop = Math.max(0, top - (room - seen.height) / 2);
+      }
+    });
+  });
+
   // The DJ card's editors: each form with data-card-editor holds its own preview (_card_editor.html).
   document.querySelectorAll("form[data-card-editor]").forEach(function (form) {
     var preview = form.querySelector(".card-preview");
@@ -19,7 +35,7 @@
       }
       if (input.name === "plate") {
         // Each pattern is seen over the plate chosen now.
-        form.querySelectorAll(".choices.pattern .choice").forEach(function (choice) {
+        form.querySelectorAll(".choices-pattern .choice").forEach(function (choice) {
           choice.style.backgroundImage = "url(/cards/plate/" + input.value + ".png)";
         });
       }

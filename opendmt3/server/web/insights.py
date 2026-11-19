@@ -240,7 +240,8 @@ def _requests_csv(site, wanted):
 
 def requests_file(site, wanted):
     """The requests log as a CSV file named after today, as the Logs tab and its API twin hand it out."""
-    name = "openDMT3-requests-%s.csv" % time.strftime("%Y%m%d")
+    # In lowercase: the tool, what it holds and the day (as the release's files are named).
+    name = "opendmt3-requests-%s.csv" % time.strftime("%Y%m%d")
     return StreamingResponse(_counted(_requests_csv(site, wanted)), media_type="text/csv; charset=utf-8",
                              headers={"Content-Disposition": 'attachment; filename="%s"' % name})
 
@@ -325,7 +326,8 @@ def _players_csv(site):
 
 def players_file(site):
     """The players as a CSV file named after today, as the Players tab and its API twin hand it out."""
-    name = "openDMT3-players-%s.csv" % time.strftime("%Y%m%d")
+    # In lowercase: the tool, what it holds and the day (as the release's files are named).
+    name = "opendmt3-players-%s.csv" % time.strftime("%Y%m%d")
     return StreamingResponse(_counted(_players_csv(site)), media_type="text/csv; charset=utf-8",
                              headers={"Content-Disposition": 'attachment; filename="%s"' % name})
 
