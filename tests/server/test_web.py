@@ -10,6 +10,7 @@ import os
 import shutil
 import tempfile
 import threading
+import time
 import unittest
 from unittest import mock
 
@@ -42,7 +43,17 @@ class WebBase(unittest.TestCase):
         # file that is open.
         import gc
         gc.collect()
-        shutil.rmtree(self.tmp)
+        # A connection a job's thread closes as the test ends can take its write-ahead log (.sqlite-wal) away while the
+        # folder is being removed: a file already gone is no failure, so the removal goes on with what is left.
+        for _ in range(20):
+            try:
+                shutil.rmtree(self.tmp)
+                break
+            except FileNotFoundError:
+                # The folder itself gone too: nothing left to remove.
+                if not os.path.isdir(self.tmp):
+                    break
+                time.sleep(0.05)
 
     def make(self, login_id="NOVA", password="pass1234", dj="DJ NOVA", admin=False):
         store = self.site.accounts()
