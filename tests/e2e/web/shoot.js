@@ -23,7 +23,7 @@
 const fs = require('fs');
 const puppeteer = require('puppeteer');
 // The layout's measure, shared with the empty server's run (empty.js).
-const {layout, layers, frame, record: recorded} = require('/w/measure.js');
+const {layout, layers, frame, record: recorded, compose} = require('/w/measure.js');
 
 const base = process.env.SITE || 'http://site:4730';
 // The admin site, a site of its own on its own port (ADMIN-SITE.md), signed in to on its own door.
@@ -69,7 +69,8 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
   // Last, the page's frame on screen (measure.js: frame), which leaves the page at its top for its picture: the frame of
   // the site the page is on, `kind` ('players', or 'console' for the admin site's).
   const measure = async (kind = 'players') => {
-    const over = await layout(page);
+    // The layout's measure and the page's composition (measure.js: compose).
+    const over = Object.assign(await layout(page), await compose(page));
     const opened = await layers(page);
     summary.layers += opened.opened;
     const framed = await frame(page, kind);
@@ -474,6 +475,30 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
                          page.evaluate(() => document.querySelector('form[action="/signout"]').requestSubmit())]);
     }
   }
+  // Every page of both sites at the browser's 150 % on a 1920 px wide screen (1280 CSS pixels at 1.5 device pixels
+  // each, the window's height less the browser's own bars): measured whole, the composition with it, and pictured.
+  await page.setViewport({width: 1280, height: 640, deviceScaleFactor: 1.5});
+  for (const lang of ['en', 'ko']) {
+    await page.goto(base + '/lang/' + lang, {waitUntil: 'networkidle0'});
+    for (const [site, kind] of [[base, 'players'], [admin, 'console']]) {
+      await page.goto(site + '/signin', {waitUntil: 'networkidle0'});
+      record(lang, 'z150', (kind === 'console' ? 'admin ' : '') + '/signin', await measure(kind));
+      await full(`/out/${lang}-${kind === 'console' ? 'admin-signin' : 'signin'}-z150.png`);
+      await page.type('input[name=login_id]', 'BOSS');
+      await page.type('input[name=password]', 'pass1234');
+      await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}), page.click('button.primary')]);
+      for (const path of kind === 'console' ? adminPages : pages) {
+        await page.goto(site + path, {waitUntil: 'networkidle0'});
+        await page.evaluate(() => Promise.all([...document.images].map(i => { i.loading = 'eager';
+          return i.complete ? null : new Promise(done => { i.onload = i.onerror = done; }); })));
+        record(lang, 'z150', (kind === 'console' ? 'admin ' : '') + path, await measure(kind));
+        await full(`/out/${lang}-${kind === 'console' && path === '/licenses' ? 'admin-licenses' : path.replace(/[\/?=&]/g, '_') || '_'}-z150.png`);
+      }
+    }
+    await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}),
+                       page.evaluate(() => document.querySelector('form[action="/signout"]').requestSubmit())]);
+  }
+  await page.setViewport({width: 1280, height: 860, deviceScaleFactor: 1});
   // Copy over plain http on the network: the server by its LAN address (no clipboard for the page there). On the players'
   // site a token made on My account, on the admin site the message to send an account made there: the key shows, and
   // pressed it copies the whole value (the browser's copy fired with all of it selected, the key saying Copied) or,

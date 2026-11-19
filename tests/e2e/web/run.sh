@@ -33,8 +33,9 @@ esac
 # maintenance off) x 3 widths (1280, 390, 360) x 2 languages; eight
 # questions (a player deleted, a player's plays reset, a new password, every play reset, a backup deleted, a token
 # revoked, a player banned, one's own account deleted), one message, one list to look at, one songs filter, one token, one upload of each kind and one maintenance
-# off and on, and the toast and the phone's menu sheet pressed each round.
-EXPECTED_PAGES=192
+# off and on, and the toast and the phone's menu sheet pressed each round; then every page of both sites at the
+# browser's 150 % on a 1920 px wide screen (24 a language: the two doors, 10 pages and 12) x 2 languages.
+EXPECTED_PAGES=240
 EXPECTED_DIALOGS=48
 EXPECTED_ROUNDS=6
 # The empty server (empty.js): the first-run page (the admin site's) in 2 languages x 3 widths and once refused in each
@@ -122,7 +123,7 @@ cleanup
 said=()
 if [ "$PART" != empty ]; then echo "$summary"; said+=("$OUT/shoot.txt"); fi
 if [ "$PART" != full ]; then echo "$empty"; said+=("$OUT/empty.txt"); fi
-grep -hE "STICKS OUT|CUT OFF|NO LABEL|MENU CUT|BUTTON ASKEW|FAULT" "${said[@]}"
+grep -hE "STICKS OUT|CUT OFF|NO LABEL|MENU CUT|BUTTON ASKEW|FAULT|KEYS|WORDS OFF THEIR KEY|TYPE|HEADING|ROWS|LEFT EDGE|SIZING|ONE THING|PAIRS|STAGE" "${said[@]}"
 python3 - "$summary" "$status" "$EXPECTED_PAGES" "$EXPECTED_DIALOGS" "$EXPECTED_ROUNDS" "$empty" "$empty_status" \
   "$EXPECTED_EMPTY_PAGES" "$EXPECTED_EMPTY_STATES" "$PART" <<'PY'
 import json, sys
@@ -164,7 +165,19 @@ for what, key in (("pages stick out", "sticking"), ("pages cut words off", "cut"
                   ("pages have their bar, the menu item showing or the side menu off the screen or under something "
                    "(at the top or halfway down), or the other site's frame", "frame_faults"),
                   ("pages break a number or a date over two lines, or part a figure from its unit or a time from its date",
-                   "wrap_faults")):
+                   "wrap_faults"),
+                  # The composition (measure.js: compose; the owner's rules of 11-19).
+                  ("pages have a key off its role's height or side padding, or wider than its words want", "key_faults"),
+                  ("pages have a key's words off its middle", "ink_faults"),
+                  ("pages have words off the type scale, or a paragraph's lines too close or too far apart", "type_faults"),
+                  ("pages have a heading smaller than the words under it", "heading_faults"),
+                  ("pages have controls of one row off one line, stacked controls off one edge, or a row's name off its "
+                   "value", "row_faults"),
+                  ("pages have words a few pixels off their group's left edge", "align_faults"),
+                  ("pages have a field far wider than what it takes", "sizing_faults"),
+                  ("pages have a box that holds one key or one fact", "single_faults"),
+                  ("pages have groups side by side that end apart", "pair_faults"),
+                  ("pages have the head's stage off the bar or under another box", "stage_faults")):
     if s.get(key, 0) + e.get(key, 0):
         problems.append("%s: %d" % (what, s.get(key, 0) + e.get(key, 0)))
 if empty_status:
@@ -209,7 +222,10 @@ if problems:
 # What held, in the words of the parts that ran.
 held = ("nothing sticks out, no words cut off, no cell without a label, the phone menu whole, every button's words in "
         "its middle, boxes apart and on the scale, every form in its design, every number and date whole and with its "
-        "unit, each site's frame on screen")
+        "unit, each site's frame on screen; pages composed: every key at its role's height and padding with its words "
+        "in its middle and none stretched, the words on the type scale and no heading under its words, rows on one "
+        "line, groups' words on their edge, fields as wide as what they take, no box of one thing, pairs of one "
+        "height, the stage flush and clear (at 1280, 390, 360 and the browser's 150 %)")
 full_held = ("the MENU sheets pictured, Copy over plain http fine, the DJ card's pickers opened fine, "
              "%d floating layers whole and on top; the toast and the phone's menu sheet pressed; %d questions fine; %d "
              "upload fields fine; the songs filter, the message to send, the list to look at, the token shown once, "
