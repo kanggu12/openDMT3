@@ -75,7 +75,8 @@ class MadeUpServer:
                 if self.path != "/api/v1/session":
                     self.answer(404, {"error": {"code": "not_found", "message": "no such page"}})
                 elif body.get("login_id") == "BOB":
-                    self.answer(403, {"error": {"code": "banned", "message": "this account is banned",
+                    # As the server answers it: the reason in the message too, for a launcher older than 0.4.0.
+                    self.answer(403, {"error": {"code": "banned", "message": "this account is banned: Made-up reason",
                                                 "reason": "Made-up reason"}})
                 else:
                     self.answer(200, {"login_id": body.get("login_id"), "dj_name": "DJ NOVA", "card": "12345678",

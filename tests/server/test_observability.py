@@ -446,10 +446,12 @@ class AdminPagesTest(ApiBase):
             headers = {"Authorization": "Bearer " + token}
             r = client.post("/api/v1/backups/%s/restore?wait=0" % name, headers=headers)
             self.assertEqual(r.status_code, 202, r.text)
-            job = r.json()["job"]
+            # The job's id (as the answer without ?wait=0 gives it), its address jobs/<id>.
+            job_id = r.json()["job"]
+            job = client.get("/api/v1/jobs/" + job_id, headers=headers).json()
             self.assertEqual((job["kind"], job["details"]["name"]), ("restore", name))
             for _ in range(100):
-                job = client.get("/api/v1/jobs/" + job["id"], headers=headers).json()
+                job = client.get("/api/v1/jobs/" + job_id, headers=headers).json()
                 if job["state"] != "running":
                     break
                 time.sleep(0.05)

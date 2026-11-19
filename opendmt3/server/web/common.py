@@ -34,7 +34,8 @@ from opendmt3.server.services import records as rec
 # The upload's own reading of a request's body, into a file in backups/ (the Backups tab and its API twin).
 # The worker threads a handler hands its work to, its processor time counted (work.py).
 from opendmt3.server.web.work import REQUEST, charged, long, threaded
-from opendmt3.server.web import upload
+# The jobs an import runs as (jobs.Jobs), and the steps an upload goes through.
+from opendmt3.server.web import jobs, upload
 
 # The site's cookies and how long a sign-in lasts, all here: the names share one name space in the browser, so a
 # new one is checked against the others in one place.
@@ -717,6 +718,12 @@ LOG_PAGE = 50
 LOG_COLUMNS = ("when", "dj", "mode", "song", "title", "pattern", "score")
 
 
+def _digits(text):
+    """Whether a query's value is a whole number in ASCII digits: str.isdigit() alone takes "²", which int() refuses
+    (a failure with a traceback), and "１", which no program means as a number."""
+    return text.isascii() and text.isdigit()
+
+
 def _plays_wanted(params):
     """The plays log's filter from a request's query: player (an account number), days (one of LOG_DAYS; otherwise
     every play), q (a word in the song title) and page (1 and up). What cannot be read is no filter (page 1); `unread`
@@ -725,8 +732,8 @@ def _plays_wanted(params):
     days = params.get("days", "")
     page = params.get("page", "")
     # A page number of a sane length, 1 or more.
-    page_read = page.isdigit() and len(page) < 7 and int(page) > 0
-    wanted = {"player": int(player) if player.isdigit() and len(player) < 19 else None,
+    page_read = _digits(page) and len(page) < 7 and int(page) > 0
+    wanted = {"player": int(player) if _digits(player) and len(player) < 19 else None,
               "days": int(days) if days in [str(d) for d in LOG_DAYS] else None,
               # A word of a sane length: a title is a few dozen characters.
               "q": params.get("q", "").strip()[:64],
@@ -744,7 +751,7 @@ def _songs_with(songs, word):
     word = word.casefold()
     found = [number for number, song in songs.items() if word in (song.get("title") or "").casefold()]
     digits = word[1:] if word.startswith("#") else word
-    if digits.isdigit() and len(digits) < 11 and int(digits) not in found:
+    if _digits(digits) and len(digits) < 11 and int(digits) not in found:
         found.append(int(digits))
     return found
 
@@ -1026,8 +1033,11 @@ def _start_import(site, who, path=None, upload=None, shown_as=None):
             if upload:
                 cat.remove(upload)
     try:
+        # An upload is a song list, checked and then swapped in (songlist.take): its steps known from the start, so
+        # the job never shows another reading's steps before its first; a path's say which once it is looked at.
         job = site.jobs.start("song_list", who, work, details={"from": "upload" if upload else "path",
-                                                                "path": shown_as or source}, finish=finish)
+                                                                "path": shown_as or source}, finish=finish,
+                              steps=jobs.ROUTES["song_list"]["check"] if upload else None)
     except BaseException:
         # Never started: the next import may go.
         site.reading.release()

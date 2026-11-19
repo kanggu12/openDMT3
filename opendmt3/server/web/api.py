@@ -24,6 +24,8 @@ from starlette.routing import Route
 
 from opendmt3 import __version__
 from opendmt3.server.services import accounts as acc
+# A cabinet's name's length (activity.NAME_MOST).
+from opendmt3.server.services import activity as act
 from opendmt3.server.services import backups as bak
 from opendmt3.server.services import cards
 from opendmt3.server.services import catalog as cat
@@ -47,7 +49,7 @@ from opendmt3.server.web.common import (LICENCE_FACES, _accounts_call, _allowed,
                                  _upload_backup, _song_list_state, _song_list_found,
                                  _upload_song_list, LICENCE_PARTS, _own_licence)
 # The Status page's lines to look at, in the page's words (a line of its own here: the list above is shared work).
-from opendmt3.server.web.common import _address, _invite, _look_text, _import_outcome, _start_import
+from opendmt3.server.web.common import _address, _digits, _invite, _look_text, _import_outcome, _start_import
 # The machine, when people play, the requests log, the players' last two weeks, stopping the server and the long jobs,
 # as the admin pages show and do them (insights.py).
 from opendmt3.server.web import insights
@@ -70,6 +72,12 @@ PLAYS_SHOWN = 50
 YES = ("1", "true", "yes")
 # The methods that only read: all a read-only named token may use.
 READS = ("GET", "HEAD")
+# A song's and a DJ's own address (not their files'), whatever follows the slash: api_unknown's unknown_song and
+# unknown_player for one the routes' number converters did not take.
+NO_SUCH_SONG = re.compile(r"/api/v1/songs/[^/]+")
+NO_SUCH_DJ = re.compile(r"/api/v1/djs/[^/]+")
+# A path with a NUL in it: no file or folder has one, and the system refuses to look one up.
+NO_NUL = "a path has no NUL character"
 # The most a JSON body sent to the song list's import may be (the route also takes files, so the site's wall leaves its
 # body to it).
 SMALL_BODY = 64 * 1024
@@ -81,13 +89,80 @@ def _error(status, code, message, headers=None):
     return JSONResponse({"error": {"code": code, "message": message}}, status_code=status, headers=headers)
 
 
-async def _json_object(request):
-    """The request's JSON body as a dict, or None when it is not JSON or not an object."""
+def _decoded(data):
+    """A JSON object from a body's bytes, or None when they are no JSON object: no text JSON reads (UTF-8, with a byte
+    order mark or not, as Starlette's request.json() read it), not JSON, nested past what the decoder takes
+    (RecursionError: a body any client could send, answered as unreadable, never as a failure with a traceback in the
+    log for each), or JSON of another kind."""
     try:
-        body = await request.json()
-    except (ValueError, UnicodeDecodeError):
+        body = json.loads(bytes(data))
+    except (ValueError, UnicodeDecodeError, RecursionError):
         return None
     return body if isinstance(body, dict) else None
+
+
+async def _json_object(request):
+    """The request's JSON body as a dict, or None when it is not JSON or not an object (_decoded). The site's wall has
+    capped the body at its limit before it comes here."""
+    return _decoded(await request.body())
+
+
+class BadField(Exception):
+    """A field of a call's JSON body that is not of the kind the call keeps (text where a string goes, true or false
+    where a switch goes, a whole number where a number goes): 400 bad_request with the field named, wherever a handler
+    raises it (create_app answers it: bad_field). No value is ever turned into another kind (str() of null was "None",
+    bool() of "false" an admin's rights)."""
+
+
+async def bad_field(request, exc):
+    """BadField's answer, as every other bad request under /api/ is."""
+    return _error(400, "bad_request", str(exc))
+
+
+def _text(body, key, default=""):
+    """A text field of a JSON body: the string sent, `default` when the field is not there; anything else (a number,
+    null, a list) is a BadField."""
+    value = body.get(key, default)
+    if not isinstance(value, str):
+        raise BadField("%s is text" % key)
+    return value
+
+
+def _optional_text(body, key):
+    """A text field a call may leave out or send as null (it then keeps what is there, or makes its own): the string,
+    or None; anything else is a BadField."""
+    value = body.get(key)
+    if value is not None and not isinstance(value, str):
+        raise BadField("%s is text" % key)
+    return value
+
+
+def _flag(body, key, default=False):
+    """A switch of a JSON body: true or false as JSON says them, `default` when the field is not there; anything else
+    ("false", 0, null) is a BadField."""
+    value = body.get(key, default)
+    if not isinstance(value, bool):
+        raise BadField("%s is true or false" % key)
+    return value
+
+
+def _whole(body, key, required=True):
+    """A whole number of a JSON body (JSON's number, never text, a fraction or true/false): the number, None when the
+    field is not there (or null) and not required; else a BadField. Its range is the rules' to check (their words)."""
+    value = body.get(key)
+    if value is None and not required:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise BadField("%s is a whole number" % key)
+    return value
+
+
+def _card_fields(body):
+    """The DJ card's fields a call sent (POST /api/v1/me/dj_card and the admin's twin): icon, plate and pattern whole
+    numbers, comment text, each left out (or null) to stay as it is; anything else is a BadField."""
+    card = {key: _whole(body, key, required=False) for key in ("icon", "plate", "pattern")}
+    card["comment"] = _optional_text(body, "comment")
+    return card
 
 
 def _words(request):
@@ -107,6 +182,13 @@ async def api_unknown(request, exc=None):
     ones the path takes (Allow)."""
     if getattr(exc, "status_code", 404) == 405:
         return _error(405, "method_not_allowed", "this path does not take %s" % request.method, headers=_allowed(exc))
+    # A song's or a DJ's address whose number is no number (-1, abc), which the routes' converters leave to this
+    # handler: the same answer as for a number nobody has, so a program checks one code for "no such song".
+    path = request.url.path
+    if NO_SUCH_SONG.fullmatch(path):
+        return _error(404, "unknown_song", "no song with that number on this server")
+    if NO_SUCH_DJ.fullmatch(path):
+        return _error(404, "unknown_player", "no player with that number on this server")
     return _error(404, "not_found", "no such API path")
 
 
@@ -164,7 +246,7 @@ def routes(site):
             store.db.close()
         return row, dict(found, kind="named"), token
 
-    def _caller(request, admin=False):
+    def _caller(request, admin=False, own_id=None):
         """(the caller, None) for a working token that may make this call (an admin's for an admin's call, `admin`),
         else (None, the error to answer). The caller is the account's row as a dict, with `who` (how the change log
         names whoever made a change: the ID, and a named token's name beside it) and `admin` (whether this call may
@@ -179,7 +261,9 @@ def routes(site):
         row, data, _ = signed
         named = data.get("kind") == "named"
         read_only = named and data["scope"] != "write"
-        if read_only and request.method not in READS:
+        # A token ending itself (own_id: the token the call ends) may, whatever its scope: it changes nothing else.
+        itself = named and own_id is not None and data.get("id") == own_id
+        if read_only and request.method not in READS and not itself:
             return None, _error(403, "read_only", str(tok.read_only()))
         if admin and not row["is_admin"]:
             return None, _error(403, "admin_only", "an admin account's token is needed")
@@ -253,18 +337,20 @@ def routes(site):
         body = await _json_object(request)
         if body is None:
             return _error(400, "bad_request", "send JSON: {\"login_id\": ..., \"password\": ...}")
+        # Text alone (BadField otherwise), before any password is checked: never counted as a wrong one.
+        login_id, password = _text(body, "login_id").strip(), _text(body, "password")
         # Checked after the body is read and right before the password, which counts as wrong until it is checked:
         # tries sent at once cannot all slip under the limit (_check_password).
-        row, held = await _check_password(site, request, str(body.get("login_id", "")).strip(),
-                                          str(body.get("password", "")))
+        row, held = await _check_password(site, request, login_id, password)
         if held:
             return _waited(held)
         if row is None:
             # A banned account's own password: the launcher is told why (anyone else gets the one answer for all).
-            reason = await long(control.ban_note, site, str(body.get("login_id", "")).strip(),
-                                str(body.get("password", "")))
+            reason = await long(control.ban_note, site, login_id, password)
             if reason is not None:
-                return JSONResponse({"error": {"code": "banned", "message": "this account is banned",
+                # The reason in the sentence too: a launcher older than 0.4.0 shows the server's sentence as it is
+                # (this one reads reason and says it in its own words).
+                return JSONResponse({"error": {"code": "banned", "message": "this account is banned: %s" % reason,
                                                "reason": reason}}, status_code=403)
             return _error(401, "wrong_sign_in", "that ID and password do not match an account")
         # A launcher signing in: the Cabinets page shows whose it is from now.
@@ -281,7 +367,8 @@ def routes(site):
             return _error(401, "sign_in", "sign in first (POST /api/v1/session)")
         row, data, token = signed
         if data.get("kind") == "named":
-            caller, refused = _caller(request)
+            # Revoked as DELETE /api/v1/tokens/{id} does it, a read-only token too: it ends itself alone.
+            caller, refused = _caller(request, own_id=data["id"])
             if refused:
                 return refused
             store = site.accounts()
@@ -336,15 +423,16 @@ def routes(site):
         body = await _json_object(request)
         if body is None:
             return _error(400, "bad_request", "send JSON: {\"password\": ..., \"new_password\": ...}")
+        # Text alone, both of them, before the current one is checked.
+        current, new = _text(body, "password"), _text(body, "new_password")
         # The current password is checked like a sign-in: the same limits, on a worker thread.
-        checked, held = await _check_password(site, request, row["login_id"], str(body.get("password", "")))
+        checked, held = await _check_password(site, request, row["login_id"], current)
         if held:
             return _waited(held)
         if checked is None:
             return _error(403, "wrong_password", "the current password is not right")
         try:
-            await site.hashed(_accounts_call, site, "set_password", row["login_id"], str(body.get("new_password", "")),
-                              who=row["who"])
+            await site.hashed(_accounts_call, site, "set_password", row["login_id"], new, who=row["who"])
         except acc.AccountError as e:
             return _error(400, "refused", str(e))
 
@@ -369,7 +457,7 @@ def routes(site):
         store = site.accounts()
         try:
             try:
-                store.set_dj_name(row["login_id"], str(body.get("dj_name", "")).strip(), who=row["who"])
+                store.set_dj_name(row["login_id"], _text(body, "dj_name").strip(), who=row["who"])
             except acc.AccountError as e:
                 return _error(400, "refused", str(e))
             fresh = store.by_login(row["login_id"])
@@ -390,13 +478,12 @@ def routes(site):
             return refused
         if body is None:
             return _error(400, "bad_request", "send JSON: {\"icon\": ..., \"plate\": ..., \"pattern\": ..., \"comment\": ...}")
-        comment = body.get("comment")
+        # Each of its own kind (BadField otherwise); one left out (or null) stays as it is.
+        card = _card_fields(body)
         store = site.accounts()
         try:
             try:
-                store.set_card(row["login_id"], cards.load(site.data_dir), icon=body.get("icon"),
-                               plate=body.get("plate"), pattern=body.get("pattern"),
-                               comment=comment if comment is None else str(comment), who=row["who"])
+                store.set_card(row["login_id"], cards.load(site.data_dir), who=row["who"], **card)
             except cards.CardError as e:
                 return _error(400, "refused", str(e))
             fresh = store.by_login(row["login_id"])
@@ -422,7 +509,7 @@ def routes(site):
                 if body is None:
                     return _error(400, "bad_request", "send JSON: {\"name\": ..., \"scope\": \"read\" or \"write\"}")
                 try:
-                    made, token = tokens.make(row, body.get("name"), body.get("scope"), who=row["who"])
+                    made, token = tokens.make(row, _text(body, "name"), _text(body, "scope"), who=row["who"])
                 except tok.TokenError as e:
                     # A name too long or empty, a scope that is neither, too many tokens: the reason in words.
                     return _error(400, "refused", str(e))
@@ -432,9 +519,9 @@ def routes(site):
             store.db.close()
 
     def api_token(request):
-        """DELETE: one of the caller's named tokens revoked for good (it may be the one calling), as the Account page's
-        Revoke does."""
-        row, refused = _caller(request)
+        """DELETE: one of the caller's named tokens revoked for good (it may be the one calling: a read-only token may
+        end itself, never another), as the Account page's Revoke does."""
+        row, refused = _caller(request, own_id=request.path_params["id"])
         if refused:
             return refused
         token_id = request.path_params["id"]
@@ -594,14 +681,17 @@ def routes(site):
         body = await _json_object(request)
         if body is None:
             return _error(400, "bad_request", "send JSON: {\"login_id\": ..., \"password\": ..., \"dj_name\": ...}")
-        typed = body.get("password")
+        # Each of its own kind (BadField otherwise): the ID text, the password and the DJ name text or left out (or
+        # null), the admin's rights true or false (left out: none).
+        login_id = _text(body, "login_id")
+        typed, dj_name = _optional_text(body, "password"), _optional_text(body, "dj_name")
+        is_admin = _flag(body, "is_admin")
         # The password sent, or one the server makes when none is (as the site's form does).
-        password = str(typed) if typed not in (None, "") else _new_password()
+        password = typed if typed else _new_password()
         try:
             # Hashed on a worker thread (Site.hashed), as every password is.
-            made = await site.hashed(_accounts_call, site, "create", str(body.get("login_id", "")).strip().upper(),
-                                     password, str(body.get("dj_name") or "") or None,
-                                     is_admin=bool(body.get("is_admin")), who=row["who"])
+            made = await site.hashed(_accounts_call, site, "create", login_id.strip().upper(), password,
+                                     dj_name or None, is_admin=is_admin, who=row["who"])
         except acc.AccountError as e:
             return _error(400, "refused", str(e))
         # The password this once, and what the player needs, ready to send (the card made on a worker thread).
@@ -698,7 +788,7 @@ def routes(site):
         def change(store, login_id, admin):
             if body is None:
                 return _error(400, "bad_request", "send JSON: {\"dj_name\": ...}")
-            name = str(body.get("dj_name", "")).strip()
+            name = _text(body, "dj_name").strip()
             store.set_dj_name(login_id, name, who=admin["who"])
             return JSONResponse({"login_id": login_id, "dj_name": name})
         return await threaded(_on_player, request, change)
@@ -755,35 +845,37 @@ def routes(site):
         body = await _json_object(request)
 
         def pick(body):
-            if "unlimited" in body:
-                if not isinstance(body["unlimited"], bool):
-                    return _error(400, "bad_request", "unlimited is true or false")
-                return ("unlimited_on" if body["unlimited"] else "unlimited_off"), {}
-            if "add" in body:
-                return "points_add", {"amount": body["add"]}
-            if "amount" in body:
-                return "points_set", {"amount": body["amount"]}
-            return _error(400, "bad_request", "send JSON: {\"amount\": ...}, {\"add\": ...} or {\"unlimited\": ...}")
+            # One change a call, as the guide says: two at once were both kept, or one was left out in silence.
+            given = [key for key in ("amount", "add", "unlimited") if key in body]
+            if len(given) != 1:
+                return _error(400, "bad_request", "send one of: {\"amount\": ...}, {\"add\": ...} or "
+                                                  "{\"unlimited\": ...}")
+            if given == ["unlimited"]:
+                return ("unlimited_on" if _flag(body, "unlimited") else "unlimited_off"), {}
+            # A whole number as JSON gives it; its range is the rules' (their words).
+            return ("points_add" if given == ["add"] else "points_set"), {"amount": _whole(body, given[0])}
         return await threaded(_controlled, request, body, pick)
 
     async def api_player_level(request):
         """POST {"level"}: the level the game shows set; DELETE: back to the level of the stages cleared."""
         body = await _json_object(request) if request.method == "POST" else {}
         return await threaded(_controlled, request, body,
-                              lambda b: ("level_set", {"level": b.get("level")}) if request.method == "POST"
+                              lambda b: ("level_set", {"level": _whole(b, "level")}) if request.method == "POST"
                               else ("level_clear", {}))
 
     async def api_player_ban(request):
         """POST {"reason"}: the player banned with the reason they are shown; DELETE: the ban lifted."""
         body = await _json_object(request) if request.method == "POST" else {}
         return await threaded(_controlled, request, body,
-                              lambda b: ("ban", {"reason": str(b.get("reason") or "")}) if request.method == "POST"
+                              lambda b: ("ban", {"reason": _text(b, "reason")}) if request.method == "POST"
                               else ("unban", {}))
 
     async def api_player_dj_card(request):
         """POST any of {"icon", "plate", "pattern", "comment"}: the player's DJ card, by their own rules."""
         body = await _json_object(request)
-        return await threaded(_controlled, request, body, lambda b: ("card", b))
+        # Each field of its own kind (BadField otherwise), as the player's own call takes them.
+        return await threaded(_controlled, request, body,
+                              lambda b: ("card", {k: v for k, v in _card_fields(b).items() if v is not None}))
 
     def api_player_picture(request):
         """DELETE: the player's picture taken away."""
@@ -798,6 +890,8 @@ def routes(site):
         body = await _json_object(request)
         if body is None or "add" not in body:
             return _error(400, "bad_request", "send JSON: {\"add\": ..., \"login_ids\": [...]}")
+        # A whole number as JSON gives it (BadField otherwise).
+        add = _whole(body, "add")
         ids = body.get("login_ids")
         if ids is not None and (not isinstance(ids, list) or not all(isinstance(i, str) for i in ids)):
             return _error(400, "bad_request", "login_ids is a list of IDs")
@@ -806,7 +900,7 @@ def routes(site):
             connection = site.connect()
             try:
                 done = pl.Players(connection).add_points(None if ids is None else [i.upper() for i in ids],
-                                                         body["add"], who=row["who"])
+                                                         add, who=row["who"])
             except pl.PlayerError as e:
                 if e.key == "error.player.unknown":
                     return _error(404, "unknown_player", str(e))
@@ -873,7 +967,8 @@ def routes(site):
         body = await _json_object(request)
         if body is None:
             return _error(400, "bad_request", "send JSON: {\"password\": ...}")
-        checked, held = await _check_password(site, request, row["login_id"], str(body.get("password", "")))
+        # Text alone (BadField otherwise), before it is checked.
+        checked, held = await _check_password(site, request, row["login_id"], _text(body, "password"))
         if held:
             return _waited(held)
         if checked is None:
@@ -933,14 +1028,18 @@ def routes(site):
             return refused
         if body is None:
             return _error(400, "bad_request", "send JSON: {\"name\": ...}")
+        name = _text(body, "name").strip()
+        if len(name) > act.NAME_MOST:
+            # Said, as a token's name is: it was cut there in silence.
+            return _error(400, "refused", "a cabinet's name is up to %d characters" % act.NAME_MOST)
         activity = site.activity()
         try:
-            done = activity.rename_cabinet(request.path_params["id"], str(body.get("name") or ""))
+            done = activity.rename_cabinet(request.path_params["id"], name)
         finally:
             activity.db.close()
         if not done:
             return _error(404, "unknown_cabinet", "no cabinet with that number on this server")
-        _log_change(site, row["who"], "named cabinet %s %r" % (request.path_params["id"], body.get("name")))
+        _log_change(site, row["who"], "named cabinet %s %r" % (request.path_params["id"], name))
         return JSONResponse({"cabinets": _known_cabinets(site)})
 
     def api_server(request):
@@ -1008,8 +1107,9 @@ def routes(site):
         return request.query_params.get("wait", "1").lower() not in ("0", "false", "no")
 
     def _job_answer(request, job):
-        """202 with a job just started, to follow at GET /api/v1/jobs/{id}."""
-        return JSONResponse({"job": insights.job_words(_words(request), job)}, status_code=202)
+        """202 with a job just started: its id, as the answer without ?wait=0 and the guide give it, to follow at GET
+        /api/v1/jobs/{id} (which has the rest of it)."""
+        return JSONResponse({"job": job.id}, status_code=202)
 
     def api_jobs(request):
         """Every job kept (the last hour's), newest first."""
@@ -1063,6 +1163,8 @@ def routes(site):
                 body = await _small_json(request)
                 if body is None or not isinstance(body.get("path"), str) or not body["path"].strip():
                     return _error(400, "bad_request", 'send JSON: {"path": a folder or file on the server PC}')
+                if "\x00" in body["path"]:
+                    return _error(400, "refused", NO_NUL)
                 job, failed = _start_import(site, row["who"], path=body["path"].strip())
             elif _has_body(request):
                 job, failed = await _upload_song_list(site, request, row["who"], wait=False)
@@ -1096,25 +1198,25 @@ def routes(site):
         row, refused = await threaded(_caller, request, True)
         if refused:
             return refused
+        path = request.query_params.get("path") or "/"
+        if "\x00" in path:
+            # No folder has a NUL in its name, and the system refuses to look one up (it failed with a traceback).
+            return _error(400, "refused", NO_NUL)
         try:
-            listed = await threaded(sources.folders, request.query_params.get("path") or "/")
+            listed = await threaded(sources.folders, path)
         except sources.SourceError as e:
             return _error(400, "refused", str(e))
         return JSONResponse(listed)
 
     async def _small_json(request):
         """A JSON object sent in a body of at most a form's size (this route's wall is its own: it also takes files),
-        or None."""
+        or None (_decoded)."""
         data = bytearray()
         async for chunk in request.stream():
             data += chunk
             if len(data) > SMALL_BODY:
                 return None
-        try:
-            body = json.loads(bytes(data).decode("utf-8"))
-        except (ValueError, UnicodeDecodeError):
-            return None
-        return body if isinstance(body, dict) else None
+        return _decoded(data)
 
     def _has_body(request):
         """True when the request says it brings a body (a length above 0, or one sent in pieces)."""
@@ -1225,10 +1327,17 @@ def routes(site):
         wanted, refused = _requests_wanted(request)
         if refused:
             return refused
-        # A page of ?per= (at most 200), as the Logs tab shows them a page; without ?per= the newest 200, as before.
-        per = request.query_params.get("per", "")
-        per = max(1, min(int(per), 200)) if per.isdigit() else None
-        return JSONResponse(insights.requests_log(site, wanted, per=per))
+        # A page of ?per= (1 to 200), as the Logs tab shows them a page; without ?per= the newest 200, as before. Values
+        # that cannot be read are refused, as the plays log's are (they were clamped or left out in silence); the page
+        # asked for as it is (past the last one: said by past and last_page).
+        per, page = request.query_params.get("per"), request.query_params.get("page")
+        if per is not None and not (_digits(per) and len(per) <= 3 and 1 <= int(per) <= 200):
+            return _error(400, "bad_request", "per is a whole number from 1 to 200")
+        if page is not None and not (_digits(page) and len(page) < 7 and int(page) > 0):
+            return _error(400, "bad_request", "page is a whole number from 1")
+        if page is not None:
+            wanted["page"] = int(page)
+        return JSONResponse(insights.requests_log(site, wanted, per=int(per) if per is not None else None))
 
     def api_log_requests_csv(request):
         """Every request the log keeps that the filter leaves, as the Logs tab's CSV file."""

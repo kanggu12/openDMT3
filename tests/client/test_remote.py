@@ -92,10 +92,21 @@ class RemoteTest(unittest.TestCase):
                          "This account is banned on this server. The reason: Made-up reason for the test")
         self.assertEqual(errors.say(e.exception, "ko"),
                          "이 서버에서 이용이 정지된 계정입니다. 사유: Made-up reason for the test")
+        # The server's own sentence, which a launcher older than 0.4.0 shows as it is (it has no words for a ban):
+        # the reason in it too.
+        self.assertEqual(str(e.exception), "this account is banned: Made-up reason for the test")
         # A wrong password tells nothing of the ban.
         with self.assertRaises(remote.RemoteError) as e:
             remote.sign_in("http://127.0.0.1:%d" % self.port, "BANNED", "wrong123")
         self.assertEqual(e.exception.code, "wrong_sign_in")
+
+    def test_a_caller_past_its_share_is_told_in_their_language(self):
+        from opendmt3.core import errors
+        from opendmt3.server.web import app as web_app
+        # The server's 429 too_many_requests as the launcher reads it: its own words, not the server's English.
+        e = remote.RemoteError(web_app.share_said(1), "too_many_requests")
+        self.assertEqual(errors.say(e, "en"), "The server is busy with calls from this PC. Try again in a moment.")
+        self.assertEqual(errors.say(e, "ko"), "서버가 이 PC의 요청으로 바쁩니다. 잠시 뒤에 다시 시도하세요.")
 
     def test_signing_out_ends_that_launchers_token_only(self):
         base = "http://127.0.0.1:%d" % self.port

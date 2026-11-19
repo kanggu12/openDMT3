@@ -19,6 +19,10 @@ def _day_start(now):
     return int(time.mktime((t.tm_year, t.tm_mon, t.tm_mday, 0, 0, 0, 0, 0, -1)))
 
 
+# A cabinet's name the admin pages show, at most this many characters.
+NAME_MOST = 32
+
+
 class Activity:
     def __init__(self, db):
         self.db = db
@@ -84,8 +88,9 @@ class Activity:
             "SELECT cabinet, COUNT(*) FROM sessions GROUP BY cabinet")}
 
     def rename_cabinet(self, cabinet_id, name):
-        """Give a cabinet a name the admin pages show (empty: back to its address); False if there is none."""
-        name = (name or "").strip()[:32] or None
+        """Give a cabinet a name the admin pages show (empty: back to its address), NAME_MOST characters at most (the
+        API refuses a longer one in words; the page's field takes no more); False if there is none."""
+        name = (name or "").strip()[:NAME_MOST] or None
         cursor = self.db.execute("UPDATE cabinets SET name = ? WHERE id = ?", (name, cabinet_id))
         return cursor.rowcount > 0
 

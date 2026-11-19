@@ -22,7 +22,7 @@ from opendmt3.server.services import cards, machine, requestlog
 from opendmt3.server.services.activity import DAY, _day_start
 # The jobs' kinds and steps.
 from opendmt3.server.web import jobs
-from opendmt3.server.web.common import _accounts_call, _counted, _csv_cell, _log_change, _restore
+from opendmt3.server.web.common import _accounts_call, _counted, _csv_cell, _digits, _log_change, _restore
 
 # ------------------------------------------------------------------------------------------------- the machine
 
@@ -171,12 +171,12 @@ def requests_wanted(params):
     """The requests log's filter from a query: q (a word of the path, the address or the account) and kind (ok,
     moved, refused or failed, or a status of three digits). What cannot be read is no filter; `unread` names it."""
     kind = params.get("kind", "").strip()
-    read = kind in requestlog.KINDS or (kind.isdigit() and len(kind) == 3)
+    read = kind in requestlog.KINDS or (_digits(kind) and len(kind) == 3)
     # The page of the list (the newest first): the Logs tab shows REQUESTS_PAGE a page; a page past the last one there
     # is (a bookmark kept while the log rolled on) says so, with the way to the last (requests_log's past, last_page).
     page = params.get("page", "1").strip()
     return {"q": params.get("q", "").strip()[:64], "kind": kind if read else "",
-            "page": max(1, min(int(page), 1000)) if page.isdigit() else 1,
+            "page": max(1, min(int(page), 1000)) if _digits(page) else 1,
             "unread": ["kind"] if kind and not read else []}
 
 
@@ -413,11 +413,12 @@ def start_restore(site, who, name):
 def job_words(w, job):
     """A job as the progress card says it: its title, the step it is on, and how it ended (the line the page leaves
     once it is done, or the error in words)."""
+    # One moment of the job (Job.view): its words say the step and the count the view has, not a later one's.
     view = job.view()
     view["title"] = w("job." + job.kind)
-    view["step_text"] = w("job.step." + job.step) if job.step else w("job.step.start")
+    view["step_text"] = w("job.step." + view["step"]) if view["step"] else w("job.step.start")
     # Done of total within the step when the work counts (the jackets saved, the pages copied).
-    view["count_text"] = w("job.count", done=job.done or 0, total=job.total) if job.total else ""
+    view["count_text"] = w("job.count", done=view["done"] or 0, total=view["total"]) if view["total"] else ""
     # Every step a job of its kind may go through, in order: the card lists them all and shows those of this job.
     routes = [jobs.STEPS.get(job.kind, ())] + list(jobs.ROUTES.get(job.kind, {}).values())
     view["all_steps"] = [s for s in ("unpack", "check", "songs", "jackets", "cards", "swap", "backup", "copy", "upgrade")

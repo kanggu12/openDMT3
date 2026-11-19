@@ -52,7 +52,7 @@ def guide_rows():
             cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
             method, path = cells[0].strip("`").split(" ", 1)
             rows.append({"method": method, "path": path, "who": cells[1], "area": area, "cells": len(cells),
-                         "takes": {a or b for a, b in TAKES.findall(cells[2])},
+                         "takes": {a or b for a, b in TAKES.findall(cells[2])}, "answers": cells[3],
                          "errors": {(int(status), code) for status, code in ERRORS.findall(cells[4])}})
     return rows
 
@@ -796,6 +796,38 @@ class RouteDocsTest(ApiBase):
                 self.assertTrue(set(call.errors) <= codes, codes)
                 self.assertEqual((401, "sign_in") in codes, call.who != "anyone")
 
+    def test_every_call_says_every_status_it_may_answer_as_the_guide_does(self):
+        """What any call may answer beside its own (a method it does not take, a caller past its share, a failure;
+        a JSON body too large), each long job's quick answer (202 with ?wait=0), and the guide's own words for them:
+        the document and docs/api.md cannot drift apart on a status."""
+        from opendmt3 import __version__
+        from opendmt3.server.web import calls
+        document = calls.openapi(__version__)
+        with open(os.path.join(ROOT, "docs", "api.md"), encoding="utf-8") as f:
+            guide = f.read()
+        errors_section = guide.split("\n## Errors\n", 1)[1].split("\n## ", 1)[0]
+        rows = {(row["method"], row["path"]): row for row in guide_rows()}
+        for call in calls.CALLS:
+            responses = document["paths"][call.path][call.method.lower()]["responses"]
+            with self.subTest(call="%s %s" % (call.method, call.path)):
+                # Any call: 405 for another method, 429 past its caller's share, 500 when the server fails.
+                self.assertTrue({"405", "429", "500"} <= set(responses), sorted(responses))
+                if call.where("body") and not call.upload:
+                    # A JSON body past the site's limit.
+                    self.assertIn("413", responses)
+                if any(p.name == "wait" for p in call.params):
+                    # A long job's quick answer: the job's id, to follow at GET /api/v1/jobs/{id}.
+                    self.assertEqual(responses["202"]["content"]["application/json"]["schema"]["properties"],
+                                     {"job": {"type": "string"}})
+                    self.assertIn("`202`", rows[(call.method, call.path)]["answers"])
+                if call.status != 200:
+                    # A call that answers another status when it works says it in the guide's row.
+                    self.assertIn("`%d`" % call.status, rows[(call.method, call.path)]["answers"])
+        # The guide's Errors say every code any call may answer, as the document's shared responses do.
+        for status, code in ((405, "method_not_allowed"), (413, "too_large"), (429, "too_many_requests"),
+                             (500, "server_error")):
+            self.assertIn("`%s` (%d" % (code, status), errors_section)
+
     def test_each_answer_has_the_main_fields_the_table_gives_it(self):
         """Every call made once, in an order where each works, with an admin's token where one is needed: its status
         is the table's, and its answer has the table's main fields of the table's types (or is the table's file)."""
@@ -956,6 +988,9 @@ class RouteDocsTest(ApiBase):
                             continue
                         self.assertIn(name.rstrip("?"), answer)
                         self.assertTrue(is_of(answer[name.rstrip("?")], kind), (name, answer[name.rstrip("?")]))
+                    # And the other way: every field the answer has is one the table (and so the OpenAPI document)
+                    # names, so a program reading the document knows all of it.
+                    self.assertEqual(sorted(set(answer) - {name.rstrip("?") for name in call.answer}), [])
                     # What a later call of the plan names: the token made, the backup uploaded.
                     if (method, path) == ("POST", "/api/v1/tokens"):
                         made["made_token"] = answer["id"]

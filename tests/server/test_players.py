@@ -387,23 +387,22 @@ class AdminPlayerPageTest(ApiBase):
         self.assertEqual(state["history"][0]["what"], "enabled the account NOVA")
         self.assertEqual(state["card_end"], self.site.accounts().by_login("NOVA")["card"][-4:])
 
-    def test_numbers_of_other_scripts_or_with_signs_are_refused_in_the_same_words(self):
+    def test_numbers_of_other_scripts_or_with_signs_are_refused(self):
         admin = self.token("BOSS")
         points = "MAX points are 0 to 999999"
-        step = "a change of MAX points is a whole number from -999999 to 999999, not 0"
-        # The review's: {"amount": "\u0663"} set 3, {"add": "\u0663"} added 3, {"level": "\u0665"} set level 5.
-        for path, body, words in (("max_points", {"amount": "\u0663"}, points), ("max_points", {"amount": "+7"}, points),
-                                  ("max_points", {"amount": "42\n"}, points), ("max_points", {"amount": "abc"}, points),
-                                  ("max_points", {"add": "\u0663"}, step), ("max_points", {"add": "+7"}, step),
-                                  ("level", {"level": "\u0663"}, "a level is 1 to 3"),
-                                  ("level", {"level": "2\n"}, "a level is 1 to 3")):
+        # The review's: {"amount": "\u0663"} set 3, {"add": "\u0663"} added 3, {"level": "\u0665"} set level 5. The API
+        # takes a number as JSON gives it, text never (the final API review): each is refused with its field named.
+        for path, body in (("max_points", {"amount": "\u0663"}), ("max_points", {"amount": "+7"}),
+                           ("max_points", {"amount": "42\n"}), ("max_points", {"amount": "abc"}),
+                           ("max_points", {"add": "\u0663"}), ("max_points", {"add": "+7"}),
+                           ("level", {"level": "\u0663"}), ("level", {"level": "2\n"})):
             with self.subTest(body=body):
                 r = self.call("POST", "/api/v1/players/NOVA/" + path, admin, json=body)
-                self.refused(r, 400, "refused")
-                self.assertEqual(r.json()["error"]["message"], words)
+                self.refused(r, 400, "bad_request")
+                self.assertEqual(r.json()["error"]["message"], "%s is a whole number" % list(body)[0])
         r = self.call("POST", "/api/v1/players/max_points", admin, json={"add": "\u0663", "login_ids": ["NOVA"]})
-        self.refused(r, 400, "refused")
-        # Nothing changed; the page says the same words for the same text.
+        self.refused(r, 400, "bad_request")
+        # Nothing changed; the page's form (text, as every form's value) says the rules' words for the same text.
         row = self.site.accounts().by_login("NOVA")
         self.assertEqual((row["max_points"], row["exp_extra"]), (0, 0))
         self.assertIn(points, self.post("/admin/players/NOVA", action="points_set", amount="\u0663").text)

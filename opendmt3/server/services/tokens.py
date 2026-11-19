@@ -50,8 +50,9 @@ def digest(token):
 
 
 def clean_name(name):
-    """A token's name as it is kept: every run of whitespace one space, nothing at the ends."""
-    return " ".join(str(name or "").split())
+    """A token's name as it is kept: every run of whitespace one space, nothing at the ends (make() refuses a name
+    with a line break inside it first: one on two lines is not this name)."""
+    return " ".join((name or "").split())
 
 
 class Tokens:
@@ -75,9 +76,12 @@ class Tokens:
         """A new token for `account` (its row): (its row as all() gives it, the token itself, which only this answer
         has). TokenError for a name that is empty or too long, a scope that is neither read nor write, or an account
         that has MOST tokens already."""
+        # On one line, as the guide says (a line break inside it was made a space); the ends trimmed, as a form's.
+        one_line = len((name or "").strip().splitlines()) <= 1
         name = clean_name(name)
-        if not 1 <= len(name) <= NAME_MAX or not name.isprintable():
-            raise TokenError("a token's name is 1 to %d characters" % NAME_MAX, "error.token.name", max=NAME_MAX)
+        if not one_line or not 1 <= len(name) <= NAME_MAX or not name.isprintable():
+            raise TokenError("a token's name is 1 to %d characters on one line" % NAME_MAX, "error.token.name",
+                             max=NAME_MAX)
         if scope not in SCOPES:
             raise TokenError("a token's scope is read or write", "error.token.scope")
         # The count and the new token in one write transaction: two made at once (two tabs, a program's two calls)

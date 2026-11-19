@@ -32,10 +32,11 @@ from opendmt3.server.web import session as sess
 from opendmt3.server.web import strings
 # The cookies' names and the helpers the admin pages and the API use too (common.py).
 from opendmt3.server.web.common import (ACCOUNT_FIELDS, DB_ERRORS, LANG_COOKIE, LICENCE_FACES, SIGN_IN_DAYS,
-                                 _accounts_call, admin_side, cookies, _cabinets_for, _card, _check_password, _dj, _dj_places,
-                                 _download, _installer, _licence_texts, _local, _local_path, _mode_asked, _mode_name,
-                                 _modes, _month_name, _month_rankings, _new_records, _not_found, _rankings, _recent,
-                                 _redirect, _song, _song_number, _songs, _songs_found, LICENCE_PARTS, _own_licence)
+                                 _accounts_call, admin_side, cookies, _cabinets_for, _card, _check_password, _digits,
+                                 _dj, _dj_places, _download, _installer, _licence_texts, _local, _local_path,
+                                 _mode_asked, _mode_name, _modes, _month_name, _month_rankings, _new_records,
+                                 _not_found, _rankings, _recent, _redirect, _song, _song_number, _songs, _songs_found,
+                                 LICENCE_PARTS, _own_licence)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 log = logging.getLogger("opendmt3.web")
@@ -63,7 +64,8 @@ def _number(text):
     """A form's number as an int; anything else as it came (the card's check refuses it), None when absent."""
     if text is None or text == "":
         return None
-    return int(text) if text.isdigit() and len(text) < 12 else text
+    # ASCII digits alone (common._digits): "²" passes str.isdigit() and fails int().
+    return int(text) if _digits(text) and len(text) < 12 else text
 
 
 def routes(site):

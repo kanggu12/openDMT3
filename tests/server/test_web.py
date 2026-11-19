@@ -147,9 +147,12 @@ class WebTest(WebBase):
         r = self.client.post("/api/v1/players", content=b"not json",
                              headers={"Authorization": "Bearer " + boss, "content-type": "application/json"})
         self.assertEqual(r.status_code, 400)
+        # A name that is no text is refused with its field named (0.3.1 kept the number as the text "5").
         r = self.client.post("/api/v1/players", json={"login_id": "NEW1", "password": "pass1234", "dj_name": 5},
                              headers={"Authorization": "Bearer " + boss})
-        self.assertEqual((r.status_code, r.json()["dj_name"]), (201, "5"))
+        self.assertEqual((r.status_code, r.json()["error"]["code"], r.json()["error"]["message"]),
+                         (400, "bad_request", "dj_name is text"))
+        self.assertIsNone(self.site.accounts().by_login("NEW1"))
 
     def test_old_wrong_passwords_are_forgotten(self):
         from opendmt3.server.web import app as web_app

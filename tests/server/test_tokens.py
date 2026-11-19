@@ -112,10 +112,10 @@ class NamedTokensTest(ApiBase):
                              "/api/v1/tokens", "/api/v1/notice", "/api/v1/cabinets"):
                     self.assertEqual(self.call("GET", path, read).status_code, 200, path)
                 self.assertEqual(self.call("HEAD", "/api/v1/me", read).status_code, 200)
-                # Every change is refused, its own revoke and a sign-out included.
+                # Every change is refused (its own end is no change of anything else: it may sign itself out,
+                # test_api_edge's test_a_read_only_token_signs_itself_out).
                 for method, path, body in (("POST", "/api/v1/me/dj_name", {"dj_name": "X"}),
                                            ("POST", "/api/v1/tokens", {"name": "more", "scope": "write"}),
-                                           ("DELETE", "/api/v1/session", None),
                                            ("POST", "/api/v1/notice", {"text": "x"}),
                                            ("DELETE", "/api/v1/plays", None)):
                     self.refused(self.call(method, path, read, json=body), 403, "read_only")
@@ -227,7 +227,7 @@ class NamedTokensTest(ApiBase):
         token = self.form_token(self.client, "/account")
         page = self.client.post("/account", data={"csrf": token, "action": "token_make", "name": "",
                                                   "scope": "read"}).text
-        self.assertIn("토큰 이름은 1~40자입니다.", html.unescape(page))
+        self.assertIn("토큰 이름은 한 줄로 1~40자입니다.", html.unescape(page))
         page = self.client.post("/account", data={"csrf": token, "action": "token_revoke", "id": "nope"}).text
         self.assertIn("이 계정에 그런 토큰이 없습니다: nope", page)
 

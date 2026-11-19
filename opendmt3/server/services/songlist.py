@@ -103,7 +103,8 @@ def _shape(part, detail):
 def too_large():
     """The refusal of an upload past MOST, in megabytes (the page, the API and the command line all raise it)."""
     mb = MOST >> 20
-    return SongListError("An uploaded song list is at most %d MB." % mb, "error.songlist.too_large", mb=mb)
+    # In lower case with no full stop, as every refusal's English (errors.say makes the sentence a page shows).
+    return SongListError("an uploaded song list is at most %d MB" % mb, "error.songlist.too_large", mb=mb)
 
 
 def no_file():

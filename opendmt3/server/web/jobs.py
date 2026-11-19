@@ -43,7 +43,7 @@ ROUTES = {"song_list": {"unpack": ("unpack", "songs", "jackets", "cards", "swap"
 class Job:
     """One long piece of work: what it is, who started it, the step it is on and how far into it, how it ended."""
 
-    def __init__(self, kind, who, details=None, clock=time.time):
+    def __init__(self, kind, who, details=None, clock=time.time, steps=None):
         self.id = secrets.token_hex(6)
         self.kind, self.who, self.details = kind, who, dict(details or {})
         self.clock = clock
@@ -51,10 +51,12 @@ class Job:
         self.ended = None
         # running, done or failed.
         self.state = "running"
-        # The steps it goes through (STEPS, until the first step says which: ROUTES), the step it is on, and done of
-        # total within it when the work counts (else None).
-        self.steps = STEPS.get(kind, ())
-        self.step, self.done, self.total = None, None, None
+        # Where the work is, as one value the work's thread replaces whole (say) and a reader takes whole (view): the
+        # steps it goes through (`steps` when its starter knows them, as an upload's; else STEPS until the first step
+        # says which: ROUTES), the step it is on, and done of total within it when the work counts (else None). Read
+        # apart, a view could pair the step just said with the steps from before it (a song list's "check" with the
+        # steps of a folder's reading).
+        self.at = (tuple(steps or STEPS.get(kind, ())), None, None, None)
         # Once done: what the work gave (for the page's line and the API's answer). Once failed: (code, message) and
         # the error itself, for the page's words.
         self.result = None
@@ -63,35 +65,43 @@ class Job:
         # Set on the loop when the job ends (an asyncio future), for a program that waits for it.
         self.finished = None
 
+    # Each part of where the work is, from one reading of it (a reader that needs two of them takes `at` once).
+    steps = property(lambda self: self.at[0])
+    step = property(lambda self: self.at[1])
+    done = property(lambda self: self.at[2])
+    total = property(lambda self: self.at[3])
+
     def say(self, step, done=None, total=None):
-        """progress.step's reporter: the work's thread sets the step (plain attributes: a reader sees one or the
-        other, each whole)."""
-        if self.step is None and step in ROUTES.get(self.kind, {}):
+        """progress.step's reporter, on the work's thread: where the work is now, replaced in one assignment (a
+        reader sees the moment before it or the one after, never half of each)."""
+        steps, current = self.at[0], self.at[1]
+        if current is None and step in ROUTES.get(self.kind, {}):
             # The first step says what is read, and so which steps follow.
-            self.steps = ROUTES[self.kind][step]
-        self.step, self.done, self.total = step, done, total
+            steps = ROUTES[self.kind][step]
+        self.at = (steps, step, done, total)
 
     def view(self):
-        """The job as GET /api/v1/jobs/{id} gives it."""
-        steps = self.steps
+        """The job as GET /api/v1/jobs/{id} gives it, of one moment: its step is one of its steps."""
+        at = self.at
+        steps, step, done, total = at
         return {"id": self.id, "kind": self.kind, "who": self.who, "state": self.state, "started": int(self.started),
-                "ended": int(self.ended) if self.ended else None, "step": self.step, "steps": list(steps),
-                "done": self.done, "total": self.total, "share": self.share(), "details": dict(self.details),
+                "ended": int(self.ended) if self.ended else None, "step": step, "steps": list(steps),
+                "done": done, "total": total, "share": self.share(at), "details": dict(self.details),
                 "result": self.result,
                 "error": None if self.error is None else {"code": self.error[0], "message": self.error[1]}}
 
-    def share(self):
+    def share(self, at=None):
         """How far the whole job has come, from 0 to 1 (its steps counted alike, the one it is on by done of total),
-        1 once it ended; None for a job whose steps are not known."""
+        1 once it ended; None for a job whose steps are not known. `at`: where the work is, as view() read it."""
         if self.state != "running":
             return 1.0
-        steps = self.steps
+        steps, step, done, total = at or self.at
         if not steps:
             return None
-        if self.step not in steps:
+        if step not in steps:
             return 0.0
-        place = steps.index(self.step)
-        within = (self.done / self.total) if self.total else 0.0
+        place = steps.index(step)
+        within = (done / total) if total else 0.0
         return round((place + max(0.0, min(1.0, within))) / len(steps), 3)
 
 
@@ -104,10 +114,11 @@ class Jobs:
         # The pages' threads read and the loop adds: one lock for the table.
         self._lock = threading.Lock()
 
-    def start(self, kind, who, work, details=None, finish=None):
+    def start(self, kind, who, work, details=None, finish=None, steps=None):
         """A job running work() (a plain function) on a long work's thread, from now. finish(job), when given, runs on
-        a worker thread once it ended (the change log's line, a file to remove). Returns the job; on the event loop."""
-        job = Job(kind, who, details, self.clock)
+        a worker thread once it ended (the change log's line, a file to remove); steps, its steps when the starter
+        knows them before the work says its first (Job). Returns the job; on the event loop."""
+        job = Job(kind, who, details, self.clock, steps)
         job.finished = asyncio.get_running_loop().create_future()
         with self._lock:
             self._forget()

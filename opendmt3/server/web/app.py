@@ -67,7 +67,7 @@ from opendmt3.server.web.work import REQUEST, Request as _Request, charged, limi
 from opendmt3.server.web import session as sess
 from opendmt3.server.web import strings
 # Under /api/ the 404 and 405 handlers, and a failure, answer as the rest of the API does.
-from opendmt3.server.web.api import _error, api_unknown
+from opendmt3.server.web.api import BadField, _error, api_unknown, bad_field
 # Site reads the cookies the pages set, so their names come from common.py, where all the cookies' names are; the
 # wall's redirect, the 404 handler's error page, a 405's Allow and the health check come from there too.
 from opendmt3.server.web.common import (FORWARDED, LANG_COOKIE, SIDE_KEY, SIGN_IN_DAYS, _allowed, _asks_as_this_pc,
@@ -605,6 +605,12 @@ def _here_key(address, login_id):
     return limits.sender(address), _id_key(login_id or "")
 
 
+def share_said(seconds):
+    """The API's sentence for a caller past its share (429 too_many_requests): when to try again, one second or more."""
+    return ("this caller asked for more than its share of the server's work; try again in %d second%s"
+            % (seconds, "" if seconds == 1 else "s"))
+
+
 def _whole_seconds(wait):
     """A wait as Retry-After gives it: whole seconds, rounded up (never sooner than the limit lets go), at least one."""
     return max(1, math.ceil(wait))
@@ -706,7 +712,11 @@ def _make_app(site, admin_site):
             self.app = app
 
         async def _refuse(self, scope, receive, send, status, text):
-            response = Response(text, status_code=status, media_type="text/plain")
+            # Under /api/ the API's own JSON error, as every other answer there is (413 too_large); a page's plain text.
+            if scope["path"].startswith(API_PREFIX):
+                response = _error(status, "too_large", "a request's body is at most %d KB" % (BODY_LIMIT // 1024))
+            else:
+                response = Response(text, status_code=status, media_type="text/plain")
             await response(scope, receive, send)
 
         async def __call__(self, scope, receive, send):
@@ -817,7 +827,8 @@ def _make_app(site, admin_site):
     # comes first (its own, here: it answers 503 when the database fails), static files last.
     async def health(request):
         status, answer = await site.health()
-        return JSONResponse(answer, status_code=status)
+        # Never kept on the way (as the API's answers): a cache between a monitor and the server would give an old "ok".
+        return JSONResponse(answer, status_code=status, headers={"Cache-Control": "no-store"})
 
     # Each area's plain handlers count their processor time to their request (work.charged), as threaded() does for
     # the work an async handler hands over: the route made again around the counted handler, as it was otherwise.
@@ -880,7 +891,8 @@ def _make_app(site, admin_site):
     # request opens nothing: the connection is opened at its first use).
     # The admin site's requests are marked as its own outside every other layer (Side), so each of them reads the admin
     # site's cookies; and every answer of either site, a refusal or a failure too, carries its headers (Side).
-    return Starlette(routes=routes, exception_handlers={404: missing, 405: wrong_method},
+    # A call's field of another kind (api.BadField) is its bad request, wherever its handler raises it.
+    return Starlette(routes=routes, exception_handlers={404: missing, 405: wrong_method, BadField: bad_field},
                      middleware=[
                          Middleware(Side, admin_site=admin_site), Middleware(Compress), Middleware(NoStore),
                          Middleware(Errors), Middleware(Logged, site=site), Middleware(Work), Middleware(Shares, site=site),
@@ -1107,9 +1119,7 @@ class Shares:
         seconds = _whole_seconds(wait)
         request = Request(scope, receive)
         if scope["path"].startswith(API_PREFIX):
-            answer = _error(429, "too_many_requests", "this caller asked for more than its share of the server's work; "
-                                                      "try again in %d seconds" % seconds,
-                            headers={"Retry-After": str(seconds)})
+            answer = _error(429, "too_many_requests", share_said(seconds), headers={"Retry-After": str(seconds)})
         else:
             # The page kept made for its language and seconds (Site.busy_page): a flood of refused requests costs no
             # page made for each on the site's threads.

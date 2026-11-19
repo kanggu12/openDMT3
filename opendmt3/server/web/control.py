@@ -113,7 +113,8 @@ def _number(value):
     if isinstance(value, int) and not isinstance(value, bool):
         return value
     text = str(value).strip()
-    return int(text) if text.isdigit() else value
+    # ASCII digits alone: "²" passes str.isdigit() and fails int().
+    return int(text) if text.isascii() and text.isdigit() else value
 
 
 def picture_file(site, player):

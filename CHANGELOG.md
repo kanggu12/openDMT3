@@ -102,12 +102,25 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
 - **Remove all** deletes openDMT3's own folder for playing too: the client copy PLAY made, its card and its settings.
 - A power cut right after a save no longer leaves the launcher's settings empty, and the command line works past a
   `launcher.json` it cannot read.
+- The API takes each field of a body as its JSON kind and refuses another with the field named (`400 bad_request`):
+  a name sent as `null` or `5` is no longer kept as the text `None` or `5`.
+- JSON nested past any depth answers `400 bad_request` instead of failing with a traceback in the log, and a JSON body
+  past 64 KB gets the API's own `413 too_large`.
+- A number such as `?page=²` and a folder's path with a NUL character answer `400` instead of failing; the **Logs** tab
+  goes on without a filter it cannot read.
+- A read-only token signs itself out; a token's name on two lines and a cabinet's name past 32 characters are refused
+  in words, where they were changed in silence.
+- `/api/v1/songs/abc` and `/api/v1/djs/-1` answer `unknown_song` and `unknown_player`, a caller past its share is told
+  "1 second" (the launcher says it in its own words, in Korean too), `GET /health` is never kept by a cache, and the
+  OpenAPI document lists every status and field the answers have.
 
 ### Security
 
 - No page of either site can be shown inside another site's frame.
 - Wrong passwords hold back an ID at the address they came from, and the whole address only after 30, so the other
   players behind one address (a game centre's) go on signing in; in 0.3.1 five held back all of them.
+- `POST /api/v1/players` gives admin rights only for `"is_admin": true`; in 0.3.1 any value but `false`, `0`, `null`
+  or an empty one did, the text `"false"` too.
 
 ### Upgrading from 0.3.1
 
@@ -126,6 +139,7 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
   **Keys** (the key sounds) start at 100 %, as loud as before: the game never applied its key sounds' setting.
 - The admin pages take TCP 4731 (`--admin-port`, `./dmt3 ports --admin`). With Docker, when the site or the game
   already has 4731, the first `./dmt3 up` gives the admin pages the next free port and says so.
+- A 0.3.1 launcher tells a banned player the reason too: the server's sentence carries it.
 
 ## [0.3.1] - 2026-11-17
 

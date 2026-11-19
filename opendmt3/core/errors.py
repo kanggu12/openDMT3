@@ -127,7 +127,7 @@ TEXT = {
     "error.player.picture.kind": ("not a picture", "사진 파일이 아닙니다. PNG, JPEG, WebP, GIF를 올려 주세요."),
     "error.player.picture.pixels": ("a picture is up to {most} pixels in all", "사진은 모두 {most}픽셀까지입니다."),
     # The API's named tokens, on the Account page and through the API (services.tokens.TokenError).
-    "error.token.name": ("a token's name is 1 to {max} characters", "토큰 이름은 1~{max}자입니다."),
+    "error.token.name": ("a token's name is 1 to {max} characters on one line", "토큰 이름은 한 줄로 1~{max}자입니다."),
     "error.token.scope": ("a token's scope is read or write", "토큰 권한은 read 또는 write입니다."),
     "error.token.many": ("an account holds at most {most} tokens: revoke one first",
                          "계정마다 토큰은 {most}개까지입니다. 먼저 하나를 폐기하세요."),
@@ -168,7 +168,7 @@ TEXT = {
                              "더 새 openDMT3가 저장한 곡 목록입니다(형식 {format}, 이 서버는 {most}까지 읽습니다)."),
     "error.songlist.entry": ("An entry in this song list cannot be taken: {name}",
                              "곡 목록 안의 항목을 받아들일 수 없습니다: {name}"),
-    "error.songlist.too_large": ("An uploaded song list is at most {mb} MB.", "올리는 곡 목록은 {mb} MB까지입니다."),
+    "error.songlist.too_large": ("an uploaded song list is at most {mb} MB", "올리는 곡 목록은 {mb} MB까지입니다."),
     "error.songlist.unpacked": ("This song list holds more than {mb} MB unpacked.",
                                 "이 곡 목록은 풀면 {mb} MB가 넘습니다."),
     "error.songlist.entries": ("This song list holds more than {n} entries. Save it again in the launcher.",
@@ -237,6 +237,9 @@ TEXT = {
     "error.api.too_large": ("The song list is larger than this server takes.", "곡 목록이 이 서버가 받는 크기보다 큽니다."),
     "error.api.busy": ("The server is importing a song list already. Send it again in a moment.",
                        "서버가 이미 곡 목록을 가져오는 중입니다. 잠시 뒤에 다시 보내세요."),
+    # A caller past its share of the server's work (the server's 429 too_many_requests): in the player's language.
+    "error.api.too_many_requests": ("The server is busy with calls from this PC. Try again in a moment.",
+                                    "서버가 이 PC의 요청으로 바쁩니다. 잠시 뒤에 다시 시도하세요."),
     # Help, Repair and --repair (client/repair.py).
     "error.repair.not_installed": ("repair works in the launcher installed by the openDMT3 installer",
                                    "복구는 openDMT3 설치 프로그램으로 설치한 런처에서 됩니다."),

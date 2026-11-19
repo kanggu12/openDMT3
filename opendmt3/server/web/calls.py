@@ -110,7 +110,8 @@ CALLS = [
          answer={"server": "string", "version": "string", "game_port": "integer", "updates": "boolean"}),
     Call("GET", "/api/v1/openapi.json", "anyone", SERVER,
          "This document: every call of the API, made from the table the guide and the routes are checked against.",
-         answer={"openapi": "string", "info": "object", "paths": "object", "components": "object"}),
+         answer={"openapi": "string", "info": "object", "paths": "object", "components": "object",
+                 "security": "array"}),
     Call("POST", "/api/v1/session", "anyone", SERVER, "Sign in with an ID and a password: the account and a token.",
          params=(body("login_id", "string", "The account's ID.", required=True),
                  body("password", "string", "Its password.", required=True)),
@@ -201,7 +202,7 @@ CALLS = [
          "A player's records: the DJ card, counts, best scores, recent plays, activity and places.",
          params=(path("player", "integer", "The player's account number."),),
          answer={"player": "integer", "dj_name": "string", "dj_card": "object", "summary": "object", "bests": "array",
-                 "recent": "array", "activity": "object", "places": "array"},
+                 "recent": "array", "activity": "object", "places": "array", "picture": "integer"},
          errors=((404, "unknown_player"),)),
     Call("GET", "/api/v1/djs/{player}/picture.png", "signed in", RECORDS, "A player's picture on the site.",
          params=(path("player", "integer", "The player's account number."),), files="image/png",
@@ -302,12 +303,13 @@ CALLS = [
     # ----------------------------------------------------------------- the admin's cabinets, status, notice, logs
     Call("POST", "/api/v1/cabinets/{id}/name", "admin", ADMIN, "The name the admin pages show for a cabinet.",
          params=(path("id", "integer", "The cabinet's number, as GET /api/v1/cabinets?all=1 gives it."),
-                 body("name", "string", "Its name; empty, its address again.", required=True)),
-         answer={"cabinets": "array"}, errors=((400, "bad_request"), (404, "unknown_cabinet"))),
+                 body("name", "string", "Its name, up to 32 characters; empty, its address again.", required=True)),
+         answer={"cabinets": "array"}, errors=((400, "bad_request"), (400, "refused"), (404, "unknown_cabinet"))),
     Call("GET", "/api/v1/launchers", "admin", ADMIN,
          "The launchers that asked this server's API since it started, the one heard last first: whose, from which "
          "PC, which version, when; now while heard within now_seconds.",
-         answer={"launchers": "array", "since": "integer", "now_seconds": "integer"}, errors=((403, "admin_only"),)),
+         answer={"launchers": "array", "anonymous": "object", "since": "integer", "now_seconds": "integer"},
+         errors=((403, "admin_only"),)),
     Call("GET", "/api/v1/server", "admin", ADMIN,
          "The Status page: the version, the numbers, the last backup, maintenance, and what may want a look.",
          params=(LANG,),
@@ -329,11 +331,11 @@ CALLS = [
                  "points": "array", "disk_parts": "array"}),
     Call("POST", "/api/v1/server/stop", "admin", ADMIN,
          "Stop the server: the one that started it is asked to stop it.",
-         answer={"asked": "string", "stopping": "boolean", "runner": "object"}, status=202,
+         answer={"asked": "string", "delete_data": "boolean", "stopping": "boolean", "runner": "object"}, status=202,
          errors=((409, "not_here"), (409, "asked_already"))),
     Call("POST", "/api/v1/server/restart", "admin", ADMIN,
          "Restart the server: the one that started it is asked to stop it and start it again.",
-         answer={"asked": "string", "stopping": "boolean", "runner": "object"}, status=202,
+         answer={"asked": "string", "delete_data": "boolean", "stopping": "boolean", "runner": "object"}, status=202,
          errors=((409, "not_here"), (409, "asked_already"))),
     Call("POST", "/api/v1/server/remove", "admin", ADMIN,
          "Remove the server: the one that started it is asked to stop it and remove it, its data too when asked.",
@@ -345,8 +347,11 @@ CALLS = [
                                                 "newest first.", params=(LANG,), answer={"jobs": "array"}),
     Call("GET", "/api/v1/jobs/{id}", "admin", ADMIN, "One job: the step it is on, how far it has come, how it ended.",
          params=(path("id", "string", "The job's id, as the call that started it gave it."), LANG),
-         answer={"id": "string", "kind": "string", "state": "string", "step": "string|null", "steps": "array",
-                 "share": "number|null", "result": "object|null", "error": "object|null", "text": "string"},
+         answer={"id": "string", "kind": "string", "who": "string", "state": "string", "started": "integer",
+                 "ended": "integer|null", "step": "string|null", "steps": "array", "all_steps": "array",
+                 "done": "integer|null", "total": "integer|null", "share": "number|null", "details": "object",
+                 "result": "object|null", "error": "object|null", "title": "string", "step_text": "string",
+                 "count_text": "string", "text": "string"},
          errors=((404, "unknown_job"),)),
     Call("GET", "/api/v1/server/song_list", "admin", ADMIN,
          "The Song list tab: the song list's state, the game's files found on the server PC with their lines, the "
@@ -395,7 +400,8 @@ CALLS = [
          params=REQUESTS_FILTER + (query("per", "integer", "Requests a page, 1 to 200 (without it, the newest 200)."),
                                    query("page", "integer", "The page, 1 the newest.")),
          answer={"chart": "array", "most": "integer", "day": "object", "requests": "array", "found": "integer",
-                 "kept": "integer", "bytes": "integer", "page": "integer", "newer": "boolean", "older": "boolean"},
+                 "kept": "integer", "bytes": "integer", "page": "integer", "newer": "boolean", "older": "boolean",
+                 "last_page": "integer", "past": "boolean"},
          errors=((400, "bad_request"),)),
     Call("GET", "/api/v1/log/requests.csv", "admin", ADMIN, "Every request the log keeps that the filter leaves, as "
                                                             "CSV.", params=REQUESTS_FILTER, files="text/csv",
@@ -434,9 +440,17 @@ def _answer_schema(fields):
     return {"type": "object", "properties": properties, "required": required}
 
 
+# What any call may answer beside its own errors: another method than its own (405), its caller past its share of the
+# server's work (429, with Retry-After), and the server failing (500); a call with a JSON body, that body past the
+# site's limit (413). docs/api.md's Errors say them once for all.
+SHARED = ((405, "method_not_allowed"), (429, "too_many_requests"), (500, "server_error"))
+TOO_LARGE = (413, "too_large")
+
+
 def _refusals(call):
     """Every error a call can answer, by status: its own, then what every call with a token answers (401 sign_in), an
-    admin's to another account's token (403 admin_only), and a read-only named token's (403 read_only)."""
+    admin's to another account's token (403 admin_only), a read-only named token's (403 read_only), and what any
+    call may answer (SHARED; TOO_LARGE for a JSON body)."""
     errors = list(call.errors)
     if call.who != "anyone":
         errors.append((401, "sign_in"))
@@ -444,6 +458,9 @@ def _refusals(call):
         errors.append((403, "admin_only"))
     if call.who != "anyone" and (call.who == "admin" or call.method not in ("GET", "HEAD")):
         errors.append((403, "read_only"))
+    if call.where("body"):
+        errors.append(TOO_LARGE)
+    errors.extend(SHARED)
     by_status = {}
     for status, code in errors:
         if code not in by_status.setdefault(status, []):
@@ -487,6 +504,12 @@ def openapi(version):
             answer = {"description": call.summary, "content": {"application/json": {
                 "schema": _answer_schema(call.answer)}}}
         operation["responses"] = {str(call.status): answer}
+        if any(p.name == "wait" for p in call.params):
+            # ?wait=0: the job just started, its id alone, to follow at GET /api/v1/jobs/{id}.
+            operation["responses"]["202"] = {"description": "The job started (?wait=0): its id, to follow at GET "
+                                                            "/api/v1/jobs/{id}.",
+                                             "content": {"application/json": {"schema": _answer_schema(
+                                                 {"job": "string"})}}}
         for status, codes in sorted(_refusals(call).items()):
             operation["responses"][str(status)] = {"description": ", ".join(codes), "content": {"application/json": {
                 "schema": {"$ref": "#/components/schemas/Error"}}}}
