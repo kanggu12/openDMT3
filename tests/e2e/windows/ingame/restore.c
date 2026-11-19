@@ -21,6 +21,9 @@
 
 int main(int argc, char **argv)
 {
+    /* Its sizes and places in the screen's own pixels, as the game's (the fixed client is aware of Windows' scaling):
+     * a program that is not would be given them scaled, 1.25 times smaller at 125 %, and its sizes set larger. */
+    SetProcessDPIAware();
     /* --state first: only say; --size: a new size for its client. */
     int state_only = argc > 2 && !strcmp(argv[1], "--state");
     int size = argc > 4 && !strcmp(argv[1], "--size");
