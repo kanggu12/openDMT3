@@ -242,21 +242,19 @@ class Guide:
 
     def _welcome(self, parent):
         app, ui, w = self.app, self.app.ui, self.app.words
-        # The language on a card of its own, its row's name saying what it is.
-        language = card(parent, ui)
-        widgets.setting_row(language.body, ui, w("about.language"),
+        # One group of rows (a card for one choice said little but its name): the language, what a first start needs,
+        # and the notice under them, each row parted by the card's faint line.
+        start = card(parent, ui, last=True)
+        widgets.setting_row(start.body, ui, w("about.language"),
                             lambda p: widgets.Segmented(p, ui, pages.language_options(app),
                                                         app.state.picked_language or "system",
                                                         self._language)).pack(fill="x")
-        # The notice on a plain card, in the LAUNCHER page's own words for it: a request, not an error.
-        notice = card(parent, ui)
-        widgets.label(notice.body, ui, w("guide.1.notice"), wrap_margin=0).pack(fill="x")
-        need = card(parent, ui, w("guide.1.need"), last=True)
-        for i, key in enumerate(("guide.1.need.1", "guide.1.need.2")):
-            if i:
-                # One thing a line, parted by the card's faint lines, as OpenDMTQ's list of what is needed.
-                widgets.divider(need.body, ui, pady=8)
-            widgets.label(need.body, ui, w(key), wrap_margin=0).pack(fill="x")
+        widgets.divider(start.body, ui)
+        widgets.text_row(start.body, ui, w("guide.1.need"), [w("guide.1.need.1"), w("guide.1.need.2")]).pack(fill="x")
+        widgets.divider(start.body, ui)
+        # The notice in the LAUNCHER page's own words for it: a request, not an error, in the hints' ink.
+        widgets.label(start.body, ui, w("guide.1.notice"), font=ui.fonts.small, fg=theme.MUTED,
+                      wrap_margin=0).pack(fill="x")
 
     def _language(self, language):
         """Switching language rebuilds the guide in the other language, on the same step ("system": Windows')."""
@@ -286,18 +284,25 @@ class Guide:
 
     def _screen(self, parent):
         app, ui, w = self.app, self.app.ui, self.app.words
-        # The same rows as the SCREEN, CONTROLS and SOUND pages, the ones a first start needs, on those pages' cards;
-        # a choice makes its own card again with its new hint and no other (pages.Sections).
-        sections = pages.Sections(app, parent, pages.rows_that_come("guide:3"))
+        # The same rows as the SCREEN, CONTROLS and SOUND pages, the ones a first start needs, in one group (cards of one
+        # or two rows said little but their names); a choice makes its own row again with its new hint and no other
+        # (pages.Sections).
+        group = card(parent, ui, last=True)
+        sections = pages.Sections(app, group.body, pages.rows_that_come("guide:3"))
 
         def chose(name, value, section):
             app.changed(name, value)
             # The hint under the choice says the new one: its card again, where it was.
             sections.redo(section)
 
+        class _Part:
+            # A part of the group: its rows go into the holder Sections made for it.
+            def __init__(self, holder):
+                self.body = holder
+
         def display(holder):
             mode = app.state.values["display_mode"]
-            made = card(holder, ui, w("screen.display"))
+            made = _Part(holder)
             widgets.setting_row(made.body, ui, w("screen.mode"),
                                 lambda p: widgets.Segmented(p, ui, [("fullscreen", w("screen.mode.fullscreen")),
                                                                     ("window", w("screen.mode.window"))], mode,
@@ -306,7 +311,8 @@ class Guide:
 
         def controls(holder):
             device = "mouse" if app.state.values["cursor"] else "touch"
-            made = card(holder, ui, w("controls.device"))
+            made = _Part(holder)
+            widgets.divider(made.body, ui)
             widgets.setting_row(made.body, ui, w("controls.input"),
                                 lambda p: widgets.Segmented(p, ui, [("mouse", w("controls.input.mouse")),
                                                                     ("touch", w("controls.input.touch"))], device,
@@ -315,10 +321,9 @@ class Guide:
 
         def volume(holder):
             v = app.state.values
-            made = card(holder, ui, w("sound.volumes"), last=True)
-            for i, (name, key) in enumerate((("music_volume", "sound.music"), ("key_volume", "sound.keys"))):
-                if i:
-                    widgets.divider(made.body, ui)
+            made = _Part(holder)
+            for name, key in (("music_volume", "sound.music"), ("key_volume", "sound.keys")):
+                widgets.divider(made.body, ui)
                 widgets.setting_row(made.body, ui, w(key),
                                     lambda p, n=name: widgets.Slider(p, ui, v[n], lambda val, n=n: app.changed(n, val)),
                                     w(key + ".hint")).pack(fill="x")
@@ -345,8 +350,9 @@ class Guide:
             app.read_song_list_ahead()
             self.show(self.index)
 
-        # Where you play, on the ONLINE page's own card.
-        where = card(parent, ui, w("online.where"), last=mode == "offline")
+        # Where you play, on the ONLINE page's own card; on this PC the players and the form that adds one are rows of
+        # the same group (a card for one choice said little but its name).
+        where = card(parent, ui, w("online.where"), last=mode != "server")
         widgets.setting_row(where.body, ui, w("online.mode"),
                             lambda p: widgets.Segmented(p, ui, [("this_pc", w("online.mode.this_pc")),
                                                                 ("server", w("online.mode.server")),
@@ -363,11 +369,12 @@ class Guide:
             rows = app.player_rows()
         except hosting.HostingError as e:
             # The database cannot be read: said in place of the players, and the guide still goes on.
-            trouble = card(parent, ui, last=True)
-            pages.database_trouble(app, trouble.body, e)
+            widgets.divider(where.body, ui)
+            pages.database_trouble(app, where.body, e)
             return
         if rows:
-            players = card(parent, ui, w("online.players"))
+            players = where
+            widgets.divider(players.body, ui)
             for i, r in enumerate(rows):
                 if i:
                     widgets.divider(players.body, ui, pady=6)
@@ -382,9 +389,10 @@ class Guide:
                     part.pack(side="left", padx=(0 if j == 0 else px(10), 0))
                 for widget in [line] + parts:
                     widget.bind("<Button-1>", lambda e, login_id=r["login_id"]: self._choose_player(login_id))
-        add = card(parent, ui, w("online.add"), last=True)
-        pages.player_form(app, add.body, self._choose_player)
-        self._needed(add.body, "guide.login.need")
+        # The form that adds a player, named by its key (Add a player), under the group's faint line.
+        widgets.divider(where.body, ui, pady=14)
+        pages.player_form(app, where.body, self._choose_player)
+        self._needed(where.body, "guide.login.need")
 
     def _needed(self, body, key):
         """LOG IN's word on why Next is off, while it is: what lets the guide go on, at the foot of the step's last

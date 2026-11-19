@@ -13,22 +13,28 @@ log = logging.getLogger("opendmt3.launcher")
 # How long Uninstall's last step stays, to be read, before the window closes (as the installer's last one).
 LAST_STEP_MS = 2200
 
-from opendmt3.client.pages.common import card
+from opendmt3.client.pages.common import CARD_GAP, card
 from opendmt3.client.pages.play import refresh_checks
 
 
 def build_help(app, parent):
-    """Four cards, as OpenDMTQ's HELP has them: the checks (Check again at the title's right end), what to try when the
-    game closes by itself (each line with the page it names one press away), the tools (a report, the launcher's log,
-    Repair), and what puts back and takes away, from the least to the most (the client data's files an older openDMT3
-    changed, then openDMT3 itself)."""
+    """The checks (Check again at the title's right end) beside what to try when the game closes by itself (each line
+    with the setting it names one press away), the two as tall as each other; then the tools (a report, the
+    launcher's log, Repair), and what puts back and takes away, from the least to the most (the client data's files
+    an older openDMT3 changed, then openDMT3 itself), each a group of rows."""
     ui, w = app.ui, app.words
-    checks = card(parent, ui, w("help.checks"))
+    pair = tk.Frame(parent, bg=theme.BG)
+    pair.pack(fill="x", pady=(0, ui.px(CARD_GAP)))
+    pair.columnconfigure(0, weight=1, uniform="cards")
+    pair.columnconfigure(1, weight=1, uniform="cards")
+    checks = widgets.Card(pair, ui, title=w("help.checks"))
+    checks.grid(row=0, column=0, sticky="nsew", padx=(0, ui.px(CARD_GAP)))
     checks.action(w("help.recheck"), app.refresh_checks)
     app.check_box = tk.Frame(checks.body, bg=theme.PANEL)
     app.check_box.pack(fill="x")
     refresh_checks(app)
-    crash = card(parent, ui, w("help.crash"))
+    crash = widgets.Card(pair, ui, title=w("help.crash"))
+    crash.grid(row=0, column=1, sticky="nsew")
     lines = (("help.crash.1", "screen", "screen.mode"), ("help.crash.2", "screen", "screen.videos"),
              ("help.crash.3", None, None))
     for i, (key, page, setting) in enumerate(lines):

@@ -681,20 +681,42 @@ def field_mark(kind, size, colour, scale=1.0):
     return img.resize((px, px), Image.LANCZOS)
 
 
+# A card's and a section's name, in pixels at 100 %: as large as the body (10 points, 13.33 px) so that a heading is
+# never smaller than the words under it, on a plate tall enough to hold its capitals with air above and below.
+PLATE_TEXT, PLATE_HEIGHT, PLATE_PAD = 10 * 96 / 72.0, 26, 12
+
+
 # A card's tab and a section's plate: a few on each page, the same each visit.
 @_kept(64)
 def name_plate(text, scale=1.0, fill=None, colour=None):
     """A section's name as the game labels a part of its screen (NO CREW on the song select): white words on a dark
-    leaning plate, its right end cut on the slant. Returns an RGBA picture just big enough."""
+    leaning plate, its right end cut on the slant, the words' ink (their capitals, or their Hangul) in the plate's
+    middle. Returns an RGBA picture just big enough."""
     hangul = any("가" <= ch <= "힣" for ch in text)
-    font = ImageFont.truetype(theme.HANGUL_TITLE_FILE if hangul else theme.WIDE_FILE,
-                              int(round((11.5 if hangul else 9.5) * scale)))
-    height = int(round(22 * scale))
-    pad = int(round(10 * scale))
+    face = theme.HANGUL_TITLE_FILE if hangul else theme.WIDE_FILE
+    size = PLATE_TEXT * scale * (1.1 if hangul else 1.0)
+    font = ImageFont.truetype(face, size)
+    height = int(round(PLATE_HEIGHT * scale))
+    pad = int(round(PLATE_PAD * scale))
     width = int(font.getlength(text)) + 2 * pad + int(height * LEAN)
     img = plain_plate(width, height, fill or theme.INK, top=theme.LINE, cut_left=False)
-    ImageDraw.Draw(img).text((pad, height / 2), text, font=font, fill=_rgb(colour or theme.TEXT) + (255,), anchor="lm")
+    # On the baseline that puts the ink band in the middle (ink_band), not the font's ascender over its descender.
+    top, bottom = ink_band(face, size, text)
+    ImageDraw.Draw(img).text((pad, height / 2.0 - (top + bottom) / 2.0), text, font=font,
+                             fill=_rgb(colour or theme.TEXT) + (255,), anchor="ls")
     return img
+
+
+@functools.lru_cache(maxsize=512)
+def ink_band(font_file, size, text):
+    """Where `text`'s ink stands from its baseline when set at `size` pixels: (top, bottom), up negative. The band a
+    reader takes for the words' height: their Hangul syllables' when they have Hangul, else the face's capitals' (the
+    ink of "H": a "g" hanging under the line or an "l" over the capitals does not move what reads as the middle).
+    Measured four times larger, for a quarter of a pixel's precision."""
+    big = ImageFont.truetype(font_file, max(1.0, size * 4))
+    hangul = "".join(ch for ch in text if "가" <= ch <= "힣")
+    left, top, right, bottom = big.getbbox(hangul or "H", anchor="ls")
+    return top / 4.0, bottom / 4.0
 
 
 # PLAY's five looks at its size: the guide's last step and the launcher's column share them, and a window made again

@@ -1,4 +1,5 @@
-"""PLAY: who plays, the ready check and the last game, each on its card as OpenDMTQ's PLAY has them."""
+"""PLAY: the ready check beside the player (who plays, their records, their last game), the two as tall as each other,
+under the head that says where PLAY plays."""
 
 import tkinter as tk
 from urllib.parse import urlsplit
@@ -24,14 +25,14 @@ def where_play_plays(app):
 
 
 def _who_plays(app, parent, changed):
-    """Who plays, across the page's top as OpenDMTQ's PLAY has its server card: on this PC the player whose card goes
-    in (or a guest) and their records on this PC's site at the line's right end; on another server the player signed
-    in, or Sign in, which leads to ONLINE; offline, that everyone plays as a guest. `changed()` makes the card again
-    after a choice (the records' button and the line under the choice follow it). Returns the card."""
+    """Who plays, at the top of the PLAYER group (`parent`, a part of its card made again on its own): on this PC the
+    player whose card goes in (or a guest) and, right beside the choice, their records on this PC's site; on another
+    server the player signed in, or the step in front of the person (Connect, Sign in), which leads to ONLINE; offline,
+    that everyone plays as a guest. `changed()` makes this part again after a choice (the records' key and the line
+    under the choice follow it)."""
     ui, w = app.ui, app.words
-    card = widgets.Card(parent, ui, title=w("play.who"))
-    card.pack(fill="x", pady=(0, ui.px(CARD_GAP)))
-    line = tk.Frame(card.body, bg=theme.PANEL)
+    card = parent
+    line = tk.Frame(parent, bg=theme.PANEL)
     line.pack(fill="x")
     if app.state.mode == "server":
         # Another server: the signed-in player is the one; changing player means signing in again (ONLINE).
@@ -39,23 +40,24 @@ def _who_plays(app, parent, changed):
         if remote_state.get("card"):
             lamp = widgets.Lamp(line, ui, theme.NET)
             lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
-            widgets.label(line, ui, w("online.signed", dj=remote_state.get("dj_name", ""),
-                                      login_id=remote_state.get("login_id", "")), wrap_margin=0).pack(
-                side="left", fill="x", expand=True, padx=(ui.px(8), 0))
+            words = widgets.label(line, ui, w("online.signed", dj=remote_state.get("dj_name", ""),
+                                              login_id=remote_state.get("login_id", "")), wrap_margin=8,
+                                  beside=(lamp,))
+            words.pack(side="left", fill="x", expand=True, padx=(ui.px(8), 0))
             return card
         # Not signed in: the page's main action is the step in front of the person, on ONLINE (lit while PLAY waits
-        # for it): Connect while no server is chosen, else Sign in.
+        # for it): Connect while no server is chosen, else Sign in; under the words that say so, at the group's left
+        # edge (the group is half the page: words and key side by side ran into each other).
         chosen = bool(app.state.server_url)
-        main_button(app, line, w("online.signin" if chosen else "online.connect.go"),
-                    lambda: app.go("online")).pack(side="right", anchor="n")
         widgets.label(line, ui, w("play.who.signin" if chosen else "play.who.connect"), fg=theme.AMBER,
-                      wrap_margin=0).pack(side="left", fill="x", expand=True)
+                      wrap_margin=0).pack(fill="x")
+        main_button(app, line, w("online.signin" if chosen else "online.connect.go"),
+                    lambda: app.go("online")).pack(anchor="w", pady=(ui.px(10), 0))
         return card
     if app.state.mode != "this_pc":
-        # Offline: everyone is a guest; ONLINE, one press away at the line's end, changes it.
-        widgets.link(line, ui, TITLES["online"], lambda: app.go("online")).pack(side="right", anchor="n")
-        widgets.label(line, ui, w("play.offline"), fg=theme.MUTED, wrap_margin=0).pack(side="left", fill="x",
-                                                                                     expand=True)
+        # Offline: everyone is a guest; ONLINE, one press away under the words, changes it.
+        widgets.label(line, ui, w("play.offline"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
+        widgets.link(line, ui, TITLES["online"], lambda: app.go("online")).pack(anchor="w", pady=(ui.px(6), 0))
         return card
     try:
         rows = [(r["login_id"], "%s  (%s)" % (r["dj_name"], r["login_id"])) for r in app.player_rows()
@@ -63,7 +65,7 @@ def _who_plays(app, parent, changed):
     except hosting.HostingError as e:
         # The database cannot be read: said in place of the list, and the rest of the launcher still works.
         line.destroy()
-        database_trouble(app, card.body, e)
+        database_trouble(app, card, e)
         return card
     options = [(None, w("online.guest"))] + rows
 
@@ -74,29 +76,28 @@ def _who_plays(app, parent, changed):
         # The records' button and the line under the choice follow it: this card again, and no other.
         changed()
 
-    widgets.Select(line, ui, options, app.state.player, chosen, width=26).pack(side="left")
+    # The choice and, beside it, the player's records: one row, which flows onto two where the group is narrow.
+    parts = [widgets.Select(line, ui, options, app.state.player, chosen, width=24)]
     if app.state.player:
         # This PC's site: rankings, songs and the player's page, opened signed in (actions.records_link).
-        widgets.Button(line, ui, w("play.records"), app.open_records).pack(side="right")
+        parts.append(widgets.Button(line, ui, w("play.records"), app.open_records))
+    widgets.flow(line, parts, ui.px(8))
     # A guest has no card: the line under the choice says what a guest's play is, a player's that their card goes in.
     hint = "play.who.hint" if any(app.state.player == login_id for login_id, _ in rows) else "play.who.hint.guest"
-    widgets.label(card.body, ui, w(hint), font=ui.fonts.small, fg=theme.MUTED, wrap_margin=0).pack(
+    widgets.label(card, ui, w(hint), font=ui.fonts.small, fg=theme.MUTED, wrap_margin=0).pack(
         fill="x", pady=(ui.px(8), 0))
     return card
 
 
 def build_play(app, parent):
-    """Who plays across the top, then the ready check beside the last game, the two as tall as each other, as
-    OpenDMTQ's PLAY sets its server card over its columns. No card of instructions: how the game plays is the game's
-    and the guides' (docs)."""
+    """Two groups side by side, as tall as each other: the ready check (what PLAY will do, and what stops it) and the
+    player (who plays, their records, how their last game went). Where PLAY plays is the head's (pages.HEADERS). No
+    card of instructions: how the game plays is the game's and the guides' (docs); no card for one choice."""
     ui, w = app.ui, app.words
-    # Who plays on a card made again on its own when the player changes (Sections).
-    sections = Sections(app, parent)
-    sections.add("who", lambda holder: _who_plays(app, holder, lambda: sections.redo("who")))
     row = tk.Frame(parent, bg=theme.BG)
     row.pack(fill="x")
-    row.columnconfigure(0, weight=3, uniform="cards")
-    row.columnconfigure(1, weight=2, uniform="cards")
+    row.columnconfigure(0, weight=1, uniform="cards")
+    row.columnconfigure(1, weight=1, uniform="cards")
     # The ready check, filled in when the worker thread finishes it; Check again at its title's right end, as
     # OpenDMTQ's has it (the check is made again, the server asked again).
     ready = widgets.Card(row, ui, title=w("play.ready"))
@@ -104,10 +105,15 @@ def build_play(app, parent):
     ready.action(w("help.recheck"), app.refresh_checks)
     app.check_box = tk.Frame(ready.body, bg=theme.PANEL)
     app.check_box.pack(fill="x")
-    # Beside it, how the last game went, to the same foot.
-    last = widgets.Card(row, ui, title=w("play.last"))
+    # Beside it, the player: who plays (made again on its own when the player changes: Sections), then, under the
+    # card's faint line, how their last game went, to the ready check's foot.
+    last = widgets.Card(row, ui, title=w("play.player"))
     last.grid(row=0, column=1, sticky="nsew")
-    widgets.label(last.body, ui, _last_session(app), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
+    sections = Sections(app, last.body)
+    sections.add("who", lambda holder: _who_plays(app, holder, lambda: sections.redo("who")))
+    widgets.divider(last.body, ui, pady=14)
+    widgets.label(last.body, ui, w("play.last"), font=ui.fonts.body_bold, wrap_margin=0).pack(fill="x")
+    widgets.label(last.body, ui, _last_session(app), fg=theme.MUTED, wrap_margin=0).pack(fill="x", pady=(ui.px(4), 0))
     for play in (app.state.last_session or {}).get("plays", [])[:plays_shown(app)]:
         # Per cleared stage: the song on its own line (titles run long), then its pattern and the score in lime.
         widgets.divider(last.body, ui, pady=8)

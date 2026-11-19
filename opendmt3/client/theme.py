@@ -110,6 +110,16 @@ TEXT_BOLD = "Pretendard SemiBold"
 WIDE_FILE = os.path.join(FONT_DIR, "DMT3Wide-Regular.ttf")
 HANGUL_TITLE_FILE = os.path.join(FONT_DIR, "Pretendard-Bold.ttf")
 TEXT_BOLD_FILE = os.path.join(FONT_DIR, "Pretendard-SemiBold.ttf")
+TEXT_FILE = os.path.join(FONT_DIR, "Pretendard-Regular.ttf")
+# Each family's file, by the weight Tk is asked for: what measures a word's ink as Tk sets it (art.ink_band).
+FONT_FILES = {(DISPLAY, "normal"): WIDE_FILE, (TEXT_FONT, "normal"): TEXT_FILE, (TEXT_FONT, "bold"): HANGUL_TITLE_FILE,
+              (TEXT_BOLD, "normal"): TEXT_BOLD_FILE, (TEXT_BOLD, "bold"): TEXT_BOLD_FILE}
+
+# The text's sizes by role (points; Tk turns them into the screen's pixels): every word of the launcher is set in one
+# of these, and a heading is never smaller than the body under it (the UI check holds both). Hints and a field's
+# name a step under the body; the body, a row's name and a key's words; a large field's words and the figures; the
+# head's line under a page's title; a dialog's question; the big words (PLAY, the records' numbers, the titles).
+TYPE_STEPS = (9, 10, 11, 12, 13, 17, 18, 19, 21)
 
 
 def register_fonts():
@@ -137,7 +147,7 @@ class Fonts:
     def __init__(self, root, language):
         import tkinter.font as tkfont
         korean = language == "ko"
-        section = (TEXT_BOLD, 10) if korean else (DISPLAY, 8)
+        section = (TEXT_BOLD, 10) if korean else (DISPLAY, 9)
         self.title = tkfont.Font(root, family=TEXT_BOLD if korean else DISPLAY, size=21 if korean else 18)
         # The menu in the wide face, its names in English in both languages as both sites' menus and the game's are
         # (13.3 px); a step smaller where the window is too narrow for the menu in one line at the full size.
@@ -160,10 +170,14 @@ class Fonts:
         self.field = tkfont.Font(root, family=TEXT_FONT, size=11)                    # typed in a large field
         self.key = tkfont.Font(root, family=TEXT_BOLD, size=9)                       # a key inside a field
         self.button_lg = tkfont.Font(root, family=TEXT_BOLD, size=11)                # the sign-in's key
-        # A dialog's title tab: English capitals in the wide face in both languages (THEME.md, as the cards' tabs are);
-        # a tab with Hangul (a title with no English words) in Pretendard at its height (tab_font).
-        self.dialog_tab = tkfont.Font(root, family=DISPLAY, size=8)
-        self.dialog_tab_hangul = tkfont.Font(root, family=TEXT_BOLD, size=10)
+        # A dialog's title tab: English capitals in the wide face in both languages (THEME.md, as the cards' tabs are),
+        # as large as the body (a heading is never smaller than the words under it); a tab with Hangul (a title with no
+        # English words) in Pretendard a step larger (tab_font).
+        self.dialog_tab = tkfont.Font(root, family=DISPLAY, size=10)
+        self.dialog_tab_hangul = tkfont.Font(root, family=TEXT_BOLD, size=11)
+        # The page's head information under its title (where PLAY plays): large, in the head (the composed page's
+        # first fact), a step over the body.
+        self.head_info = tkfont.Font(root, family=TEXT_BOLD, size=12)
         self.dialog_title = tkfont.Font(root, family=TEXT_BOLD, size=13)             # a dialog's question
         self.dialog_button = tkfont.Font(root, family=TEXT_BOLD, size=10)            # a dialog's buttons
         # The same two sizes in each face, for words whose face follows their own letters, not the window's language

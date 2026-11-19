@@ -670,5 +670,50 @@ class TimerTest(unittest.TestCase):
         self.assertEqual(ran, [1])
 
 
+class ComposeTest(unittest.TestCase):
+    """The words' sizes and middles the composition pass holds (tests/e2e/ui/compose.py), measured from the fonts."""
+
+    def test_a_words_ink_band_is_its_capitals_or_its_hangul(self):
+        body = 10 * 96 / 72.0
+        top, bottom = art.ink_band(theme.TEXT_FILE, body, "H")
+        # Pretendard's capitals stand about 0.71 of the size over the baseline, nothing under it.
+        self.assertAlmostEqual(-top / body, 0.71, delta=0.04)
+        self.assertAlmostEqual(bottom, 0.0, delta=0.3)
+        # A "g" under the line or an "l" over the capitals does not move the band: the capitals' it stays.
+        self.assertEqual(art.ink_band(theme.TEXT_FILE, body, "Hlg"), (top, bottom))
+        # Hangul's own syllables make the band, a little lower and taller than the capitals.
+        hangul = art.ink_band(theme.TEXT_FILE, body, "가나다 OK")
+        self.assertLess(hangul[0], top)
+        self.assertGreater(hangul[1], bottom)
+
+    def test_a_cards_name_is_no_smaller_than_the_body(self):
+        # The owner's rule (2026-11-19): no heading smaller than the body under it.
+        for scale in (1.0, 1.5, 2.0):
+            plate = art.ink_band(theme.WIDE_FILE, art.PLATE_TEXT * scale, "READY CHECK")
+            body = art.ink_band(theme.TEXT_FILE, 10 * 96 / 72.0 * scale, "H")
+            self.assertGreaterEqual((plate[1] - plate[0]) + 0.25, body[1] - body[0], scale)
+            picture = art.name_plate("READY CHECK", scale)
+            self.assertEqual(picture.height, int(round(art.PLATE_HEIGHT * scale)))
+
+    def test_every_key_of_a_role_takes_one_size(self):
+        # A page's key and a dialog's key: one height and one least width (widgets.Button, dialogs).
+        self.assertEqual(dialogs.BUTTON, widgets.Button.HEIGHTS["normal"])
+        self.assertEqual(dialogs.BUTTON_MIN, widgets.Button.LEAST["normal"])
+        self.assertEqual(dialogs.widgets_side(), widgets.Button.SIDES["normal"])
+        # The sign-in's key is a main key: as tall as every other.
+        self.assertEqual(widgets.Button.SIDES["lg"], widgets.Button.SIDES["normal"])
+        self.assertEqual(widgets.Button.LEAST["lg"], widgets.Button.LEAST["normal"])
+
+    def test_the_type_steps_name_every_size(self):
+        import re
+        with open(theme.__file__, encoding="utf-8") as f:
+            source = f.read()
+        start = source.index("class Fonts")
+        sizes = {int(n) for n in re.findall(r"size=(\d+)", source[start:])}
+        sizes |= {int(n) for n in re.findall(r"\((?:TEXT_BOLD|DISPLAY), (\d+)\)", source[start:])}
+        self.assertTrue(sizes)
+        self.assertLessEqual(sizes - set(theme.TYPE_STEPS), set(), sizes)
+
+
 if __name__ == "__main__":
     unittest.main()

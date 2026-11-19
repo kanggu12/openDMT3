@@ -532,7 +532,8 @@ class ScrollArea(tk.Frame):
         self._head_image = ImageTk.PhotoImage(picture, master=c)
         if self._head_item is None:
             self._head_item = c.create_image(0, 0, image=self._head_image, anchor="nw")
-            self._sub_item = c.create_text(0, 0, text="", font=self.ui.fonts.body, fill=theme.MUTED, anchor="nw")
+            # The page's head information (where PLAY plays): large and in the text's chalk, the head's first fact.
+            self._sub_item = c.create_text(0, 0, text="", font=self.ui.fonts.head_info, fill=theme.TEXT, anchor="nw")
         else:
             c.itemconfigure(self._head_item, image=self._head_image)
         c.coords(self._sub_item, *sub_at)
@@ -768,6 +769,23 @@ def section(parent, ui, text, bg=None):
     return row
 
 
+def ink_shift(widget, font, text):
+    """How far below a box's middle to put `text`'s middle (Tk sets a line's box, ascent over descent, in the middle)
+    so that its ink band (its Hangul syllables', else its capitals': art.ink_band) stands in the box's middle: a key's,
+    a dialog key's, a tab's words read as centred, measured, never eyed. In pixels, to a quarter."""
+    actual = font.actual()
+    size = actual["size"]
+    # Points become the screen's pixels at its DPI (a negative size is pixels already).
+    pixels = -size if size < 0 else size * widget.winfo_fpixels("1i") / 72.0
+    face = theme.FONT_FILES.get((actual["family"], actual["weight"]))
+    if face is None or not text:
+        return 0.0
+    top, bottom = art.ink_band(face, round(pixels * 4) / 4.0, text)
+    ascent, descent = font.metrics("ascent"), font.metrics("descent")
+    # The line box's middle and the ink band's, both from the baseline.
+    return (descent - ascent) / 2.0 - (top + bottom) / 2.0
+
+
 class Button(tk.Canvas):
     """A button that leans like PLAY and the game's plates. kind: 'primary' (filled with the section's colour, the
     page's main action), 'secondary' (quiet metal that lights up under the pointer), 'danger' (metal tinted pink,
@@ -782,6 +800,11 @@ class Button(tk.Canvas):
     # in a table's, and the sign-in's key, as tall as the sign-in's fields (Field "lg": the site's 48 px door at the
     # launcher's scale, as its 42 px page controls are the launcher's 34).
     HEIGHTS = {"normal": 34, "small": 26, "lg": 40}
+    # The keys of one role are alike on every page and dialog: one height, one room either side of the words (and
+    # half the lean, the ends leaning), and a least width that keeps a short word's key a key (Open, OK), as the UI
+    # check holds. The sign-in's large key is a main key too: it is as tall as the others (the "lg" fields stay).
+    SIDES = {"normal": 14, "small": 10, "lg": 14}
+    LEAST = {"normal": 88, "small": 0, "lg": 88}
 
     def __init__(self, parent, ui, text, command, kind="secondary", size="normal", fill=False):
         self.ui, self.bg, self.size = ui, parent.cget("bg"), size
@@ -836,11 +859,12 @@ class Button(tk.Canvas):
             return
         self.words = text
         fonts, px = self.ui.fonts, self.ui.px
-        height = px(self.HEIGHTS[self.size])
-        font = fonts.button_lg if self.size == "lg" else fonts.body_bold
+        size = "normal" if self.size == "lg" else self.size
+        height = px(self.HEIGHTS[size])
+        font = fonts.body_bold
         # The ends lean, so the words keep their distance from the slope, not from the box: half the lean more.
-        side = px(14 if self.size in ("normal", "lg") else 10) + int(height * art.LEAN) // 2
-        need = font.measure(text) + 2 * side
+        side = px(self.SIDES[size]) + int(height * art.LEAN) // 2
+        need = max(px(self.LEAST[size]), font.measure(text) + 2 * side)
         if width is None and self.fill and self._drawn_width:
             width = self._drawn_width
         width = max(need, width or 0)
@@ -857,7 +881,9 @@ class Button(tk.Canvas):
         # The faces with the focus ring are made the first time the button gets the focus.
         self.focused_faces, self.focused_images = None, None
         self.face = self.create_image(0, 0, image=self.images["normal"], anchor="nw")
-        self.label = self.create_text(width // 2, height // 2, text=text, font=font, anchor="center")
+        # The words' ink band in the key's middle (ink_shift), measured for these words in this face.
+        self.label = self.create_text(width / 2.0, height / 2.0 + ink_shift(self, font, text), text=text, font=font,
+                                      anchor="center")
         self._paint(self.state if self.enabled else "disabled")
 
     def _focus(self, on):
@@ -1546,7 +1572,18 @@ def name_width(ui, names):
     return max(ui.fonts.body_bold.measure(name) for name in names) + ui.px(LABEL_GAP)
 
 
-def setting_row(parent, ui, title, control_factory, hint=None, bg=None):
+def text_row(parent, ui, title, lines, bg=None):
+    """A row of a group whose right column is words, not a control (what the first start needs): its name in the
+    names' column, its lines one under another in the controls' column, each wrapping at that column's width."""
+    def lines_box(row):
+        box = tk.Frame(row, bg=bg or parent.cget("bg"))
+        for i, text in enumerate(lines):
+            label(box, ui, text, bg=box.cget("bg"), wrap_margin=0).pack(fill="x", pady=(ui.px(6) if i else 0, 0))
+        return box
+    return setting_row(parent, ui, title, lines_box, None, bg=bg, stretch=True)
+
+
+def setting_row(parent, ui, title, control_factory, hint=None, bg=None, stretch=False):
     """A setting: its name on the left, the control on the right of it, the hint underneath, on its parent's colour
     unless told. The page fits one column for its rows' names afterwards (fit_names); until then the row's own name
     sets it."""
@@ -1561,10 +1598,10 @@ def setting_row(parent, ui, title, control_factory, hint=None, bg=None):
              width=0).grid(row=0, column=0, sticky="w", padx=(0, ui.px(LABEL_GAP)))
     control = control_factory(row)
     # Every control's visible edge on one line: a switch keeps its keyboard ring's room round its track inside its
-    # picture, so the others are set in by as much.
+    # picture, so the others are set in by as much. `stretch`: words in the column (text_row), as wide as it is.
     room = ui.px(art.TICK_RING_ROOM)
     inset = getattr(control, "opendmt3_inset", 0)
-    control.grid(row=0, column=1, sticky="w", padx=(room - inset, 0))
+    control.grid(row=0, column=1, sticky="ew" if stretch else "w", padx=(room - inset, 0))
     hint_label = None
     if hint:
         hint_label = label(row, ui, hint, font=ui.fonts.small, fg=theme.MUTED, bg=bg, wrap_margin=4)

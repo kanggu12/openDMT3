@@ -6,6 +6,17 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+### Changed
+
+- The launcher's pages are composed, not stacked boxes: **Play** sets the ready check beside the player (who plays,
+  their records, their last game), as tall as each other, under a head that says where PLAY plays in large words;
+  **Help** sets its checks beside what to try when the game closes; **Online**'s switch for the other PCs, the form
+  that adds a player and **Launcher**'s look for updates are rows of the group they belong to, and the first-start
+  guide's steps are one group each. No box holds a single control or a single key.
+- A card's and a dialog's name are as large as the words under them; every key of one role is one size on every page
+  and dialog (one height, one room either side of its words), its words centred by their ink, and no key is stretched
+  across its card.
+
 ## [0.4.1] - 2026-11-20
 
 A song's notes wait with its music while the game is held in it; the in-game layer's buttons keep the pointer's

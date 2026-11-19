@@ -36,6 +36,8 @@ from opendmt3.client import widgets  # noqa: E402
 # The boxes and the room round them (OpenDMTQ's spacing check, on openDMT3's widgets).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import spacing  # noqa: E402
+# The composition and the words: keys of one role alike, words centred by their ink, the type's steps (compose.py).
+import compose  # noqa: E402
 from opendmt3.core.formats import pak  # noqa: E402
 
 SETTINGS = (
@@ -1139,6 +1141,9 @@ def measure(app, name, problems):
                                [words for _, words in row.options]))
     # The boxes, their padding and the gaps between them (spacing.py), counted so a run that measured none says so.
     problems.extend(spacing.check(root, app.ui, name))
+    # The composition and the words (compose.py): keys of one role alike, words centred by their ink, the type's
+    # steps, headings no smaller than their body, rows on one line, the decoration off the cards' edges.
+    problems.extend(compose.check(app, name, screen_reader()))
     SPACED.append(name)
     lit_problems(app, name, problems)
     right = root.winfo_rootx() + root.winfo_width()
@@ -1373,7 +1378,8 @@ def scroll_check(app, tag, problems, must=True):
     area, bar = app.body.canvas, app.body.bar
     app.body.to_top()
     wait_out(app, 0.1)
-    if not must and app.body.head_height + app.body.inner.winfo_reqheight() <= area.winfo_height():
+    if not must and app.body.head_height + app.body.inner.winfo_reqheight() <= area.winfo_height() + app.ui.px(48):
+        # It fits, or nearly: a few pixels to scroll leave no room under the thumb to press for a page.
         return
     if not bar.winfo_ismapped():
         problems.append("%s: no scroll bar on a page taller than the window" % tag)
@@ -2775,6 +2781,60 @@ def at_smallest(app, out, name, problems):
     settle(app)
 
 
+def planted_composition_check(app, out, tag, problems):
+    """compose.py tried on a page made up to fail it, at this run's own fonts and scale, before it is trusted with the
+    real ones: a key two pixels short, a key whose words stand three pixels low, a key stretched across its card, a
+    label in a size that is none of the type's steps, a setting whose control stands off its name's line, a slider too
+    short to set a value by, a card off the page's left edge, and the stage's colour in the gap beside a card. Each must
+    be said; the run's own page must be said of nothing."""
+    import tkinter as tk
+    from opendmt3.client import theme
+    app.go("controls")
+    settle(app)
+    clean = compose.check(app, "%s_controls" % tag, screen_reader())
+    if clean:
+        problems.append("%s: the composition check says of a page as it is: %s" % (tag, clean[0]))
+    content = app.body.inner.winfo_children()[0]
+    for child in content.winfo_children():
+        child.destroy()
+    made = widgets.Card(content, app.ui, title="Made-up group")
+    made.pack(fill="x")
+    short = widgets.Button(made.body, app.ui, "Short key", lambda: None)
+    short.pack(anchor="w")
+    short.configure(height=short.winfo_reqheight() - app.ui.px(2))
+    low = widgets.Button(made.body, app.ui, "Low words", lambda: None)
+    low.pack(anchor="w", pady=(app.ui.px(8), 0))
+    low.move(low.label, 0, app.ui.px(3))
+    across = widgets.Button(made.body, app.ui, "Across", lambda: None, fill=True)
+    across.pack(fill="x", pady=(app.ui.px(8), 0))
+    tk.Label(made.body, text="Made-up words in seven points", font=("Pretendard", 7), bg=theme.PANEL,
+             fg=theme.TEXT).pack(anchor="w")
+    row = widgets.setting_row(made.body, app.ui, "Made-up setting",
+                              lambda p: widgets.Slider(p, app.ui, 50, lambda v: None, width=120))
+    row.pack(fill="x")
+    row.control.grid_configure(pady=(app.ui.px(12), 0))
+    off = widgets.Card(content, app.ui, title="Made-up offside")
+    off.pack(fill="x", padx=(app.ui.px(10), 0), pady=(app.ui.px(16), 0))
+    tk.Label(off.body, text="A card off the page's left edge", font=app.fonts.body, bg=theme.PANEL,
+             fg=theme.TEXT).pack(anchor="w")
+    # The stage's blue in the gap at the first card's left, where the page's own colour must be (in the page's own
+    # area, round the content, where the content's children could not reach).
+    shard = tk.Frame(app.body.inner, bg=theme.BLUE, width=app.ui.px(6), height=app.ui.px(40))
+    shard.place(in_=made, x=-app.ui.px(8), rely=0.5, anchor="w")
+    settle(app)
+    shot(app, out, "%s_planted-composition" % tag)
+    said = compose.check(app, "%s_planted-composition" % tag, screen_reader())
+    wanted = (("Short key", "tall"), ("Low words", "off the key's middle"), ("Across", "stretched"),
+              ("seven points", "type's steps"), ("Made-up setting", "one line"), ("too short", ""),
+              ("MADE-UP OFFSIDE", "left edge"), ("left of", "page's colour"))
+    for first, second in wanted:
+        if not any(first in p and second in p for p in said):
+            problems.append("%s: the composition check missed a planted %r (%s): it said %s"
+                            % (tag, first, second, said))
+    app.go("controls")
+    settle(app)
+
+
 def planted_check(app, out, tag, problems):
     """The check for hidden content (hidden) tried on a page made up to need it, at this run's own fonts and scale:
     eighty made-up lines, taller than any window (forty fit the large size beside the menu column), where the page goes.
@@ -2920,6 +2980,14 @@ def main():
     args = parser.parse_args()
     if not safety.on_virtual_display():
         sys.exit("refusing: this opens windows; run it through tests/e2e/ui/run.sh")
+    # Every dialog the run measures (the launcher's and the installer's) is held to compose.py's keys and words too:
+    # what its own layout_problems says, then a page key's size and centring for its keys, and its tab's size.
+    from opendmt3.client import dialogs as dialog_module
+    measured = dialog_module.Dialog.layout_problems
+
+    def with_composition(dialog):
+        return measured(dialog) + compose.check_dialog(dialog, dialog.ui, "dialog")
+    dialog_module.Dialog.layout_problems = with_composition
     if sys.platform == "win32":
         # As the launcher does before its first window: Windows' own pixels at any scaling, not a stretched copy.
         from opendmt3.client import main as launcher_main
@@ -3139,6 +3207,7 @@ def main():
     # ---- PLAY whole at the size the launcher opens at, and the check for hidden content tried on a made-up page
     play_fits_check(app, args.out, tag, problems)
     planted_check(app, args.out, tag, problems)
+    planted_composition_check(app, args.out, tag, problems)
     # ---- another server: not connected, connected, signed in (no network: the remembered state is drawn)
     for name, url, remote_state in (
             ("server-none", None, None),

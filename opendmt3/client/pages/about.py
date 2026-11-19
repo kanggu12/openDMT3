@@ -67,19 +67,20 @@ def build_about(app, parent):
     widgets.divider(general.body, ui)
     widgets.setting_row(general.body, ui, w("about.guide.row"),
                         lambda p: widgets.Button(p, ui, w("about.guide.run"), rerun), None).pack(fill="x")
-    _play_without_window(app, parent)
-    updates_card = card(parent, ui, w("about.updates"))
+    # The version and the look for updates: GENERAL's last row (a card for one key said little but its name).
+    widgets.divider(general.body, ui)
     version = updates.shown_version()
-    # The version as the row's name and Check for updates as its control, in the column the cards above use (the
+    # The version as the row's name and Check for updates as its control, in the column the rows above use (the
     # final review's C-08: the button once stood right after the words, on a line of its own).
-    box = widgets.setting_row(updates_card.body, ui, w("about.version", v=version),
+    box = widgets.setting_row(general.body, ui, w("about.version", v=version),
                               # check is made below: looked up when pressed.
                               lambda p: widgets.Button(p, ui, w("about.check"), lambda: check()))
     box.pack(fill="x")
     # What the look for updates found, and the button that puts an update in: right under the version, and no
     # room taken while there is nothing to say.
-    found = tk.Frame(updates_card.body, bg=theme.PANEL)
+    found = tk.Frame(general.body, bg=theme.PANEL)
     found.pack(fill="x")
+    _play_without_window(app, parent)
 
     def say(text, fg=theme.MUTED, result=None):
         """Show `text` under the version; with a `result` that has an update, its button below."""

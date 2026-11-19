@@ -445,6 +445,8 @@ TEXT = {
                              "클리어한 스테이지 기록도 함께 지워지며 되돌릴 수 없습니다."),
     "online.guest": ("Guest (NO ID CARD)", "손님(NO ID CARD)"),
     "play.who": ("Who plays", "플레이할 사람"),
+    "play.player": ("Player",
+                    "플레이하는 사람"),
     "play.records": ("Open my records", "내 기록 보기"),
     "play.records.hint": ("Rankings, songs and your best scores, in the browser.",
                           "랭킹과 곡, 내 최고 점수를 브라우저로 봅니다."),

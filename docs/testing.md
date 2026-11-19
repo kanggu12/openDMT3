@@ -79,7 +79,14 @@ bar must leave the page its whole width. Its spacing pass (`tests/e2e/ui/spacing
 boxes that touch or overlap, words over a box they are no part of, words closer to the edge of the menu column or a
 card than its padding, words lying on a page's field outside any card, and gaps between stacked boxes off the
 launcher's spacing scale; every drop-down on every page is opened and its list must lie whole on the screen and over
-everything at its corners (read from the screen's own pixels); and no screen may light two main actions at once. The
+everything at its corners (read from the screen's own pixels); and no screen may light two main actions at once. Its
+composition pass (`tests/e2e/ui/compose.py`) holds every page, guide step and dialog to one size for each role of key
+(height, room either side of the words, least width; none stretched across its card), the words of every key in its
+middle by their ink (their capitals', or their Hangul syllables'), every word in the type's steps and no card's or
+dialog's name smaller than the body under it, a setting's name and control on one line and one group's controls at
+one edge, sliders long enough to set a value by, one left edge for the head's line and the cards, and the page's own
+colour round every card, in the gaps and beyond each cut corner (read from the screen); it is tried first on a page
+made up to fail each of these. The
 forms are used as a person uses them: a wrong value said under its field and gone with the next key, Show in the Tab
 order after its password, and the sign-in against a made-up server in each state (asked, a wrong ID or password, not
 answering, too many tries, banned), each said where it belongs and scrolled into view. A run with no new screenshot

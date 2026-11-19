@@ -401,8 +401,9 @@ def _sign_in_form(app, parent, remembered, rerender, test_link, banned, change=N
         app.refresh_checks()
         rerender()
 
-    # Signing in is the card's main action: lit while PLAY waits, quiet beside a lit PLAY; across the form.
-    form.button(w("online.signin"), sign_in, main=_main(app), size="lg", fill=True)
+    # Signing in is the card's main action: lit while PLAY waits, quiet beside a lit PLAY; a main key as every page's
+    # and dialog's is, sized for its words (no key stretched across a card).
+    form.button(w("online.signin"), sign_in, main=_main(app))
     if form.keys is not None:
         form.keys.configure(width=ui.px(SIGN_IN_WIDTH))
     # Under a seam, the way back when the password is gone: one quiet line.
@@ -452,8 +453,9 @@ def _banned_plate(app, parent, reason, again, change=None):
                   pady=0, wraplength=room).pack(fill="x", pady=(ui.px(6), 0))
     keys = tk.Frame(column, bg=theme.PANEL)
     keys.pack(fill="x", pady=(ui.px(16), 0))
-    other = widgets.Button(keys, ui, w("online.banned.other"), again, size="lg", fill=True)
-    other.pack(fill="x")
+    # An ordinary key sized for its words, at the column's left edge (no key stretched across a card).
+    other = widgets.Button(keys, ui, w("online.banned.other"), again)
+    other.pack(anchor="w")
     widgets.later(other, other.focus_set)
 
 
@@ -663,8 +665,9 @@ def _copy_step(step):
 
 
 def build_online(app, parent):
-    """Where you play on its card; then another server's two cards (server_panel), or this PC's players, the form that
-    adds one and this PC's server for the other PCs on its network, each on its card."""
+    """Where you play, a group of rows: the choice, and on this PC its server opened to the other PCs on its network;
+    then another server's cards (server_panel), or this PC's players, one group: the list and, under its faint line,
+    the form that adds one. No card for one switch."""
     ui, w = app.ui, app.words
     mode = app.state.mode
 
@@ -686,43 +689,50 @@ def build_online(app, parent):
                                                             ("server", w("online.mode.server")),
                                                             ("offline", w("online.mode.offline"))], mode, set_mode),
                         w("online.mode.hint." + mode)).pack(fill="x")
+    if mode == "this_pc":
+        # This PC's server opened to the other PCs at home: a row of the same group, under its faint line.
+        widgets.divider(where.body, ui)
+        _home_rows(app, where.body)
     if mode == "server":
         # Connected with nobody signed in, the sign-in's card leads, before this one.
         server_panel(app, parent, lambda: app.go("online"), lead=where)
         return
     if mode != "this_pc":
         return
-    # The players and the form that adds one, each a card made again on its own when a player is added, chosen or
-    # deleted (Sections): the other cards, and what is typed in the form, stay as they were.
-    sections = Sections(app, parent)
+    # The players and the form that adds one, one group: each part made again on its own when a player is added,
+    # chosen or deleted (Sections), so what is typed in the form stays as it was.
+    group = card(parent, ui, w("online.players"), last=True)
+    sections = Sections(app, group.body)
+    # The group's action (Admin pages) once there is a player: made with the list, at the group's head.
+    opener = {}
 
     def players_card(holder):
-        players = card(holder, ui, w("online.players"))
+        players = holder
         try:
             rows = app.player_rows()
         except hosting.HostingError as e:
             # The database cannot be read: said in place of the list, and the rest of the page still works.
-            database_trouble(app, players.body, e)
+            database_trouble(app, players, e)
             return
         if not rows:
-            widgets.label(players.body, ui, w("online.players.none"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
-        else:
+            widgets.label(players, ui, w("online.players.none"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
+        elif opener.get("key") is None or not opener["key"].winfo_exists():
             # This PC's server's admin pages (its own site on this PC's address), opened signed in as its admin: at the
-            # card's head, as a card's action is.
-            # One opening at a time, the key busy while it is under way.
-            opener = {}
-            opener["key"] = players.action(w("online.admin"), lambda: app.open_admin(opener["key"]))
+            # group's head, as a card's action is. One opening at a time, the key busy while it is under way.
+            opener["key"] = group.action(w("online.admin"), lambda: app.open_admin(opener["key"]))
         for i, r in enumerate(rows):
             if i:
                 # One line a player, parted by the card's faint lines.
-                widgets.divider(players.body, ui, pady=8)
-            _player_line(app, players.body, r, lambda: sections.redo("players"))
+                widgets.divider(players, ui, pady=8)
+            _player_line(app, players, r, lambda: sections.redo("players"))
 
     def add_card(holder):
         if app._database_problem() is not None:
-            # The players cannot be read (said on the Players card): no form offered that could not work.
+            # The players cannot be read (said above): no form offered that could not work.
             return
-        add = card(holder, ui, w("online.add"))
+        # Under the list and its faint line, named by its key (Add a player): the same group.
+        widgets.divider(holder, ui, pady=14)
+        add = holder
 
         def added(login_id):
             # The first player plays next without asking; later ones are picked on this page or on PLAY.
@@ -734,11 +744,10 @@ def build_online(app, parent):
             sections.redo("add")
             app.player_changed()
 
-        player_form(app, add.body, added)
+        player_form(app, add, added)
 
     sections.add("players", players_card)
     sections.add("add", add_card)
-    _home_panel(app, parent)
 
 
 def _player_line(app, parent, r, changed):
@@ -791,15 +800,14 @@ def _player_line(app, parent, r, changed):
             side="right", padx=(0, ui.px(12)))
 
 
-def _home_panel(app, parent):
-    """Open this PC's server to the other PCs on its network, on the page's last card: they choose Another server and
-    type one of these addresses, then sign in with a player made here."""
+def _home_rows(app, parent):
+    """Open this PC's server to the other PCs on its network, a row of WHERE YOU PLAY (`parent`, its card's body): they
+    choose Another server and type one of these addresses, then sign in with a player made here."""
     ui, w = app.ui, app.words
-    home = card(parent, ui, w("online.home"), last=True)
     found = app.host.addresses() if app.state.lan else []
     # The hint names the addresses only while they are listed under it: off (or with no address) it says what the
     # switch is for.
-    widgets.setting_row(home.body, ui, w("online.home.open"),
+    widgets.setting_row(parent, ui, w("online.home.open"),
                         lambda p: widgets.Toggle(p, ui, app.state.lan, app.set_lan),
                         w("online.home.hint.on") if found else None).pack(fill="x")
     if not app.state.lan:
@@ -807,11 +815,11 @@ def _home_panel(app, parent):
     if not found:
         # Still starting, or open with no address to reach it at: the second in the colour of something to look at.
         waiting = not app.host.running
-        widgets.label(home.body, ui, w("online.home.starting") if waiting else w("online.home.none"),
+        widgets.label(parent, ui, w("online.home.starting") if waiting else w("online.home.none"),
                       fg=theme.MUTED if waiting else theme.AMBER, wrap_margin=0).pack(fill="x", pady=(ui.px(10), 0))
         return
-    widgets.divider(home.body, ui)
+    widgets.divider(parent, ui)
     for address in found:
-        widgets.label(home.body, ui, address, font=ui.fonts.body_bold).pack(anchor="w")
-    widgets.label(home.body, ui, w("online.home.firewall"), font=ui.fonts.small, fg=theme.MUTED, wrap_margin=0).pack(
+        widgets.label(parent, ui, address, font=ui.fonts.body_bold).pack(anchor="w")
+    widgets.label(parent, ui, w("online.home.firewall"), font=ui.fonts.small, fg=theme.MUTED, wrap_margin=0).pack(
         fill="x", pady=(ui.px(6), 0))

@@ -779,8 +779,8 @@ class LauncherApp:
         `sub_width` (as the canvas wraps it), with the room under it; never less than the title's own room."""
         from opendmt3.client import snapshot
         px = self.ui.px
-        lines = len(snapshot.wrap(self.fonts.body, sub, sub_width)) if sub else 0
-        return max(px(HEAD_LEAST), px(SUB_AT[1]) + lines * self.fonts.body.metrics("linespace") + px(HEAD_FOOT))
+        lines = len(snapshot.wrap(self.fonts.head_info, sub, sub_width)) if sub else 0
+        return max(px(HEAD_LEAST), px(SUB_AT[1]) + lines * self.fonts.head_info.metrics("linespace") + px(HEAD_FOOT))
 
     # ------------------------------------------------------------------------------ background
 
