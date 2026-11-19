@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 from opendmt3.server import db
 from opendmt3.server.services import accounts, notify, records
@@ -78,15 +79,20 @@ class WebhookTest(unittest.TestCase):
 
     def test_the_post_reaches_a_webhook_and_a_dead_one_is_only_logged(self):
         server = http.server.HTTPServer(("127.0.0.1", 0), Chat)
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        # Its loop looks for the stop a twentieth of a second at a time (shutdown waits for that look).
+        threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
+        self.addCleanup(server.server_close)
         try:
             hook = notify.Webhook("http://127.0.0.1:%d/hook" % server.server_address[1], self.tmp)
             self.assertTrue(hook.send("hello"))
             self.assertEqual(Chat.got[-1], {"content": "hello", "allowed_mentions": {"parse": []}, "text": "hello"})
         finally:
             server.shutdown()
+        # Stopped but still listening, it takes the connection and never answers: the send gives up at its time
+        # limit, here half a second (the same wait and the same failure as at the real one, five seconds of the
+        # test's time saved).
         dead = notify.Webhook("http://127.0.0.1:%d/hook" % server.server_address[1], self.tmp)
-        with self.assertLogs("opendmt3.notify", level="WARNING"):
+        with mock.patch.object(notify, "TIMEOUT", 0.5), self.assertLogs("opendmt3.notify", level="WARNING"):
             self.assertFalse(dead.send("nobody hears"))
 
 
