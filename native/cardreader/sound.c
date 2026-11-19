@@ -354,8 +354,8 @@ static void note_format(const DSBUFFERDESC *desc)
 /* How many of the buffers made were the game's copies of others, and how many found the table full (not followed). */
 static LONG g_copies, g_unfollowed;
 
-/* A buffer into the table: its size and rate, its 20 ms blocks (whole sample frames) and a hash for each, kept from one
- * lap to the next. A full table leaves it out (followed by nothing, held by no hold). */
+/* A buffer into the table: its size and rate, its 20 ms blocks (whole sample frames) and, while the sound is watched, a
+ * hash for each, kept from one lap to the next. A full table leaves it out (followed by nothing, held by no hold). */
 static void watch_buffer(IDirectSoundBuffer *b, DWORD size, const WAVEFORMATEX *f)
 {
     g_buffers++;
@@ -386,7 +386,11 @@ static void watch_buffer(IDirectSoundBuffer *b, DWORD size, const WAVEFORMATEX *
     g_w[i].bytes_a_second = f ? f->nAvgBytesPerSec : 0;
     DWORD align = f && f->nBlockAlign ? f->nBlockAlign : 4;
     g_w[i].block = g_w[i].bytes_a_second / 50 / align * align;
-    if (g_w[i].block)
+    /* Its blocks' hashes only while the sound is watched (OPENDMT3_SOUND_WATCH, measuring only): the underrun count
+     * alone reads them, and a player's game makes buffers all through a song on the game's thread (1570 in a song's
+     * first 20 s), each of which had a table made and freed for nothing. Without the table a buffer is followed as
+     * before (its play, its music's place); each reader of the table asks first whether it is there. */
+    if (g_watch && g_w[i].block)
         g_w[i].hash = calloc(g_w[i].size / g_w[i].block + 1, sizeof(DWORD));
     /* Found by its address from now on. */
     slot_index_put(&g_index, b, i);
