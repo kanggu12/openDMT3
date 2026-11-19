@@ -96,7 +96,9 @@ wait_s() { python3 -c "import time; time.sleep($1)"; }
 shot() { docker exec -e DISPLAY=:99 "$PC" sh -c "xwd -root -silent | convert xwd:- png:/out/$1.png"; echo "  $OUT/$1.png"; }
 windows() { docker exec -e DISPLAY=:99 "$PC" sh -c 'for w in $(xdotool search --onlyvisible --name . 2>/dev/null); do echo "$w|$(xdotool getwindowname $w)|$(xdotool getwindowgeometry $w | tr "\n" " ")"; done'; }
 wait_for() { local end=$((SECONDS + $2)); while [ $SECONDS -lt $end ]; do windows | grep -qE "$1" && return 0; wait_s 1; done; return 1; }
-fail() { echo "FAIL: $*"; windows; shot 99-failure; docker logs "$SRV" > "$OUT/server.log" 2>&1; cleanup; exit 1; }
+# On a failure the server's log and the launcher's logs (out of the PC's prefix) are kept before the containers go, the
+# launcher's traceback shown.
+fail() { echo "FAIL: $*"; windows; shot 99-failure; docker logs "$SRV" > "$OUT/server.log" 2>&1; docker cp "$PC:/w/drive_c/users/root/AppData/Roaming/openDMT3/logs" "$OUT/launcher-logs" >/dev/null 2>&1; grep -h -A 30 "Traceback" "$OUT"/launcher-logs/launcher.log* 2>/dev/null | tail -40; cleanup; exit 1; }
 click_from_foot() {
   local geo x y w h
   geo=$(windows | grep "|openDMT3|" | head -1)

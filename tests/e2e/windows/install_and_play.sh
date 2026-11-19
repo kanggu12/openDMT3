@@ -63,7 +63,8 @@ wait_for() {   # wait_for <title regex> <seconds>
   done
   return 1
 }
-fail() { echo "FAIL: $*"; windows; shot 99-failure; docker rm -f "$C" >/dev/null; exit 1; }
+# On a failure the launcher's logs come out of the prefix before the container goes (its traceback shown).
+fail() { echo "FAIL: $*"; windows; shot 99-failure; docker cp "$C:/w/drive_c/users/root/AppData/Roaming/openDMT3/logs" "$OUT/launcher-logs" >/dev/null 2>&1; grep -h -A 30 "Traceback" "$OUT"/launcher-logs/launcher.log* 2>/dev/null | tail -40; docker rm -f "$C" >/dev/null; exit 1; }
 # A point of the launcher window, given as an offset from its bottom-left corner: the menu column's foot, where the
 # guide's buttons are.
 click_from_foot() {

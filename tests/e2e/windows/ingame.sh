@@ -176,6 +176,8 @@ fail() {
   echo "FAIL: $*"; windows; shot 99-failure
   # The load sampler of the pacing's rounds, when it runs.
   [ -n "${sampler:-}" ] && kill "$sampler" 2>/dev/null
+  # The launcher's logs out of the prefix before the container goes, its traceback shown.
+  docker cp "$C:/w/drive_c/users/root/AppData/Roaming/openDMT3/logs" "$OUT/launcher-logs" >/dev/null 2>&1; grep -h -A 30 "Traceback" "$OUT"/launcher-logs/launcher.log* 2>/dev/null | tail -40;
   docker rm -f "$C" >/dev/null; exit 1
 }
 # The layer's textures in the game whose log this is (WHICH names it): every part's made when the layer first drew at

@@ -61,7 +61,8 @@ wait_s() { python3 -c "import time; time.sleep($1)"; }
 in_c() { docker exec -e WINEPREFIX=/w -e DISPLAY=:99 -e WINEDEBUG=-all "$C" bash -c "$1"; }
 shot() { docker exec -e DISPLAY=:99 "$C" sh -c "xwd -root -silent | convert xwd:- png:/out/$1.png"; echo "  $OUT/$1.png"; }
 windows() { in_c 'for w in $(xdotool search --onlyvisible --name . 2>/dev/null); do echo "$w|$(xdotool getwindowname $w)|$(xdotool getwindowgeometry $w | tr "\n" " ")"; done'; }
-fail() { echo "FAIL: $*"; windows; shot 99-failure; docker rm -f "$C" >/dev/null 2>&1; exit 1; }
+# On a failure the launcher's logs come out of the prefix before the container goes (its traceback shown).
+fail() { echo "FAIL: $*"; windows; shot 99-failure; docker cp "$C:/w/drive_c/users/root/AppData/Roaming/openDMT3/logs" "$OUT/launcher-logs" >/dev/null 2>&1; grep -h -A 30 "Traceback" "$OUT"/launcher-logs/launcher.log* 2>/dev/null | tail -40; docker rm -f "$C" >/dev/null 2>&1; exit 1; }
 U=/w/drive_c/users/root
 APP=$U/AppData/Local/openDMT3
 CONF=$U/AppData/Roaming/openDMT3
