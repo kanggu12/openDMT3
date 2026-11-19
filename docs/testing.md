@@ -636,10 +636,13 @@ twice stood still, for 1.7 and 1.9 s. The lock held the frames back for it (48 f
 14.9 % over 20 ms), and both stalls fell into those stretches, so it needed only 15 frames left unshown.
 
 On 2026-11-19, the same card, `gpu/sizes.sh` with 0.4.0's build (the two heavy starts on 0.4.0 with
-`OPENDMT3_MEMORY_WATCH`), each size at its Windows scaling, the game's title and its tutorial as a guest. Other jobs ran
-on the machine (the others' load 6 to 22 against the quiet machine's 5), so the pacing was said, not judged; and at
-3840x2160 the virtual screen's read back alone takes the test 20.3 ms a frame, more than a frame at 60, so no game holds
-60 there in this test (52.8 to 58.2 a second in full screen, 60.0 in a window of 2700x1620, 60.0 with the flip model).
+`OPENDMT3_MEMORY_WATCH`), each size at its Windows scaling, the game's title and its tutorial as a guest. In the first
+pass other jobs ran on the machine (the others' load 6 to 22 against the quiet machine's 5), so its pacing was said, not
+judged, and at 3840x2160 the virtual screen's read back alone took the test 20.3 ms a frame then, more than a frame at
+60 (52.8 to 58.2 frames a second in full screen, 60.0 in a window of 2700x1620). The second pass, on a quiet machine
+(the others' load 1 to 4), took 14.3 ms for it: 3840x2160 at 150 % and at 200 % and 2560x1600 at 150 % held 60 at
+every upscale filter on the title and at the defaults in the tutorial, and the heaviest choices at 3840x2160 (SMAA
+Ultra drawn at the screen's size with the flip model at 200 %, Anime4K at 100 %) ran at 60.0.
 The chain's GPU time a frame on the title (the card at its idle clock, 225 MHz), the layer's own pass with nothing,
 the bar and the menu shown, the median rise of the words' edges, and the parts' textures made when the picture changes
 size:
@@ -660,10 +663,15 @@ size:
   a 27-inch 2560x1440 one (the buttons' capitals 4.0 mm) and larger than Windows' own 9 point text there (2.0 and
   2.5 mm). Its words are drawn at the screen's pixels at every size: their edges rise over 1.3 to 1.6 pixels at
   3840x2160, where words enlarged from the game's size would rise over about 2.8.
-- **The pointer**: every press the game read at 2560x1440, 3440x1440 (21:9, bars beside the picture) and at TOUCH to
-  START at each size went to the game pixel under it, a press on a bar past the game's edge on its side. In a window
-  smaller than the game's picture (960x576) the display fix's whole-number sums reach no client point for some game
-  pixels, and the read was the one next to it (592 for 591).
+- **The pointer**: every press the game read in the tutorial at 2560x1440, 3440x1440, 2560x1600 and 3840x2160 (the
+  picture's left edge, its bottom corners, its middle, TOUCH to START, each bar), and TOUCH to START at 1920x1080, went
+  to the game pixel under it (0,767 and 1279,767 at the corners), a press
+  on a bar past the game's edge on its side (-22 left, 1301 right at 3840x2160; -8 over and 776 under at 2560x1600).
+  In a window smaller than the game's picture (960x576) the display fix's whole-number sums reach no client point for
+  some game pixels, and the read was the one next to it (592 for 591).
+- **A small window at 125 % and over**: 0.4.0 kept the layer's unit at 0.75 in screen pixels whatever the scaling, so
+  in a window of 960x576 its buttons were 38 x 26 pixels under a dart of 40, 48 and 64 at 125, 150 and 200 %. The
+  smallest unit now grows with the scaling as the dart does: 56 x 38 at 150 %, 75 x 51 at 200 %.
 - **The 32-bit process at 3840x2160** (large-address aware: 4095 MB of addresses): 3588 MB free at the start; at the
   least 3008 MB free with SMAA Ultra drawn at the screen's size and the flip model at 200 % (1054 MB committed at the
   most), 2977 MB with Anime4K (1086 MB), the largest free block 2048 MB throughout. The card's memory in use: 480 MB
