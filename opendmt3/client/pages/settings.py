@@ -88,9 +88,11 @@ def build_screen(app, parent):
         # other). The highest, never the rate Windows gives programs now (dynamic refresh rate gives them 60): when the
         # two differ the hint says what of Windows' to change, as the in-game layer's log does.
         from opendmt3.client import window_room
-        offered = window_room.refresh_rate()
+        # The main screen asked for once: on Windows that lists every display mode of every screen, and the card asked
+        # twice (for the rate, then for the hint) at each visit of the page and each time it was made again.
+        screen = window_room.main_screen()
+        offered = window_room.rate_of(screen)
         if window_room.strobe_offered(offered):
-            screen = window_room.main_screen() or {}
             advice = screen.get("advice", window_room.AS_IS)
             hint = w("screen.motion.hint")
             if advice != window_room.AS_IS:

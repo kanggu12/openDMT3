@@ -2661,3 +2661,22 @@ class PageHeadWidthTest(unittest.TestCase):
         area.on_width = told.append
         widgets.ScrollArea._on_resize(area, SimpleNamespace(width=930, height=700))
         self.assertEqual(told, [900, 910, 920, 930])
+
+
+class ScreenRateTest(unittest.TestCase):
+    """Motion clarity's rate from a screen's entry the caller has already: the Screen page asks Windows for every
+    display mode once, and takes the rate and the hint from that one answer."""
+
+    def test_the_rate_of_an_entry_is_refresh_rates(self):
+        from opendmt3.client import window_room as room
+        dynamic = {"name": "DISPLAY1", "main": True, "size": (1920, 1080), "current": 60, "highest": 240,
+                   "signal": 240, "advice": room.DYNAMIC}
+        # The highest of its modes, else its rate now; nothing for no screen.
+        self.assertEqual(room.rate_of(dynamic), 240)
+        self.assertEqual(room.rate_of(dict(dynamic, highest=None)), 60)
+        self.assertIsNone(room.rate_of(None))
+        asked = []
+        with mock.patch.object(room, "screen_rates", lambda: asked.append(1) or [dynamic]):
+            # refresh_rate is the same rule over the main screen, asked for once.
+            self.assertEqual(room.refresh_rate(), room.rate_of(dynamic))
+        self.assertEqual(len(asked), 1)

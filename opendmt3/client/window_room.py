@@ -225,7 +225,12 @@ def refresh_rate():
     """The main screen's rate motion clarity is offered from: the highest of its modes at its size (never what
     Windows gives programs now, which Windows 11's dynamic refresh rate keeps at 60), else its rate now; None where it
     cannot be read (elsewhere than Windows)."""
-    screen = main_screen()
+    return rate_of(main_screen())
+
+
+def rate_of(screen):
+    """refresh_rate for a screen's entry the caller has already (main_screen; None for none): a caller that needs the
+    entry too asks Windows for every display mode once, not twice."""
     if not screen:
         return None
     return screen["highest"] or screen["current"]
