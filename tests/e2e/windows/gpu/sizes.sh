@@ -15,13 +15,14 @@
 #             log, shot, and its cost measured for 6 s: the bar from a rest at the top edge, a toast, the menu from its
 #             chip, the sound panel from the menu's row, the question from the X with Keep playing clicked;
 #             (display) the bar and the menu
-#   pointer   the pointer resting on the picture's corners, its middle, TOUCH to START and each bar, each point and the
-#             game pixel the game reads there in the layer's log (OPENDMT3_POINTER_LOG); the dart's own picture through
-#             XFixes (ingame/pointer.py)
-#   window    (game) the full screen chip, a window of the game's shape: its points and its menu chip, a phase
-#             measured in it; the window sized to a 16:9 client 0.6 of the screen tall (bars beside the picture) and
-#             to the layer's smallest unit (960x576), each with its points and a shot; back to full screen by its chip;
-#             minimise and back; (display) a window, a phase measured in it, and back
+#   pointer   the game reads its pointer on a press: TOUCH to START pressed at its place (in the smallest window in
+#             the game start), and in the tutorial a press at the picture's edges, its middle and each bar; each point
+#             and the game pixel the game read there in the layer's log (OPENDMT3_POINTER_LOG); the dart's own picture
+#             through XFixes (ingame/pointer.py)
+#   window    (game) the full screen chip, a window of the game's shape: its menu chip, a phase measured in it; the
+#             window sized to a 16:9 client 0.6 of the screen tall (bars beside the picture) and to the layer's
+#             smallest unit (960x576), each shot, the smallest with its menu from its chip and TOUCH to START pressed
+#             in it; back to full screen by its chip; minimise and back; (display) a window, a phase in it, and back
 #   resets    (3840x2160, display) five switches to a window and back, then the chain's measuring lost device
 #             (reset.now: the game must reset the device itself), the game alive 15 s after
 #   tutorial  TOUCH to START at its place; in the guest's tutorial (its song has no title, jacket or video): the
@@ -40,15 +41,16 @@
 # this script's). Nothing reaches a real screen or a speaker; the containers are odt3-res-*, each removed after its
 # start. About 70 minutes on the GPU.
 #
-#   [OPENDMT3_WINE_GPU=1] [SIZES="1920x1080@96 2560x1440@120 ..."] [HEAVY=1] [HEAVY_BUILD=DIR]
+#   [OPENDMT3_WINE_GPU=1] [SIZES="1920x1080@96 2560x1440@120 ..."] [KINDS="game display"] [HEAVY=1] [HEAVY_BUILD=DIR]
 #     tests/e2e/windows/gpu/sizes.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]
 #
 # GAME_PARENT, LINK_SOURCE and WINE_DLLS are song.sh's (the parent of a game set up by openDMT3, holding Client
 # (openDMT3).exe; copied for each start, links stay links, the one given is never written); BUILD_DIR is ./dmt3 build's
 # output or native/cardreader/build.sh's (its CRT_R1.dll is the layer, with multiDLL.dll beside it when there is one).
 # SIZES is WIDTHxHEIGHT@DPI words, the dots an inch Windows gives a program aware of its scaling (96 is 100 %).
-# HEAVY_BUILD is the build the two heavy starts take, BUILD_DIR by default (a release's build measured as it is, with
-# the room's lines from a build that has them: a layer without OPENDMT3_MEMORY_WATCH logs none).
+# KINDS names the kinds of start each size has (game, display: both by default), to run one part again. HEAVY_BUILD is
+# the build the two heavy starts take, BUILD_DIR by default (a release's build measured as it is, with the room's
+# lines from a build that has them: a layer without OPENDMT3_MEMORY_WATCH logs none).
 set -u
 SRC=$(realpath "${1:?usage: sizes.sh GAME_PARENT BUILD_DIR OUT_DIR [LINK_SOURCE] [WINE_DLLS]}")
 BUILD=$(realpath "${2:?}")
@@ -64,6 +66,7 @@ RENDERER=$(wine_on_gpu && echo gpu || echo cpu)
 BASE=$(wine_image opendmt3-wine-ingame:local)
 IMAGE=${BASE%:*}-sound:local
 SIZES=${SIZES:-1920x1080@96 2560x1440@120 3840x2160@144 3440x1440@96 2560x1600@144}
+KINDS=${KINDS:-game display}
 HEAVY=${HEAVY:-1}
 DLL=$BUILD/native/CRT_R1.dll
 [ -f "$DLL" ] || DLL=$BUILD/CRT_R1.dll
@@ -111,7 +114,7 @@ wine_on_gpu || NVSMI=
 {
   echo "$(date '+%F %T') sizes on the $RENDERER: the tree $(git -C "$REPO" log --oneline -1 2>/dev/null), the layer $(sha256sum "$DLL" | cut -c1-16), the heavy starts' $(sha256sum "$HEAVY_DLL" | cut -c1-16)"
   [ -n "$NVSMI" ] && echo "the card: $("$NVSMI" --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -1)"
-  echo "sizes $SIZES; heavy $HEAVY; load $(cut -d' ' -f1-3 /proc/loadavg)"
+  echo "sizes $SIZES; kinds $KINDS; heavy $HEAVY; load $(cut -d' ' -f1-3 /proc/loadavg)"
 } | tee "$OUT/run.txt"
 : > "$OUT/card.txt"
 card() { [ -n "$NVSMI" ] && echo "$(now_ms) $1: $("$NVSMI" --query-gpu=memory.used,memory.total --format=csv,noheader 2>/dev/null | head -1)" >> "$OUT/card.txt"; }
@@ -165,7 +168,7 @@ shot() {
 }
 # The picture's place in a client CW CH at OX OY and the layer's parts there (sizes.py places: PX PY PW PH U, the *_AT
 # points on the screen, PROBES in the client's pixels).
-places() { eval "$(python3 "$HERE/sizes.py" places "$@")"; }
+places() { eval "$(python3 "$HERE/sizes.py" places "$1" "$2" "${3:-0}" "${4:-0}" "$DPI")"; }
 # Whether the bar is on the screen now: the layer's last "on the screen" line after its last "gone" line.
 bar_up() {
   local on gone
@@ -186,13 +189,19 @@ show_bar() {
 away() { x "xdotool mousemove $AWAY_AT"; wait_s 1.5; }
 focus() { x "xdotool search --name '^ClientApp$' windowfocus --sync" 2>/dev/null; }
 game_alive() { x "ps -eo stat=,args= | grep -v '^Z' | grep -q 'Client (openDMT3)\.exe'"; }
-# probe MODE: the pointer resting 0.5 s on each of PROBES, each point written down in the client's pixels.
+# press MODE LABEL CX CY: a press of the mouse at a client point (the game reads its pointer on a press, not on a
+# rest: the layer's OPENDMT3_POINTER_LOG line then says the game pixel it got), written down in the client's pixels.
+press() {
+  echo "$(now_ms) press $1 $2 $OX $OY $3 $4" >> "$D/probes.txt"
+  x "xdotool mousemove $((OX + $3)) $((OY + $4)) mousedown 1 sleep 0.1 mouseup 1"
+  wait_s 0.4
+}
+# probe MODE: a press at each of PROBES (only where a press does nothing of note: in the tutorial).
 probe() {
   local p label cx cy
   for p in $PROBES; do
     IFS=: read -r label cx cy <<<"$p"
-    x "xdotool mousemove $((OX + cx)) $((OY + cy))"; wait_s 0.5
-    echo "$(now_ms) $1 $label $OX $OY $cx $cy" >> "$D/probes.txt"
+    press "$1" "$label" "$cx" "$cy"
   done
 }
 # The dart over the game, as XFixes has it.
@@ -347,7 +356,14 @@ overlay_title() {
   # A toast, as the safety net shows its note (toast.now).
   before=$(seen "layer: toast shown")
   echo "Picture quality lowered to keep 60 FPS: now Smooth upscale" > "$D/toast.now"
-  if wait_more "layer: toast shown" "$before" 5; then step toast ok; wait_s 0.8; shot toast; phase parts:toast 2; else step toast fail "not shown in 5 s"; fi
+  if wait_more "layer: toast shown" "$before" 5; then
+    step toast ok; wait_s 0.8; shot toast
+    # The toast lasts 6 s: the same words again keep it up (its picture as it was) for a phase of whole windows.
+    mark parts:toast start; wait_s 2.5
+    echo "Picture quality lowered to keep 60 FPS: now Smooth upscale" > "$D/toast.now"; wait_s 3.5; mark parts:toast end
+  else
+    step toast fail "not shown in 5 s"
+  fi
   wait_s 5
   show_bar && { step bar ok; shot bar; phase parts:bar 6; }
   act menu "layer: menu opened" 5 "xdotool mousemove $MENU_AT sleep 0.4 click 1" && { wait_s 0.6; shot menu; phase parts:menu 6; }
@@ -368,18 +384,20 @@ overlay_title() {
 window_part() {
   to_window window || return 1
   shot window
-  probe window
   show_bar && act menu-in-window "layer: menu opened" 5 "xdotool mousemove $MENU_AT sleep 0.4 click 1" \
     && { wait_s 0.6; shot window-menu; focus; x "xdotool key Escape"; }
   away
   measure window:fsr1 "fsr1 50 off keep"
   # A 16:9 client 0.6 of the screen tall (bars beside the picture), then the layer's smallest unit (960x576).
   local ah=$((H * 6 / 10))
-  drag window-16x9 $((ah * 16 / 9)) "$ah" && { show_bar && shot window-16x9; probe window-16x9; away; }
+  drag window-16x9 $((ah * 16 / 9)) "$ah" && { show_bar && shot window-16x9; away; }
   drag window-smallest 960 576 && {
     show_bar && act menu-smallest "layer: menu opened" 5 "xdotool mousemove $MENU_AT sleep 0.4 click 1" \
       && { wait_s 0.6; shot window-smallest; focus; x "xdotool key Escape"; }
-    probe window-smallest; away; }
+    away
+    # TOUCH to START pressed here, in the smallest window: the game's own read of the pointer in a window (the guest's
+    # screens then count down to the tutorial by themselves, back in full screen).
+    press window-smallest start $((${START_AT%% *} - OX)) $((${START_AT##* } - OY)); }
   to_full full-again
   wait_s 3.5
   minimise
@@ -410,9 +428,10 @@ resets() {
   if game_alive; then step alive-after-resets ok; else step alive-after-resets fail "the game ended"; fi
   card "$SIZE $NAME after the resets"
 }
-# TOUCH to START at its place, then the guest's screens count down to the tutorial by themselves.
+# TOUCH to START at its place (unless it was pressed in a window already), then the guest's screens count down to
+# the tutorial by themselves.
 to_tutorial() {
-  x "xdotool mousemove $START_AT mousedown 1 sleep 0.15 mouseup 1"
+  grep -q " start " "$D/probes.txt" 2>/dev/null || press full start $((${START_AT%% *} - OX)) $((${START_AT##* } - OY))
   local end=$((SECONDS + 300))
   until grep -q "(41943040 bytes" "$LOG" 2>/dev/null || [ $SECONDS -gt $end ]; do wait_s 1; done
   TUT=$(grep "(41943040 bytes" "$LOG" | head -1 | cut -d' ' -f4)
@@ -428,6 +447,9 @@ tutorial_part() {
   over || measure "play:$3" "$1"
   over || measure "play:$4" "$2"
   over || { echo "$1" > "$D/choice.now"; wait_s 1.5; }
+  # The game's own read of the pointer at the picture's edges, its middle and each bar: presses, which a tutorial
+  # takes as it takes any.
+  over || probe full
   over || { x "xdotool mousemove $AWAY_AT"; wait_s 1; over || shot play-1; }
   over || { wait_s 2; over || shot play-2; }
   over || { show_bar && { over || shot play-bar; }; away; }
@@ -475,19 +497,18 @@ quit_part() {
 for spec in $SIZES; do
   size=${spec%@*} dpi=${spec#*@}
   # Drawn at the game's own 1280x768: every upscale filter, the layer's parts, the pointer, the window.
-  if start game "$size" "$dpi" OPENDMT3_RENDER=game 'OPENDMT3_POSTFX_DUMP=Z:\out'; then
+  if [[ " $KINDS " == *" game "* ]] && start game "$size" "$dpi" OPENDMT3_RENDER=game 'OPENDMT3_POSTFX_DUMP=Z:\out'; then
     for c in off smooth fsr1 nis anime4k; do measure "title:$c" "$c 50 off keep"; done
     echo "fsr1 50 off keep" > "$D/choice.now"
     wait_s 2.5
     overlay_title
-    probe full
     cursor
     window_part
     to_tutorial && { tutorial_part "fsr1 50 off keep" "anime4k 50 off keep" fsr1 anime4k; quit_part; }
   fi
   finish
   # Drawn at the screen's size: every anti-aliasing, the bar and the menu, a window, at 3840x2160 the resets.
-  if start display "$size" "$dpi" OPENDMT3_RENDER=display 'OPENDMT3_POSTFX_DUMP=Z:\out'; then
+  if [[ " $KINDS " == *" display "* ]] && start display "$size" "$dpi" OPENDMT3_RENDER=display 'OPENDMT3_POSTFX_DUMP=Z:\out'; then
     for a in off fxaa smaa-low smaa-medium smaa-high smaa-ultra; do measure "title:$a" "smooth 50 $a keep"; done
     echo "smooth 50 off keep" > "$D/choice.now"
     wait_s 2.5
@@ -496,7 +517,6 @@ for spec in $SIZES; do
     act menu "layer: menu opened" 5 "xdotool mousemove $MENU_AT sleep 0.4 click 1" \
       && { wait_s 0.6; shot menu; focus; x "xdotool key Escape"; }
     away
-    probe full
     to_window window && { measure window:off "smooth 50 off keep"; shot window; to_full full-again; }
     [ "$size" = 3840x2160 ] && resets
     to_tutorial && { tutorial_part "smooth 50 off keep" "smooth 50 smaa-ultra keep" off smaa-ultra; quit_part; }

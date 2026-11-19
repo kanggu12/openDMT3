@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """gpu/sizes.sh's starts judged, and the places on the screen that script points at.
 
-    python3 sizes.py places CW CH [OX OY]   the game's picture in a client CW x CH whose top left is at OX,OY on the
-                                            screen, and where the layer's parts and the pointer's points are there,
-                                            as shell assignments (sizes.sh evaluates them)
+    python3 sizes.py places CW CH [OX OY [DPI]]   the game's picture in a client CW x CH whose top left is at OX,OY on
+                                            the screen, and where the layer's parts and the pointer's points are
+                                            there at DPI (96 by default), as shell assignments (sizes.sh evaluates
+                                            them)
     python3 sizes.py report OUT_DIR         every start under OUT_DIR judged: OUT_DIR/summary.md and results.json, and
                                             each start's overlay cut out of its shots at 1:1 (OUT_DIR/SIZE/KIND/crops)
 
@@ -21,7 +22,8 @@ Judged, each with its numbers:
              the window and back, minimise and back, the window's two sizes, the resets, the 3, 2, 1, the quit
   pointer    every point in the picture read by the game as the game pixel under it (logic.c game_pixel_under, the
              picture's place as logic.c picture_rect puts it), a point on a bar past the game's edge on its side
-  cursor     the dart 32 pixels at 96 dpi, scaled with Windows' scaling (layer.c cursor)
+  cursor     the dart 32 pixels at 96 dpi, scaled with Windows' scaling (layer.c cursor); in the smallest window
+             (960x576) the chips at least as wide as the dart (logic.h: its chips are still a mouse's size)
   pacing     at the defaults in full screen, in the tutorial and on the title: the frames hold 60 (ingame/pace.py's
              rule: most of the phase's two-second windows at 59.5 a second or more with a spread under 0.5 ms), judged
              only where the machine was quiet (the others' load under QUIET_LOAD); every other choice said, and
@@ -105,9 +107,10 @@ def picture_rect(cw, ch):
     return 0, 0, cw, ch
 
 
-def unit(h):
-    """Output pixels per game pixel for a picture h tall (logic.c ui_unit)."""
-    return max(UI_UNIT_MIN, h / GAME_H)
+def unit(h, dpi=96):
+    """Output pixels per game pixel for a picture h tall (logic.c ui_unit), its smallest at the display's scaling
+    (logic.c ui_unit_floor: UI_UNIT_MIN at 96 dpi, as much larger as the scaling makes the pointer)."""
+    return max(UI_UNIT_MIN * max(1.0, dpi / 96.0), h / GAME_H)
 
 
 def game_axis(p, at, size, game):
@@ -116,11 +119,12 @@ def game_axis(p, at, size, game):
     return num // den
 
 
-def places(cw, ch, ox=0, oy=0):
-    """Where the layer's parts and the pointer's points are, for a client cw x ch at ox,oy on the screen."""
+def places(cw, ch, ox=0, oy=0, dpi=96):
+    """Where the layer's parts and the pointer's points are, for a client cw x ch at ox,oy on the screen, at a
+    display of `dpi` dots an inch."""
     lay, _, _ = logic_measures()
     px, py, pw, ph = picture_rect(cw, ch)
-    u = unit(ph)
+    u = unit(ph, dpi)
     half = lay["CHIP_W"] / 2
 
     def at(x, y):
@@ -186,7 +190,8 @@ ATTACHED = re.compile(r"^(\d+) layer: attached \((\d+) x (\d+), dpi (\d+), ([\d.
                       r"(full screen|in a window)\)", re.M)
 POINTER = re.compile(r"^(\d+) pointer: client (-?\d+),(-?\d+) of (\d+)x(\d+), the picture (-?\d+),(-?\d+) (\d+)x(\d+): "
                      r"the game's pixel (-?\d+),(-?\d+)", re.M)
-MADE = re.compile(r"^(\d+) layer: (\d+) parts' textures made for (\d+)x(\d+) in ([\d.]+) ms", re.M)
+MADE = re.compile(r"^(\d+) layer: (\d+) parts' textures made for (\d+)x(\d+) in ([\d.]+) ms"
+                  r"(?:, ([\d.]+) output pixels a game pixel)?", re.M)
 PICTURE = re.compile(r"^(\d+) post: the picture (\d+)x(\d+) in the window's client (\d+)x(\d+), drawn at (\d+)x(\d+), "
                      r"upscale (\S+)", re.M)
 MEMORY = re.compile(r"^(\d+) memory: address space (\d+) MB free \(the largest free block (\d+) MB\), (\d+) MB reserved, "
@@ -359,43 +364,51 @@ def judge_start(d, clocks):
         r["steps"].append(said)
         if p[2] == "fail":
             r["fails"].append("step: " + said)
-    # The pointer's points.
+    # The pointer: every point the game read (it reads on a press: the layer's OPENDMT3_POINTER_LOG line says the
+    # client point, the picture's place it was turned by and the game pixel the game got), each named by the press
+    # that made it where there was one (probes.txt: "MS press MODE LABEL OX OY CX CY", written just before the press;
+    # a line of seven words is a rest of an earlier tool's, which the game never read).
     logged = [(int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)), int(m.group(5)),
                tuple(int(m.group(i)) for i in (6, 7, 8, 9)), int(m.group(10)), int(m.group(11)))
               for m in POINTER.finditer(log)]
-    probes = []
+    presses = []
     for line in read(os.path.join(d, "probes.txt")).splitlines():
         p = line.split()
-        if len(p) != 7:
+        if len(p) == 8 and p[1] == "press":
+            presses.append((int(p[0]), p[2], p[3], int(p[6]), int(p[7])))
+    probes = []
+    for at, cx, cy, lcw, lch, pic, gx, gy in logged:
+        names = [(mode, label) for ms, mode, label, px_, py_ in presses
+                 if (px_, py_) == (cx, cy) and ms - 200 <= at <= ms + 2000]
+        mode, label = names[-1] if names else ("", "")
+        entry = {"mode": mode, "point": label, "client": [cx, cy], "client_size": [lcw, lch], "picture": list(pic),
+                 "read": [gx, gy]}
+        want_pic = picture_rect(lcw, lch)
+        if pic == (0, 0, lcw, lch) and want_pic != pic:
+            # Read before the chain placed the picture (the game's first read at its start): the whole client.
+            entry["result"] = "before the chain placed the picture: not judged"
+            probes.append(entry)
             continue
-        ms, mode, label, cx, cy = int(p[0]), p[1], p[2], int(p[5]), int(p[6])
-        hits = [x for x in logged if x[1] == cx and x[2] == cy and ms - 3000 <= x[0] <= ms + 500]
-        entry = {"mode": mode, "point": label, "client": [cx, cy]}
-        if not hits:
-            entry["result"] = "not read by the game"
-            r["fails"].append("pointer %s %s at %d,%d: the game read no pointer there" % (mode, label, cx, cy))
-        else:
-            _, _, _, lcw, lch, pic, gx, gy = hits[-1]
-            want_pic = picture_rect(lcw, lch)
-            ex = game_axis(cx, want_pic[0], want_pic[2], GAME_W)
-            ey = game_axis(cy, want_pic[1], want_pic[3], GAME_H)
-            entry.update({"read": [gx, gy], "picture": list(pic), "client_size": [lcw, lch]})
-            if pic != want_pic:
-                r["fails"].append("pointer %s %s: the picture %s, not %s in a client %dx%d" % (
-                    mode, label, pic, want_pic, lcw, lch))
-            if label.endswith("-bar"):
-                side_ok = {"left-bar": gx < 0, "right-bar": gx >= GAME_W, "top-bar": gy < 0,
-                           "bottom-bar": gy >= GAME_H}[label]
-                entry["expected"] = "past the game's edge on its side"
-                if not side_ok:
-                    r["fails"].append("pointer %s %s at %d,%d: the game's pixel %d,%d is not past its edge" % (
-                        mode, label, cx, cy, gx, gy))
-            else:
-                entry["expected"] = [ex, ey]
-                if (gx, gy) != (ex, ey):
-                    r["fails"].append("pointer %s %s at %d,%d: the game's pixel %d,%d, not %d,%d" % (
-                        mode, label, cx, cy, gx, gy, ex, ey))
+        ex = game_axis(cx, pic[0], pic[2], GAME_W)
+        ey = game_axis(cy, pic[1], pic[3], GAME_H)
+        inside = 0 <= cx - pic[0] < pic[2] and 0 <= cy - pic[1] < pic[3]
+        entry["expected"] = [ex, ey] if inside else "past the game's edge on its side"
+        name = "%s %s at %d,%d" % (mode or "a press", label, cx, cy) if label else "the point %d,%d" % (cx, cy)
+        if pic != want_pic:
+            r["fails"].append("pointer %s: turned by the picture %s, not %s in a client %dx%d" % (
+                name, pic, want_pic, lcw, lch))
+        if inside and (gx, gy) != (ex, ey):
+            r["fails"].append("pointer %s: the game's pixel %d,%d, not %d,%d" % (name, gx, gy, ex, ey))
+        if not inside:
+            past = (gx < 0 if cx < pic[0] else gx >= GAME_W if cx >= pic[0] + pic[2] else True) and \
+                   (gy < 0 if cy < pic[1] else gy >= GAME_H if cy >= pic[1] + pic[3] else True)
+            if not past:
+                r["fails"].append("pointer %s: the game's pixel %d,%d is not past the game's edge" % (name, gx, gy))
         probes.append(entry)
+    # Each press must have been read by the game.
+    for ms, mode, label, cx, cy in presses:
+        if not any(e["client"] == [cx, cy] for e in probes):
+            r["fails"].append("pointer: the press %s %s at %d,%d was not read by the game" % (mode, label, cx, cy))
     r["pointer"] = probes
     # The dart's own picture: 32 pixels at 96 dpi, as Windows' scaling sizes it.
     cur = re.search(r"pointer (\d+)x(\d+) hot", read(os.path.join(d, "cursor.txt")))
@@ -407,14 +420,28 @@ def judge_start(d, clocks):
     # The phases.
     r["phases"] = [phase_numbers(log, n, s, e, loads, clocks) for n, s, e, loads in phases_of(d)]
     # Textures and failures.
-    r["textures"] = [{"made": int(m.group(2)), "for": [int(m.group(3)), int(m.group(4))], "ms": float(m.group(5))}
-                     for m in MADE.finditer(log)]
+    r["textures"] = [{"made": int(m.group(2)), "for": [int(m.group(3)), int(m.group(4))], "ms": float(m.group(5)),
+                      "unit": float(m.group(6)) if m.group(6) else None} for m in MADE.finditer(log)]
+    # The smallest window's chips against the dart: the unit the layer made its parts at for the window 576 tall (as
+    # its log says it, or, from a layer that does not say it, 0.4.0's rule: never under 0.75 whatever the scaling).
+    small = [t for t in r["textures"] if t["for"][1] <= 576]
+    if small and "cursor" in r:
+        u = small[-1]["unit"] if small[-1]["unit"] is not None else max(UI_UNIT_MIN, small[-1]["for"][1] / GAME_H)
+        lay, _, _ = logic_measures()
+        chip = [round(lay["CHIP_W"] * u, 1), round(lay["CHIP_H"] * u, 1)]
+        r["smallest_window"] = {"picture": small[-1]["for"], "unit": u, "said": small[-1]["unit"] is not None,
+                                "chip_px": chip, "dart_px": r["cursor"]["size"][0]}
+        if chip[0] < r["cursor"]["size"][0]:
+            r["fails"].append("in the smallest window (%dx%d) the chips %.0f x %.0f px, narrower than the %d px dart "
+                              "(unit %.2f at %d dpi)" % (small[-1]["for"][0], small[-1]["for"][1], chip[0], chip[1],
+                                                        r["cursor"]["size"][0], u, dpi))
     for line in FAILED.findall(log):
         r["fails"].append("the log: " + line.split(" ", 1)[1])
     r["pictures"] = [m.group(0).split(" ", 1)[1] for m in PICTURE.finditer(log)]
     # After each change of size or reset: a frames line within 6 s at 59.5 a second or more, on a quiet machine.
     changes = [int(m.group(1)) for m in re.finditer(
-        r"^(\d+) (?:layer: (?:in a window|full screen) \(|post: measuring reset made|flip: the window changed size)",
+        r"^(\d+) (?:layer: (?:in a window|full screen) \(|post: measuring reset made|flip: the window changed size|"
+        r"post: the picture \d+x\d+ in the window's client)",
         log, re.M)]
     rates = [(int(m.group(1)), float(m.group(2))) for m in frames.FRAMES.finditer(log)]
     after = []
@@ -492,10 +519,11 @@ def report(out):
     starts = [judge_start(d, clocks) for d in dirs]
     fails, unjudged = [], []
     # Every start the run meant to make (its run.txt: "sizes A@D B@D ...; heavy N"), and in each what it must have.
-    plan = re.search(r"^sizes (.*); heavy (\d)", read(os.path.join(out, "run.txt")), re.M)
+    plan = re.search(r"^sizes (.*?);(?: kinds (.*?);)? heavy (\d)", read(os.path.join(out, "run.txt")), re.M)
     if plan:
-        wanted = ["%s/%s" % (spec.split("@")[0], kind) for spec in plan.group(1).split() for kind in ("game", "display")]
-        if plan.group(2) == "1":
+        kinds = (plan.group(2) or "game display").split()
+        wanted = ["%s/%s" % (spec.split("@")[0], kind) for spec in plan.group(1).split() for kind in kinds]
+        if plan.group(3) == "1":
             wanted += ["heavy-display", "heavy-game"]
         have = {os.path.relpath(d, out) for d in dirs}
         unjudged += ["%s: the start did not run" % w for w in wanted if w not in have]
@@ -598,26 +626,30 @@ def summary_md(result, out):
         lines.append("")
         if r.get("phases"):
             lines.append("| phase | frames a second | frame time ms | 99 % within | longest | held 60 | chain GPU us | "
-                         "top passes us | parts us (CPU / GPU) | card MHz | load |")
-            lines.append("|---|---|---|---|---|---|---|---|---|---|---|")
+                         "the layer's pass us | top passes us | parts' CPU us | card MHz | others' load |")
+            lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
             for p in r["phases"]:
                 fr = p["frames"]
                 top = sorted(((v, k) for k, v in p["passes_us"].items() if v is not None and k not in (
                     "all", "timestamp", "empty pass")), reverse=True)[:3]
-                parts = ", ".join("%s %s/%s" % (k, fmt(v["cpu"]), fmt(v["gpu"])) for k, v in sorted(p["parts_us"].items()))
-                lines.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |" % (
+                parts = ", ".join("%s %s" % (k, fmt(v["cpu"])) for k, v in sorted(p["parts_us"].items()))
+                lines.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |" % (
                     p["phase"], fmt(fr["fps_median"]), fmt(fr["frame_ms_mean"], "%.2f"), fmt(fr["p99_ms_max"], "%.2f"),
                     fmt(fr["longest_ms"], "%.2f"), "yes" if p["held_60"] else "no", fmt(fr["chain_gpu_us_median"]),
-                    ", ".join("%s %.0f" % (k, v) for v, k in top), parts, fmt(p["sm_mhz"], "%.0f"),
-                    "/".join("%.1f" % x for x in p["others_load"])))
+                    fmt(p["passes_us"].get("layer")), ", ".join("%s %.0f" % (k, v) for v, k in top), parts,
+                    fmt(p["sm_mhz"], "%.0f"), "/".join("%.1f" % x for x in p["others_load"])))
             lines.append("")
         if r.get("crops"):
             lines.append("- words' edges (median px, against 1920x1080): " + ", ".join(
                 "%s %s (%s)" % (k, fmt(c.get("edge_width_median"), "%.2f"), c.get("against_1080p", "-"))
                 for k, c in r["crops"].items() if "edges" in c))
-        bad = [p for p in r.get("pointer", []) if p.get("result") or (
-            isinstance(p.get("expected"), list) and p.get("read") != p.get("expected"))]
-        lines.append("- pointer: %d points, %d wrong" % (len(r.get("pointer", [])), len(bad)))
+        pts = r.get("pointer", [])
+        judged = [p for p in pts if "expected" in p]
+        bad = [p for p in judged if isinstance(p["expected"], list) and p["read"] != p["expected"]]
+        lines.append("- pointer: %d points the game read, %d judged (%d in a window), %d wrong: %s" % (
+            len(pts), len(judged), sum(1 for p in judged if p["mode"].startswith("window")), len(bad),
+            "; ".join("%s %s %d,%d -> %d,%d" % (p["mode"], p["point"], p["client"][0], p["client"][1], p["read"][0],
+                                                 p["read"][1]) for p in judged if p["point"])))
         lines.append("- steps: " + "; ".join(r.get("steps", [])))
         for f in r["fails"]:
             lines.append("- **FAIL** " + f)
@@ -657,7 +689,8 @@ def main(argv):
     if len(argv) >= 3 and argv[0] == "places":
         cw, ch = int(argv[1]), int(argv[2])
         ox, oy = (int(argv[3]), int(argv[4])) if len(argv) >= 5 else (0, 0)
-        print(shell(places(cw, ch, ox, oy)))
+        dpi = int(argv[5]) if len(argv) >= 6 else 96
+        print(shell(places(cw, ch, ox, oy, dpi)))
         return 0
     if len(argv) == 2 and argv[0] == "report":
         return report(argv[1])
