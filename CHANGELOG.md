@@ -82,6 +82,7 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
   filter fits the smallest window; Tab scrolls the page to the control it reaches; the menu column no longer moves
   when the status line grows, which keeps to three lines.
 - Korean lines no longer break inside a phrase, and a long folder path breaks after a separator, never inside a name.
+- A dialog with a text box shows one keyboard mark: no ring on a key while the box has the keyboard.
 - The installer's known failures (no room, no access, a missing file) are said in the person's language, and its
   window after a crash says **SETUP**.
 - A small archive's progress no longer reads "1 MB of 1 MB" while it is under way.

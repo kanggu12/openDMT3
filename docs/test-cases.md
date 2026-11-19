@@ -233,6 +233,11 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 | LAUNCHER-157 | **Screen**, **Sound**, **Controls** and **Game**; **Launcher** and **Help** | Each group's controls start at one place | `tests/e2e/ui/shots.py#the controls start at different places on` | ui |
 | LAUNCHER-158 | A dialog of work under way (saving or sending the song list) | Shot while it shows: the work held until then | `tests/e2e/ui/shots.py#the work's dialog closed before it was shot` | ui |
 | LAUNCHER-159 | A dialog open while the window is resized to 960 px and back | Drawn again for each size; the dialogs after it at the run's own size | `tests/e2e/ui/shots.py#the dialog was not drawn again for the run's size` | ui |
+| LAUNCHER-160 | Tab to a page's control under the window's foot (**Help**'s last key at 960 x 640) | The page scrolls the least that shows it, its ring in sight | `tests/e2e/ui/shots.py#the button Tab reached is out of sight` | ui |
+| LAUNCHER-161 | The Save dialog's path box with the keyboard | One keyboard mark: the box's edge, no ring on **Save** | `tests/e2e/ui/shots.py#two keyboard rings, the path's box and a button` | ui |
+| LAUNCHER-162 | This PC's players' database damaged while the launcher runs (**Play**, **Online**) | The page's line, then the check made again: **PLAY** off, the foot in pink, **ID CARD** out | `tests/e2e/ui/shots.py#with the database damaged PLAY is` | ui |
+| LAUNCHER-163 | A click whose error nothing caught (**Help**'s **Save** made to fail) | Said in the launcher's dialog naming the key ("Save did not work."), the error's text in the log only; the window goes on | `tests/e2e/ui/shots.py#the failure was said as` | ui |
+| LAUNCHER-164 | An update that was not put in (not signed, not downloaded) | The fact as the heading, what to do under it: never "failed" twice in one sentence | `tests/client/test_updates.py#test_an_update_that_is_refused_is_told_in_the_launchers_own_dialog` | unit |
 
 ## TS-INSTALL: the installer and updates
 

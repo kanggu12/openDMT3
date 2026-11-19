@@ -653,7 +653,6 @@ TEXT = {
                             "업데이트는 openDMT3 설치 프로그램으로 설치한 런처에서 됩니다."),
     "about.no_source": ("No update address is set for this build.", "이 빌드에는 업데이트 주소가 없습니다."),
     "about.update_failed": ("Could not check for updates: {error}", "업데이트를 확인하지 못했습니다: {error}"),
-    "about.apply_failed": ("The update failed: {error}", "업데이트하지 못했습니다: {error}"),
     "about.updating.title": ("Update", "업데이트"),
     "about.updating.message": ("Updating openDMT3 to {v}...", "openDMT3를 {v} 버전으로 업데이트하는 중..."),
     "about.updating.detail": ("The launcher closes and starts again in a few seconds.", "런처가 닫혔다가 몇 초 뒤 다시 열립니다."),

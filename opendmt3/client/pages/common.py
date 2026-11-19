@@ -108,8 +108,10 @@ class Sections:
         holder = tk.Frame(self.parent, bg=self.parent.cget("bg"))
         holder.pack(fill="x", after=old)
         build(holder)
-        # The names' column the page has, counted again with the new card's rows.
-        widgets.fit_names(self.parent, self.app.ui, self.more)
+        # The names' column the page has, counted again with the new card's rows, and with its group's names: the
+        # column stays the one the page's group shares (group_names; the guide's steps have none).
+        group = group_names(self.app.page) if self.app.guide is None else []
+        widgets.fit_names(self.parent, self.app.ui, list(self.more) + group)
         old.destroy()
         self.made[name][1] = holder
         if area is not None:
@@ -161,6 +163,10 @@ def database_trouble(app, parent, error, bg=None):
     and the button that opens its folder. The launcher goes on working."""
     from opendmt3.client import actions, theme, widgets
     ui, w = app.ui, app.words
+    if app.checks is not None and not any(c.key == "database" for c in app.checks):
+        # The page found what the ready check has not yet: the check is made again, and PLAY and the foot follow it
+        # (the final review's B-05: PLAY stayed bright and the foot green under this line).
+        app.refresh_checks()
     # On the card or the page it is said on.
     bg = bg or parent.cget("bg")
     widgets.label(parent, ui, w.error(error), fg=theme.BAD_INK, bg=bg, wrap_margin=0).pack(fill="x")

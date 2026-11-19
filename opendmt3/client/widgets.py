@@ -859,6 +859,8 @@ class Button(tk.Canvas):
         if self.enabled and self.command:
             self.ui.last_action = self.words
             self.command()
+            # Done without a failure: a later one (a timer's) is not this key's.
+            self.ui.last_action = None
 
     def enable(self, on):
         self.enabled = on
@@ -1549,7 +1551,11 @@ def fit_names(container, ui, more=()):
     names = [name for row in rows for name in row.opendmt3_names] + list(more)
     if not names:
         return 0
-    width = name_width(ui, names)
+    # The name labels' own room round their words (Tk's border and padding): the column holds the widest name with
+    # it, so the row of the widest name lines up with the others (it once stood 4 px further right).
+    labels = [child for row in rows for child in row.grid_slaves(row=0, column=0) if isinstance(child, tk.Label)]
+    room = max([label.winfo_reqwidth() - ui.fonts.body_bold.measure(label.cget("text")) for label in labels] or [0])
+    width = name_width(ui, names) + max(0, room)
     for row in rows:
         row.columnconfigure(0, minsize=width)
     return width
@@ -1745,11 +1751,12 @@ class Lamp(tk.Label):
 
 
 def check_line(parent, ui, state, text, action_text=None, action=None, bg=None):
-    """A ready-check line: a lamp (lime: fine; an amber outline: will change; pink: a problem), the words, and an
-    optional link, on its parent's colour unless told."""
+    """A ready-check line: a lamp (lime: fine; an amber outline: will change; amber: still to do; pink: a problem),
+    the words, and an optional link, on its parent's colour unless told."""
     bg = bg or parent.cget("bg")
     row = tk.Frame(parent, bg=bg)
-    colour, lit = {"ok": (theme.NET, True), "change": (theme.AMBER, False), "bad": (theme.PINK, True)}[state]
+    colour, lit = {"ok": (theme.NET, True), "change": (theme.AMBER, False), "todo": (theme.AMBER, True),
+                   "bad": (theme.PINK, True)}[state]
     lamp = Lamp(row, ui, colour, lit, bg=bg)
     lamp.pack(side="left", anchor="n", pady=(lamp.drop, 0))
     beside = [lamp]

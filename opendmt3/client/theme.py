@@ -160,8 +160,10 @@ class Fonts:
         self.field = tkfont.Font(root, family=TEXT_FONT, size=11)                    # typed in a large field
         self.key = tkfont.Font(root, family=TEXT_BOLD, size=9)                       # a key inside a field
         self.button_lg = tkfont.Font(root, family=TEXT_BOLD, size=11)                # the sign-in's key
-        tab = (TEXT_BOLD, 10) if korean else (DISPLAY, 8)
-        self.dialog_tab = tkfont.Font(root, family=tab[0], size=tab[1])              # a dialog's title tab
+        # A dialog's title tab: English capitals in the wide face in both languages (THEME.md, as the cards' tabs are);
+        # a tab with Hangul (a title with no English words) in Pretendard at its height (tab_font).
+        self.dialog_tab = tkfont.Font(root, family=DISPLAY, size=8)
+        self.dialog_tab_hangul = tkfont.Font(root, family=TEXT_BOLD, size=10)
         self.dialog_title = tkfont.Font(root, family=TEXT_BOLD, size=13)             # a dialog's question
         self.dialog_button = tkfont.Font(root, family=TEXT_BOLD, size=10)            # a dialog's buttons
         # The same two sizes in each face, for words whose face follows their own letters, not the window's language
@@ -170,6 +172,10 @@ class Fonts:
         self.title_hangul = tkfont.Font(root, family=TEXT_BOLD, size=21)
         self.display_big_hangul = tkfont.Font(root, family=TEXT_BOLD, size=19)
         self.language = language
+
+    def tab_font(self, words):
+        """The font a dialog's tab sets `words` in (by_script)."""
+        return self.by_script(words, self.dialog_tab, self.dialog_tab_hangul)
 
     @staticmethod
     def has_hangul(text):

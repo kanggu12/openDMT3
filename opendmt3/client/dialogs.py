@@ -173,7 +173,7 @@ class Dialog:
         panel_w = max(px(280), min(px(WIDTH), width - 2 * px(MARGIN)))
         text_w = panel_w - 2 * px(PAD)
         tab_words = self.tab_words()
-        tab_w = min(panel_w - 2 * px(20), fonts.dialog_tab.measure(tab_words) + 2 * px(26) + 2 * px(SLANT))
+        tab_w = min(panel_w - 2 * px(20), fonts.tab_font(tab_words).measure(tab_words) + 2 * px(26) + 2 * px(SLANT))
         # The question stands right under its tab: nothing between the two.
         y = px(TAB) + px(30)
         # A path wider than the panel breaks between its folders (path_breaks), then the lines are evened out.
@@ -287,7 +287,7 @@ class Dialog:
         self._scene, self._panel = ImageTk.PhotoImage(scene, master=c), ImageTk.PhotoImage(panel, master=c)
         c.create_image(0, 0, image=self._scene, anchor="nw", tags=("scene",))
         c.create_image(0, 0, image=self._panel, anchor="nw", tags=("card", "panel"))
-        c.create_text(panel_w // 2, px(TAB) // 2, text=tab_words, font=self.ui.fonts.dialog_tab,
+        c.create_text(panel_w // 2, px(TAB) // 2, text=tab_words, font=self.ui.fonts.tab_font(tab_words),
                       fill=theme.INK, tags=("card", "words"))
         # The buttons: one picture for each look, drawn over the panel's own pixels.
         margin = max(5, int(round(6 * scale)))
@@ -445,8 +445,10 @@ class Dialog:
             c.bind(key, lambda e, s=step: self.tab(s))
         # The ring shows where the keyboard is: off the buttons while it is in the dialog's field or on the window's own
         # keys (one keyboard mark on the screen, never two).
-        c.bind("<FocusIn>", lambda e: self._show_ring(True), add="+")
-        c.bind("<FocusOut>", lambda e: self._show_ring(False), add="+")
+        # Tk tells the canvas of focus that goes to its field too (a FocusIn "on the way" to a child): the ring follows
+        # where the keyboard really is, never the event alone (the final review's C-07: two rings, field and Save).
+        c.bind("<FocusIn>", lambda e: self._ring_follows_focus(), add="+")
+        c.bind("<FocusOut>", lambda e: self._ring_follows_focus(), add="+")
         # The page underneath must not scroll while the dialog is up.
         for wheel in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             c.bind(wheel, lambda e: "break")
@@ -546,6 +548,15 @@ class Dialog:
             old, self.focus = self.focus, (len(self.buttons) - 1 if last else 0)
             self._paint(old)
         self.canvas.focus_set()
+
+    def _ring_follows_focus(self):
+        """The ring on the buttons only while the keyboard is on the dialog's canvas itself."""
+        try:
+            on = self.canvas.winfo_exists() and self.canvas.focus_get() is self.canvas
+        except (KeyError, tk.TclError):
+            # The keyboard in a window Tk does not name, or none.
+            on = False
+        self._show_ring(on)
 
     def _show_ring(self, on):
         if self.closed or on == self.ring:
@@ -679,7 +690,7 @@ class Dialog:
             if "button" not in " ".join(c.gettags(item)) and tops and box[3] > min(tops):
                 problems.append("dialog: text runs into the buttons: %r" % text)
         tab_words = self.tab_words()
-        if self.ui.fonts.dialog_tab.measure(tab_words) > self._tab_room:
+        if self.ui.fonts.tab_font(tab_words).measure(tab_words) > self._tab_room:
             problems.append("dialog: the title does not fit its tab: %r" % tab_words)
         for i, (left, top, right, bottom) in enumerate(self._boxes):
             words = self.buttons[i][0]

@@ -53,6 +53,7 @@ class FoundList:
         self.drawn = {}                # the cards in the box by path: ((the Found, in use, its jackets), the card)
         self.top = None                # the line above the cards: (what it says, its frame)
         self.none = None               # the words that say nothing was found, while they show
+        self.keys = None               # Choose a folder... and Choose an archive... under the list (build)
 
     # ------------------------------------------------------------------------------------------- drawing
 
@@ -64,8 +65,9 @@ class FoundList:
         self.box.pack(fill="x")
         # A new box holds no card yet (the old one's went with the page or step drawn before).
         self.drawn, self.top, self.none = {}, None, None
-        # The two ways to choose one by hand, under the list, as OpenDMTQ's setup has its folder picker under its list.
-        row = tk.Frame(parent, bg=parent["bg"])
+        # The two ways to choose one by hand, under the list, as OpenDMTQ's setup has its folder picker under its list
+        # (inside the card that says nothing was found, while it shows: paint).
+        row = self.keys = tk.Frame(parent, bg=parent["bg"])
         row.pack(fill="x", pady=(px(14), 0))
         widgets.Button(row, ui, w("guide.2.choose"), self.choose_folder).pack(side="left")
         widgets.Button(row, ui, w("intake.choose_archive"), self.choose_archive).pack(side="left", padx=(px(8), 0))
@@ -127,10 +129,22 @@ class FoundList:
             if box["bg"] == theme.BG:
                 self.none = widgets.Card(box, ui)
                 widgets.label(self.none.body, ui, w("guide.2.none"), fg=theme.MUTED, wrap_margin=0).pack(fill="x")
+                # The two ways to choose one on the same card, in place of the ones under the list: one card says it
+                # and holds what to do (the final review's A-07: the keys stood alone on the page under it).
+                keys = tk.Frame(self.none.body, bg=theme.PANEL)
+                keys.pack(fill="x", pady=(ui.px(12), 0))
+                widgets.Button(keys, ui, w("guide.2.choose"), self.choose_folder).pack(side="left")
+                widgets.Button(keys, ui, w("intake.choose_archive"), self.choose_archive).pack(side="left",
+                                                                                             padx=(ui.px(8), 0))
+                if self.keys is not None and self.keys.winfo_exists():
+                    self.keys.pack_forget()
             else:
                 # Where nothing is wrong, the helper lines' ink (amber is for something to look at).
                 self.none = widgets.label(box, ui, w("guide.2.none"), fg=theme.MUTED, bg=box["bg"], wrap_margin=0)
         elif not nothing and self.none is not None:
+            if self.keys is not None and self.keys.winfo_exists() and not self.keys.winfo_manager():
+                # The keys under the list again, now that there is a list.
+                self.keys.pack(fill="x", pady=(ui.px(14), 0), after=box)
             self.none.destroy()
             self.none = None
         chosen = os.path.normcase(self.app.state.game_folder or "")

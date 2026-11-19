@@ -182,7 +182,9 @@ def refresh_checks(app):
             state, action = "change", None
             name = "%s  ·  %s" % (name, w("play.will_change"))
         else:
-            state = "bad"
+            # Pink for what went wrong; amber, lit, for what is still to do (signing in, choosing a server, closing
+            # the game): the foot says it in the same colour (app.not_ready_tone; the final review's A-05).
+            state = "bad" if actions.failing(check) else "todo"
             action = (lambda p=check.page: app.go(p)) if check.page else None
             # The link is named after where it leads: the GAME page's client data, the ONLINE page's sign-in.
             link = w("play.go." + check.page) if check.page else None
@@ -193,7 +195,7 @@ def refresh_checks(app):
         if path:
             widgets.check_note(box, ui, path, path=True).pack(fill="x", pady=(ui.px(2), 0))
         if under:
-            widgets.check_note(box, ui, under, problem=not check.ok).pack(fill="x", pady=(ui.px(2), 0))
+            widgets.check_note(box, ui, under, problem=state == "bad").pack(fill="x", pady=(ui.px(2), 0))
         shown += 1
     if len(rest) > 1:
         next_line()

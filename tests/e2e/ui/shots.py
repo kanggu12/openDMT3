@@ -1330,7 +1330,12 @@ def through_dialog(app, out, name, press, answer, problems, extra=None):
             problems.append("%s: the button opened no dialog" % name)
             return
         seen["dialog"] = dialog
+        # The pointer off the dialog's keys first (a click on an earlier dialog leaves it where this one's main key
+        # comes): the shot shows the dialog as it opens, and a hover shot after it differs (the final review's C-14).
+        dialog.canvas.event_generate("<Motion>", x=2, y=2, warp=True)
         wait_out(app, 0.4)
+        if dialog.hover is not None:
+            problems.append("%s: a key is lit by the pointer with the pointer away from it" % name)
         shot(app, out, name)
         problems.extend("%s: %s" % (name, p) for p in dialog.layout_problems())
         if extra:
@@ -1356,11 +1361,15 @@ def click_button(dialog, i):
     c.event_generate("<ButtonRelease-1>", x=x, y=y)
 
 
-def scroll_check(app, tag, problems):
-    """The page's own scroll bar (widgets.SlimBar) on a page taller than the window: shown, and it pages and drags."""
+def scroll_check(app, tag, problems, must=True):
+    """The page's own scroll bar (widgets.SlimBar) on a page taller than the window: shown, and it pages and drags.
+    `must`: the page is taller than the window at every size the run has (SCREEN); otherwise a page that fits the
+    window (LAUNCHER at 1600 x 1000, now shot at that size) has no bar to look at."""
     area, bar = app.body.canvas, app.body.bar
     app.body.to_top()
     wait_out(app, 0.1)
+    if not must and app.body.head_height + app.body.inner.winfo_reqheight() <= area.winfo_height():
+        return
     if not bar.winfo_ismapped():
         problems.append("%s: no scroll bar on a page taller than the window" % tag)
         return
@@ -1501,8 +1510,8 @@ def dialogs_check(app, out, tag, problems):
     if not (area.winfo_rooty() <= press.winfo_rooty()
             and press.winfo_rooty() + press.winfo_height() <= area.winfo_rooty() + area.winfo_height()):
         problems.append("%s_about-update: the update's button is cut by the page's edge" % tag)
-    # The page is taller than this window, so its scroll bar is there to use.
-    scroll_check(app, tag, problems)
+    # Where the page is taller than this window, its scroll bar is there to use (SCREEN's is checked at every size).
+    scroll_check(app, tag, problems, must=False)
     # The update under way (client/updating.py opens it while the update is fetched and checked).
     from opendmt3.core import errors
     from opendmt3.client import updating
@@ -1530,8 +1539,9 @@ def dialogs_check(app, out, tag, problems):
     # An update that is not put in, told as updating.run tells it: one that is not signed, one not downloaded.
     for name, key in (("unsigned", "error.update.unsigned"), ("download", "error.update.download")):
         error = updates.UpdateError(errors.TEXT[key][0].format(version="9.9.9"), key, version="9.9.9")
-        told = dialogs.Dialog(app.root, app.ui, "error", w("about.update_failed.title"),
-                              w("about.apply_failed", error=errors.say(error, app.state.language)), None,
+        # The product's own words for it (updating.failure), in the dialog dialogs.tell would open.
+        title, heading, detail = updating.failure(w, errors.say(error, app.state.language))
+        told = dialogs.Dialog(app.root, app.ui, "error", title, heading, detail,
                               [(w("common.ok"), True, dialogs.KINDS["error"]["button"])], default=0, cancel=True)
         wait_out(app, 0.6)
         shot(app, out, "%s_dialog-update-%s" % (tag, name))
@@ -1785,16 +1795,48 @@ def damaged_database_check(app, out, tag, problems):
                 button(app, app.words("db.broken.open"))
             except AssertionError:
                 problems.append("%s: no word of the damaged database where the players are listed" % name)
+            # PLAY waits, and the foot says so in the check's pink (the final review's B-05).
+            if app.ready() or app.status_tone != "bad":
+                problems.append("%s: with the database damaged PLAY is %s and the foot says %r (%s)"
+                                % (name, "lit" if app.ready() else "off", app.status_text, app.status_tone))
     finally:
         app.host.path, app.state.mode = real, mode
+        # The check made again with the database back, as the launcher makes it at its next start.
+        app.refresh_checks()
+        settle(app)
 
 
 def failed_action_check(app, out, tag, problems):
-    """A click or a timer whose error nothing caught: said in the launcher's own dialog, and the window goes on."""
-    error = RuntimeError("a made-up failure inside a click")
-    through_dialog(app, out, "%s_dialog-action-failed" % tag,
-                   lambda: app._callback_failed(RuntimeError, error, None),
-                   lambda d: d.canvas.event_generate("<Return>"), problems)
+    """A click whose error nothing caught: said in the launcher's own dialog, naming the key that started it (the
+    final review's C-15), and the window goes on."""
+    w = app.words
+    app.go("help")
+    settle(app)
+    key = button(app, w("help.report.save"))
+    kept = key.command
+
+    def made_up():
+        raise RuntimeError("a made-up failure inside a click")
+
+    key.command = made_up
+    seen = {}
+
+    def press():
+        # As Tk runs a click: the error goes to the window's report_callback_exception, whose dialog waits in it.
+        app.root.after(0, key.press)
+        wait_out(app, 2.5)
+
+    def answer(dialog):
+        seen["message"] = dialog.message
+        dialog.canvas.event_generate("<Return>")
+
+    try:
+        through_dialog(app, out, "%s_dialog-action-failed" % tag, press, answer, problems)
+    finally:
+        key.command = kept
+    if seen.get("message") != w("crash.action.named", action=w("help.report.save").rstrip(".…").strip()):
+        problems.append("%s_dialog-action-failed: the failure was said as %r, not by its key"
+                        % (tag, seen.get("message")))
     if not app.root.winfo_exists():
         problems.append("%s: the window did not go on after a failed action" % tag)
 
@@ -1829,6 +1871,9 @@ def song_list_check(app, out, tag, problems):
         seen["start"] = dialog.entry.get()
         seen["chosen"] = (app.root.focus_get() in (dialog.entry, getattr(dialog.entry, "entry", None))
                           and dialog.entry.selection_present())
+        if dialog.ring:
+            # One keyboard mark on the screen: the path's box has it, so no button wears the ring (C-07).
+            problems.append("%s_dialog-save-song-list: two keyboard rings, the path's box and a button" % tag)
         # Typing replaces the whole path, as it was chosen.
         dialog.entry.delete(0, "end")
         dialog.entry.insert(0, target)
@@ -3000,6 +3045,9 @@ def main():
         shot(app, args.out, name)
         measure(app, name, problems)
         columns[page] = control_columns(app)
+        if page == "screen":
+            # The longest page, taller than the window at every size: its scroll bar pages and drags.
+            scroll_check(app, name, problems)
         # Each drop-down on the page opened and measured (a list behind another box, or off the screen, fails).
         dropdowns_check(app, args.out, name, problems)
         if args.smallest:
@@ -3213,13 +3261,24 @@ def main():
     # A page with buttons (Screen has none; the column's foot has a link and PLAY): HELP's tools.
     app.go("help")
     settle(app)
-    pressable = [x for x in widgets_of(app.root) if isinstance(x, widgets.Button) and x.winfo_ismapped()]
-    pressable[-1].focus_force()
-    wait_out(app, 0.2)
+    pressable = [x for x in widgets_of(app.root) if isinstance(x, widgets.Button) and x.winfo_ismapped()
+                 and str(x).startswith(str(app.body.inner) + ".")]
+    # The page's last key reached by Tab from the one before it, as a person reaches it: the page scrolls the least
+    # that shows it (the final review's B-02: the ring was under the window's foot, out of sight).
+    pressable[-2].focus_force()
+    wait_out(app, 0.1)
+    pressable[-2].event_generate("<Tab>")
+    wait_out(app, 0.3)
     shot(app, args.out, tag + "_focus-button")
     measure(app, tag + "_focus-button", problems)
-    if not pressable[-1].focused:
-        problems.append("keyboard: a page button did not take the focus")
+    reached = app.root.focus_get()
+    if reached is not pressable[-1] or not pressable[-1].focused:
+        problems.append("keyboard: Tab did not bring the keyboard to the page's last button (%r)" % (reached,))
+    else:
+        area = app.body.canvas
+        if not (area.winfo_rooty() <= reached.winfo_rooty()
+                and reached.winfo_rooty() + reached.winfo_height() <= area.winfo_rooty() + area.winfo_height()):
+            problems.append("keyboard: the button Tab reached is out of sight (the page did not scroll to it)")
     app.root.focus_force()
     # ---- the dialogs, opened from their pages
     app.root.geometry("%dx%d+0+0" % (w, h))

@@ -130,6 +130,7 @@ class LauncherApp:
         self.busy = False               # PLAY is getting the folder ready
         self.status_text, self.status_tone = "", "normal"
         self.status_sticky = False            # a message the ready check must not replace (an update's outcome)
+        self.status_from_check = False        # the foot's line says how the ready check stands (set_status)
         self._header_job = None
         self.host = hosting.BuiltinServer(lan=state.lan)   # the server for playing on this PC, started at PLAY
         self.quit_after_game = False          # the window was closed while the game ran
@@ -437,6 +438,8 @@ class LauncherApp:
             # The action it stopped, named by the key that started it (its words, without a trailing "..."); the
             # error's own text goes to the log and the report, never in English under Korean.
             action = (getattr(self.ui, "last_action", None) or "").rstrip(".…").strip()
+            # Said once: a later failure names its own key, or none.
+            self.ui.last_action = None
             message = w("crash.action.named", action=action) if action else w("crash.action.message")
             dialogs.tell(self, "error", w("crash.action.title"), message, w("crash.action.detail"))
         except Exception:  # noqa: BLE001  (the log has it; a second failure is not told again)
@@ -724,9 +727,9 @@ class LauncherApp:
         if self.busy or (self.session and self.session.running()) or self.status_sticky or self.checks is None:
             return
         if not self.state.game_folder:
-            self.set_status(self.why_not_ready(), "warn")
+            self.set_status(self.why_not_ready(), "warn", from_check=True)
         elif not self.ready():
-            self.set_status(self.why_not_ready(), self.not_ready_tone())
+            self.set_status(self.why_not_ready(), self.not_ready_tone(), from_check=True)
         else:
             self.set_status(self.words("status.ready"), "ready")
 
@@ -837,12 +840,16 @@ class LauncherApp:
 
     def _checked(self, checks):
         self.checks = checks
+        # The lamps follow what the check found (ID CARD goes out while the players cannot be read).
+        self._paint_cabinet_lamps()
         if not self.busy and not (self.session and self.session.running()):
             if not self.state.game_folder:
-                self.set_status(self.why_not_ready(), self.not_ready_tone())
+                self.set_status(self.why_not_ready(), self.not_ready_tone(), from_check=True)
             elif not self.ready():
-                self.set_status(self.why_not_ready(), self.not_ready_tone())
-            elif self.status_tone not in ("ok", "bad") and not self.status_sticky:
+                self.set_status(self.why_not_ready(), self.not_ready_tone(), from_check=True)
+            elif (self.status_from_check or self.status_tone not in ("ok", "bad")) and not self.status_sticky:
+                # Ready: a line that said why it was not goes with it (a server that answers again: the final
+                # review's B-04), as any line that is no action's result.
                 self.set_status(self.words("status.ready"), "ready")
         self._paint_play()
         # The PLAY page, the HELP page and the guide's last step each show the check when they are on screen.
@@ -877,8 +884,11 @@ class LauncherApp:
 
     # ---------------------------------------------------------------------------------- status
 
-    def set_status(self, text, tone="normal"):
-        self.status_text, self.status_tone = text, tone
+    def set_status(self, text, tone="normal", from_check=False):
+        """The foot's line. `from_check`: it says how the ready check stands (why PLAY cannot go), so the check's
+        next answer replaces it, whatever its tone; any other line is an action's result, which stays until the next
+        action or another page."""
+        self.status_text, self.status_tone, self.status_from_check = text, tone, from_check
         self._paint_status()
 
     def _paint_status(self):
@@ -904,7 +914,10 @@ class LauncherApp:
             # NET only while the server answered the last time it was asked (or has not been asked since).
             return {"net": signed and self.reached is not False, "card": signed}
         if state.mode == "this_pc":
-            return {"net": bool(getattr(self, "host", None) and self.host.running), "card": bool(state.player)}
+            # No card goes in while this PC's players cannot be read (the ready check's database line).
+            unreadable = any(c.key == "database" and not c.ok for c in getattr(self, "checks", None) or [])
+            return {"net": bool(getattr(self, "host", None) and self.host.running),
+                    "card": bool(state.player) and not unreadable}
         return {"net": False, "card": False}
 
     def _paint_cabinet_lamps(self):

@@ -42,6 +42,13 @@ class Shown:
             self.app.dialog = None
 
 
+def failure(w, text):
+    """The dialog's words for an update that was not put in: its title, the fact as the heading and what to do (or
+    what followed) under it, never "failed" twice in one glued sentence (the final review's C-05)."""
+    heading, _, rest = text.partition(". ")
+    return w("about.update_failed.title"), heading + ("." if rest else ""), rest or None
+
+
 def run(app, result):
     """Put the update in: the dialog, then updates.apply on a worker thread (the network may be slow), then the
     launcher closes for Velopack to do the rest. A failure closes the dialog and is told in another of the launcher's
@@ -51,9 +58,7 @@ def run(app, result):
 
     def failed(text):
         shown.close()
-        # The fact as the heading, what to do (or what followed) under it: never "failed" twice in a glued sentence.
-        heading, _, rest = text.partition(". ")
-        dialogs.tell(app, "error", w("about.update_failed.title"), heading + ("." if rest else ""), rest or None)
+        dialogs.tell(app, "error", *failure(w, text))
 
     def work():
         try:
