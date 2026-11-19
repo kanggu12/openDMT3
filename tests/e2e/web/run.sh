@@ -117,12 +117,11 @@ docker logs "$EMPTY" > "$OUT/empty-server.log" 2>&1
 empty=$(tail -1 "$OUT/empty.txt")
 fi
 cleanup
-echo "$summary"
-echo "$empty"
-# The faults each browser said, from the parts that ran (a part left out has no file of this run's).
+# Each browser's last line and the faults it said, from the parts that ran (a part left out has no file of this
+# run's).
 said=()
-[ "$PART" != empty ] && said+=("$OUT/shoot.txt")
-[ "$PART" != full ] && said+=("$OUT/empty.txt")
+if [ "$PART" != empty ]; then echo "$summary"; said+=("$OUT/shoot.txt"); fi
+if [ "$PART" != full ]; then echo "$empty"; said+=("$OUT/empty.txt"); fi
 grep -hE "STICKS OUT|CUT OFF|NO LABEL|MENU CUT|BUTTON ASKEW|FAULT" "${said[@]}"
 python3 - "$summary" "$status" "$EXPECTED_PAGES" "$EXPECTED_DIALOGS" "$EXPECTED_ROUNDS" "$empty" "$empty_status" \
   "$EXPECTED_EMPTY_PAGES" "$EXPECTED_EMPTY_STATES" "$PART" <<'PY'
