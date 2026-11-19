@@ -514,6 +514,16 @@ TEXT = {
     "admin.delete.ask": ("Delete {login_id}?", "{login_id} 계정을 삭제할까요?"),
     # The admin's page of a player: the danger tray of what ends sign-ins, takes plays away or removes the player.
     "player.danger": ("Reset and delete", "초기화와 삭제"),
+    # Its rows: what each acts on (the password and the account by their own words, me.password and
+    # me.section.account), what happens, and the key.
+    "player.danger.password": ("Their sign-ins end; the new one is shown once, with the message to send.",
+                               "로그인한 곳이 모두 로그아웃되고 새 비밀번호는 보낼 메시지와 함께 한 번만 보입니다."),
+    "player.danger.plays": ("Plays", "플레이 기록"),
+    "player.danger.plays.words": ("Their cleared stages leave the rankings and the songs' boards. The database is "
+                                  "backed up first.",
+                                  "클리어한 스테이지가 랭킹과 곡 페이지에서 사라집니다. 먼저 데이터베이스를 백업합니다."),
+    "player.danger.account": ("The account goes, and its cleared stages with it.",
+                              "계정과 클리어한 스테이지 기록을 함께 지웁니다."),
     "admin.delete.title": ("Delete player", "플레이어 삭제"),
     "admin.delete.detail": ("Their cleared stages go with them, and this cannot be undone.",
                             "클리어한 스테이지 기록도 함께 지워지며 되돌릴 수 없습니다."),

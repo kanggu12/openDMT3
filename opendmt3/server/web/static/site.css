@@ -184,7 +184,9 @@ a.who:hover .who-name, a.who.on .who-name { color: var(--accent); }
 .site-notice .label::before { content: ""; width: 11px; height: 7px; border-radius: 1px; transform: translateY(-1px) skewX(-24deg); box-shadow: var(--lamp-light); background: var(--lamp-amber); }
 .site-notice.maintenance .label::before { background: var(--lamp-pink); }
 body.lang-ko .site-notice .label { font: 600 13px/1.4 var(--text-face); letter-spacing: 0; text-transform: none; }
-.site-notice .text { min-width: 0; overflow-wrap: anywhere; }
+/* The admin's words keep a Korean word whole on a page in any language (an English page broke "잠시" into "잠" and
+   "시"), and still break anywhere when one is longer than the line. */
+.site-notice .text { min-width: 0; overflow-wrap: anywhere; word-break: keep-all; }
 /* The notices: the page's first group, under its head (base.html), in the page's column: one opaque sheet with the
    game's cut corner and its seam as every cut part has it (the ring of .card::after below), a row each, the lamp and
    the label in a column of their own so the words of both rows start on one line. */
@@ -812,6 +814,10 @@ body.lang-ko .tabs a { font: 600 13px/1 var(--text-face); text-transform: none; 
             padding: 8px 10px; border-bottom: 1px solid var(--seam); }
 body.lang-ko .table th { font: 600 12px/1.4 var(--text-face); text-transform: none; letter-spacing: 0; }
 .table td { padding: 10px; border-bottom: 1px solid var(--seam); vertical-align: middle; }
+/* A table's columns are as wide as their longest word in Korean too: the Korean page's own rule (body.lang-ko, break
+   anywhere) let a column be squeezed under a word, and "system" broke into "syste" and "m". A cell whose long name
+   may break anywhere says so itself (.token-name, a request's path), and :where() keeps this rule under theirs. */
+:where(body.lang-ko) .table :is(th, td) { overflow-wrap: break-word; }
 .table tr:last-child td { border-bottom: 0; }
 .table tr.off td { color: var(--faint); }
 /* A row's actions side by side at its right end. The cell stays a table cell (as a flex box it stood apart from the row,
@@ -1186,6 +1192,13 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
   .site-notice.long .text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .site-notice.long.open .text { display: block; }
   .site-notice.long .more { display: inline; flex: none; margin-left: auto; color: var(--accent); font-size: 13px; }
+  /* English labels are long words in the wide face (MAINTENANCE): on a phone the lamp and the label stand on a line
+     of their own over the words, which then have the row's whole width (beside a 132 px label they had a third of it,
+     and a short sentence was cut to two lines). Korean labels are two letters and stay beside the words. */
+  body:not(.lang-ko) .notices .site-notice { flex-wrap: wrap; row-gap: 6px; }
+  body:not(.lang-ko) .notices .site-notice .label { flex-basis: 100%; }
+  /* The words fill their line beside a long notice's More (from nothing, so More is never pushed to a line of its own). */
+  body:not(.lang-ko) .notices .site-notice .text { flex: 1 1 0; }
   .who-name { display: none; }
   .sheet-tools .who-name { display: block; }
   .grid { grid-template-columns: minmax(0, 1fr); padding: 16px; }
@@ -1208,9 +1221,12 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
   .table:not(.board):not(.songs) tr { padding: 10px 0; border-bottom: 1px solid var(--seam); }
   .table:not(.board):not(.songs) td { border: 0; padding: 2px 0; }
   /* The headers are gone, so each cell under its row's name says what it is (its column's name, from the page): a
-     number or a date alone said nothing. Every cell shows: a block has room for the ones a wide table leaves out. */
-  .table:not(.board):not(.songs) td[data-label]::before { content: attr(data-label); display: inline-block; min-width: 7.5em;
-                                                           margin-right: 8px; color: var(--ash); font-size: 12px; }
+     number or a date alone said nothing. Every cell shows: a block has room for the ones a wide table leaves out.
+     The label is a column of its own, 90 px (the longest, "마지막으로 읽은 때", is 86 at 12 px), the value 8 px past
+     it: a value of two lines starts its second line where its first began, never under its label. */
+  .table:not(.board):not(.songs) td[data-label] { padding-left: 98px; }
+  .table:not(.board):not(.songs) td[data-label]::before { content: attr(data-label); display: inline-block; width: 90px;
+                                                           margin: 0 8px 0 -98px; color: var(--ash); font-size: 12px; }
   /* A number's cell is a line of the block like the others: from the left, and wrapping when its words are long (the
      DJ cards' three counts in one cell). */
   .table:not(.board):not(.songs) td.num { text-align: left; white-space: normal; }

@@ -98,8 +98,9 @@ otherwise. `tests/e2e/ui/start.py` starts the launcher as starts are (the guide 
 size: PLAY, PLAY with the window resized before its first drawing, every page as the first one drawn and the guide's
 first step, each start in a process of its own with a minute to finish drawing its first page. The
 site's check (`tests/e2e/web/shoot.js`, measuring with `measure.js`) fails on anything past a page's right edge, words
-cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone width, a word of the phone
-menu that does not fit, a button whose words are out of its middle, boxes that touch or overlap, words nearer a box's
+cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone width or with its value
+wrapping back under its label, a word broken inside itself (a column squeezed under it), a word of the phone menu that
+does not fit, a button whose words are out of its middle, boxes that touch or overlap, words nearer a box's
 edge than its padding, a gap between two boxes off the site's scale (steps of 2 px up to 32, then 36, 40, 48, 56, 64),
 words straight on the page's background, a floating layer (the charts' tips, opened by pointing at the first, the
 middle and the last of each kind) not wholly on the screen or with something over it, and a question asked first that
@@ -107,9 +108,10 @@ does not fit. Both
 also count what they looked at, so a page that silently stops being visited fails the run.
 
 Each check is tested itself: `OPENDMT3_REPO` points it at a copy of the tree, and `tests/e2e/web/selftest.sh OUT_DIR`
-plants five faults in a copy (a table that sticks out on a phone, words cut off in a box of a fixed height, a stacked
-cell with no label, a button's words out of its middle, the phone menu cut) and passes only when the check catches
-each. The launcher's check for hidden content tries itself at every run, at that run's fonts and scale, on a made-up
+plants nine faults in a copy (a table that sticks out on a phone, words cut off in a box of a fixed height, a stacked
+cell with no label, a button's words out of its middle, the phone menu cut, a group's name smaller than its rows, a
+small key off its role's padding, the head's stage under the bar, a Korean page's table breaking a word inside itself)
+and passes only when the check catches each. The launcher's check for hidden content tries itself at every run, at that run's fonts and scale, on a made-up
 page taller than the window: it must be said hidden where it cannot scroll (a scroll area with its region cut, a plain
 box) and not where it scrolls; and its check of the menu column on names made taller than the column holds.
 

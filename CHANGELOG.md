@@ -53,6 +53,9 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - The in-game bar's rest and click timing, a tap on its mark, a toast, the sound panel's double-click and the 3, 2, 1
   before a held song goes on moved in steps that grew with how long the PC had been switched on, up to 64 ms after
   six days (in every release since 0.1.0). They now keep their times to the millisecond.
+- A word in a table of a Korean page no longer breaks in two when its column is narrow (the admin's page of a player
+  broke "system"). On a phone, a table's cell that takes two lines starts its second where its first began, never
+  under its label, and an English notice's label stands over its words, which keep their whole line.
 
 ## [0.4.1] - 2026-11-20
 

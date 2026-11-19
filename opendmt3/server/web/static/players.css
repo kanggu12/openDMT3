@@ -80,11 +80,10 @@ body.lang-ko .area-section .card > h2 { font: 700 15px/1.4 var(--text-face); let
 .player-grid .wide { grid-column: 1 / -1; }
 /* A card the page's forms come back to after they are sent (#points, #level…), clear of the sticky bar. */
 .player-grid > .card[id] { scroll-margin-top: 84px; }
-/* The account's keys side by side (New password, admin rights, the picture). */
-/* The admin's page of a player, Account: the changes one under the other, each key at the left and its line (when it
-   has one) under it, never loose words between two keys. */
-.key-row { display: grid; justify-items: start; gap: 10px; margin-top: 16px; }
-.key-row > form { display: grid; justify-items: start; gap: 4px; margin: 0; }
+/* The admin's page of a player, Account: its other changes (admin rights, the picture) as small keys side by side on
+   one line under the name's field, from its left edge, apart as a line of a form's controls are (12 px). */
+.key-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 16px; }
+.key-row > form { margin: 0; }
 /* A balance or a level beside the forms that change it. */
 .big-value { font: 400 28px/1 var(--wide); letter-spacing: 0.02em; margin: 0 0 4px; }
 .big-value.unlimited { color: var(--amber); }

@@ -156,7 +156,8 @@ if bare and (e["states"] != empty_states or e["state_faults"]):
 # The layout's measure, the full server's pages and the empty one's together: each kind of fault and how many pages
 # have it (the kinds' words are what docs/test-cases.md and selftest.sh look for).
 for what, key in (("pages stick out", "sticking"), ("pages cut words off", "cut"),
-                  ("pages have a cell with no label", "unlabelled"), ("pages cut the phone menu", "menu_cut"),
+                  ("pages have a cell with no label or a value wrapping under its label", "unlabelled"),
+                  ("pages cut the phone menu", "menu_cut"),
                   ("pages have a button's words out of its middle", "askew"),
                   ("pages have boxes touching, words nearer than their padding, a gap off the scale or words on the "
                    "bare page", "spacing"), ("pages have a floating layer off the screen or under something",
@@ -164,8 +165,8 @@ for what, key in (("pages stick out", "sticking"), ("pages cut words off", "cut"
                   ("pages have a form part out of its design (FORMS.md)", "form_faults"),
                   ("pages have their bar, the menu item showing or the side menu off the screen or under something "
                    "(at the top or halfway down), or the other site's frame", "frame_faults"),
-                  ("pages break a number or a date over two lines, or part a figure from its unit or a time from its date",
-                   "wrap_faults"),
+                  ("pages break a number or a date over two lines, or part a figure from its unit or a time from its "
+                   "date, or break a word inside itself", "wrap_faults"),
                   # The composition (measure.js: compose; the owner's rules of 11-19).
                   ("pages have a key off its role's height or side padding, or wider than its words want", "key_faults"),
                   ("pages have a key's words off its middle", "ink_faults"),
@@ -220,9 +221,9 @@ if problems:
     print("FAIL: " + "; ".join(problems))
     sys.exit(1)
 # What held, in the words of the parts that ran.
-held = ("nothing sticks out, no words cut off, no cell without a label, the phone menu whole, every button's words in "
-        "its middle, boxes apart and on the scale, every form in its design, every number and date whole and with its "
-        "unit, each site's frame on screen; pages composed: every key at its role's height and padding with its words "
+held = ("nothing sticks out, no words cut off, no cell without a label or with its value under it, the phone menu whole, "
+        "every button's words in its middle, boxes apart and on the scale, every form in its design, every word, number "
+        "and date whole and a figure with its unit, each site's frame on screen; pages composed: every key at its role's height and padding with its words "
         "in its middle and none stretched, the words on the type scale and no heading under its words, rows on one "
         "line, groups' words on their edge, fields as wide as what they take, no box of one thing, pairs of one "
         "height, the stage flush and clear (at 1280, 390, 360 and the browser's 150 %)")

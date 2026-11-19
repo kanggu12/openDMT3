@@ -127,6 +127,24 @@ class NoBoxOfOneThingTest(AdminSiteBase):
         self.assertIn('class="card k-danger"', card_of(page, 'id="ban"'))
         self.assertNotIn('value="delete"', card_of(page, 'id="account"'))
 
+    def test_the_danger_trays_rows_say_what_each_acts_on_and_end_on_its_key(self):
+        self.admin()
+        self.make("NOVA")
+        self.sign_in(self.console, "BOSS")
+        page = self.console.get("/admin/players/NOVA").text
+        tray = card_of(page, 'id="danger"')
+        # A row each, as the account's settings are: what it acts on, the words of what happens, then its key, an
+        # ordinary one as a row's control is (three small keys one under another once stood at the tray's left).
+        self.assertEqual(re.findall(r'<p class="row-label">([^<]+)</p>', tray), ["Password", "Plays", "Account"])
+        self.assertEqual(tray.count('<p class="line-words">'), 3)
+        self.assertEqual(tray.count('class="form line"'), 3)
+        self.assertNotIn("btn small", tray)
+        # One's own page has no Delete (that is My account's): the tray keeps its other two rows.
+        own = card_of(self.console.get("/admin/players/BOSS").text, 'id="danger"')
+        self.assertEqual(re.findall(r'<p class="row-label">([^<]+)</p>', own), ["Password", "Plays"])
+        # The account's other keys (admin rights, the picture) on one line under the name's field.
+        self.assertIn('<div class="key-row">', card_of(page, 'id="account"'))
+
     def test_the_connected_cabinets_are_a_live_line_in_the_home_pages_head(self):
         self.admin()
         self.sign_in(self.client, "BOSS")
@@ -259,3 +277,52 @@ class CardKindsTest(AdminSiteBase):
             self.assertIn(".card.k-%s" % kind, css)
         # A result is cut at two opposite corners, and its ring follows both cuts.
         self.assertIn("var(--cut) 100%, 0 calc(100% - var(--cut))", css)
+
+
+def media_blocks(css, query):
+    """The rules inside every @media block for `query`, together (each block read to its own closing brace)."""
+    found = []
+    for m in re.finditer(r"@media %s \{" % re.escape(query), css):
+        depth = 1
+        for brace in re.finditer(r"[{}]", css[m.end():]):
+            depth += 1 if brace.group() == "{" else -1
+            if depth == 0:
+                found.append(css[m.end():m.end() + brace.start()])
+                break
+    return "\n".join(found)
+
+
+class WordsWholeTest(unittest.TestCase):
+    """No word broken inside itself by a squeezed column, no stacked cell's value back under its label, and a phone's
+    English notice with the row's width for its words (where each lands on a page is the site check's: wraps,
+    unlabelled)."""
+
+    def setUp(self):
+        with open(os.path.join(STATIC, "site.css"), encoding="utf-8") as f:
+            self.css = f.read()
+        self.phone = media_blocks(self.css, "(max-width: 760px)")
+
+    def test_a_korean_tables_columns_are_as_wide_as_their_words(self):
+        # The Korean page breaks anywhere (body.lang-ko), which let a column be squeezed under its word ("syste", "m"):
+        # a table's cells break a word only when it is wider than the whole line, and under a cell's own rule.
+        self.assertIn(":where(body.lang-ko) .table :is(th, td) { overflow-wrap: break-word; }", self.css)
+        self.assertIn(".table .token-name { overflow-wrap: anywhere; }", self.css)
+
+    def test_a_stacked_cells_label_is_a_column_of_its_own(self):
+        # On a phone the value starts past its label (the cell's padding) and the label is pulled back into that
+        # padding by as much (its width and the gap after it): a value's second line starts where its first did.
+        cell = re.search(r"td\[data-label\] \{ padding-left: (\d+)px; \}", self.phone)
+        label = re.search(r"td\[data-label\]::before \{[^}]*\bwidth: (\d+)px;[^}]*margin: 0 (\d+)px 0 -(\d+)px;", self.phone)
+        self.assertIsNotNone(cell)
+        self.assertIsNotNone(label)
+        width, gap, back = (int(v) for v in label.groups())
+        self.assertEqual(int(cell.group(1)), width + gap)
+        self.assertEqual(back, width + gap)
+
+    def test_an_english_notices_words_have_the_rows_width_on_a_phone(self):
+        # The lamp and the label on a line of their own over the words; the words fill their line beside More.
+        self.assertIn("body:not(.lang-ko) .notices .site-notice { flex-wrap: wrap;", self.phone)
+        self.assertIn("body:not(.lang-ko) .notices .site-notice .label { flex-basis: 100%; }", self.phone)
+        self.assertIn("body:not(.lang-ko) .notices .site-notice .text { flex: 1 1 0; }", self.phone)
+        # A Korean word of the admin's notice whole on a page in any language.
+        self.assertRegex(self.css, r"\.site-notice \.text \{[^}]*word-break: keep-all;")

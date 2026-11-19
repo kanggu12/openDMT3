@@ -7,6 +7,7 @@
 //                 one row that is wider than its own clipped box;
 //   unlabelled    at a phone's width, a cell of a table shown as blocks (its headers hidden) that says a number, a date
 //                 or a word with nothing beside it to say what it is: its column had a name, the cell has no label;
+//                 and a labelled cell whose value wraps back under its label (a line starting left of its first);
 //   menu          at a phone's width, a word of the top menu that does not fit the screen (cut mid-word at its edge),
 //                 and a menu whose words would not fit the narrowest phone looked after (360 px wide);
 //   askew         a button whose words are not in its middle or are larger than it (a link made to look like a button
@@ -14,7 +15,8 @@
 //   forms         a field with no label, a slot not of the forms' heights (34, 42, 44, 48), the browser's own list or
 //                 tick, a rule in a bracketed placeholder, a field marked wrong with no words under it (FORMS.md);
 //   wraps         a number or a date that breaks over two lines (2026-11- over 17 09:30, 1 over 2), a figure parted
-//                 from its unit (7.8 over GB) or a time from its date: each is read whole, so it lies on one line;
+//                 from its unit (7.8 over GB) or a time from its date: each is read whole, so it lies on one line; and
+//                 a word broken inside itself (syste over m), its column or part squeezed under it;
 //   spacing       boxes (a card, a button, a field, a tag, an alert: anything with a fill, a border or a shadow) that
 //                 touch or overlap a box beside them in the same parent; words nearer a box's edge than its padding;
 //                 a gap between two boxes beside each other that is off the site's scale (whole steps of 2 px up to
@@ -70,6 +72,16 @@ const layout = page => page.evaluate(() => {
         const before = getComputedStyle(cell, '::before').content;
         if (!before || before === 'none' || before === '""') {
           unlabelled.push(name(table) + ' "' + said(cell) + '" (column "' + names[i] + '")');
+          return;
+        }
+        // A labelled cell whose value takes more than one line: every line starts where its first did (the label is
+        // a column of its own), never back under the label. The cell's own contents as a range: a box for each line
+        // of its words and for each element in it, the first the value's start.
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+        const boxes = [...range.getClientRects()].filter(r => r.width > 0 && r.height > 0);
+        if (boxes.length > 1 && Math.min(...boxes.map(r => r.left)) < boxes[0].left - 1) {
+          unlabelled.push(name(table) + ' "' + said(cell) + '" (column "' + names[i] + '": runs under its label)');
         }
       });
     }
@@ -233,6 +245,26 @@ const layout = page => page.evaluate(() => {
       const boxes = [...range.getClientRects()].filter(r => r.width > 0 && r.height > 0);
       if (boxes.length > 1 && boxes[boxes.length - 1].top - boxes[0].top > boxes[0].height / 2) {
         wraps.push(name(host) + ' "' + m[0].replace(/\u2060/g, '').replace(/\u00a0/g, ' ') + '" breaks over two lines');
+      }
+    }
+  }
+  // ---- a word broken inside itself over two lines: a column or a row's part squeezed under its longest word (a
+  // Korean page's table broke "system" into "syste" and "m"). Words of Latin letters (digits after the first letter
+  // too), whole: not inside a longer run of letters or digits. Not where a long name may break anywhere by its own
+  // rule (code, a token, a hash, a field's own words); a number's breaking is the check above.
+  const lettered = /(?<![\p{L}\p{N}_])[A-Za-z][A-Za-z0-9]+(?![\p{L}\p{N}_])/gu;
+  const words = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = words.nextNode(); n; n = words.nextNode()) {
+    const host = n.parentElement;
+    if (!host || host.closest('script, style, textarea, code, pre, kbd, .hex, .token, .token-name, .shards, ' +
+                                'dialog:not([open]), [hidden]') || !shown(host)) continue;
+    for (const m of n.textContent.matchAll(lettered)) {
+      const range = document.createRange();
+      range.setStart(n, m.index);
+      range.setEnd(n, m.index + m[0].length);
+      const boxes = [...range.getClientRects()].filter(r => r.width > 0 && r.height > 0);
+      if (boxes.length > 1 && boxes[boxes.length - 1].top - boxes[0].top > boxes[0].height / 2) {
+        wraps.push(name(host) + ' "' + m[0] + '" breaks inside itself');
       }
     }
   }
