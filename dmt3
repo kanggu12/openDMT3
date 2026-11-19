@@ -901,6 +901,37 @@ def has_image(name):
     return run(["docker", "image", "inspect", name], capture=True)[0] == 0
 
 
+def edge_image():
+    """Caddy's image as edge.yaml names it, the one place it is written (the docs name the same release)."""
+    with open(EDGE_FILE, encoding="utf-8") as f:
+        for line in f:
+            # Its one image line: the server's part there changes only how the server starts, not its image.
+            match = re.match(r"\s+image:\s*(\S+)\s*$", line)
+            if match:
+                return match.group(1)
+    return None
+
+
+def ensure_edge_image():
+    """Caddy's image on this PC before Compose starts it while the site is exposed: every start here says --pull never
+    (for the server's image, never an older release's), so a server PC that never ran Caddy would refuse at once.
+    0 when it is here or pulled now, or the site is not exposed; 1, with the way to load it, when it cannot be pulled."""
+    # Not exposed: Compose does not read edge.yaml, so no Caddy starts.
+    if not exposed():
+        return 0
+    image = edge_image()
+    # Already here (Caddy ran before, or the image was loaded from a file): nothing to get.
+    if not image or has_image(image):
+        return 0
+    say("pulling Caddy's image %s" % image)
+    if run(["docker", "pull", image])[0] == 0:
+        return 0
+    # No network (a closed one): the image comes from a file, as docs/closed-network.md says.
+    problem("Caddy's image %s is not on this PC and could not be pulled" % image,
+            "docker load -i caddy.tar (docs/closed-network.md)")
+    return 1
+
+
 def build_image():
     """This clone's image, built, then kept as the one the server runs (OPENDMT3_IMAGE in .env) once the build worked:
     a build that failed names no image, so the next command never runs an older image of that name. 0 when built."""
@@ -1064,8 +1095,9 @@ def cmd_expose(args):
     say(admin_line())
     say("Caddy's settings: %s" % os.path.join(EDGE_DIR, "Caddyfile"))
     if is_running():
-        # The server again with the site on this PC only, and Caddy beside it.
-        code = run(compose("up", "-d", "--no-build", "--pull", "never"))[0]
+        # The server again with the site on this PC only, and Caddy beside it: its image first (a server PC that never
+        # ran Caddy has none, and Compose here never pulls).
+        code = ensure_edge_image() or run(compose("up", "-d", "--no-build", "--pull", "never"))[0]
         # Caddy reads its Caddyfile when it starts: a running one (another name, another authority) starts again.
         code = code or run(compose("restart", EDGE_SERVICE))[0]
         if code:
@@ -1138,8 +1170,8 @@ def cmd_ports(args):
     if exposed():
         say("Caddy: HTTP %s, HTTPS %s." % (env.get("HTTP_PORT") or 80, env.get("HTTPS_PORT") or 443))
     if changes and is_running():
-        # The server again on the new ports (and Caddy, which reads its Caddyfile when it starts).
-        code = run(compose("up", "-d", "--no-build", "--pull", "never"))[0]
+        # The server again on the new ports (and Caddy, which reads its Caddyfile when it starts), Caddy's image first.
+        code = ensure_edge_image() or run(compose("up", "-d", "--no-build", "--pull", "never"))[0]
         if exposed():
             code = code or run(compose("restart", EDGE_SERVICE))[0]
         return code
@@ -1225,6 +1257,8 @@ def cmd_repair(args):
     else:
         say("pulling the server image %s again" % chosen_image())
         code = run(["docker", "pull", chosen_image()])[0]
+    # Caddy's image too while the site is exposed: a release that moves Caddy on names one this PC has not had.
+    code = code or ensure_edge_image()
     if code:
         return code
     code = run(compose("up", "-d", "--no-build", "--pull", "never", "--force-recreate"))[0]
@@ -1256,6 +1290,8 @@ def cmd_up(args):
     from it; then where the site and the admin pages are."""
     settle_admin_port()
     code = refuse_old_image(chosen_image()) if args.no_build else cmd_image(args)
+    # Then Caddy's, while the site is exposed (--no-build is about the server's image only).
+    code = code or ensure_edge_image()
     if code:
         return code
     code = run(simple_command(args, False))[0]

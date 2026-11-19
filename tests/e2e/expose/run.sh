@@ -29,7 +29,13 @@ export COMPOSE_PROJECT_NAME=$NAME_PREFIX-expose
 PEBBLE=$NAME_PREFIX-pebble
 NAME=dmt3.test
 failed=0
-step() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1"; failed=$((failed + 1)); fi; }
+# step NAME CODE [OUTPUT]: PASS or FAIL; a failed step shows the end of the command's own output when it is named, so
+# a run on a machine of its own (CI's runner) says why without its files.
+step() {
+  if [ "$2" = 0 ]; then echo "PASS $1"; return; fi
+  echo "FAIL $1"; failed=$((failed + 1))
+  if [ -n "${3:-}" ] && [ -s "$3" ]; then tail -n 20 "$3" | sed 's/^/    /'; fi
+}
 for port in $GAME $SITE $HTTP $HTTPS $ADMIN; do
   # A port another program listens on is never taken over.
   if ss -ltnH "sport = :$port" | grep -q .; then echo "port $port is in use: EXPOSE_PORTS names others"; exit 1; fi
@@ -63,11 +69,11 @@ https() { local path=$1; shift; curl -s --max-time 10 --resolve "$NAME:$HTTPS:12
 
 # ---- 1. Caddy's local authority
 ./dmt3 setup --admin BOSS --password pass1234 --no-start > "$OUT/setup.txt" 2>&1
-r=$?; step "./dmt3 setup (the image given, the first account)" $r
+r=$?; step "./dmt3 setup (the image given, the first account)" $r "$OUT/setup.txt"
 ./dmt3 expose "$NAME" --local-ca > "$OUT/expose-local.txt" 2>&1 && grep -q "https://$NAME/" .env
-r=$?; step "./dmt3 expose $NAME --local-ca keeps the name and the players' address" $r
+r=$?; step "./dmt3 expose $NAME --local-ca keeps the name and the players' address" $r "$OUT/expose-local.txt"
 ./dmt3 up --no-build > "$OUT/up.txt" 2>&1
-r=$?; step "./dmt3 up: the server with Caddy beside it" $r
+r=$?; step "./dmt3 up: the server with Caddy beside it" $r "$OUT/up.txt"
 for _ in $(seq 60); do ./dmt3 check > "$OUT/check-local.txt" 2>&1 && break; sleep 1; done
 grep -q "through Caddy" "$OUT/check-local.txt"
 r=$?; step "./dmt3 check: $(grep -m1 "Caddy" "$OUT/check-local.txt" | sed 's/^ *//')" $r

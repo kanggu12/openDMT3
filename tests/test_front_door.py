@@ -229,12 +229,17 @@ class ExposeTest(unittest.TestCase):
         self.env, self.ran = {}, []
         self.edge = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, self.edge)
+        # The images Docker has here: Caddy's, as on a server PC that ran it before, unless a test takes it away.
+        self.here = {dmt3.edge_image()}
+        # Whether a docker pull works (no network: it does not).
+        self.pull_works = True
         patches = [mock.patch.object(dmt3, "write_env", side_effect=self.write),
                    mock.patch.object(dmt3, "read_env", side_effect=lambda: dict(self.env)),
                    mock.patch.object(dmt3, "EDGE_DIR", self.edge),
                    mock.patch.object(dmt3, "is_running", return_value=True),
-                   mock.patch.object(dmt3, "run", side_effect=lambda cmd, capture=False: self.ran.append(cmd) or (0, "")),
-                   mock.patch.object(dmt3, "say")]
+                   mock.patch.object(dmt3, "run", side_effect=self.fake_run),
+                   mock.patch.object(dmt3, "has_image", side_effect=lambda name: name in self.here),
+                   mock.patch.object(dmt3, "say"), mock.patch.object(dmt3, "problem")]
         for patcher in patches:
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -245,6 +250,56 @@ class ExposeTest(unittest.TestCase):
                 self.env.pop(name, None)
             else:
                 self.env[name] = value
+
+    def fake_run(self, cmd, capture=False):
+        # Every command recorded; a pull answers as the network lets it.
+        self.ran.append(cmd)
+        if cmd[:2] == ["docker", "pull"]:
+            return (0 if self.pull_works else 1), ""
+        return 0, ""
+
+    def test_caddys_image_is_the_one_edge_yaml_names_and_the_docs_say(self):
+        image = dmt3.edge_image()
+        self.assertRegex(image, r"^caddy:\d+\.\d+\.\d+-alpine$")
+        # The closed network's guide has its owner save and load this same release.
+        with open(os.path.join(ROOT, "docs", "closed-network.md"), encoding="utf-8") as f:
+            named = set(re.findall(r"caddy:[\w.-]+", f.read()))
+        self.assertEqual(named, {image})
+
+    def test_a_server_pc_that_never_ran_caddy_pulls_its_image_before_compose_starts_it(self):
+        # A fresh server PC (and CI's runner): Compose here never pulls, so ./dmt3 gets Caddy's image itself.
+        self.here.clear()
+        self.assertEqual(dmt3.cmd_expose(args_of("expose", "dmt3.example.org")), 0)
+        edge_compose = ["docker", "compose", "-f", dmt3.COMPOSE_FILE, "-f", dmt3.EDGE_FILE]
+        self.assertEqual(self.ran, [["docker", "pull", dmt3.edge_image()],
+                                    edge_compose + ["up", "-d", "--no-build", "--pull", "never"],
+                                    edge_compose + ["restart", "edge"]])
+
+    def test_caddys_image_that_cannot_be_pulled_stops_before_compose_and_says_how_to_load_it(self):
+        self.here.clear()
+        self.pull_works = False
+        self.assertEqual(dmt3.cmd_expose(args_of("expose", "dmt3.lan", "--local-ca")), 1)
+        # Nothing started: Compose would refuse at once without the image.
+        self.assertEqual(self.ran, [["docker", "pull", dmt3.edge_image()]])
+        self.assertIn("docker load -i caddy.tar", dmt3.problem.call_args[0][1])
+
+    def test_up_while_exposed_gets_caddys_image_after_the_servers(self):
+        self.env.update(EDGE_NAME="dmt3.example.org", SITE_ADDRESS="https://dmt3.example.org/")
+        self.here.clear()
+        with mock.patch.object(dmt3, "settle_admin_port"), \
+                mock.patch.object(dmt3, "refuse_old_image", return_value=0), \
+                mock.patch.object(dmt3, "site_lines", return_value=""):
+            self.assertEqual(dmt3.cmd_up(args_of("up", "--no-build")), 0)
+        self.assertEqual(self.ran[0], ["docker", "pull", dmt3.edge_image()])
+        self.assertEqual(self.ran[1][-5:], ["up", "-d", "--no-build", "--pull", "never"])
+
+    def test_up_with_the_site_not_exposed_never_asks_for_caddy(self):
+        self.here.clear()
+        with mock.patch.object(dmt3, "settle_admin_port"), \
+                mock.patch.object(dmt3, "refuse_old_image", return_value=0), \
+                mock.patch.object(dmt3, "site_lines", return_value=""):
+            self.assertEqual(dmt3.cmd_up(args_of("up", "--no-build")), 0)
+        self.assertFalse([cmd for cmd in self.ran if cmd[:2] == ["docker", "pull"]], self.ran)
 
     def test_expose_writes_the_caddyfile_and_starts_caddy_beside_the_server(self):
         self.assertEqual(dmt3.cmd_expose(args_of("expose", "dmt3.example.org", "--email", "me@example.org")), 0)
