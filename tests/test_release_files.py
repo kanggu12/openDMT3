@@ -1,7 +1,8 @@
 """A release's files (packaging/release_files.py) and the guides' download lines (packaging/doc_versions.py): every
 file named in lowercase with its version but the launcher's update files, the server package holding the server and
-nothing of the launcher or the tests, the LGPL sources checked against the build's hashes, the checksums over every
-file, the notes' Files table, and no guide naming another version than the code's."""
+nothing of the launcher or the tests, the OpenAL sources checked against the build's hashes, the SHA-256 sums over
+every file, the maintainer's Files table, no guide naming another version than the code's, and none naming a file the
+release does not have."""
 
 import hashlib
 import importlib.util
@@ -73,13 +74,13 @@ class ReleaseFilesTest(unittest.TestCase):
         self.out = Path(self.tmp) / "out" / "files"
 
     @NEEDS_GIT
-    def test_every_file_with_its_role_its_version_and_the_checksums(self):
+    def test_every_file_with_its_role_its_version_and_the_sha256_sums(self):
         code, table, err = run(files, "v" + V, str(build(Path(self.tmp) / "build")), str(self.out))
         self.assertEqual((code, err), (0, ""))
         got = sorted(os.listdir(self.out))
         self.assertEqual(got, sorted([
-            "opendmt3-launcher-%s-windows-x64-setup.exe" % V, "opendmt3-server-%s.zip" % V,
-            "opendmt3-launcher-%s-lgpl-sources.zip" % V, "opendmt3-%s-checksums.txt" % V,
+            "opendmt3-launcher-%s-windows-x64-setup.exe" % V, "opendmt3-server-%s-linux-macos.zip" % V,
+            "opendmt3-launcher-%s-openal-sources.zip" % V, "opendmt3-%s-sha256sums.txt" % V,
             "openDMT3-%s-full.nupkg" % V, "openDMT3-%s-delta.nupkg" % V, "openDMT3-%s-full.nupkg.sig" % V,
             "openDMT3-%s-delta.nupkg.sig" % V, "releases.win.json",
             # The one-line installers are made from the tree each time; the server's built files come with --server.
@@ -92,8 +93,8 @@ class ReleaseFilesTest(unittest.TestCase):
             if not (name.startswith("openDMT3-") or name == "releases.win.json"):
                 self.assertEqual(name, name.lower())
                 self.assertIn(V, name)
-        # The checksums, in sha256sum's own form, over every other file.
-        lines = (self.out / ("opendmt3-%s-checksums.txt" % V)).read_text().splitlines()
+        # The SHA-256 sums, in sha256sum's own form, over every other file.
+        lines = (self.out / ("opendmt3-%s-sha256sums.txt" % V)).read_text().splitlines()
         self.assertEqual(len(lines), len(got) - 1)
         for line in lines:
             digest, name = line.split("  ", 1)
@@ -102,7 +103,7 @@ class ReleaseFilesTest(unittest.TestCase):
         self.assertTrue(table.startswith("### Files\n\n| File | What it is | For |"))
         self.assertEqual(table.count("\n| `"), len(got))
         self.assertIn("| `openDMT3-%s-full.nupkg` | The launcher's update package" % V, table)
-        self.assertIn("| Server owners |", table)
+        self.assertIn("| Server owners on Linux and macOS |", table)
         self.assertEqual((self.out.parent / "FILES.md").read_text(), table)
 
     @NEEDS_GIT
@@ -113,15 +114,19 @@ class ReleaseFilesTest(unittest.TestCase):
         (server / ("opendmt3-%s.tgz" % V)).write_bytes(b"chart")
         code, _, err = run(files, V, str(build(Path(self.tmp) / "build")), str(self.out), "--server", str(server))
         self.assertEqual((code, err), (0, ""))
-        self.assertEqual((self.out / ("opendmt3-%s-helm-chart.tgz" % V)).read_bytes(), b"chart")
+        # Helm's own name for the chart's package, the server's chart's name in the release.
+        self.assertEqual((self.out / ("opendmt3-server-%s-helm-chart.tgz" % V)).read_bytes(), b"chart")
         self.assertTrue((self.out / ("opendmt3-server-%s-windows-x64.zip" % V)).is_file())
-        # The installers carry the version where the script has its mark, and the checksums name them all.
+        # The installers carry the version where the script has its mark, and the sums name them all.
         script = (self.out / ("opendmt3-server-%s-linux-installer.sh" % V)).read_text()
         self.assertIn("VERSION=%s\n" % V, script)
         self.assertNotIn("@VERSION@", script)
-        sums = (self.out / ("opendmt3-%s-checksums.txt" % V)).read_text()
-        for name in ("opendmt3-%s-helm-chart.tgz", "opendmt3-server-%s-windows-x64.zip",
-                     "opendmt3-server-%s-macos-installer.sh"):
+        # What the installer downloads is what the release has, by name: the server's zip and the sums naming it.
+        self.assertIn('zip="%s"' % files.SERVER_ZIP.format(v="$VERSION"), script)
+        self.assertIn('fetch "%s"' % files.SUMS.format(v="$VERSION"), script)
+        sums = (self.out / ("opendmt3-%s-sha256sums.txt" % V)).read_text()
+        for name in ("opendmt3-server-%s-helm-chart.tgz", "opendmt3-server-%s-windows-x64.zip",
+                     "opendmt3-server-%s-macos-installer.sh", "opendmt3-server-%s-linux-macos.zip"):
             self.assertIn("  " + name % V + "\n", sums)
         # A --server folder without them is a release missing them.
         (server / ("opendmt3-%s.tgz" % V)).unlink()
@@ -130,12 +135,13 @@ class ReleaseFilesTest(unittest.TestCase):
         self.assertIn("helm-chart.tgz", err)
 
     @NEEDS_GIT
-    def test_the_lgpl_sources_are_the_archives_the_build_names(self):
+    def test_the_openal_sources_are_the_archives_the_build_names(self):
         made = build(Path(self.tmp) / "build")
         code, _, _ = run(files, V, str(made), str(self.out))
         self.assertEqual(code, 0)
-        with zipfile.ZipFile(self.out / ("opendmt3-launcher-%s-lgpl-sources.zip" % V)) as zf:
-            top = "opendmt3-launcher-%s-lgpl-sources/" % V
+        # Under one folder named as the zip.
+        with zipfile.ZipFile(self.out / ("opendmt3-launcher-%s-openal-sources.zip" % V)) as zf:
+            top = "opendmt3-launcher-%s-openal-sources/" % V
             self.assertEqual(sorted(zf.namelist()), sorted(top + n for n in
                                                            ("openal-soft-1.0.0.tar.gz", "dsoal-0123abc.tar.gz",
                                                             "SHA256SUMS")))
@@ -182,8 +188,8 @@ class ServerPackageTest(unittest.TestCase):
     @NEEDS_GIT
     def test_the_server_and_its_guides_and_nothing_of_the_launcher_or_the_tests(self):
         path = files.server_zip(Path(ROOT), V, self.tmp)
-        self.assertEqual(path.name, "opendmt3-server-%s.zip" % V)
-        top = "opendmt3-server-%s/" % V
+        self.assertEqual(path.name, "opendmt3-server-%s-linux-macos.zip" % V)
+        top = "opendmt3-server-%s-linux-macos/" % V
         with zipfile.ZipFile(path) as zf:
             names = zf.namelist()
             infos = {i.filename: i for i in zf.infolist()}
@@ -238,6 +244,28 @@ class DocVersionsTest(unittest.TestCase):
         readme = Path(ROOT, "README.md").read_text(encoding="utf-8")
         self.assertIn("releases/download/v%s/opendmt3-launcher-%s-windows-x64-setup.exe" % (version, version), readme)
 
+    def test_the_guides_name_only_files_a_release_has(self):
+        # Every release file a page names by a version (this one, <version> or X.Y.Z) is one the release makes, so a
+        # file renamed leaves no guide or download line under its old name.
+        version = doc_versions.code_version(Path(ROOT))
+        known = set(files.names(version))
+        named = re.compile(r"opendmt3-[A-Za-z0-9.<>-]+\.(?:zip|exe|sh|tgz|txt)\b")
+        seen = set()
+        for page in doc_versions.pages(Path(ROOT)):
+            path = Path(ROOT, page)
+            if not path.is_file():
+                continue
+            for name in named.findall(path.read_text(encoding="utf-8")):
+                # A name without a version (opendmt3-server.exe, the program inside a package) is no release file.
+                plain = name.replace("<version>", version).replace("X.Y.Z", version)
+                if version in plain:
+                    self.assertTrue(plain in known, "%s names %s, which no release has" % (page, name))
+                    seen.add(plain)
+        # The instrument reads the pages: the guides name the server's zip, its Helm chart and the sums.
+        for name in ("opendmt3-server-%s-linux-macos.zip", "opendmt3-server-%s-helm-chart.tgz",
+                     "opendmt3-%s-sha256sums.txt"):
+            self.assertIn(name % version, seen)
+
     def test_another_version_is_found_and_written_over(self):
         tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp)
@@ -246,15 +274,20 @@ class DocVersionsTest(unittest.TestCase):
         (tmp / "docs").mkdir()
         (tmp / "docs" / "install.md").write_text(
             "curl -LO https://x/releases/download/v1.2.3/opendmt3-launcher-1.2.3-windows-x64-setup.exe\n"
-            "unzip opendmt3-server-1.2.3.zip\nopendmt3-launcher-<version>-windows-x64-setup.exe stays\n")
+            "unzip opendmt3-server-1.2.3-linux-macos.zip\ncd opendmt3-server-1.2.3-linux-macos\n"
+            "opendmt3-server-1.2.3-helm-chart.tgz, opendmt3-1.2.3-sha256sums.txt and "
+            "opendmt3-launcher-1.2.3-openal-sources.zip\nopendmt3-launcher-<version>-windows-x64-setup.exe stays\n")
         code, _, err = run(doc_versions, "--root", str(tmp))
         self.assertEqual(code, 1)
-        self.assertEqual(err.count("names 1.2.3"), 3)
+        # Each name's version: the address and the installer, the zip and its folder, the chart, the sums, the sources.
+        self.assertEqual(err.count("names 1.2.3"), 7)
         run(doc_versions, "--root", str(tmp), "--write")
         text = (tmp / "docs" / "install.md").read_text()
         # The version alone changed: the part after it stays (-windows-x64), and a pattern without one stays.
         self.assertIn("v1.2.4/opendmt3-launcher-1.2.4-windows-x64-setup.exe", text)
-        self.assertIn("opendmt3-server-1.2.4.zip", text)
+        self.assertIn("opendmt3-server-1.2.4-linux-macos.zip\ncd opendmt3-server-1.2.4-linux-macos\n", text)
+        self.assertIn("opendmt3-server-1.2.4-helm-chart.tgz, opendmt3-1.2.4-sha256sums.txt and "
+                      "opendmt3-launcher-1.2.4-openal-sources.zip", text)
         self.assertIn("opendmt3-launcher-<version>-windows-x64-setup.exe stays", text)
         self.assertEqual(run(doc_versions, "--root", str(tmp))[0], 0)
 

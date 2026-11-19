@@ -1,4 +1,4 @@
-"""The files of a release, gathered into one folder with their checksums, and the notes' table of them.
+"""The files of a release, gathered into one folder with their SHA-256 sums, and a table of them for the maintainer.
 
     python3 packaging/release_files.py VERSION BUILD_DIR OUT_DIR [--root DIR] [--server DIR]
 
@@ -6,24 +6,28 @@ Run by packaging/release.sh after packaging/windows/build.sh has built into BUIL
 prints the Markdown table of (FILES.md beside them):
 
   opendmt3-launcher-<version>-windows-x64-setup.exe   the launcher's installer, for players (build.sh names it so)
-  opendmt3-server-<version>.zip                       the server, for server owners: what it needs and nothing else
-                                                      (docs, the front door, Compose, the package's core and server)
+  opendmt3-server-<version>-linux-macos.zip           the server on Linux and macOS, with Docker Compose or the PC's
+                                                      Python, for server owners: what it needs and nothing else (docs,
+                                                      the front door, Compose, the package's core and server)
   opendmt3-server-<version>-windows-x64.zip           the server on Windows without Docker or Python (from --server:
                                                       packaging/windows/server.sh built it)
   opendmt3-server-<version>-linux-installer.sh,       the one-line install on Linux and on macOS (one script,
   opendmt3-server-<version>-macos-installer.sh        packaging/server/install.sh, with the version put in)
-  opendmt3-<version>-helm-chart.tgz                   the Helm chart (from --server: helm package made opendmt3-<version>.tgz)
-  opendmt3-launcher-<version>-lgpl-sources.zip        the source archives of the two LGPL libraries the launcher
-                                                      brings, as their licence asks of whoever hands them on
+  opendmt3-server-<version>-helm-chart.tgz            the Helm chart (from --server: helm package made it as
+                                                      opendmt3-<version>.tgz, by the chart's own name)
+  opendmt3-launcher-<version>-openal-sources.zip      the source archives of OpenAL Soft and DSOAL, the two LGPL
+                                                      libraries the launcher brings, as their licence asks of whoever
+                                                      hands them on
   openDMT3-<version>-full.nupkg, -delta.nupkg, .sig,  the launcher's update files, under the names Velopack and the
   releases.win.json                                   launchers already installed read
-  opendmt3-<version>-checksums.txt                    every file above's SHA-256
+  opendmt3-<version>-sha256sums.txt                   every file above's SHA-256
 
-Every file of a release is named in lowercase with its version, except the update files: an installed launcher takes
-an update only from a feed that names its package exactly openDMT3-<version>-full.nupkg (client/updates.py, offered,
-as every launcher from 0.1.0 on checks it), Velopack's package ID is the launcher's identity on the PC (its folder in
-%LocalAppData%), and releases.win.json is the name Velopack reads a GitHub release's feed by. Renamed, every
-launcher installed so far would stop updating.
+Every file of a release is named in lowercase: the tool, its part and the version, then the systems it runs on or
+what it holds (opendmt3-server-<version>-windows-x64.zip, opendmt3-server-<version>-helm-chart.tgz). The update
+files are the exception: an installed launcher takes an update only from a feed that names its package exactly
+openDMT3-<version>-full.nupkg (client/updates.py, offered, as every launcher from 0.1.0 on checks it), Velopack's
+package ID is the launcher's identity on the PC (its folder in %LocalAppData%), and releases.win.json is the name
+Velopack reads a GitHub release's feed by. Renamed, every launcher installed so far would stop updating.
 
 Nothing goes in that nobody needs: vpk's RELEASES (the feed in the form of Velopack's predecessor, which the Velopack
 the launchers carry never reads: a server's /updates/ hands out none, and its launchers update), its portable zip and
@@ -44,8 +48,6 @@ from pathlib import Path
 
 # The repository: this file is in packaging/.
 ROOT = Path(__file__).resolve().parent.parent
-# The project's name as every release file but the update files spells it.
-TOOL = "opendmt3"
 # Velopack's package ID, which the update files carry in their names (packaging/windows/build.sh, vpk --packId).
 PACKAGE_ID = "openDMT3"
 
@@ -66,20 +68,25 @@ PACKAGE_TOP_FILES = ("README.md", "LICENSE", "CHANGELOG.md")
 # A Markdown or HTML link or picture's target in a guide (the targets followed for the guides and pictures to take).
 TARGET = re.compile(r"\]\(([^)\s#]+)(?:#[^)]*)?\)|\b(?:src|srcset|href)=[\"']([^\"'#]+)")
 
-# The notes' table: each file, what it is, for whom. Names are made from these with the version put in.
+# The names this script makes itself, with the version put in (the rest come from the build or --server).
+SERVER_ZIP = "opendmt3-server-{v}-linux-macos.zip"
+SOURCES_ZIP = "opendmt3-launcher-{v}-openal-sources.zip"
+SUMS = "opendmt3-{v}-sha256sums.txt"
+# FILES.md's table: each file, what it is, for whom. Names are made from these with the version put in.
 ROLES = [
     ("opendmt3-launcher-{v}-windows-x64-setup.exe", "The launcher's installer for Windows (x64); runs under Wine on "
      "Linux too", "Players"),
-    ("opendmt3-server-{v}.zip", "The server (game server and site) for Docker Compose (`./dmt3 setup`) or Python, "
-     "with its guides", "Server owners"),
+    (SERVER_ZIP, "The server (game server and site) on Linux or macOS, for Docker Compose (`./dmt3 setup`) or the "
+     "PC's Python, with its guides", "Server owners on Linux and macOS"),
     ("opendmt3-server-{v}-windows-x64.zip", "The server on a Windows PC of its own, without Docker or Python, with "
      "the launcher's installer to hand out", "Server owners on Windows"),
     ("opendmt3-server-{v}-linux-installer.sh", "The one-line install of the server on Linux, without Docker",
      "Server owners on Linux"),
     ("opendmt3-server-{v}-macos-installer.sh", "The same install on macOS", "Server owners on macOS"),
-    ("opendmt3-{v}-helm-chart.tgz", "The Helm chart, running the published image", "Server owners on Kubernetes"),
-    ("opendmt3-launcher-{v}-lgpl-sources.zip", "The source archives of DSOAL and OpenAL Soft, the two LGPL "
-     "libraries the launcher brings for its sound mixer, as their licence asks", "Anyone who wants the source"),
+    ("opendmt3-server-{v}-helm-chart.tgz", "The Helm chart, running the published image",
+     "Server owners on Kubernetes"),
+    (SOURCES_ZIP, "The source archives of OpenAL Soft and DSOAL, the two LGPL libraries the launcher brings for its "
+     "sound mixer, as their licence asks", "Anyone who wants the source"),
     ("openDMT3-{v}-full.nupkg", "The launcher's update package (Velopack's name for it, read by installed "
      "launchers)", "Installed launchers"),
     ("openDMT3-{v}-delta.nupkg", "The launcher's update from the previous release, only what changed", "Installed "
@@ -87,13 +94,13 @@ ROLES = [
     ("openDMT3-{v}-full.nupkg.sig", "The project's signature of the update package", "Installed launchers"),
     ("openDMT3-{v}-delta.nupkg.sig", "The project's signature of the delta package", "Installed launchers"),
     ("releases.win.json", "The update feed installed launchers read", "Installed launchers"),
-    ("opendmt3-{v}-checksums.txt", "The SHA-256 of every file above (`sha256sum -c`)", "Anyone checking a "
-     "download"),
+    (SUMS, "The SHA-256 of every file above (`sha256sum -c`)", "Anyone checking a download"),
 ]
 # The server's files built before this script runs (release.sh: packaging/windows/server.sh, helm package), each by
 # the name in the folder --server names and its name in the release; without --server none are taken (a test's run).
+# Helm names a chart's package by the chart's own name (opendmt3); the release names it as the server's chart.
 SERVER_BUILT = {"opendmt3-server-{v}-windows-x64.zip": "opendmt3-server-{v}-windows-x64.zip",
-                "opendmt3-{v}.tgz": "opendmt3-{v}-helm-chart.tgz"}
+                "opendmt3-{v}.tgz": "opendmt3-server-{v}-helm-chart.tgz"}
 # The one-line installers, one script with the version put in for each system.
 INSTALLER = "packaging/server/install.sh"
 INSTALLERS = ("opendmt3-server-{v}-linux-installer.sh", "opendmt3-server-{v}-macos-installer.sh")
@@ -164,10 +171,12 @@ def _entry(zf, name, data, mode):
 
 
 def server_zip(root, version, out):
-    """opendmt3-server-<version>.zip in `out`: the server's files under one folder of the same name, its README the
-    server's quick start. Returns its path."""
-    top = "%s-server-%s" % (TOOL, version)
-    path = Path(out) / (top + ".zip")
+    """opendmt3-server-<version>-linux-macos.zip in `out`: the server's files under one folder of the same name, its
+    README the server's quick start. Returns its path."""
+    name = SERVER_ZIP.format(v=version)
+    # The folder unzip makes is the zip's name without .zip, as the Windows server package's.
+    top = name[:-len(".zip")]
+    path = Path(out) / name
     with zipfile.ZipFile(path, "w") as zf:
         for rel in server_paths(root):
             source = root / rel
@@ -186,13 +195,16 @@ def server_zip(root, version, out):
     return path
 
 
-def lgpl_zip(build, version, out):
-    """opendmt3-launcher-<version>-lgpl-sources.zip in `out`: the two archives native/openal/build.sh built the
-    launcher's DSOAL and OpenAL Soft from, with their SHA256SUMS, each checked against it first. Returns its path."""
+def openal_sources_zip(build, version, out):
+    """opendmt3-launcher-<version>-openal-sources.zip in `out`: the two archives native/openal/build.sh built the
+    launcher's DSOAL and OpenAL Soft from, with their SHA256SUMS, each checked against it first, under one folder of
+    the zip's name. Returns its path."""
     sources = Path(build) / "openal" / "sources"
     sums = (sources / "SHA256SUMS").read_text(encoding="utf-8")
-    top = "%s-launcher-%s-lgpl-sources" % (TOOL, version)
-    path = Path(out) / (top + ".zip")
+    name = SOURCES_ZIP.format(v=version)
+    # The folder unzip makes is the zip's name without .zip.
+    top = name[:-len(".zip")]
+    path = Path(out) / name
     with zipfile.ZipFile(path, "w") as zf:
         for line in sums.splitlines():
             digest, name = line.split(None, 1)
@@ -241,7 +253,7 @@ def table(version, present):
 
 
 def gather(root, version, build, out, server=None):
-    """Every file of the release into `out`, with the checksums; returns the names there, in the table's order.
+    """Every file of the release into `out`, with the SHA-256 sums; returns the names there, in the table's order.
     server: the folder holding the server's files built before (SERVER_BUILT); each is then needed."""
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
@@ -256,7 +268,7 @@ def gather(root, version, build, out, server=None):
             # The installer and the update files, as build.sh left them.
             (out / name).write_bytes(source.read_bytes())
     server_zip(root, version, out)
-    lgpl_zip(build, version, out)
+    openal_sources_zip(build, version, out)
     if server is not None:
         for built, name in SERVER_BUILT.items():
             source = Path(server) / built.format(v=version)
@@ -272,15 +284,15 @@ def gather(root, version, build, out, server=None):
     # The server's built files are needed when their folder was given, else left out.
     optional = {p.format(v=version) for p in OPTIONAL} | (
         set() if server is not None else {n.format(v=version) for n in SERVER_BUILT.values()})
-    missing = [n for n in names(version)
-               if n not in present and n != "%s-%s-checksums.txt" % (TOOL, version) and n not in optional]
+    # The sums are made last, below, over the rest.
+    sums = SUMS.format(v=version)
+    missing = [n for n in names(version) if n not in present and n != sums and n not in optional]
     if missing:
         raise ValueError("missing: " + ", ".join(missing))
     # Over every other file, in sha256sum's own form, so `sha256sum -c` reads it.
-    checksums = "%s-%s-checksums.txt" % (TOOL, version)
     lines = ["%s  %s" % (hashlib.sha256((out / n).read_bytes()).hexdigest(), n) for n in present]
-    (out / checksums).write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return present + [checksums]
+    (out / sums).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return present + [sums]
 
 
 def main(argv=None):

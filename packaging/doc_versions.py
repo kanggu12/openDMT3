@@ -2,13 +2,13 @@
 
     python3 packaging/doc_versions.py [--write] [--root DIR]
 
-The README and the guides name a release's files by their versioned names (opendmt3-launcher-0.3.1-windows-x64-
-setup.exe, opendmt3-server-0.3.1.zip) and download them from that release's own address (releases/download/v0.3.1/),
-so a line copied from them fetches the file it names; compose.yaml's default image and the Helm chart's Chart.yaml
-are read the same way. Every such version must be `__version__`
-(opendmt3/__init__.py); so must the bug form's example version. Lists each line that names another and exits 1;
---write puts this version in their place (a release raises the version, then runs this with --write). The standard
-library only, as .github/release_notes.py.
+The README and the guides name a release's files by their versioned names (opendmt3-launcher-1.2.3-windows-x64-
+setup.exe, opendmt3-server-1.2.3-linux-macos.zip) and download them from that release's own address
+(releases/download/v1.2.3/), so a line copied from them fetches the file it names; compose.yaml's default image and
+the Helm chart's Chart.yaml are read the same way. Every such version must be `__version__` (opendmt3/__init__.py);
+so must the bug form's example version. Lists each line that names another and exits 1; --write puts this version in
+their place (a release raises the version, then runs this with --write). The standard library only, as
+.github/release_notes.py.
 """
 
 import argparse
@@ -22,12 +22,15 @@ ROOT = Path(__file__).resolve().parent.parent
 # version (-windows-x64) is never read as one.
 V = r"\d+\.\d+\.\d+(?:-(?:rc|alpha|beta)\.\d+)?"
 # Where a version is part of a download: a release file's name, a release's download address, the bug form's example.
+# The launcher's files (its installer, the OpenAL sources: opendmt3-launcher-1.2.3-openal-sources.zip).
 PATTERNS = [re.compile(r"(?<=opendmt3-launcher-)" + V + r"(?=-)"),
-            # Also at a line's end or before a space (the folder `cd opendmt3-server-0.4.0` goes into after unzipping).
+            # The server's: its packages, installers and Helm chart (opendmt3-server-1.2.3-helm-chart.tgz), also at a
+            # line's end or before a space (the folder `cd opendmt3-server-1.2.3-linux-macos` goes into after
+            # unzipping).
             re.compile(r"(?<=opendmt3-server-)" + V + r"(?![\w])"),
             re.compile(r"(?<=/releases/download/v)" + V + r"(?=/)"),
-            # The Helm chart's and the checksums' names (opendmt3-0.3.1-helm-chart.tgz), and the server's image tag.
-            re.compile(r"(?<=opendmt3-)" + V + r"(?=-helm-chart|-checksums)"),
+            # The SHA-256 sums' name (opendmt3-1.2.3-sha256sums.txt), and the server's image tag.
+            re.compile(r"(?<=opendmt3-)" + V + r"(?=-sha256sums)"),
             re.compile(r"(?<=opendmt3-server:)" + V + r"\b"),
             # The Helm chart's own version and the server's in its Chart.yaml.
             re.compile(r"(?<=^version: )" + V + r"$", re.M), re.compile(r"(?<=^appVersion: \")" + V + r"(?=\")", re.M),

@@ -32,7 +32,7 @@ echo "  GCC Runtime Library Exception, which asks nothing of a program built wit
 echo "  licences are in card-reader-NOTICES.txt beside them."
 echo
 echo "The release that brings these libraries carries both source archives beside its installer, in"
-echo "opendmt3-launcher-<version>-lgpl-sources.zip. Under the LGPL"
+echo "opendmt3-launcher-<version>-openal-sources.zip. Under the LGPL"
 echo "either library may be replaced by another build of it under the same file name: in the installed launcher's"
 echo "_internal\\opendmt3\\core\\cabinet\\bin folder, from where PLAY puts them beside the card reader library."
 text "DSOAL: LICENSE (GNU LGPL 2.1)" "$DS" "dsoal-$DSC/LICENSE"

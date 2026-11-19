@@ -65,9 +65,9 @@ For players on their own PCs. On Linux, macOS or Windows in WSL 2, with Docker (
 release's server package (or a clone of the repository: `git clone`, then `./dmt3 setup` in it):
 
 ```sh
-curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0.zip
-unzip opendmt3-server-0.4.0.zip
-cd opendmt3-server-0.4.0
+curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0-linux-macos.zip
+unzip opendmt3-server-0.4.0-linux-macos.zip
+cd opendmt3-server-0.4.0-linux-macos
 ./dmt3 setup
 ```
 

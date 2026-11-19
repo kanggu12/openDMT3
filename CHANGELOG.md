@@ -44,6 +44,9 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
 - Fewer words: no cards of instructions on the launcher's **Play** and **Controls** or on the site's pages, and the
   settings' hints say one fact each.
 - Running the installer again over the same version offers **Uninstall** beside **Repair**.
+- The release's files are named for what each holds and where it runs: `opendmt3-server-0.4.0-linux-macos.zip`
+  (0.3.1: `opendmt3-server-0.3.1.zip`), `opendmt3-0.4.0-sha256sums.txt` (`opendmt3-0.3.1-checksums.txt`) and
+  `opendmt3-launcher-0.4.0-openal-sources.zip` (`opendmt3-launcher-0.3.1-lgpl-sources.zip`).
 
 ### Fixed
 

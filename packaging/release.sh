@@ -8,20 +8,22 @@
 #   3. the launcher and its installer built as packaging/windows/build.sh builds them, looking for updates in this
 #      repository's releases, every update package signed with the key and its signature checked;
 #   4. the release's files gathered into OUT_DIR/files by packaging/release_files.py, each named in lowercase with the
-#      tool, its part and the version (the launcher's update files keep Velopack's names, which installed launchers
-#      read), with opendmt3-<version>-checksums.txt over them:
+#      tool, its part and the version, then the systems it runs on or what it holds (the launcher's update files keep
+#      Velopack's names, which installed launchers read), with opendmt3-<version>-sha256sums.txt over them:
 #        opendmt3-launcher-<version>-windows-x64-setup.exe   the launcher's installer
-#        opendmt3-server-<version>.zip                       the server alone, for Docker Compose or Python
-#        opendmt3-launcher-<version>-lgpl-sources.zip        the sources of DSOAL and OpenAL Soft, which it brings
+#        opendmt3-server-<version>-linux-macos.zip           the server alone on Linux and macOS, for Docker Compose or
+#                                                            Python
 #        opendmt3-server-<version>-windows-x64.zip           the server on Windows, without Docker or Python
 #        opendmt3-server-<version>-linux-installer.sh (-macos-)   the one-line install without Docker
-#        opendmt3-<version>-helm-chart.tgz                   the Helm chart
+#        opendmt3-server-<version>-helm-chart.tgz            the Helm chart
+#        opendmt3-launcher-<version>-openal-sources.zip      the sources of OpenAL Soft and DSOAL, which it brings
 #        openDMT3-<version>-full.nupkg (-delta), .sig, releases.win.json   the launcher's update files
 #      (the Windows server package, built first by packaging/windows/server.sh with the installer just built in it,
 #      and the chart, packaged by Helm's own image; the server's image goes to ghcr.io from .github/workflows/
 #      release.yml on the tag, not into the release)
 #   5. with --publish: the GitHub release, titled with the tag itself (v1.2.3), its notes one line on which file is whose
-#      (no table: the files' names say it), then the changelog's section and the compare link.
+#      and one on the launcher's update files (no table: the files' names say it), then the changelog's section and the
+#      compare link.
 # Without --publish it stops after step 3 and shows the release it would make: a rehearsal. With no key named the
 # rehearsal's packages are unsigned, and it says so; publishing needs them signed.
 #
@@ -118,9 +120,9 @@ else
   # Each signature against the keys built into the launcher (opendmt3/core/signing.py), as a launcher checks it.
   python3 -m opendmt3.core.signing check "${packages[@]}"
 fi
-# The installer, the update files, the server package, the LGPL sources and the checksums, into one folder made again
-# (release_files.py checks every name, each LGPL archive against the build's SHA256SUMS, and every link of the server
-# package's guides); FILES.md beside it lists them for the maintainer, not for the notes.
+# The installer, the update files, the server packages, the OpenAL sources and the SHA-256 sums, into one folder made
+# again (release_files.py checks every name, each OpenAL archive against the build's SHA256SUMS, and every link of the
+# server package's guides); FILES.md beside it lists them for the maintainer, not for the notes.
 V=${TAG#v}
 SERVER="$OUT/server"
 rm -rf "$SERVER" && mkdir -p "$SERVER"
@@ -135,16 +137,19 @@ docker run --rm --network none -u "$(id -u):$(id -g)" -v "$PWD/deploy/helm:/char
   alpine/helm:3.16.4 package /charts/opendmt3 --version "$V" --app-version "$V" -d /out > /dev/null
 FILES="$OUT/files"
 python3 packaging/release_files.py "$TAG" "$BUILD" "$FILES" --server "$SERVER" > /dev/null
-# Every file listed in the checksums is there with that hash: what a downloader's sha256sum -c will say.
-(cd "$FILES" && sha256sum -c --quiet "opendmt3-${TAG#v}-checksums.txt")
+# Every file listed in the sums is there with that hash: what a downloader's sha256sum -c will say.
+(cd "$FILES" && sha256sum -c --quiet "opendmt3-${TAG#v}-sha256sums.txt")
 ls -l "$FILES"
 # The notes: one line saying which file is whose (the files' own names say their part, version and system, so no table:
-# a table of files in the notes only confused), the changelog's section, then the compare link from the changelog's
-# own link list. FILES.md stays beside the files for the maintainer's eye; it is not published.
+# a table of files in the notes only confused), one saying installed launchers fetch the update files by themselves
+# (their names, which those launchers read, are the only ones not in that form), the changelog's section, then the
+# compare link from the changelog's own link list. FILES.md stays beside the files for the maintainer's eye; it is not
+# published.
 compare=$(sed -n "s#^\[${TAG#v}\]: \(https://.*\)#\1#p" CHANGELOG.md)
 [ -n "$compare" ] || { echo "CHANGELOG.md has no link for [${TAG#v}] at its end" >&2; exit 1; }
 v=${TAG#v}
-{ printf 'openDMT3 %s. Players install `opendmt3-launcher-%s-windows-x64-setup.exe`; server owners run `opendmt3-server-%s-windows-x64.zip` on Windows, `opendmt3-server-%s.zip` with Docker, the `-linux-installer.sh` or `-macos-installer.sh` without it, or the Helm chart ([the server guide](https://github.com/kanggu12/openDMT3/blob/%s/docs/server.md)).\n\n' "$v" "$v" "$v" "$v" "$TAG"
+{ printf 'openDMT3 %s. Players install `opendmt3-launcher-%s-windows-x64-setup.exe`; server owners run `opendmt3-server-%s-windows-x64.zip` on Windows, `opendmt3-server-%s-linux-macos.zip` on Linux or macOS with Docker or Python, the `-linux-installer.sh` or `-macos-installer.sh` for a one-line install without Docker, or the Helm chart ([the server guide](https://github.com/kanggu12/openDMT3/blob/%s/docs/server.md)).\n\n' "$v" "$v" "$v" "$v" "$TAG"
+  printf 'The `openDMT3-%s-*.nupkg` files, their `.sig` and `releases.win.json` are the launcher'\''s own update files, fetched by installed launchers: nothing to download by hand.\n\n' "$v"
   cat "$OUT/changelog-section.md"; printf '\n**Full Changelog**: %s\n' "$compare"; } \
   > "$OUT/release-notes.md"
 echo "notes: $OUT/release-notes.md ($(wc -l < "$OUT/release-notes.md") lines)"

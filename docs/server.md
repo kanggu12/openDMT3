@@ -36,8 +36,9 @@ The other guides for server owners: [Playing from outside your home](internet.md
 - A PC that stays on. On Windows: the Windows server package, nothing else. With Docker: Docker with Compose v2 and
   Python 3 (`./dmt3` is a Python script), on Linux, on macOS, or on Windows in WSL 2. With Python: Python 3.10 or
   newer, on Linux or macOS. In the launcher: the launcher on a Windows PC, nothing else.
-- The server: the release's server package, `opendmt3-server-0.4.0.zip` (what the server needs and nothing else), the
-  Windows server package `opendmt3-server-0.4.0-windows-x64.zip`, or a clone of this repository (git).
+- The server: the release's server package for Linux and macOS, `opendmt3-server-0.4.0-linux-macos.zip` (what the
+  server needs and nothing else), the Windows server package `opendmt3-server-0.4.0-windows-x64.zip`, or a clone of
+  this repository (git).
 - Memory and processor: the server held about 100 MB with 64 cabinets and 20 visitors at once
   ([Many players at once](#many-players-at-once)); its site works on two threads, and reading a song list uses up to
   eight cores.
@@ -104,9 +105,9 @@ On Linux, macOS, or Windows in WSL 2. It needs Docker with Compose v2 and Python
 nothing to install). From the release's server package:
 
 ```sh
-curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0.zip
-unzip opendmt3-server-0.4.0.zip
-cd opendmt3-server-0.4.0
+curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0-linux-macos.zip
+unzip opendmt3-server-0.4.0-linux-macos.zip
+cd opendmt3-server-0.4.0-linux-macos
 ./dmt3 setup
 ```
 
@@ -279,7 +280,7 @@ players' launchers update from.
 ## With Python
 
 On Linux or macOS, with Python 3.10 or newer (on Debian and Ubuntu, `python3-venv` too), one line installs the
-release's server, checked against the release's checksums, into `~/.local/share/opendmt3-server`, with its own
+release's server, checked against the release's SHA-256 sums, into `~/.local/share/opendmt3-server`, with its own
 Python environment and the official 7-Zip, and puts the command `opendmt3-server` in `~/.local/bin`:
 
 ```sh
@@ -298,9 +299,9 @@ By hand instead, from the release's server package, unpacked, or a copy of this 
 shows song numbers):
 
 ```sh
-curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0.zip
-unzip opendmt3-server-0.4.0.zip
-cd opendmt3-server-0.4.0
+curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.0/opendmt3-server-0.4.0-linux-macos.zip
+unzip opendmt3-server-0.4.0-linux-macos.zip
+cd opendmt3-server-0.4.0-linux-macos
 python3 -m venv .venv
 .venv/bin/pip install starlette==0.47.3 jinja2==3.1.6 uvicorn==0.35.0 python-multipart==0.0.20 pillow==11.3.0
 .venv/bin/python -m opendmt3.server --data data --catalog /path/to/your/client/data --setup-only

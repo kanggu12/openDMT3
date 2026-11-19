@@ -4,13 +4,14 @@
 #   curl -fsSL https://github.com/kanggu12/openDMT3/releases/download/v@VERSION@/opendmt3-server-@VERSION@-linux-installer.sh | sh
 #   (on macOS the same file is opendmt3-server-@VERSION@-macos-installer.sh)
 #
-# It takes this release's server package (opendmt3-server-@VERSION@.zip), checked against the release's checksums, into
-# ~/.local/share/opendmt3-server (OPENDMT3_SERVER_DIR says where), with a Python environment of its own holding the
-# site's libraries at the versions the server's image pins, and the official 7-Zip for the client data's archives;
-# then the command opendmt3-server in ~/.local/bin. Run again, or a newer release's, it makes this version's Python
-# environment first, beside the running server's; only then it stops the server it finds running, puts the new code in
-# place and starts it again: the data stays (accounts, plays, backups, settings). A step that fails before the stop
-# (a download, the libraries) leaves the running server as it was, and says so.
+# It takes this release's server package (opendmt3-server-@VERSION@-linux-macos.zip), checked against the release's
+# SHA-256 sums (opendmt3-@VERSION@-sha256sums.txt), into ~/.local/share/opendmt3-server (OPENDMT3_SERVER_DIR says
+# where), with a Python environment of its own holding the site's libraries at the versions the server's image pins,
+# and the official 7-Zip for the client data's archives; then the command opendmt3-server in ~/.local/bin. Run again,
+# or a newer release's, it makes this version's Python environment first, beside the running server's; only then it
+# stops the server it finds running, puts the new code in place and starts it again: the data stays (accounts, plays,
+# backups, settings). A step that fails before the stop (a download, the libraries) leaves the running server as it
+# was, and says so.
 #
 #   sh -s -- --uninstall      (after the pipe's sh: the server stopped, the program removed, the data kept)
 #
@@ -62,7 +63,7 @@ python_found() {
 write_command() {
   cat > "$BIN/opendmt3-server" <<EOF
 #!/bin/sh
-# The openDMT3 server $VERSION, installed by opendmt3-server-$VERSION-installer.sh into $DIR.
+# The openDMT3 server $VERSION, installed by opendmt3-server-$VERSION-linux-installer.sh (or -macos-) into $DIR.
 export PYTHONPATH="$DIR/code"
 export OPENDMT3_DATA="\${OPENDMT3_DATA:-$DIR/data}"
 [ -x "$DIR/bin/7zz" ] && export OPENDMT3_7ZIP="$DIR/bin/7zz"
@@ -87,15 +88,15 @@ install() {
   work=$(mktemp -d "${TMPDIR:-/tmp}/opendmt3-server.XXXXXX")
   trap 'rm -rf "$work"' EXIT
   say "openDMT3 server $VERSION into $DIR"
-  zip="opendmt3-server-$VERSION.zip"
+  zip="opendmt3-server-$VERSION-linux-macos.zip"
   fetch "$zip" "$work/$zip"
-  fetch "opendmt3-$VERSION-checksums.txt" "$work/checksums.txt"
+  fetch "opendmt3-$VERSION-sha256sums.txt" "$work/sha256sums.txt"
   # The package as the release made it, or nothing at all.
-  want=$(grep "  $zip\$" "$work/checksums.txt" | cut -d' ' -f1)
-  [ -n "$want" ] || die "the release's checksums name no $zip"
+  want=$(grep "  $zip\$" "$work/sha256sums.txt" | cut -d' ' -f1)
+  [ -n "$want" ] || die "the release's SHA-256 sums name no $zip"
   [ "$(sha256 "$work/$zip")" = "$want" ] || die "$zip is not the release's (its SHA-256 differs): run this again"
   python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$work/$zip" "$work/code"
-  # The package's one top folder (opendmt3-server-<version>/), or its files at the top.
+  # The package's one top folder (opendmt3-server-<version>-linux-macos/), or its files at the top.
   top=$(find "$work/code" -mindepth 1 -maxdepth 1 -type d | head -n 1)
   [ -f "$top/opendmt3/server/standalone.py" ] || top=$work/code
   [ -f "$top/opendmt3/server/standalone.py" ] || die "$zip holds no server"

@@ -235,7 +235,7 @@ release. A release, by a maintainer:
    the load test, and the installer on a real Windows PC.
    `OPENDMT3_SIGNING_KEY=<the key's file> packaging/release.sh vX.Y.Z OUT_DIR` rehearses the release: the version
    check, the build with the key and the signatures checked, the release's files in `OUT_DIR/files` with their
-   checksums, the notes in `OUT_DIR/release-notes.md`, and the release it would make. The key is named in the
+   SHA-256 sums, the notes in `OUT_DIR/release-notes.md`, and the release it would make. The key is named in the
    environment and nowhere else: no path is tried when it is not set.
 3. Commits, tags the commit (`git tag -a vX.Y.Z -m "Release X.Y.Z"`) and pushes both. The tag runs
    `.github/workflows/release.yml`: CI and the version check again on the tag's commit; no release is built or
@@ -245,19 +245,24 @@ release. A release, by a maintainer:
    changelog's section as its notes.
 
 What a release publishes (`packaging/release_files.py` gathers them into `OUT_DIR/files`, checks every name and
-lists them in `OUT_DIR/FILES.md` for a look; the notes carry no table, the names say which file is whose). Every name is lowercase with the tool, the part and the version, except the update
-files: an installed launcher takes an update only from a feed naming its package exactly `openDMT3-X.Y.Z-full.nupkg`,
-so those keep Velopack's names. The guides' download lines name the version too: after raising it,
+lists them in `OUT_DIR/FILES.md` for a look; the notes carry no table, the names say which file is whose). Every name
+is lowercase: the tool, the part and the version, then the systems it runs on or what it holds. The update files are
+the exception: an installed launcher takes an update only from a feed naming its package exactly
+`openDMT3-X.Y.Z-full.nupkg`, so those keep Velopack's names, and the notes' second line says installed launchers
+fetch them by themselves. The guides' download lines name the version too: after raising it,
 `python3 packaging/doc_versions.py --write` puts it in them, and the tests fail until it has:
 
 | What | Files |
 | :--- | :--- |
 | The launcher's installer | `opendmt3-launcher-X.Y.Z-windows-x64-setup.exe` |
-| The server alone, for Docker Compose or Python, with its guides | `opendmt3-server-X.Y.Z.zip` |
+| The server alone on Linux and macOS, for Docker Compose or Python, with its guides | `opendmt3-server-X.Y.Z-linux-macos.zip` |
+| The server on Windows, without Docker or Python | `opendmt3-server-X.Y.Z-windows-x64.zip` (`packaging/windows/server.sh`) |
+| The one-line install without Docker | `opendmt3-server-X.Y.Z-linux-installer.sh` and `opendmt3-server-X.Y.Z-macos-installer.sh`: `packaging/server/install.sh` with the version put in |
+| The Helm chart | `opendmt3-server-X.Y.Z-helm-chart.tgz`: `deploy/helm/opendmt3`, packaged by Helm |
+| The source of the two LGPL libraries the launcher brings for the Sound page's OpenAL Soft mixer | `opendmt3-launcher-X.Y.Z-openal-sources.zip`: the archives `native/openal/build.sh` builds them from, with its `SHA256SUMS` |
 | The update packages, each with the project's signature | `openDMT3-X.Y.Z-full.nupkg` and its `.sig`; with `OPENDMT3_PREVIOUS_RELEASE` naming the last release's build (its `OUT_DIR/build/releases`), a delta package from that release too, so a launcher of that version downloads only what changed (`packaging/windows/previous.py`) |
 | The feed installed launchers read | `releases.win.json` |
-| The source of the two LGPL libraries the launcher brings for the Sound page's OpenAL Soft mixer | `opendmt3-launcher-X.Y.Z-lgpl-sources.zip`: the archives `native/openal/build.sh` builds them from, with its `SHA256SUMS` |
-| Every file's SHA-256 | `opendmt3-X.Y.Z-checksums.txt` |
+| Every file's SHA-256 | `opendmt3-X.Y.Z-sha256sums.txt` |
 
 The launcher shows its version beside its logo and on its **Launcher** page, and a server at the foot of every page
 of its site.
