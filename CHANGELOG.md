@@ -6,7 +6,7 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
-## [0.4.1] - 2026-11-19
+## [0.4.1] - 2026-11-20
 
 A song's notes wait with its music while the game is held in it; the in-game layer's buttons keep the pointer's
 width on scaled displays, and its log no longer floods after the game loses its graphics device.
@@ -294,7 +294,8 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
 - Updates inside the launcher, signed by the project, and an installer with repair and removal, in English and
   Korean.
 
-[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/kanggu12/openDMT3/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/kanggu12/openDMT3/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/kanggu12/openDMT3/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/kanggu12/openDMT3/compare/v0.2.0...v0.3.0
