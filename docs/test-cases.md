@@ -238,6 +238,7 @@ a line the check prints, and `tests/test_docs.py` fails when either is gone. **S
 | LAUNCHER-162 | This PC's players' database damaged while the launcher runs (**Play**, **Online**) | The page's line, then the check made again: **PLAY** off, the foot in pink, **ID CARD** out | `tests/e2e/ui/shots.py#with the database damaged PLAY is` | ui |
 | LAUNCHER-163 | A click whose error nothing caught (**Help**'s **Save** made to fail) | Said in the launcher's dialog naming the key ("Save did not work."), the error's text in the log only; the window goes on | `tests/e2e/ui/shots.py#the failure was said as` | ui |
 | LAUNCHER-164 | An update that was not put in (not signed, not downloaded) | The fact as the heading, what to do under it: never "failed" twice in one sentence | `tests/client/test_updates.py#test_an_update_that_is_refused_is_told_in_the_launchers_own_dialog` | unit |
+| LAUNCHER-165 | **Help**'s links after its lines (**Window mode**, **Background videos**) | Each opens **Screen** with that setting's row in sight and the keyboard on its control | `tests/e2e/ui/shots.py#led to a row out of sight` | ui |
 
 ## TS-INSTALL: the installer and updates
 

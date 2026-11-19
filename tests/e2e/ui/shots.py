@@ -1806,6 +1806,33 @@ def damaged_database_check(app, out, tag, problems):
         settle(app)
 
 
+def help_links_check(app, out, tag, problems):
+    """HELP's lines lead to the setting they name (the final review's C-09): each link, right after its sentence,
+    opens SCREEN with that setting's row in view and the keyboard on its control."""
+    w = app.words
+    for link_key, setting_key in (("help.crash.1.go", "screen.mode"), ("help.crash.2.go", "screen.videos")):
+        app.go("help")
+        settle(app)
+        links = [x for x in widgets_of(app.root) if x.winfo_class() == "Label" and x.winfo_ismapped()
+                 and x.cget("text") == w(link_key) + " \u203a"]
+        if not links:
+            problems.append("%s_help: no link %r" % (tag, w(link_key)))
+            continue
+        # Clicked, as a person follows it (a key goes to the window with the keyboard, not to the link).
+        links[0].event_generate("<Button-1>")
+        settle(app)
+        rows = [x for x in widgets_of(app.body.inner) if w(setting_key) in getattr(x, "opendmt3_names", ())]
+        focused = app.root.focus_get()
+        area = app.body.canvas
+        if app.page != "screen" or not rows or focused is not getattr(rows[0], "control", None):
+            problems.append("%s_help: %r led to %s, the keyboard on %r" % (tag, w(link_key), app.page, focused))
+        elif not (area.winfo_rooty() <= rows[0].winfo_rooty()
+                  and rows[0].winfo_rooty() + rows[0].winfo_height() <= area.winfo_rooty() + area.winfo_height()):
+            problems.append("%s_help: %r led to a row out of sight" % (tag, w(link_key)))
+    shot(app, out, "%s_help-link-videos" % tag)
+    measure(app, "%s_help-link-videos" % tag, problems)
+
+
 def failed_action_check(app, out, tag, problems):
     """A click whose error nothing caught: said in the launcher's own dialog, naming the key that started it (the
     final review's C-15), and the window goes on."""
@@ -1819,6 +1846,8 @@ def failed_action_check(app, out, tag, problems):
         raise RuntimeError("a made-up failure inside a click")
 
     key.command = made_up
+    # The launcher's own handler for this click (the run's own counts every other uncaught error as a problem).
+    run_handler, app.root.report_callback_exception = app.root.report_callback_exception, app._callback_failed
     seen = {}
 
     def press():
@@ -1834,6 +1863,7 @@ def failed_action_check(app, out, tag, problems):
         through_dialog(app, out, "%s_dialog-action-failed" % tag, press, answer, problems)
     finally:
         key.command = kept
+        app.root.report_callback_exception = run_handler
     if seen.get("message") != w("crash.action.named", action=w("help.report.save").rstrip(".…").strip()):
         problems.append("%s_dialog-action-failed: the failure was said as %r, not by its key"
                         % (tag, seen.get("message")))
@@ -3287,6 +3317,7 @@ def main():
     repair_check(app, args.out, tag, problems)
     remove_check(app, args.out, tag, made, problems)
     damaged_database_check(app, args.out, tag, problems)
+    help_links_check(app, args.out, tag, problems)
     failed_action_check(app, args.out, tag, problems)
     song_list_check(app, args.out, tag, problems)
     if args.resize:
