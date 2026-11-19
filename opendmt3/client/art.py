@@ -712,11 +712,18 @@ def ink_band(font_file, size, text):
     """Where `text`'s ink stands from its baseline when set at `size` pixels: (top, bottom), up negative. The band a
     reader takes for the words' height: their Hangul syllables' when they have Hangul, else the face's capitals' (the
     ink of "H": a "g" hanging under the line or an "l" over the capitals does not move what reads as the middle).
-    Measured four times larger, for a quarter of a pixel's precision."""
+    Measured four times larger, for a quarter of a pixel's precision. (A sign with no letter, a window key's × or −,
+    is the font's own business: has_letters.)"""
     big = ImageFont.truetype(font_file, max(1.0, size * 4))
     hangul = "".join(ch for ch in text if "가" <= ch <= "힣")
     left, top, right, bottom = big.getbbox(hangul or "H", anchor="ls")
     return top / 4.0, bottom / 4.0
+
+
+def has_letters(text):
+    """Whether `text` has a letter or a figure (whose ink band ink_band measures), not only signs (× −), which Tk may
+    draw from another font and centres by their own shape."""
+    return any(ch.isalpha() or ch.isdigit() for ch in text or "")
 
 
 # PLAY's five looks at its size: the guide's last step and the launcher's column share them, and a window made again

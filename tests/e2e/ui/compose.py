@@ -82,7 +82,8 @@ def _key_problems(name, words, font, size, box, text_box, widget, ui, role):
     if abs(width - expected_width) > 1:
         problems.append("%s: the %s key %r is %d px wide, not %d (its words and its role's room either side)"
                         % (name, role, words, width, expected_width))
-    middle = _ink_middle(widget, font, words, text_box[1])
+    # Only words: a sign alone (a window key's × or −) is centred by its own shape, maybe from another font.
+    middle = _ink_middle(widget, font, words, text_box[1]) if art.has_letters(words) else None
     if middle is not None and abs(middle - (box[1] + box[3]) / 2.0) > CENTRED:
         problems.append("%s: the words of %r stand %.2f px off the key's middle (by their ink)"
                         % (name, words, middle - (box[1] + box[3]) / 2.0))

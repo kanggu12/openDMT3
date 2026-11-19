@@ -778,7 +778,7 @@ def ink_shift(widget, font, text):
     # Points become the screen's pixels at its DPI (a negative size is pixels already).
     pixels = -size if size < 0 else size * widget.winfo_fpixels("1i") / 72.0
     face = theme.FONT_FILES.get((actual["family"], actual["weight"]))
-    if face is None or not text:
+    if face is None or not art.has_letters(text):
         return 0.0
     top, bottom = art.ink_band(face, round(pixels * 4) / 4.0, text)
     ascent, descent = font.metrics("ascent"), font.metrics("descent")
