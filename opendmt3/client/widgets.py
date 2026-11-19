@@ -34,6 +34,16 @@ class Ui:
         self.section = theme.SECTION_COLOURS[self.section_name]
 
 
+def choice_colours(ui):
+    """The colours a chosen choice (a row of choices, a tick) takes: the page's section's, but openDMT3's blue on a page
+    whose colour means a state elsewhere (the problem's pink on ONLINE and RECORDS, the something-to-look-at amber on
+    LAUNCHER and HELP): a choice is never read as wrong or as waiting (CARDS.md: pink only for what failed or what
+    removes for good)."""
+    if ui.section["accent"] in (theme.PINK, theme.AMBER):
+        return theme.SECTION_COLOURS["technika"]
+    return ui.section
+
+
 def later(widget, func, ms=None):
     """Run func() after `ms` milliseconds (at the window's next idle moment without), while `widget` is still there:
     scheduled on the window's root, never on `widget` itself. Returns the timer's id, which only cancel() stops (the
@@ -1037,7 +1047,8 @@ class Tick(tk.Frame):
         bg = bg or parent.cget("bg")
         super().__init__(parent, bg=bg)
         self.ui, self.value, self.command = ui, bool(value), command
-        self.colours = ui.section
+        # Ticked in the page's colour, or openDMT3's blue where that colour means a state (choice_colours).
+        self.colours = choice_colours(ui)
         self.over, self.focused, self.enabled = False, False, True
         self.pictures = {}
         self.box = tk.Label(self, bg=bg, bd=0, highlightthickness=0, takefocus=1, cursor="hand2")
@@ -1104,7 +1115,8 @@ class Segmented(tk.Label):
         bg = bg or parent.cget("bg")
         super().__init__(parent, bg=bg, cursor="hand2", bd=0, takefocus=1, anchor="nw", highlightthickness=0)
         self.ui, self.command, self.options, self.value = ui, command, list(options), value
-        self.colours = ui.section
+        # Chosen in the page's colour, or openDMT3's blue where that colour means a state (choice_colours).
+        self.colours = choice_colours(ui)
         # The pictures are made as they are first shown: one for each (chosen, pointed at, ring) look; `room` is the
         # width the row has (its keys take their side room in when they would not fit: art.choice_row).
         self.hover, self.focused, self.edges, self.pictures, self.room = None, False, [], {}, None
@@ -1755,40 +1767,60 @@ def link(parent, ui, text, command, fg=None, bg=None, chevron=True):
 
 class Card(tk.Frame):
     """A panel as the family's cards are (both launchers' and both sites'): one pixel of seam round it, its top-right
-    corner cut, its parts in `body`. With a title, its name hangs from the top-left corner on a tab in the seam's colour
-    that leans at its right end, as the game tabs its panels; `head` is the tab's row, whose right end holds what the
-    card does (Check again, a small button) as OpenDMTQ's cards hold it at their title's right end.
+    corner cut, its parts in `body`. With a title, its name hangs from the top-left corner on a tab that leans at its
+    right end, as the game tabs its panels; `head` is the tab's row, whose right end holds what the card does (Check
+    again, a small button) as OpenDMTQ's cards hold it at their title's right end.
 
-    `kind` is what the card is (theme.CARD_KINDS: a status panel, the member's card, a result panel, a settings plate,
-    a step rail, an info plate, a destructive plate, a list sheet): its look comes from theme.CARD_LOOKS, here and
-    nowhere else, and its face colour is `face` (the body's), which what a page puts in it takes from the body."""
+    `kind` is what the card is (theme.CARD_KINDS), and its look comes from theme.CARD_LOOKS, drawn here and nowhere
+    else (the card identity, CARDS.md): a status panel holds its rows on a sunken screen and shows a lamp for the whole
+    of them after its name (state); a result panel is black glass cut at two opposite corners; a step rail has a rail
+    down its left edge; an info plate is quiet and flat, its name a grey caption inside; a destructive tray is sunken,
+    lit at its foot; a list sheet has its name on a band across its whole top. `lead`: the page's lead (ONLINE's where
+    you play), a status panel cut twice as deep, a little lighter and cooler, its rows on its own face, the signed-in
+    player's platinum nameplate at its head's right end (badge). `face` is the colour the page's words and controls
+    stand on (the body's), which what a page puts in the card takes from its box."""
 
-    # The cut corner's size (logical pixels), the site's: every kind's until the kinds have their own (`cut`).
+    # The family's cut corner (logical pixels), the site's: a kind's own is its look's `cut` (the card's `cut`).
     CUT = 14
 
-    def __init__(self, parent, ui, pad=18, title=None, kind="settings"):
-        self.ui, self.kind = ui, kind
-        # The kind's look: the face, the seam, its light and foot, the name's tab, the cut.
-        look = theme.CARD_LOOKS[kind]
-        self.face, self.cut = look["face"], look["cut"]
+    def __init__(self, parent, ui, pad=18, title=None, kind="settings", lead=False):
+        self.ui, self.kind, self.lead = ui, kind, lead
+        # The kind's look; a page's lead takes the deeper cut, the lead's face and its brighter light, its rows on it.
+        look = dict(theme.CARD_LOOKS[kind])
+        if lead:
+            look.update(face=theme.LEAD_FACE, rim=theme.LEAD_RIM, cut=theme.LEAD_CUT, well=None)
+        self.look = look
+        # The plate's face; `face` becomes the sunken screen's when the rows stand on one.
+        plate = look["face"]
+        self.face, self.cut = plate, look["cut"]
+        self.state_lamp = self.plate_badge = self.name_label = self.tab = None
         outside = parent.cget("bg")
-        # The edge: a hairline round the card (the seam), lit along its top and a step darker along its foot (the
-        # lines placed over it below), as the Platinum Crew site's boxes and Sidenote's panels have their light.
+        # The edge: a hairline round the card (the seam), its top lit (or shaded, sunken) and its foot the other way
+        # (the lines placed over it below), as the Platinum Crew site's boxes and Sidenote's panels have their light.
         super().__init__(parent, bg=look["seam"], padx=1, pady=1)
-        inside = tk.Frame(self, bg=self.face)
+        inside = tk.Frame(self, bg=plate)
         inside.pack(fill="both", expand=True)
         top = ui.px(pad - 2)
-        # The tab's row: the tab at its left, the card's action at its right end (nothing until a page puts one).
-        self.head = tk.Frame(inside, bg=self.face)
+        # The head's row: the name at its left (a tab, or the band's words), the card's action at its right end.
+        band = look.get("band")
+        self.head = tk.Frame(inside, bg=band or plate)
         self.head.pack(fill="x")
-        self.tab = None
-        if title:
+        words = i18n.english_of(title).upper() if title else None
+        if words and band:
+            # A list sheet: its name as words on the band across its whole top (in the tab's face and size), the
+            # band's own room round them.
+            self.name_label = tk.Label(self.head, text=words, font=ui.fonts.dialog_tab, fg=theme.TEXT, bg=band,
+                                       padx=0, pady=0)
+            self.name_label.words = words
+            # The band's room round its words: the plate's side room, and the band's own above and under them.
+            self.name_label.pack(side="left", padx=(ui.px(pad), 0), pady=ui.px(10))
+            top = ui.px(12)
+        elif words and look["tab"] is not None:
             # A card's name in the game's capitals, English in both languages as the menu's (THEME.md), the content in
-            # the page's language.
-            words = i18n.english_of(title).upper()
-            picture = art.name_plate(words, ui.scale, fill=look["tab"])
+            # the page's language, on the kind's tab.
+            picture = art.name_plate(words, ui.scale, fill=look["tab"], colour=look["tab_ink"])
             image = ImageTk.PhotoImage(picture, master=self)
-            self.tab = tk.Label(self.head, image=image, bg=self.face, bd=0)
+            self.tab = tk.Label(self.head, image=image, bg=plate, bd=0)
             # Kept on the label: Tk shows a picture only while Python holds it. The words ride along for the tests.
             self.tab.image, self.tab.words, self.tab.opendmt3_picture = image, words, picture
             self.tab.pack(side="left", anchor="nw")
@@ -1796,30 +1828,94 @@ class Card(tk.Frame):
             top = ui.px(12)
         # A card's action at the head's right end stands a little in from the seam, its top in line with the tab's.
         self.head_pad = (ui.px(pad - 8), ui.px(6))
-        self.body = tk.Frame(inside, bg=self.face, padx=ui.px(pad), pady=0)
-        self.body.pack(fill="both", expand=True, pady=(top, ui.px(pad - 2)))
+        if look.get("well"):
+            # The status panel's sunken screen, set into the plate: a pixel of shade round it, its lower edge catching
+            # the light, the rows on it. It ends with its rows: a plate taller than them shows its own face below.
+            frame = tk.Frame(inside, bg=theme.WELL_SHADE, padx=1, pady=1)
+            frame.pack(fill="x", anchor="n", padx=ui.px(pad - 6), pady=(top - ui.px(2), ui.px(pad - 6)))
+            screen = tk.Frame(frame, bg=look["well"])
+            screen.pack(fill="x")
+            tk.Frame(frame, bg=theme.WELL_LIGHT, height=1).place(x=0, rely=1.0, y=-1, relwidth=1.0, height=1)
+            self.face = look["well"]
+            self.body = tk.Frame(screen, bg=self.face, padx=ui.px(10), pady=0)
+            self.body.pack(fill="x", pady=ui.px(12))
+            # The plate under the screen, for what is not a row of it (a way on, a link): empty until something is put
+            # in it, its room under it the plate's.
+            self.plate_area = tk.Frame(inside, bg=plate, padx=ui.px(pad), pady=0)
+            self.plate_area.pack(fill="x", anchor="n")
+        else:
+            self.body = tk.Frame(inside, bg=plate, padx=ui.px(pad), pady=0)
+            self.body.pack(fill="both", expand=True, pady=(top, ui.px(pad - 2)))
+            # No screen: what is not a row goes on the body, under the rows.
+            self.plate_area = self.body
+        if words and look["tab"] is None and not band:
+            # An info plate's name: no tab, a caption in the tab's face and size in the hints' grey, its first line.
+            self.name_label = tk.Label(self.body, text=words, font=ui.fonts.dialog_tab, fg=theme.MUTED, bg=plate,
+                                       anchor="w", padx=0, pady=0)
+            self.name_label.words = words
+            self.name_label.pack(fill="x", pady=(0, ui.px(10)))
         # The cut: a small picture over the square corner, its seam included (placed from the card's outer edge, not
         # inside the pixel of seam the frame keeps round its inside): the page's colour beyond the cut, the seam going
         # on along it from the top edge to the right one, so that no square corner is left.
         cut = ui.px(self.cut)
-        # The top edge's light, from the left to where the cut begins (it goes on down the cut in the corner's picture),
-        # and the foot a step darker: one line round the card, its light from above.
+        # The top edge's light (shade, sunken), from the left to where the cut begins (it goes on down the cut in the
+        # corner's picture), and the foot the other way: one line round the card, its light from above.
         tk.Frame(self, bg=look["rim"], height=1, bd=0, highlightthickness=0).place(x=0, y=0, relwidth=1.0, width=-cut,
                                                                                     height=1, bordermode="outside")
         tk.Frame(self, bg=look["foot"], height=1, bd=0, highlightthickness=0).place(x=0, rely=1.0, y=-1,
                                                                                      relwidth=1.0, height=1,
                                                                                      bordermode="outside")
-        picture = art.corner(cut, self.face, outside, seam=look["seam"], rim=look["rim"])
+        # Under the cut: the band where a list's band runs to the edge, else the plate.
+        picture = art.corner(cut, band or plate, outside, seam=look["seam"], rim=look["rim"])
         self._corner = ImageTk.PhotoImage(picture, master=self)
         corner = tk.Label(self, image=self._corner, bd=0, highlightthickness=0, bg=outside)
         # A dialog draws the window behind it from the widgets (snapshot.py): the corner as it looks.
         corner.opendmt3_picture = picture
         corner.place(relx=1.0, x=-cut, y=0, width=cut, height=cut, bordermode="outside")
+        if look.get("foot_cut"):
+            # The result panel's second cut, at its foot's left (the game's result frames are cut at two opposite
+            # corners): the top-right corner's picture turned half round.
+            size = ui.px(look["foot_cut"])
+            picture = art.corner_foot(size, plate, outside, look["seam"])
+            image = ImageTk.PhotoImage(picture, master=self)
+            foot = tk.Label(self, image=image, bd=0, highlightthickness=0, bg=outside)
+            foot.image, foot.opendmt3_picture = image, picture
+            foot.place(x=0, rely=1.0, y=-size, width=size, height=size, bordermode="outside")
+        if look.get("rail"):
+            # A step rail: down the plate's left edge, in the margin beside the steps' lamps, from under the tab to the
+            # foot's room.
+            tk.Frame(inside, bg=look["rail"], width=ui.px(3)).place(x=ui.px(pad // 2) - ui.px(1), y=ui.px(44),
+                                                                    width=ui.px(3), relheight=1.0, height=-ui.px(60))
+
+    def state(self, tone):
+        """A status panel's lamp after its name, for the whole of what it shows: lit green when all is ready
+        ("ready"), lit amber when something is still to do ("todo"), lit pink when something stops it ("bad"), an
+        outline while it is being made ("quiet")."""
+        colour, lit = {"ready": (theme.NET, True), "todo": (theme.AMBER, True), "bad": (theme.PINK, True),
+                       "quiet": (theme.MUTED, "quiet")}[tone]
+        picture = art.lamp(colour, lit, self.ui.scale, size=(17, 13))
+        image = ImageTk.PhotoImage(picture, master=self)
+        if self.state_lamp is None:
+            # After the tab, on the tab's middle.
+            self.state_lamp = tk.Label(self.head, bg=self.head.cget("bg"), bd=0)
+            self.state_lamp.pack(side="left", anchor="w", padx=(self.ui.px(10), 0), pady=(self.ui.px(4), 0))
+        self.state_lamp.configure(image=image)
+        self.state_lamp.image, self.state_lamp.opendmt3_picture, self.state_lamp.tone = image, picture, tone
+
+    def badge(self, name):
+        """The signed-in player's platinum nameplate at the head's right end (a page's lead), left of its action."""
+        picture = art.member_plate(name, self.ui.scale)
+        image = ImageTk.PhotoImage(picture, master=self)
+        self.plate_badge = tk.Label(self.head, image=image, bg=self.head.cget("bg"), bd=0)
+        self.plate_badge.image, self.plate_badge.opendmt3_picture, self.plate_badge.words = image, picture, name
+        self.plate_badge.pack(side="right", padx=(0, self.ui.px(10)), pady=(self.head_pad[1], 0))
 
     def action(self, text, command, kind="secondary"):
         """What the card does, as a small button at the right end of its tab's row (OpenDMTQ's Check again)."""
         button = Button(self.head, self.ui, text, command, kind=kind, size="small")
-        button.pack(side="right", padx=(0, self.head_pad[0]), pady=(self.head_pad[1], 0))
+        # At the very end of the row, a lead's nameplate left of it.
+        before = {"before": self.plate_badge} if self.plate_badge is not None else {}
+        button.pack(side="right", padx=(0, self.head_pad[0]), pady=(self.head_pad[1], 0), **before)
         return button
 
 

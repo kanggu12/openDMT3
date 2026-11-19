@@ -16,6 +16,7 @@ What it holds, on every page, guide step and dialog it is given:
   name on its tab, a dialog's tab: their capitals at least the body's);
 - a setting's name and its control on one line (their middles), the controls of one group at one edge;
 - a control sized for its use: a slider long enough to set a value by;
+- a status panel's lamp saying the whole check as the foot does;
 - a page composed, not a list of boxes: no card that holds one control (a key, a switch, a choice, a field) and at
   most one line of words (fold it into the group it belongs to), and no run of three or more cards each across the
   whole column, one under another, on a page wide enough for two (pages.PAIR_FROM) that leaves a quarter of its view
@@ -49,6 +50,12 @@ def _shown(widget):
     return bool(widget.winfo_ismapped())
 
 
+def _card_name(card):
+    """A card's name as the tests know it: its tab's words, or its name in words (a list's band, an info caption)."""
+    named = card.tab if card.tab is not None else getattr(card, "name_label", None)
+    return getattr(named, "words", "") if named is not None else ""
+
+
 def _inside_control(widget, card):
     """True when `widget` is part of a control (a tick's words, a field's own parts), below `card`."""
     parent = widget.master
@@ -68,11 +75,13 @@ def single_controls(root, ui, name):
             continue
         parts = [w for w in _walk(card) if w is not card and _shown(w)]
         controls = [w for w in parts if isinstance(w, CONTROLS) and not _inside_control(w, card)]
-        # Words: labels with words of their own (a switch or a row of choices is a label holding a picture).
+        # Words: labels with words of their own (a switch or a row of choices is a label holding a picture), and the
+        # objects a card holds (the member's card).
         lines = [w for w in parts if isinstance(w, tk.Label) and not isinstance(w, CONTROLS)
-                 and str(w.cget("text")).strip() and not _inside_control(w, card)]
+                 and (str(w.cget("text")).strip() or getattr(w, "opendmt3_object", False))
+                 and not _inside_control(w, card)]
         if len(controls) == 1 and len(lines) <= 1:
-            named = card.tab.words if card.tab is not None else ""
+            named = _card_name(card)
             problems.append("%s: the card %r holds one control and %s: a box for one control"
                             % (name, named, "one line" if lines else "no words"))
     return problems
@@ -251,8 +260,8 @@ def _heading(widget, name, what, font, words, body):
 
 
 def words_and_headings(root, ui, name):
-    """Every label in the type's steps; every card's name (its tab, a picture: art.name_plate) no smaller than the
-    body."""
+    """Every label in the type's steps; every card's name (its tab, a picture: art.name_plate; or its words on a list's
+    band or as an info plate's caption) no smaller than the body."""
     problems = []
     body_cap = _cap(root, ui.fonts.body, "H")
     plate_cap = None
@@ -263,6 +272,11 @@ def words_and_headings(root, ui, name):
             text = widget.cget("text")
             if text:
                 problems.extend(_step(widget, name, _font(widget, widget.cget("font")), text))
+        named = getattr(widget, "name_label", None) if isinstance(widget, widgets.Card) else None
+        if named is not None and named.winfo_ismapped():
+            # A name in words (a list's band, an info plate's caption): its own font measured.
+            problems.extend(_heading(named, name, "the card's name %r" % named.words,
+                                     _font(named, named.cget("font")), named.words, ui.fonts.body))
         if isinstance(widget, widgets.Card) and widget.tab is not None:
             if plate_cap is None:
                 top, bottom = art.ink_band(theme.WIDE_FILE, art.PLATE_TEXT * ui.scale, "H")
@@ -324,7 +338,7 @@ def left_line(root, ui, name):
         if first and card.master is not None and card.master.winfo_rootx() <= left + 1 and \
                 abs(card.winfo_rootx() - left) > 1:
             problems.append("%s: the card %r starts at %d, off the page's left edge %d"
-                            % (name, card.tab.words if card.tab is not None else "", card.winfo_rootx(), left))
+                            % (name, _card_name(card), card.winfo_rootx(), left))
     return problems
 
 
@@ -351,11 +365,16 @@ def decoration(root, ui, name, screen_pixel):
         colour = art._rgb(card.master.cget("bg"))
         # The card's own cut (its kind's: theme.CARD_LOOKS).
         cut = ui.px(getattr(card, "cut", widgets.Card.CUT))
-        # Next to the card's edges and a little out into the gaps, and in the triangle its cut leaves.
+        # Next to the card's edges and a little out into the gaps, and in the triangle its cut leaves (a result panel's
+        # second cut at its foot's left too).
         out = ui.px(10)
         points = [("left of", x - 3, y + h // 2), ("left of", x - out, y + h // 2), ("right of", x + w + 2, y + h // 2),
                   ("under", x + w // 2, y + h + 2), ("under", x + w // 4, y + h + ui.px(8)),
                   ("beyond the cut corner of", x + w - 2, y + 2), ("beyond the cut corner of", x + w - cut // 3, y + 1)]
+        foot_cut = ui.px((getattr(card, "look", None) or {}).get("foot_cut") or 0)
+        if foot_cut:
+            points += [("beyond the foot's cut corner of", x + 1, y + h - 2),
+                       ("beyond the foot's cut corner of", x + foot_cut // 3, y + h - 1)]
         for where, px_, py in points:
             if not (view[0] <= px_ < view[2] - ui.px(14) and view[1] <= py < view[3]):
                 # Off the page's view (scrolled away, or under the scroll bar's margin).
@@ -363,9 +382,31 @@ def decoration(root, ui, name, screen_pixel):
             seen = screen_pixel(px_, py)
             if seen is not None and any(abs(a - b) > SAME_COLOUR for a, b in zip(seen, colour)):
                 problems.append("%s: something other than the page's colour %s the card %r at (%d, %d): %s"
-                                % (name, where, card.tab.words if card.tab is not None else "", px_, py, seen))
+                                % (name, where, _card_name(card), px_, py, seen))
                 break
     return problems
+
+
+def status_lamp(app, name):
+    """A status panel's lamp says the whole check as the foot does (CARDS.md "status"): green when PLAY can go, amber
+    when something is still to do, pink when something went wrong, an outline while the check is made."""
+    from opendmt3.client import actions
+    panel = getattr(app, "check_card", None)
+    if panel is None or not panel.winfo_exists() or not panel.winfo_ismapped() or panel.state_lamp is None:
+        return []
+    checks = app.checks
+    if checks is None:
+        wanted = "quiet"
+    elif any(not c.ok and actions.failing(c) for c in checks):
+        wanted = "bad"
+    elif any(not c.ok and not c.key.startswith("step:") for c in checks):
+        wanted = "todo"
+    else:
+        wanted = "ready"
+    if panel.state_lamp.tone != wanted:
+        return ["%s: the status panel %r says %r, its check %r" % (name, _card_name(panel), panel.state_lamp.tone,
+                                                                     wanted)]
+    return []
 
 
 def check(app, name, screen_pixel=None):
@@ -374,4 +415,5 @@ def check(app, name, screen_pixel=None):
     root.update_idletasks()
     return (keys(root, ui, name) + words_and_headings(root, ui, name) + rows(root, ui, name)
             + left_line(root, ui, name) + single_controls(root, ui, name) + short_stack(root, ui, name)
+            + status_lamp(app, name)
             + decoration(root, ui, name, screen_pixel))

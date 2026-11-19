@@ -27,6 +27,8 @@ def build_help(app, parent):
     pair = Pair(app, parent)
     checks = pair_card(pair.left, ui, w("help.checks"), kind="status")
     checks.action(w("help.recheck"), app.refresh_checks)
+    # Its lamp follows the whole check (pages.refresh_checks).
+    app.check_card = checks
     app.check_box = tk.Frame(checks.body, bg=checks.body.cget("bg"))
     app.check_box.pack(fill="x")
     refresh_checks(app)

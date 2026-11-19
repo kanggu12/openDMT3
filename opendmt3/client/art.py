@@ -1235,3 +1235,123 @@ def mark(size):
     draw.polygon([(s * 0.78, s * 0.05), (s * 0.95, s * 0.05), (s * 0.70, s * 0.95), (s * 0.53, s * 0.95)],
                  fill=_rgb(theme.LIME) + (255,))
     return img.resize((size, size), Image.LANCZOS)
+
+
+# The member's platinum card (CARDS.md, "member"): the sites' .djcard in the launcher, as a picture. Its stops are the
+# sites' platinum, toned to a mid platinum so that it does not glare on the dark page (a band of shade across its
+# middle, as brushed metal holds the light), its rim the sites' platinum rim.
+PLATINUM_STOPS = ((0.0, "#d9dfe3"), (0.46, "#c5ccd2"), (0.50, "#b3bbc2"), (0.72, "#c1c8ce"), (1.0, "#cfd5da"))
+# A card's proportions (ISO/IEC 7810 ID-1, 85.60 by 53.98 mm: 1.586 to 1) at the launcher's modest size, and the
+# rounding of its corners (logical pixels).
+MEMBER_CARD, MEMBER_ROUND = (176, 111), 9
+
+
+def _platinum(w, h):
+    """The platinum's face, `w` by `h` pixels: its stops from top to foot, the game's perforation faint in it."""
+    face = Image.new("RGB", (1, h))
+    stops = [(int(at * (h - 1)), _rgb(colour)) for at, colour in PLATINUM_STOPS]
+    for y in range(h):
+        # Between the two stops round this line, in proportion.
+        for (y0, c0), (y1, c1) in zip(stops, stops[1:]):
+            if y0 <= y <= y1:
+                t = (y - y0) / float(max(1, y1 - y0))
+                face.putpixel((0, y), tuple(int(round(a + (b - a) * t)) for a, b in zip(c0, c1)))
+                break
+    return face.resize((w, h))
+
+
+@_kept(16)
+def member_card(name, login_id, scale=1.0):
+    """The one who plays as the Platinum Crew member's card (the sites' DJ card): a platinum card of a card's
+    proportions, rounded as one piece (the one rounded thing: an object held in the hand), a thin metal rim and a
+    white light along its top just inside it, the game's perforation faint in the metal, the DJ name in heavy dark ink
+    at its foot and the ID under it in the second ink. No crest, no logo. Returns an RGBA picture."""
+    width, height = int(round(MEMBER_CARD[0] * scale)), int(round(MEMBER_CARD[1] * scale))
+    # Drawn SS times larger and brought down, for smooth arcs and words.
+    w, h = width * SS, height * SS
+    radius = int(round(MEMBER_ROUND * scale * SS))
+    face = _platinum(w, h)
+    # The perforation: two offset lattices of faint dots every 8 logical pixels (the game's member card's surface).
+    dots = ImageDraw.Draw(face)
+    step, r = 8 * scale * SS, 0.85 * scale * SS
+    y, row = 2 * scale * SS, 0
+    while y < h:
+        x = (2 if row % 2 == 0 else 6) * scale * SS
+        while x < w:
+            dots.ellipse([x - r, y - r, x + r, y + r], fill=(176, 184, 191))
+            x += step
+        y += step / 2.0
+        row += 1
+    # The card's shape: rounded at all four corners.
+    shape = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(shape).rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    img.paste(face, (0, 0), shape)
+    draw = ImageDraw.Draw(img)
+    # The rim round it, and the white light along its top just inside the rim.
+    line = max(1, int(round(scale))) * SS
+    draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, outline=_rgb(theme.PLATINUM_RIM), width=line)
+    draw.line([(radius, line), (w - radius, line)], fill=(255, 255, 255), width=line)
+    # The words, in the type's steps: the DJ name in heavy ink (13 points), the ID under it (9 points).
+    pad = 12 * scale * SS
+    big = ImageFont.truetype(theme.HANGUL_TITLE_FILE, 13 * 96 / 72.0 * scale * SS)
+    small = ImageFont.truetype(theme.TEXT_BOLD_FILE, 9 * 96 / 72.0 * scale * SS)
+    draw.text((pad, h - pad - 15 * scale * SS), name, font=big, fill=_rgb(theme.PLATINUM_INK), anchor="ls")
+    draw.text((pad, h - pad), login_id, font=small, fill=_rgb(theme.PLATINUM_INK_2), anchor="ls")
+    return img.resize((width, height), Image.LANCZOS)
+
+
+@_kept(8)
+def member_plate(name, scale=1.0):
+    """The signed-in player's small platinum nameplate (a page's lead, CARDS.md): the member card's metal and rim,
+    rounded, the DJ name in its dark ink in the body's size. Returns an RGBA picture."""
+    font_px = 10 * 96 / 72.0 * scale
+    height = int(round(22 * scale))
+    probe = ImageFont.truetype(theme.TEXT_BOLD_FILE, font_px)
+    width = int(round(probe.getlength(name) + 2 * 10 * scale))
+    w, h = width * SS, height * SS
+    face = _platinum(w, h)
+    shape = Image.new("L", (w, h), 0)
+    radius = int(round(5 * scale * SS))
+    ImageDraw.Draw(shape).rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=255)
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    img.paste(face, (0, 0), shape)
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, outline=_rgb(theme.PLATINUM_RIM),
+                           width=max(1, int(round(scale))) * SS)
+    # The name's ink band in the plate's middle (ink_band), as every word on a key or a tab stands.
+    font = ImageFont.truetype(theme.TEXT_BOLD_FILE, font_px * SS)
+    top, bottom = ink_band(theme.TEXT_BOLD_FILE, font_px * SS, name)
+    draw.text((10 * scale * SS, h / 2.0 - (top + bottom) / 2.0), name, font=font, fill=_rgb(theme.PLATINUM_INK),
+              anchor="ls")
+    return img.resize((width, height), Image.LANCZOS)
+
+
+@_kept(8)
+def corner_foot(size, inside, outside, seam):
+    """The result panel's second cut, at its foot's left (the game's result frames are cut at two opposite corners):
+    the top-right corner's picture turned half round, its seam along the cut."""
+    return corner(size, inside, outside, seam=seam).rotate(180)
+
+
+@_kept(8)
+def member_slot(words, scale=1.0):
+    """Where the member's card stands when no card goes in (a guest, offline, before a sign-in): the card's place,
+    sunken into the plate (a well's dark, the shade along its top inside and the light caught at its foot), rounded as
+    the card, the game's words for it (NO ID CARD) in the tab's face and the hints' grey where a DJ name would be.
+    Returns an RGBA picture as large as the card."""
+    width, height = int(round(MEMBER_CARD[0] * scale)), int(round(MEMBER_CARD[1] * scale))
+    w, h = width * SS, height * SS
+    radius = int(round(MEMBER_ROUND * scale * SS))
+    line = max(1, int(round(scale))) * SS
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=radius, fill=_rgb(theme.WELL), outline=_rgb(theme.SEAM),
+                           width=line)
+    # Sunken: the shade along its top inside, the light caught along its foot inside.
+    draw.line([(radius, 2 * line), (w - radius, 2 * line)], fill=_rgb(theme.WELL_SHADE), width=line)
+    draw.line([(radius, h - 1 - 2 * line), (w - radius, h - 1 - 2 * line)], fill=_rgb(theme.WELL_LIGHT), width=line)
+    font = ImageFont.truetype(theme.WIDE_FILE, PLATE_TEXT * scale * SS)
+    pad = 12 * scale * SS
+    draw.text((pad, h - pad), words, font=font, fill=_rgb(theme.MUTED), anchor="ls")
+    return img.resize((width, height), Image.LANCZOS)

@@ -114,11 +114,11 @@ def pair_card(holder, ui, title=None, kind="settings"):
     return made
 
 
-def card(parent, ui, title=None, last=False, kind="settings"):
+def card(parent, ui, title=None, last=False, kind="settings", lead=False):
     """A card with its title, stacked under the ones before it with the gap between cards. `kind`: what the card is
-    (theme.CARD_KINDS: a settings plate of rows unless said)."""
+    (theme.CARD_KINDS: a settings plate of rows unless said); `lead`: the page's lead (widgets.Card)."""
     from opendmt3.client import widgets
-    made = widgets.Card(parent, ui, title=title, kind=kind)
+    made = widgets.Card(parent, ui, title=title, kind=kind, lead=lead)
     made.pack(fill="x", pady=(0, 0 if last else ui.px(CARD_GAP)))
     return made
 

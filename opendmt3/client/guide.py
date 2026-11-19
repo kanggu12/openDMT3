@@ -353,7 +353,8 @@ class Guide:
         # Where you play, on the ONLINE page's own card; on this PC the players and the form that adds one are rows of
         # the same group, with another server its address, its sign-in and its test (a card for one choice said little
         # but its name). The test's card, when it shows, keeps its own gap above it.
-        where = card(parent, ui, w("online.where"), last=True)
+        where = card(parent, ui, w("online.where"), last=True, kind="status", lead=True)
+        pages.lead_state(app, where)
         choice = widgets.setting_row(where.body, ui, w("online.mode"),
                                      lambda p: widgets.Segmented(p, ui, [("this_pc", w("online.mode.this_pc")),
                                                                          ("server", w("online.mode.server")),
@@ -417,13 +418,15 @@ class Guide:
     def _ready(self, parent):
         app, ui, px, w = self.app, self.app.ui, self.app.ui.px, self.app.words
         ready = card(parent, ui, w("play.ready"), last=True, kind="status")
+        # Its lamp follows the whole check (pages.refresh_checks).
+        app.check_card = ready
         app.check_box = tk.Frame(ready.body, bg=ready.body.cget("bg"))
         app.check_box.pack(fill="x")
         app.refresh_checks()
         pages.refresh_checks(app)
-        # The way to the launcher's pages without playing, where Skip stood on the steps before, under the ready check
-        # and parted from it by the card's faint line. (How the game plays and how to leave it are the guides' in the
-        # docs: the launcher shows no card of instructions.)
-        widgets.divider(ready.body, ui)
-        widgets.link(ready.body, ui, w("guide.4.launcher"), lambda: self.finish(play=False)).pack(anchor="w",
-                                                                                                  pady=(px(12), 0))
+        # The way to the launcher's pages without playing, where Skip stood on the steps before, under the ready check:
+        # on the plate under its sunken screen (the screen holds the check's rows only). (How the game plays and how to
+        # leave it are the guides' in the docs: the launcher shows no card of instructions.)
+        # The card's foot room under it (the screen's own room above it).
+        widgets.link(ready.plate_area, ui, w("guide.4.launcher"), lambda: self.finish(play=False)).pack(
+            anchor="w", pady=(0, px(16)))

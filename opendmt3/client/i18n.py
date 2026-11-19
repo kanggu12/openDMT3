@@ -440,6 +440,8 @@ TEXT = {
     "online.remove.detail": ("Their cleared stages go with them, and this cannot be undone.",
                              "클리어한 스테이지 기록도 함께 지워지며 되돌릴 수 없습니다."),
     "online.guest": ("Guest (NO ID CARD)", "손님(NO ID CARD)"),
+    # On the empty place of the member's card (no card goes in): the game's own words, in both languages.
+    "play.no_card": ("NO ID CARD", "NO ID CARD"),
     "play.who": ("Who plays", "플레이할 사람"),
     "play.player": ("Player",
                     "플레이하는 사람"),

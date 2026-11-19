@@ -121,16 +121,59 @@ FONT_FILES = {(DISPLAY, "normal"): WIDE_FILE, (TEXT_FONT, "normal"): TEXT_FILE, 
 # head's line under a page's title; a dialog's question; the big words (PLAY, the records' numbers, the titles).
 TYPE_STEPS = (9, 10, 11, 12, 13, 17, 18, 19, 21)
 
-# The kinds of card the pages are made of, each page naming its own (widgets.Card's kind): a status panel with lamps
-# (the ready check, the checks), the member's card (who plays, a DJ's records), a result panel (the connection test's
-# steps), a settings plate of rows, a step rail, an info plate (what openDMT3 is, what to try, a page's word of what
-# stands), a destructive plate (what puts back and takes away), a list sheet (the players, the plays). Every kind's
-# look is here and only here (CARD_LOOKS: the face, the seam round it, its lit top and darker foot, the name's tab, the
-# cut corner's size), so that a kind's own shape and colour change no page. Until the kinds are designed (the card
-# identity, CARDS.md), every kind looks as the cards always have.
+# The kinds of card the pages are made of, each page naming its own (widgets.Card's kind), each with a background and
+# a shape of its own so that the kinds tell apart at a glance and in grey (the card identity, _work/theme/CARDS.md, the
+# owner 2026-11-19: "each card a shape and colour fitting its content"): a status panel with lamps (the ready check, the
+# checks), the member's card (who plays, a DJ's summary), a result panel (the last game, the scores), a settings plate
+# of rows, a step rail (the connection test), an info plate (what openDMT3 is, what to try, a page's word of what
+# stands), a destructive tray (what puts back and takes away), a list sheet (the players). Every kind's look is here
+# and only here (CARD_LOOKS), so that a kind's look changes no page. One family: the 1 px seam, the cut corner drawn
+# as one seam with the top light following it, light from above on a raised plate and from below in a sunken well.
 CARD_KINDS = ("status", "member", "result", "settings", "steps", "info", "danger", "list")
-CARD_LOOKS = {kind: {"face": PANEL, "seam": SEAM, "rim": RIM, "foot": FOOT, "tab": LINE, "cut": 14}
-              for kind in CARD_KINDS}
+# A sunken face (the status panel's screen) or a tray (the destructive kind): darker than the page, its upper inner
+# edge in shade and its lower one catching the light from above, as a recess is lit.
+WELL = "#0c0f13"
+WELL_SHADE = "#06080a"
+WELL_LIGHT = "#2a313a"
+# The result's black glass (the game's result frames): a step under the well, a faint light along its top.
+GLASS = "#08090c"
+GLASS_TOP = "#262c34"
+# An info plate: a step off the page and no light along its top (it says, it does not ask).
+QUIET_FACE = "#14181d"
+# A page's lead (ONLINE's where you play): a status panel cut twice as deep as the family, a little of the head's glass
+# on its face (a step cooler and lighter) and a brighter light along its top; opaque.
+LEAD_CUT = 28
+LEAD_FACE = "#1d242c"
+LEAD_RIM = "#66717e"
+# The member's card (art.member_card): the sites' platinum card as an object held by the plate, never a box's face;
+# its middle stop, rim and inks (dark ink on platinum, 9:1 and more).
+PLATINUM = "#e2e7ea"
+PLATINUM_RIM = "#6f7984"
+PLATINUM_INK = "#13181e"
+PLATINUM_INK_2 = "#4a535d"
+# Each kind's look: its face, the seam round it, the light along its top (`rim`: shade for a sunken kind) and the line
+# along its foot, the name's tab (None: the name as a quiet caption inside) and the words on it, the cut corner (logical
+# pixels); and its parts: `well`, a sunken screen set into the plate that holds the rows; `foot_cut`, a second cut at
+# the foot's left; `rail`, a rail down the left edge; `band`, the name on a band across the whole top.
+_PLATE = {"face": PANEL, "seam": SEAM, "rim": RIM, "foot": FOOT, "tab": LINE, "tab_ink": TEXT, "cut": 14}
+CARD_LOOKS = {
+    # The base: a raised gunmetal plate of rows, its name on the grey tab.
+    "settings": dict(_PLATE),
+    # The cabinet's status panel: the plate holding a sunken screen of lamps; its state lamp after its name.
+    "status": dict(_PLATE, well=WELL),
+    # The member's plate: the base plate, holding the platinum card of the one who plays (art.member_card).
+    "member": dict(_PLATE),
+    # The game's result panel: black glass, cut at two opposite corners.
+    "result": dict(_PLATE, face=GLASS, seam="#20262e", rim=GLASS_TOP, foot="#050607", tab="#1b2027", foot_cut=14),
+    # A step rail: the plate with a rail down its left edge beside the steps' lamps.
+    "steps": dict(_PLATE, rail=LINE),
+    # A quiet info plate: no tab (its name a caption in the hints' grey), no light along its top, a step off the page.
+    "info": dict(_PLATE, face=QUIET_FACE, rim=SEAM, foot=SEAM, tab=None),
+    # The destructive tray: sunken, its shade along its top and the light at its foot; its tab dark, its words grey.
+    "danger": dict(_PLATE, face=WELL, rim=WELL_SHADE, foot=WELL_LIGHT, tab="#1d2228", tab_ink=MUTED),
+    # A list sheet: its name on a band of the slots' dark across its whole top, the rows edge to edge on faint lines.
+    "list": dict(_PLATE, band=FIELD),
+}
 
 
 def register_fonts():

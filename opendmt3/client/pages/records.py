@@ -214,7 +214,8 @@ def _records_drawn(app, box, dj):
     row.columnconfigure(0, weight=1, uniform="lists")
     row.columnconfigure(1, weight=1, uniform="lists")
     for column, (title_key, items) in enumerate((("records.recent", dj["recent"]), ("records.bests", dj["bests"][:10]))):
-        card = widgets.Card(row, ui, title=w(title_key), kind="list")
+        # The scoreboard: the game's result panel (CARDS.md "result"), scores in the game's figures and colour.
+        card = widgets.Card(row, ui, title=w(title_key), kind="result")
         card.grid(row=0, column=column, sticky="nsew", padx=(0, ui.px(CARD_GAP)) if column == 0 else 0)
         if not items:
             widgets.label(card.body, ui, w("records.none"), fg=theme.MUTED, bg=card.body.cget("bg"),

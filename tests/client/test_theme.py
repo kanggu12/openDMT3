@@ -711,7 +711,11 @@ class ComposeTest(unittest.TestCase):
         import os
         import re
         for kind in theme.CARD_KINDS:
-            self.assertEqual(set(theme.CARD_LOOKS[kind]), {"face", "seam", "rim", "foot", "tab", "cut"}, kind)
+            look = set(theme.CARD_LOOKS[kind])
+            # Every kind's whole edge and name; its parts only from the ones widgets.Card draws.
+            self.assertLessEqual({"face", "seam", "rim", "foot", "tab", "tab_ink", "cut"}, look, kind)
+            self.assertLessEqual(look - {"face", "seam", "rim", "foot", "tab", "tab_ink", "cut"},
+                                 {"well", "foot_cut", "rail", "band"}, kind)
         top = os.path.dirname(theme.__file__)
         named = set()
         for path in glob.glob(os.path.join(top, "**", "*.py"), recursive=True):
@@ -722,6 +726,50 @@ class ComposeTest(unittest.TestCase):
                 named.update(re.findall(r"kind=\"(\w+)\"", call))
         self.assertTrue(named)
         self.assertLessEqual(named, set(theme.CARD_KINDS), named - set(theme.CARD_KINDS))
+
+    def test_the_kinds_tell_apart_in_grey_and_the_member_card_reads(self):
+        # CARDS.md: raised plates lit from above, sunken ones shaded at the top and lit at the foot.
+        def grey(colour):
+            r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+        looks = theme.CARD_LOOKS
+        for kind in ("settings", "status", "steps", "list", "result"):
+            self.assertGreater(grey(looks[kind]["rim"]), grey(looks[kind]["foot"]), kind)
+        self.assertLess(grey(looks["danger"]["rim"]), grey(looks["danger"]["foot"]))
+        # The faces apart: the quiet info plate, the base plate, the sunken tray and the black glass, each its own.
+        faces = [grey(looks[k]["face"]) for k in ("settings", "info", "danger", "result")]
+        self.assertEqual(len(set(round(f) for f in faces)), 4, faces)
+
+        # The member card's words on its platinum (the darkest stop it has): dark ink 7:1 and more, the second ink
+        # 4.5:1 and more (WCAG's contrast).
+        def luminance(colour):
+            def channel(c):
+                c = c / 255.0
+                return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+            r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
+            return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+        def contrast(a, b):
+            la, lb = sorted((luminance(a), luminance(b)), reverse=True)
+            return (la + 0.05) / (lb + 0.05)
+
+        # The metal behind each line of words (the card at 100 %, its words at its foot: the DJ name's capitals over
+        # its baseline 27 px over the foot, the ID's over its baseline 12 px over it), at its darkest there.
+        width, height = art.MEMBER_CARD
+        face = art._platinum(width, height)
+
+        def darkest(first, last):
+            return min(("#%02x%02x%02x" % face.getpixel((width // 2, y)) for y in range(first, last)),
+                       key=luminance)
+
+        self.assertGreaterEqual(contrast(theme.PLATINUM_INK, darkest(height - 27 - 13, height - 27)), 7.0)
+        self.assertGreaterEqual(contrast(theme.PLATINUM_INK_2, darkest(height - 12 - 9, height - 12)), 4.5)
+        # A card's proportions (ID-1: 85.60 by 53.98 mm), and the picture at every scale.
+        self.assertAlmostEqual(art.MEMBER_CARD[0] / float(art.MEMBER_CARD[1]), 85.60 / 53.98, delta=0.01)
+        for scale in (1.0, 1.5, 2.0):
+            picture = art.member_card("DJ NOVA", "NOVA", scale)
+            self.assertEqual(picture.size, (int(round(176 * scale)), int(round(111 * scale))))
 
     def test_the_type_steps_name_every_size(self):
         import re

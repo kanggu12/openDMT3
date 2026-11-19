@@ -18,6 +18,13 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   This PC's switch for the other PCs and the form that adds a player are rows of their groups, and the first-start
   guide's steps are one group each. No box holds a single control or a single key. In a small window a pair stands
   one under the other.
+- Each card has a background and a shape that fit what it holds: the ready check and HELP's checks on a sunken screen
+  with one lamp for the whole check after their name; the player's platinum member card on **Play** (its empty place
+  says NO ID CARD); the last game and the records' scores on the game's black glass, cut at two opposite corners, the
+  scores in the game's colour; the connection test with a rail down its edge; what openDMT3 is and what to try on a
+  quiet plate named by a grey caption; what puts back and removes on a sunken tray; the players on a sheet under a
+  band. **Online**'s where-you-play is the page's lead, cut deeper, with the signed-in player's nameplate. A choice
+  and a tick are blue on the pages whose colour means a state (pink only for what failed or removes for good).
 - A card's and a dialog's name are as large as the words under them; every key of one role is one size on every page
   and dialog (one height, one room either side of its words), its words centred by their ink, and no key is stretched
   across its card.

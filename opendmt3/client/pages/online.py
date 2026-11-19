@@ -542,7 +542,7 @@ def test_card(app, where, parent, typed, rerender=None):
             return
         if made is None or not made.winfo_exists():
             # The test's card, the gap between cards above it.
-            made = shown["card"] = widgets.Card(holder, ui, title=w("server_test"), kind="result")
+            made = shown["card"] = widgets.Card(holder, ui, title=w("server_test"), kind="steps")
             made.pack(fill="x", pady=(ui.px(CARD_GAP), 0))
         inside = made.body
         for child in inside.winfo_children():
@@ -666,6 +666,22 @@ def _copy_step(step):
     return made
 
 
+def lead_state(app, where):
+    """Where you play's lamp (the page's lead, here and in the guide's LOG IN), as it stands: on this PC, ready (pink
+    when its database cannot be read); with another server, ready once signed in (the player's platinum nameplate at
+    the head's right end too), something to do before (connect, sign in); offline, nothing to say."""
+    mode, remote_state = app.state.mode, app.state.remote or {}
+    if mode == "this_pc":
+        where.state("bad" if app._database_problem() is not None else "ready")
+    elif mode == "server" and remote_state.get("card"):
+        where.state("ready")
+        where.badge(remote_state.get("dj_name") or remote_state.get("login_id", ""))
+    elif mode == "server":
+        where.state("todo")
+    else:
+        where.state("quiet")
+
+
 def build_online(app, parent):
     """Where you play, a group of rows: the choice, and on this PC its server opened to the other PCs on its network,
     with another server its address, its sign-in and its test (server_panel); then this PC's players, one group: the
@@ -685,9 +701,11 @@ def build_online(app, parent):
         app.refresh_checks()
         app.go("online")
 
-    # The group's gap under it only when another card follows (this PC's players; another server's test is under its
-    # own gap when it shows).
-    where = card(parent, ui, w("online.where"), last=mode != "this_pc")
+    # The page's lead (CARDS.md): a status panel cut twice as deep, its lamp for where the game plays as it stands. The
+    # group's gap under it only when another card follows (this PC's players; another server's test is under its own
+    # gap when it shows).
+    where = card(parent, ui, w("online.where"), last=mode != "this_pc", kind="status", lead=True)
+    lead_state(app, where)
     choice = widgets.setting_row(where.body, ui, w("online.mode"),
                                  lambda p: widgets.Segmented(p, ui, [("this_pc", w("online.mode.this_pc")),
                                                                      ("server", w("online.mode.server")),
