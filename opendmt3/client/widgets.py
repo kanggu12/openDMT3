@@ -786,6 +786,15 @@ def ink_shift(widget, font, text):
     return (descent - ascent) / 2.0 - (top + bottom) / 2.0
 
 
+def ink_top(widget, font, text, top, height):
+    """The whole pixel to set `text`'s line top at (a canvas item anchored "n") so that its ink band stands in the
+    middle of a box `height` pixels tall from `top`: Tk sets text on whole pixels, so the line's top is chosen here,
+    once, rather than its middle rounded by Tk a second time (a Hangul key at 200 % stood 0.9 px low)."""
+    line = font.metrics("linespace")
+    # Where Tk would set the line's top in the box's middle, then moved by the ink's shift (ink_shift).
+    return int(round(top + (height - line) / 2.0 + ink_shift(widget, font, text)))
+
+
 class Button(tk.Canvas):
     """A button that leans like PLAY and the game's plates. kind: 'primary' (filled with the section's colour, the
     page's main action), 'secondary' (quiet metal that lights up under the pointer), 'danger' (metal tinted pink,
@@ -881,9 +890,10 @@ class Button(tk.Canvas):
         # The faces with the focus ring are made the first time the button gets the focus.
         self.focused_faces, self.focused_images = None, None
         self.face = self.create_image(0, 0, image=self.images["normal"], anchor="nw")
-        # The words' ink band in the key's middle (ink_shift), measured for these words in this face.
-        self.label = self.create_text(width / 2.0, height / 2.0 + ink_shift(self, font, text), text=text, font=font,
-                                      anchor="center")
+        # The words' ink band in the key's middle (ink_shift), measured for these words in this face, their line's top
+        # on a whole pixel (ink_top).
+        self.label = self.create_text(width / 2.0, ink_top(self, font, text, 0, height), text=text, font=font,
+                                      anchor="n")
         self._paint(self.state if self.enabled else "disabled")
 
     def _focus(self, on):

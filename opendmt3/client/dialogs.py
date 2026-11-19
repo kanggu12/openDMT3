@@ -292,10 +292,10 @@ class Dialog:
         self._scene, self._panel = ImageTk.PhotoImage(scene, master=c), ImageTk.PhotoImage(panel, master=c)
         c.create_image(0, 0, image=self._scene, anchor="nw", tags=("scene",))
         c.create_image(0, 0, image=self._panel, anchor="nw", tags=("card", "panel"))
-        # The tab's words with their ink in its middle (widgets.ink_shift), as a key's are.
+        # The tab's words with their ink in its middle (widgets.ink_top), as a key's are.
         tab_font = self.ui.fonts.tab_font(tab_words)
-        c.create_text(panel_w / 2.0, px(TAB) / 2.0 + widgets.ink_shift(c, tab_font, tab_words), text=tab_words,
-                      font=tab_font, fill=theme.INK, tags=("card", "words"))
+        c.create_text(panel_w / 2.0, widgets.ink_top(c, tab_font, tab_words, 0, px(TAB)), text=tab_words,
+                      font=tab_font, fill=theme.INK, anchor="n", tags=("card", "words"))
         # The buttons: one picture for each look, drawn over the panel's own pixels.
         margin = max(5, int(round(6 * scale)))
         self._images, self._items, self._boxes = [], [], []
@@ -307,9 +307,9 @@ class Dialog:
             tag = "button%d" % i
             picture = c.create_image(bx - margin, by - margin, image=images[("normal", False)], anchor="nw",
                                      tags=("card", tag))
-            # The words' ink band in the key's middle, as a page's key has it (widgets.ink_shift).
-            shift = widgets.ink_shift(c, self.ui.fonts.dialog_button, words)
-            c.create_text(bx + bw / 2.0, by + px(BUTTON) / 2.0 + shift, text=words, font=self.ui.fonts.dialog_button,
+            # The words' ink band in the key's middle, as a page's key has it (widgets.ink_top).
+            top = widgets.ink_top(c, self.ui.fonts.dialog_button, words, by, px(BUTTON))
+            c.create_text(bx + bw / 2.0, top, text=words, font=self.ui.fonts.dialog_button, anchor="n",
                           fill=art.BUTTON_LOOKS[look]["text"], tags=("card", tag, "words"))
             self._images.append(images)
             self._items.append(picture)

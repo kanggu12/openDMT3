@@ -263,9 +263,11 @@ def decoration(root, ui, name, screen_pixel):
         x, y, w, h = card.winfo_rootx(), card.winfo_rooty(), card.winfo_width(), card.winfo_height()
         colour = art._rgb(card.master.cget("bg"))
         cut = ui.px(widgets.Card.CUT)
-        points = [("left of", x - 3, y + h // 2), ("right of", x + w + 2, y + h // 2),
-                  ("under", x + w // 2, y + h + 2), ("beyond the cut corner of", x + w - 2, y + 2),
-                  ("beyond the cut corner of", x + w - cut // 3, y + 1)]
+        # Next to the card's edges and a little out into the gaps, and in the triangle its cut leaves.
+        out = ui.px(10)
+        points = [("left of", x - 3, y + h // 2), ("left of", x - out, y + h // 2), ("right of", x + w + 2, y + h // 2),
+                  ("under", x + w // 2, y + h + 2), ("under", x + w // 4, y + h + ui.px(8)),
+                  ("beyond the cut corner of", x + w - 2, y + 2), ("beyond the cut corner of", x + w - cut // 3, y + 1)]
         for where, px_, py in points:
             if not (view[0] <= px_ < view[2] - ui.px(14) and view[1] <= py < view[3]):
                 # Off the page's view (scrolled away, or under the scroll bar's margin).

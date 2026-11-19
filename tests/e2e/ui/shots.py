@@ -2820,7 +2820,7 @@ def planted_composition_check(app, out, tag, problems):
     # The stage's blue in the gap at the first card's left, where the page's own colour must be (in the page's own
     # area, round the content, where the content's children could not reach).
     shard = tk.Frame(app.body.inner, bg=theme.BLUE, width=app.ui.px(6), height=app.ui.px(40))
-    shard.place(in_=made, x=-app.ui.px(8), rely=0.5, anchor="w")
+    shard.place(in_=made, x=-app.ui.px(6), rely=0.5, anchor="w")
     settle(app)
     shot(app, out, "%s_planted-composition" % tag)
     said = compose.check(app, "%s_planted-composition" % tag, screen_reader())
