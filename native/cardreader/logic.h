@@ -162,6 +162,14 @@ uint32_t chart_lag_frame(ChartLag *c, uint32_t real, uint32_t target);
 #define PRESS_LATE_MAX 1000
 int press_values(const char *text, int *ms, int most);
 
+/* The performance counter's readings as numbers to compute with on the game's thread, where Direct3D leaves the x87
+ * computing in single precision (no D3DCREATE_FPU_PRESERVE): a reading (some 4e12 after days of a PC's uptime) taken
+ * as a float is known only to tens of milliseconds, so readings stay whole numbers and only their small differences
+ * become floats. counter_units: `ticks` of a counter of `freq` a second in 100 ns units (the interrupt time's), in
+ * whole numbers; counter_ms_since: the milliseconds from `base` to `ticks`, from their whole difference. */
+int64_t counter_units(int64_t ticks, int64_t freq);
+double counter_ms_since(int64_t ticks, int64_t base, int64_t freq);
+
 /* Locked to the display (VSync on): the pacer's ticks kept in the middle of a refresh, so each frame's present
  * waits for the same refresh every time (on a 240 Hz display, every fourth) and a tick never wavers either side of
  * one. `phase` is where in its refresh the tick fell (0 the start of the refresh, 1 its end; negative: not known);

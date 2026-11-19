@@ -41,6 +41,9 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   installer's first step said SETUP, its update and the launcher's own UPDATES, **Game**'s card THE GAME'S FILES and
   a quick play that could not start YOU PLAY. Each now says what it says in English: INSTALL, UPDATE, GAME FILES,
   PLAY.
+- The in-game bar's rest and click timing, a tap on its mark, a toast, the sound panel's double-click and the 3, 2, 1
+  before a held song goes on moved in steps that grew with how long the PC had been switched on, up to 64 ms after
+  six days (in every release since 0.1.0). They now keep their times to the millisecond.
 
 ## [0.4.1] - 2026-11-20
 

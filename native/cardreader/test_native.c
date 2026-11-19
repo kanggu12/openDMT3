@@ -7,6 +7,7 @@
 /* windows.h's old 16-bit words, names of the tests' own variables here. */
 #undef near
 #undef far
+#include <float.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -3476,8 +3477,27 @@ static void test_memory_tally(void)
     check(t.run == 0, "memory tally: a region in use ends the free block before it");
 }
 
+/* The counter's readings on the game's thread (logic.c counter_units, counter_ms_since): with the x87 computing in
+ * single precision, as Direct3D leaves the game's thread, and readings of a PC up four and a half days (3.9e12 at
+ * 10 MHz), the 100 ns units whole and a millisecond and a quarter between two readings to a microsecond (as a float,
+ * each reading alone is known only to some 25 ms there). The control word put back after. */
+static void test_single_precision(void)
+{
+    unsigned int was = _controlfp(0, 0);
+    _controlfp(_PC_24, _MCW_PC);
+    const int64_t f = 10000000, big = 3900000000000LL;
+    int64_t units = counter_units(big + 12345, f), units_hpet = counter_units(1396000000007LL, 3579545);
+    double ms = counter_ms_since(big + 12500, big, f);
+    _controlfp(was, _MCW_PC);
+    check(units == big + 12345 && units_hpet == (1396000000007LL / 3579545) * 10000000 +
+                                                     (1396000000007LL % 3579545) * 10000000 / 3579545,
+          "single precision: the counter's readings in 100 ns units, whole");
+    check(fabs(ms - 1.25) < 1e-3, "single precision: a millisecond and a quarter between two readings of a PC up days");
+}
+
 int main(void)
 {
+    test_single_precision();
     test_clock();
     test_score_lag();
     test_settings();

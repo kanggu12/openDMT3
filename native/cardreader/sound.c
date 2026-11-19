@@ -511,13 +511,17 @@ static int g_nheld, g_ramp_frames, g_fade_frames;
  * in (for the log). */
 static LONG g_game_volume_calls, g_joined;
 
-/* The performance counter's time in seconds, for the log (the recording of the Wine tests is timed by the same clock). */
-static double counter_s(void)
+/* The performance counter's time in seconds, for the log (the recording of the Wine tests is timed by the same clock):
+ * written from whole numbers, the seconds and the thousandths (as a float on the game's thread it would be known only
+ * to tens of milliseconds after days of the PC's uptime). */
+static const char *counter_s(char *out, size_t n)
 {
     LARGE_INTEGER t, f;
     QueryPerformanceCounter(&t);
     QueryPerformanceFrequency(&f);
-    return (double)t.QuadPart / (double)f.QuadPart;
+    snprintf(out, n, "%lld.%03lld", (long long)(t.QuadPart / f.QuadPart),
+             (long long)(t.QuadPart % f.QuadPart * 1000 / f.QuadPart));
+    return out;
 }
 
 /* DirectSound's volume (hundredths of a decibel, 0 the buffer's own, -10000 silence) for a share k of a base volume. */
@@ -692,7 +696,9 @@ void sound_hold(void)
                    (unsigned long)caps.dwBufferBytes, h->flags & DSBPLAY_LOOPING ? "a loop" : "once", (long)h->volume,
                    h->ramp ? "" : ", no volume control", (unsigned long)h->at);
     }
-    ingame_log("sound: %d buffers held at frame %ld (%.3f s by the counter)", g_nheld, ingame_frame(), counter_s());
+    char when[32];
+    ingame_log("sound: %d buffers held at frame %ld (%s s by the counter)", g_nheld, ingame_frame(),
+               counter_s(when, sizeof when));
 }
 
 void sound_hold_step(void)
@@ -735,8 +741,9 @@ void sound_resume(int play)
     if (play && g_nheld) {
         /* The fade in over the next frames. */
         g_ramp_frames = RAMP_FRAMES;
-        ingame_log("sound: %d buffers going on from where they stopped at frame %ld (%.3f s by the counter)", g_nheld,
-                   ingame_frame(), counter_s());
+        char when[32];
+        ingame_log("sound: %d buffers going on from where they stopped at frame %ld (%s s by the counter)", g_nheld,
+                   ingame_frame(), counter_s(when, sizeof when));
     } else {
         for (int i = 0; i < g_nheld; i++)
             IDirectSoundBuffer_Release(g_held[i].buf);

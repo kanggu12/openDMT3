@@ -335,6 +335,22 @@ uint32_t chart_lag_ticks(int offset_ms, double ms_per_tick)
     return (uint32_t)ticks;
 }
 
+int64_t counter_units(int64_t ticks, int64_t freq)
+{
+    /* The whole seconds and the rest apart, so no product passes 64 bits (a rest under `freq` times 1e7). */
+    if (freq <= 0)
+        return 0;
+    return (ticks / freq) * 10000000 + (ticks % freq) * 10000000 / freq;
+}
+
+double counter_ms_since(int64_t ticks, int64_t base, int64_t freq)
+{
+    /* The difference in whole ticks first; only it, small, becomes a float. */
+    if (freq <= 0)
+        return 0.0;
+    return (double)(ticks - base) * 1000.0 / (double)freq;
+}
+
 int press_values(const char *text, int *ms, int most)
 {
     int n = 0;

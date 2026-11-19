@@ -73,12 +73,17 @@ static int g_holding;
 /* Milliseconds by the performance counter (the frame's own clock: motion at the frame rate). */
 static double now_ms(void)
 {
-    static LARGE_INTEGER f;
+    /* From a second before the first reading (small numbers, never 0: 0 means none for some of the times kept), in
+     * whole ticks until the difference: on the game's thread a reading taken as a float is known only to tens of
+     * milliseconds after days of the PC's uptime (logic.h counter_ms_since). */
+    static LARGE_INTEGER f, base;
     LARGE_INTEGER t;
-    if (!f.QuadPart)
-        QueryPerformanceFrequency(&f);
     QueryPerformanceCounter(&t);
-    return (double)t.QuadPart * 1000.0 / (double)f.QuadPart;
+    if (!f.QuadPart) {
+        QueryPerformanceFrequency(&f);
+        base.QuadPart = t.QuadPart - f.QuadPart;
+    }
+    return counter_ms_since(t.QuadPart, base.QuadPart, f.QuadPart);
 }
 
 /* ------------------------------------------------------------------------------------------- what shows */
