@@ -428,19 +428,32 @@ def main(argv=None):
     import shlex
     # The command as it was given, which the tab shows as the way to start the server again.
     given = list(sys.argv[1:] if argv is None else argv)
-    run_by = runners.default(True) if sources.in_container() else runners.Runner(
-        "python", stop=lambda: ask("stop"), restart=lambda: ask("restart"),
-        remove=lambda delete_data: ask("remove", delete_data),
-        commands={"start": " ".join(["python", "-m", "opendmt3.server"] + [shlex.quote(a) for a in given])})
-    try:
-        asyncio.run(serve(args, data, until=None if sources.in_container() else until, runner=run_by))
-    except KeyboardInterrupt:
-        pass
-    if asked["action"] == "restart":
-        # The same command again, in this same process: the window (or service) that started it keeps it.
+
+    def runner():
+        # Who runs this server, as the Server tab asks it: Docker Compose in a container, else this command. Made
+        # anew for each run: a runner takes one request.
+        return runners.default(True) if sources.in_container() else runners.Runner(
+            "python", stop=lambda: ask("stop"), restart=lambda: ask("restart"),
+            remove=lambda delete_data: ask("remove", delete_data),
+            commands={"start": " ".join(["python", "-m", "opendmt3.server"] + [shlex.quote(a) for a in given])})
+    run_by = runner()
+    while True:
+        try:
+            asyncio.run(serve(args, data, until=None if sources.in_container() else until, runner=run_by))
+        except KeyboardInterrupt:
+            pass
+        if asked["action"] != "restart":
+            break
         logging.getLogger("opendmt3.server").info("starting again: asked on the admin page")
-        os.execv(sys.executable, [sys.executable, "-m", "opendmt3.server"] + list(sys.argv[1:] if argv is None
-                                                                                 else argv))
+        if os.name != "nt":
+            # The same command again, in this same process (a fresh interpreter, which reads code updated meanwhile):
+            # the window (or service) that started it keeps it.
+            os.execv(sys.executable, [sys.executable, "-m", "opendmt3.server"] + given)
+        # Windows has no exec that keeps the process: its execv starts another program and ends this one, so the
+        # window that started the server would lose it to a process of its own. The server runs again in this same
+        # process instead, as the Windows server package's does (standalone.py), asked anew.
+        asked.update(action=None, delete_data=False)
+        run_by = runner()
     if asked["action"] == "remove" and asked["delete_data"]:
         kept = remove_data(data)
         print("removed the server's data in %s; its last backup is %s" % (data, kept))

@@ -677,8 +677,12 @@ class StopTheRealServerTest(unittest.TestCase):
             if server.poll() is None:
                 server.kill()
                 server.wait()
-            output = server.stdout.read().decode("utf-8", "replace")
-            server.stdout.close()
+            # Its output, read with a limit: a process the server left behind still holding the pipe fails the test
+            # here instead of keeping the run waiting (Windows' execv, which starts another program, once did).
+            try:
+                output = server.communicate(timeout=30)[0].decode("utf-8", "replace")
+            except subprocess.TimeoutExpired:
+                output = "(after the server ended, another process still held its output open)"
         self.assertIn("stopping: asked on the admin page (restart)", output)
         self.assertIn("starting again: asked on the admin page", output)
         self.assertFalse(os.path.exists(data), output)
