@@ -1698,6 +1698,8 @@ void layer_attach(HWND game)
     g_full = !(style & WS_CAPTION);
     if (!g_full)
         window_without_buttons(style);
+    /* The smallest unit at the display's scaling, before anything of the layer is placed. */
+    ui_unit_floor(screen_dpi());
     RECT a = {0, 0, 0, 0};
     GetClientRect(game, &a);
     ingame_log("layer: attached (%ld x %ld, dpi %d, %.2f output pixels a game pixel, %s)", a.right, a.bottom,

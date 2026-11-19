@@ -1486,8 +1486,10 @@ static void make_parts(IDirect3DDevice9 *dev, const LayerPart *parts, int n, int
     g_parts_h = h;
     QueryPerformanceCounter(&t1);
     QueryPerformanceFrequency(&f);
-    ingame_log("layer: %d parts' textures made for %dx%d in %.1f ms", made, w, h,
-               (double)(t1.QuadPart - t0.QuadPart) * 1000.0 / (double)f.QuadPart);
+    /* With the unit they were made at (the picture's height over 768, never under the smallest at the display's
+     * scaling), so a small window's chips can be held against the pointer's size. */
+    ingame_log("layer: %d parts' textures made for %dx%d in %.1f ms, %.2f output pixels a game pixel", made, w, h,
+               (double)(t1.QuadPart - t0.QuadPart) * 1000.0 / (double)f.QuadPart, ui_unit(h));
 }
 
 /* A part's quad in the target's clip space for the glass pass: its sprite's pixels exactly (Direct3D 9 samples a

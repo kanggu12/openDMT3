@@ -3269,6 +3269,30 @@ static void test_clock(void)
     VirtualFree(code, 0, MEM_RELEASE);
 }
 
+static void test_unit_floor(void)
+{
+    /* At 100 % (96 dpi) the smallest unit is UI_UNIT_MIN: a window 576 tall and one 300 tall both at 0.75, a chip
+     * 37.5 pixels across, the dart 32. */
+    ui_unit_floor(96);
+    check(fabsf(ui_unit(576) - 0.75f) < 1e-6f && fabsf(ui_unit(300) - 0.75f) < 1e-6f,
+          "unit floor: at 96 dpi a small window's unit is 0.75");
+    /* At 150 % the dart is 48 pixels: the smallest unit 1.125, a chip 56 x 38 at the least. */
+    ui_unit_floor(144);
+    check(fabsf(ui_unit(576) - 1.125f) < 1e-6f && 50.0f * ui_unit(300) >= 48.0f,
+          "unit floor: at 150 % a small window's chips are wider than the 48-pixel dart (the unit 1.125)");
+    /* At 200 % the dart is 64 pixels. */
+    ui_unit_floor(192);
+    check(fabsf(ui_unit(576) - 1.5f) < 1e-6f && 50.0f * ui_unit(300) >= 64.0f,
+          "unit floor: at 200 % a small window's chips are wider than the 64-pixel dart (the unit 1.5)");
+    /* A picture tall enough keeps the game's own unit at any scaling: 2160 lines are 2.8125. */
+    check(fabsf(ui_unit(2160) - 2.8125f) < 1e-5f, "unit floor: a 2160-line picture at 200 % is still 2160 / 768");
+    /* Under 100 % the chips stay as at 100 %. */
+    ui_unit_floor(72);
+    check(fabsf(ui_unit(300) - 0.75f) < 1e-6f, "unit floor: under 96 dpi the smallest unit stays 0.75");
+    /* As the other tests have it. */
+    ui_unit_floor(96);
+}
+
 static void test_memory_tally(void)
 {
     /* A walk in address order: 64 MB free, 16 MB committed, a free stretch read in two pieces (100 MB and 40 MB),
@@ -3317,6 +3341,7 @@ int main(void)
     test_bar_clock();
     test_slides();
     test_slot_index();
+    test_unit_floor();
     test_memory_tally();
     test_touch();
     test_methods();

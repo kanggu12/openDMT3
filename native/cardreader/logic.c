@@ -836,12 +836,23 @@ int card_choose(Card *c, int i)
     return ACT_CLOSE;
 }
 
+/* The smallest unit at the display's scaling (ui_unit_floor): UI_UNIT_MIN at 96 dpi. */
+static float g_unit_min = UI_UNIT_MIN;
+
+void ui_unit_floor(int dpi)
+{
+    /* As much larger as Windows' scaling makes the pointer (layer.c sizes its dart 32 pixels at 96 dpi the same way),
+     * so the chips of a small window stay a mouse's size at 150 % and 200 % as at 100 %; under 100 % they stay as at
+     * 100 %. */
+    g_unit_min = dpi > 96 ? UI_UNIT_MIN * (float)dpi / 96.0f : UI_UNIT_MIN;
+}
+
 float ui_unit(int area_h)
 {
-    /* The game's own 768 lines to the area's: smaller with the game in a small window, down to UI_UNIT_MIN (the bar no
-     * taller than the game's own top band there, its chips still a mouse's size). */
+    /* The game's own 768 lines to the area's: smaller with the game in a small window, down to the smallest unit (the
+     * bar no taller than the game's own top band there, its chips still a mouse's size). */
     float u = (float)area_h / (float)GAME_H;
-    return u < UI_UNIT_MIN ? UI_UNIT_MIN : u;
+    return u < g_unit_min ? g_unit_min : u;
 }
 
 /* The measures, in game pixels (multiplied by the unit). The bar is as tall as the game's own top bar in a song (its

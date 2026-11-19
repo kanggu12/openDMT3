@@ -352,8 +352,9 @@ first points) into the log, read from its memory in the PC build.
 - **The way back into a song**: when the hold's reasons end (a panel closed, the game back from the taskbar), the song
   stays held while 3, 2, 1 shows in the middle of the game in its message box's look (`look_resume`, the game's chrome
   digits), half a second each (`resume_digit`, `RESUME_MS`), then it goes on with the sound's fade in.
-- **The unit** follows the game's height in a window smaller than its picture down to 0.75 (`UI_UNIT_MIN`), where the
-  chips are still a mouse's size and the bar no taller than the game's own top band there.
+- **The unit** follows the game's height in a window smaller than its picture down to its smallest: 0.75
+  (`UI_UNIT_MIN`) at 100 % and as much more as Windows' scaling makes the pointer (`ui_unit_floor`: 1.125 at 150 %, 1.5
+  at 200 %), where the chips are still a mouse's size and the bar no taller than the game's own top band there.
 - **The sound's values** (`soundset.c`): the launcher starts the game with them (`OPENDMT3_SOUND_VALUES`) and names the
   file it keeps them in (`OPENDMT3_SOUND_FILE`, `sound.ini` beside `launcher.json`). Both write it the same way: under
   its lock (`sound.ini.lock`, held open alone, gone when its writer is), the file read whole as it is then (at most 64

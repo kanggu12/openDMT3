@@ -367,9 +367,14 @@ typedef struct {
 /* Output pixels per game pixel for a game area this many pixels tall: the game draws 768 lines, so everything of the
  * layer keeps the game's own proportions and type sizes at every size of the window, as the game's own panels do
  * (Windows' scaling sizes the pointer, which Windows draws). In a window shorter than the game's picture the layer
- * shrinks with the game down to UI_UNIT_MIN, where its chips are still a mouse's size; below that it keeps that size. */
+ * shrinks with the game down to its smallest unit, where its chips are still a mouse's size; below that it keeps that
+ * size. The smallest unit is UI_UNIT_MIN at 96 dpi and grows with Windows' scaling as the pointer does (ui_unit_floor:
+ * at 150 % a 50 x 34 chip is 56 x 38 pixels at the least, the dart 48). */
 #define UI_UNIT_MIN 0.75f
 float ui_unit(int area_h);
+/* The display's dots an inch, as Windows gives them to the game (the layer's, once it is attached): the smallest unit
+ * from then on. */
+void ui_unit_floor(int dpi);
 
 /* Where the layer's parts go in a game area w x h (output pixels, (0, 0) its top left), with the menu or the question
  * open as the card says. Everything stays in the game's top band and at its right: nothing in the middle, where the

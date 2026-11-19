@@ -11,6 +11,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - After the in-game menu, the quit question or the sound panel was open during a song, or the game was minimised in
   one, the song's notes ran ahead of its music by as long as the game was held, and the song ended early by as much
   (in every release since 0.1.0). The notes now wait with the music and go on with it.
+- In a small game window on a display scaled to 150 % or more, the in-game bar's buttons stay at least as wide as
+  the pointer: their smallest size grows with Windows' scaling, as the pointer's does.
 
 ## [0.4.0] - 2026-11-19
 
