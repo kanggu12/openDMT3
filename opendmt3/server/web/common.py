@@ -768,7 +768,15 @@ def _plays_log(site, wanted, now=None):
     try:
         # One more than a page: whether an older page exists, without counting.
         rows = store.log(account, since, songs, LOG_PAGE + 1, (wanted["page"] - 1) * LOG_PAGE)
-        totals = store.log_totals(account, since, songs)
+        if since is None:
+            # Every play the filter leaves (everyone's, one player's, some songs'), counted once until a play is kept
+            # or a player changes (cache.py): counting all of them took 58 ms at every visit and page of the log on
+            # 300,000 plays. A stretch of days moves with the clock, so it is counted each time (3 to 33 ms: a range of
+            # the index on time).
+            totals = site.lists.get(store.db, ("log totals", account, tuple(songs) if songs is not None else None),
+                                    lambda: store.log_totals(account, None, songs))
+        else:
+            totals = store.log_totals(account, since, songs)
         people = store.db.execute("SELECT id, login_id, dj_name FROM accounts ORDER BY login_id").fetchall()
     finally:
         store.db.close()

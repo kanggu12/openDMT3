@@ -524,6 +524,35 @@ class PlaysLogTest(SiteBase):
         # What cannot be read is no filter.
         self.assertEqual(len(self.rows(self.client.get("/admin/log/plays?page=x&days=5&player=y").text)), 50)
 
+    def test_the_totals_are_counted_once_until_a_play_is_kept_or_a_player_goes(self):
+        # Counting every play at each visit and page took 58 ms on 300,000 plays: the totals are kept (cache.py), each
+        # filter's own, until what they count changes.
+        from unittest import mock
+        from opendmt3.server.services import records as rec
+        totals = r'<span class="value">%d</span><span class="label">Plays</span>'
+        counted = mock.patch.object(rec.Records, "log_totals", autospec=True, side_effect=rec.Records.log_totals)
+        with counted as count:
+            self.assertRegex(self.client.get("/admin/log/plays").text, totals % 58)
+            self.assertRegex(self.client.get("/admin/log/plays?page=2").text, totals % 58)
+            self.assertRegex(self.client.get("/admin/log/plays").text, totals % 58)
+            # Counted once for the three visits.
+            self.assertEqual(count.call_count, 1)
+            # Another filter has totals of its own.
+            self.assertRegex(self.client.get("/admin/log/plays?player=%d" % self.rio["id"]).text, totals % 3)
+            self.assertEqual(count.call_count, 2)
+        # A play kept, then a player deleted with their plays: counted again each time.
+        self.play(self.rio, 2, 2, 600, mode=1, at=self.now - 30)
+        self.assertRegex(self.client.get("/admin/log/plays").text, totals % 59)
+        self.assertRegex(self.client.get("/admin/log/plays?player=%d" % self.rio["id"]).text, totals % 4)
+        store = self.site.accounts()
+        try:
+            store.delete("RIO")
+        finally:
+            store.db.close()
+        self.assertRegex(self.client.get("/admin/log/plays").text, totals % 55)
+        # A stretch of days moves with the clock: counted at each visit.
+        self.assertRegex(self.client.get("/admin/log/plays?days=1").text, totals % 2)
+
     def test_filters_by_player_days_and_a_word_of_the_title(self):
         page = self.client.get("/admin/log/plays?player=%d" % self.rio["id"]).text
         self.assertEqual(len(self.rows(page)), 3)
