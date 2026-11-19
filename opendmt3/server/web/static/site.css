@@ -91,9 +91,12 @@ body[data-section="star"] { --accent: var(--lime); --accent-light: #8fcc12; --ac
    script shows): the browser's own hiding is weaker than any class's display. */
 [hidden] { display: none !important; }
 html, body { margin: 0; }
+/* Every glyph stepped by its face's own advance (geometricPrecision): with the default, Chrome on Linux (and so every
+   picture of the site's check) steps each by its hinted advance, a whole pixel, and a number opens or closes inside
+   itself ("487 25": the text face's 7 is 8.2 px and was stepped 9). */
 body {
   min-height: 100vh; display: flex; flex-direction: column;
-  color: var(--chalk); font: 15px/1.6 var(--text-face); letter-spacing: -0.006em;
+  color: var(--chalk); font: 15px/1.6 var(--text-face); letter-spacing: -0.006em; text-rendering: geometricPrecision;
   background-color: var(--field);
   /* The game's perforated metal (its panels' 2 px holes on an 8 px half-drop lattice), faint, all over; it stays while
      the page scrolls. */
@@ -101,6 +104,12 @@ body {
                     radial-gradient(circle at 6px 6px, rgba(255, 255, 255, 0.05) 0.85px, transparent 1.25px);
   background-size: 8px 8px; background-attachment: fixed;
 }
+/* The fields take it too (the browser's own sheet sets them back to auto). A key's words and the menu's keep the
+   default their place up and down was set by and the site check measures (a key's ink): geometricPrecision lays a
+   line's baseline a pixel higher at some sizes (text at 13 and 14 px, the wide face at 12). They hold words, not
+   figures; a figure in one would show in the site check's gaps (a tab's "Best 30 average" did: tabs take it, below). */
+:is(input, select, textarea) { text-rendering: inherit; }
+:is(.btn, button, .menu a) { text-rendering: auto; }
 /* Skip to the page: the keyboard's first stop, out of sight until it has the focus, then over the bar's mark. */
 .skip { position: absolute; left: 16px; top: -64px; z-index: 30; padding: 10px 16px; color: var(--chalk); background: var(--deck-top);
         box-shadow: var(--glass-rim); font-weight: 600; }
@@ -796,7 +805,10 @@ details > summary:focus-visible { outline: 2px solid var(--cyan); outline-offset
 .alert.bad::before { background: var(--lamp-pink); }
 /* Tabs lean like the mode bar on the game's mode select. */
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
-.tabs a { padding: 9px 22px; font: 400 12px/1 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash);
+/* A tab's words are stepped by the face (a tab names a figure: Best 30 average), their line a pixel lower in the box
+   than its middle (10 px over, 8 under): geometricPrecision lays their baseline a pixel higher, and this keeps them
+   where the default put them. */
+.tabs a { padding: 10px 22px 8px; font: 400 12px/1 var(--wide); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ash);
           background: var(--rail); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
 body.lang-ko .tabs a { font: 600 13px/1 var(--text-face); text-transform: none; letter-spacing: 0; }
 .tabs a:hover { color: var(--chalk); background: var(--rail-up); text-decoration: none; }
@@ -1240,7 +1252,7 @@ body.lang-ko .ask .tab { font: 600 13px/1 var(--text-face); letter-spacing: 0; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* A date's figure has the row to itself: two columns are narrower than a date and its time. */
   .stats .stat.date { grid-column: 1 / -1; }
-  .tabs a { padding: 9px 14px; }
+  .tabs a { padding: 10px 14px 8px; }
   .charts { grid-template-columns: 1fr; }
   .hero h1.title { font-size: 24px; }
   .ask .panel { padding: 54px 22px 24px; }
@@ -1318,7 +1330,7 @@ textarea.message { font-size: 14px; }
 
 /* The ranking's second strip (total or best 30): lighter than the mode tabs above it. */
 .tabs.quiet { margin-top: -8px; }
-.tabs.quiet a { padding: 6px 14px; }
+.tabs.quiet a { padding: 7px 14px 5px; }
 
 /* Admin, Song list and Backups: the file to upload (templates/_upload.html), as OpenDMTQ's upload box. A box in a well
    like the other fields, its edge dashed until a file is in it, that names what goes in it and shows the site's own

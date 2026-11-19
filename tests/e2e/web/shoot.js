@@ -23,7 +23,9 @@
 const fs = require('fs');
 const puppeteer = require('puppeteer');
 // The layout's measure, shared with the empty server's run (empty.js).
-const {layout, layers, frame, record: recorded, compose} = require('/w/measure.js');
+const {layout, gaps, layers, frame, record: recorded, compose} = require('/w/measure.js');
+// Every page again as the headless shell draws it, for the gaps inside numbers (shell.js).
+const shellGaps = require('/w/shell.js');
 
 const base = process.env.SITE || 'http://site:4730';
 // The admin site, a site of its own on its own port (ADMIN-SITE.md), signed in to on its own door.
@@ -62,7 +64,8 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
                    filters: 0, filter_faults: 0, messages: 0,
                    message_faults: 0, looks: 0, look_faults: 0, tokens: 0, token_faults: 0, uploads: 0,
                    upload_faults: 0, song_lists: 0, song_list_faults: 0, drops: 0, drop_faults: 0, maintenances: 0,
-                   maintenance_faults: 0, form_faults: 0, frame_faults: 0, wrap_faults: 0, bars: 0, bar_faults: 0,
+                   maintenance_faults: 0, form_faults: 0, frame_faults: 0, wrap_faults: 0, gap_faults: 0, shell_pages: 0, bars: 0,
+                   bar_faults: 0,
                    sheets: 0, copies: 0, copy_faults: 0, pickers: 0, picker_faults: 0};
   // What the layout's measure finds on the page showing (measure.js), and its line and place in the summary.
   // The layout's measure, then the page's floating layers opened one by one (measure.js: layers), together.
@@ -70,7 +73,7 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
   // the site the page is on, `kind` ('players', or 'console' for the admin site's).
   const measure = async (kind = 'players') => {
     // The layout's measure and the page's composition (measure.js: compose).
-    const over = Object.assign(await layout(page), await compose(page));
+    const over = Object.assign(await layout(page), await compose(page), {gaps: await gaps(page)});
     const opened = await layers(page);
     summary.layers += opened.opened;
     const framed = await frame(page, kind);
@@ -553,5 +556,7 @@ const questions = [['player delete', admin, '/admin/players/NOVA', asking('delet
     }
   }
   await browser.close();
+  // The gaps inside numbers on every page as the headless shell draws them (the owner's pictures are drawn so).
+  await shellGaps(puppeteer, summary, {base, admin, pages, adminPages, label: ''});
   console.log(JSON.stringify(summary));
 })().catch(e => { console.error(e); process.exit(1); });

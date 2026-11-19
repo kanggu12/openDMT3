@@ -99,7 +99,10 @@ size: PLAY, PLAY with the window resized before its first drawing, every page as
 first step, each start in a process of its own with a minute to finish drawing its first page. The
 site's check (`tests/e2e/web/shoot.js`, measuring with `measure.js`) fails on anything past a page's right edge, words
 cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone width or with its value
-wrapping back under its label, a word broken inside itself (a column squeezed under it), a word of the phone menu that
+wrapping back under its label, a word broken inside itself (a column squeezed under it), a gap inside a number (a
+step between its characters off the face's own advance; every page is measured for it again as the headless shell
+draws it, `tests/e2e/web/shell.js`, where each glyph is stepped by a whole pixel unless the page says otherwise, as the
+pictures made for the owner are, while the usual headless steps by the face's advances), a word of the phone menu that
 does not fit, a button whose words are out of its middle, boxes that touch or overlap, words nearer a box's
 edge than its padding, a gap between two boxes off the site's scale (steps of 2 px up to 32, then 36, 40, 48, 56, 64),
 words straight on the page's background, a floating layer (the charts' tips, opened by pointing at the first, the
@@ -108,10 +111,10 @@ does not fit. Both
 also count what they looked at, so a page that silently stops being visited fails the run.
 
 Each check is tested itself: `OPENDMT3_REPO` points it at a copy of the tree, and `tests/e2e/web/selftest.sh OUT_DIR`
-plants nine faults in a copy (a table that sticks out on a phone, words cut off in a box of a fixed height, a stacked
+plants ten faults in a copy (a table that sticks out on a phone, words cut off in a box of a fixed height, a stacked
 cell with no label, a button's words out of its middle, the phone menu cut, a group's name smaller than its rows, a
-small key off its role's padding, the head's stage under the bar, a Korean page's table breaking a word inside itself)
-and passes only when the check catches each. The launcher's check for hidden content tries itself at every run, at that run's fonts and scale, on a made-up
+small key off its role's padding, the head's stage under the bar, a Korean page's table breaking a word inside itself,
+the page's words stepped by whole pixels again) and passes only when the check catches each. The launcher's check for hidden content tries itself at every run, at that run's fonts and scale, on a made-up
 page taller than the window: it must be said hidden where it cannot scroll (a scroll area with its region cut, a plain
 box) and not where it scrolls; and its check of the menu column on names made taller than the column holds.
 

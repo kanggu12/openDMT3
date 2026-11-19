@@ -56,6 +56,8 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 - A word in a table of a Korean page no longer breaks in two when its column is narrow (the admin's page of a player
   broke "system"). On a phone, a table's cell that takes two lines starts its second where its first began, never
   under its label, and an English notice's label stands over its words, which keep their whole line.
+- Figures on both sites keep their characters evenly apart in Chrome on Linux, where each was stepped by a whole pixel
+  and a number opened inside itself (the Status page's game port read "487 25", its version "0. 4. 0").
 
 ## [0.4.1] - 2026-11-20
 

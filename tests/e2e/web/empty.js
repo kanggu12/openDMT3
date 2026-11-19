@@ -20,7 +20,9 @@
 // Screenshots go to /out as LANG-empty-NAME-WIDTH.png. The last line is the summary the runner reads:
 // {"pages", "sticking", "cut", "unlabelled", "menu_cut", "askew", "states", "state_faults"}.
 const puppeteer = require('puppeteer');
-const {layout, layers, frame, record, compose} = require('/w/measure.js');
+const {layout, gaps, layers, frame, record, compose} = require('/w/measure.js');
+// Every page again as the headless shell draws it, for the gaps inside numbers (shell.js).
+const shellGaps = require('/w/shell.js');
 
 const base = 'http://127.0.0.1:4730';
 // The admin site, on the server PC's own address (where it listens unless its owner opens it).
@@ -38,7 +40,8 @@ const adminPages = ['/admin/players', '/admin/cabinets', '/admin/status', '/admi
   const browser = await puppeteer.launch({args: ['--no-sandbox']});
   const page = await browser.newPage();
   const summary = {pages: 0, sticking: 0, cut: 0, unlabelled: 0, menu_cut: 0, askew: 0, spacing: 0, layer_faults: 0,
-                   layers: 0, states: 0, state_faults: 0, form_faults: 0, frame_faults: 0, wrap_faults: 0};
+                   layers: 0, states: 0, state_faults: 0, form_faults: 0, frame_faults: 0, wrap_faults: 0,
+                   gap_faults: 0, shell_pages: 0};
   const go = path => page.goto(base + path, {waitUntil: 'networkidle0'});
   // The same on the admin site.
   const goAdmin = path => page.goto(admin + path, {waitUntil: 'networkidle0'});
@@ -53,7 +56,7 @@ const adminPages = ['/admin/players', '/admin/cabinets', '/admin/status', '/admi
   const look = async (lang, width, name, shown, kind = 'players') => {
     // The layout's measure and the page's composition, then the page's floating layers opened one by one (measure.js:
     // layers).
-    const over = Object.assign(await layout(page), await compose(page));
+    const over = Object.assign(await layout(page), await compose(page), {gaps: await gaps(page)});
     const opened = await layers(page);
     summary.layers += opened.opened;
     // The page's frame on screen (measure.js: frame).
@@ -213,5 +216,7 @@ const adminPages = ['/admin/players', '/admin/cabinets', '/admin/status', '/admi
     }
   }
   await browser.close();
+  // The gaps inside numbers on every page of the server as the headless shell draws them, its owner signed in.
+  await shellGaps(puppeteer, summary, {base, admin, pages, adminPages, label: 'empty '});
   console.log(JSON.stringify(summary));
 })().catch(e => { console.error('FAILED', e); process.exit(1); });

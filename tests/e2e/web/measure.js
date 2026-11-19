@@ -17,6 +17,9 @@
 //   wraps         a number or a date that breaks over two lines (2026-11- over 17 09:30, 1 over 2), a figure parted
 //                 from its unit (7.8 over GB) or a time from its date: each is read whole, so it lies on one line; and
 //                 a word broken inside itself (syste over m), its column or part squeezed under it;
+//   gaps          (a measure of its own, gaps(), run in the headless shell too) a number with a gap or a squeeze
+//                 inside it: a step between two of its characters off the face's own advance (a hinted 7 stepped by a
+//                 whole 9 px for its 8.2 read "487 25");
 //   spacing       boxes (a card, a button, a field, a tag, an alert: anything with a fill, a border or a shadow) that
 //                 touch or overlap a box beside them in the same parent; words nearer a box's edge than its padding;
 //                 a gap between two boxes beside each other that is off the site's scale (whole steps of 2 px up to
@@ -271,6 +274,69 @@ const layout = page => page.evaluate(() => {
   return {page: document.documentElement.scrollWidth - width, els, cut: cut.slice(0, 6),
           unlabelled: unlabelled.slice(0, 6), menu, askew: askew.slice(0, 6), spacing: [...new Set(spacing)].slice(0, 8),
           forms: forms.slice(0, 6), wraps: wraps.slice(0, 6)};
+});
+
+// The gaps inside numbers on the page showing (a list, empty when there are none). Its own measure, as the site check
+// runs it twice: with every page's layout, and again on every page as the headless shell draws it (shoot.js, empty.js),
+// where each glyph is stepped by a whole pixel unless the page says otherwise; the new headless, like a desktop's
+// Chrome, steps by the face's own advances and shows none whatever the page says.
+const gaps = page => page.evaluate(() => {
+  const name = e => e.tagName + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '');
+  const shown = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
+  // A gap inside a number: each character of a figure (digits and the marks between them: 48725, 0.4.0,
+  // 2026-11-19 21:21, 1,234) stepped by the face's own advance. Where they stand on the page is held to the same
+  // characters in a reference of the same type laid out at the face's own advances (geometricPrecision: no step
+  // rounded to a whole pixel); a step more than 0.3 px off it is a gap or a squeeze the eye reads inside the number
+  // (a hinted 7 stepped 9 px for its 8.2 read "487 25"). All the references in one hidden box, laid out once.
+  const gaps = [];
+  const figureRun = /\d(?:[\d\u2060.,:\/-]*\d)?/g;
+  const runs = [];
+  const numbers = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = numbers.nextNode(); n; n = numbers.nextNode()) {
+    const host = n.parentElement;
+    if (!host || host.closest('script, style, textarea, .shards, dialog:not([open]), [hidden]') || !shown(host)) continue;
+    for (const m of n.textContent.matchAll(figureRun)) if (m[0].replace(/\u2060/g, '').length > 1) runs.push({n, host, at: m.index, text: m[0]});
+  }
+  // Each character's left edge, in order (a character of no width, a word joiner, stands where the next starts).
+  const lefts = (node, at, length) => Array.from({length}, (_, k) => {
+    const r = document.createRange();
+    r.setStart(node, at + k);
+    r.setEnd(node, at + k + 1);
+    return r.getBoundingClientRect();
+  });
+  const shelf = document.createElement('div');
+  shelf.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none';
+  const TYPE = ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontStretch', 'fontVariantNumeric', 'fontFeatureSettings',
+                'fontVariationSettings', 'fontKerning', 'fontOpticalSizing', 'letterSpacing', 'wordSpacing'];
+  for (const run of runs) {
+    const s = getComputedStyle(run.host), ref = document.createElement('span');
+    for (const k of TYPE) ref.style[k] = s[k];
+    ref.style.whiteSpace = 'pre';
+    ref.style.textRendering = 'geometricPrecision';
+    ref.style.display = 'block';
+    ref.textContent = run.text;
+    shelf.appendChild(ref);
+    run.ref = ref;
+  }
+  document.body.appendChild(shelf);
+  for (const run of runs) {
+    const page = lefts(run.n, run.at, run.text.length), face = lefts(run.ref.firstChild, 0, run.text.length);
+    // A number over two lines is the wraps' check's; here only one on one line.
+    if (page.some(r => Math.abs(r.top - page[0].top) > page[0].height / 2)) continue;
+    // A number in a part drawn larger (the front door's mark at twice its size) is held to the face at that scale:
+    // the host's box on the screen against its own laid-out width.
+    const scale = run.host.offsetWidth ? run.host.getBoundingClientRect().width / run.host.offsetWidth : 1;
+    for (let k = 1; k < run.text.length; k++) {
+      const step = (page[k].left - page[k - 1].left) / scale, own = face[k].left - face[k - 1].left;
+      if (Math.abs(step - own) > 0.3) {
+        gaps.push(name(run.host) + ' "' + run.text.replace(/\u2060/g, '') + '" has a gap inside it ("' + run.text.slice(k - 1, k + 1).replace(/\u2060/g, '') +
+                  '": ' + step.toFixed(2) + ' px where the face steps ' + own.toFixed(2) + ')');
+        break;
+      }
+    }
+  }
+  shelf.remove();
+  return [...new Set(gaps)].slice(0, 6);
 });
 
 // The page's floating layers (the charts' and the DJ's weeks' tips), each opened as a person opens it, by pointing at
@@ -719,6 +785,7 @@ const record = (summary, lang, width, path, over) => {
   if (over.forms && over.forms.length > 0) { summary.form_faults = (summary.form_faults || 0) + 1; faults.push('FORM'); }
   if (over.frame && over.frame.length > 0) { summary.frame_faults = (summary.frame_faults || 0) + 1; faults.push('FRAME'); }
   if (over.wraps && over.wraps.length > 0) { summary.wrap_faults = (summary.wrap_faults || 0) + 1; faults.push('WRAPS'); }
+  if (over.gaps && over.gaps.length > 0) { summary.gap_faults = (summary.gap_faults || 0) + 1; faults.push('GAPS'); }
   // The composition (compose, above): each kind a count of the pages that have it, and its word on the page's line.
   for (const [kind, key, word] of [['keys', 'key_faults', 'KEYS'], ['ink', 'ink_faults', 'WORDS OFF THEIR KEY'],
                                    ['type', 'type_faults', 'TYPE'], ['headings', 'heading_faults', 'HEADING'],
@@ -730,4 +797,4 @@ const record = (summary, lang, width, path, over) => {
   console.log(lang, width, path, faults.length ? faults.join(', ') : 'ok', JSON.stringify(over));
 };
 
-module.exports = {layout, layers, frame, record, compose, STEPS};
+module.exports = {layout, gaps, layers, frame, record, compose, STEPS};

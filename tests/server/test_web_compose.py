@@ -89,7 +89,10 @@ class AdminHeadsTest(AdminSiteBase):
         self.assertEqual(page.count('<div class="pair">'), 2)
         announce = card_of(page, 'id="notice"')
         self.assertIn('id="maintenance"', announce)
-        self.assertEqual(len(re.findall(r'<div class="row"[ >]', announce)), 2)
+        self.assertEqual(len(re.findall(r'<div class="row(?: ctl)?"[ >]', announce)), 2)
+        # Maintenance's words and its key on one line: its name on the key's middle, as a control's row is (laid on
+        # the words' baseline it stood a pixel and a half off the key once the words were stepped by the face).
+        self.assertIn('<div class="row ctl" id="maintenance">', announce)
         # The disk is the machine's: one group of them both.
         self.assertIn("What takes the disk", card_of(page, '<div class="machine-split">'))
 
@@ -318,6 +321,18 @@ class WordsWholeTest(unittest.TestCase):
         width, gap, back = (int(v) for v in label.groups())
         self.assertEqual(int(cell.group(1)), width + gap)
         self.assertEqual(back, width + gap)
+
+    def test_every_glyph_is_stepped_by_its_faces_own_advance(self):
+        # The default rendering steps each glyph by a whole pixel on Linux ("487 25"): the page's words take the
+        # face's own advances, the fields too (the browser's sheet sets them back to auto).
+        self.assertRegex(self.css, r"(?s)\nbody \{[^}]*text-rendering: geometricPrecision;")
+        self.assertIn(":is(input, select, textarea) { text-rendering: inherit; }", self.css)
+        # A key's words and the menu's keep the default their place was set by (the site check measures a key's ink);
+        # a tab's take the face's, their line a pixel lower in the box to stay where they stood.
+        self.assertIn(":is(.btn, button, .menu a) { text-rendering: auto; }", self.css)
+        self.assertIn(".tabs a { padding: 10px 22px 8px;", self.css)
+        self.assertIn(".tabs.quiet a { padding: 7px 14px 5px; }", self.css)
+        self.assertIn(".tabs a { padding: 10px 14px 8px; }", self.phone)
 
     def test_an_english_notices_words_have_the_rows_width_on_a_phone(self):
         # The lamp and the label on a line of their own over the words; the words fill their line beside More.
