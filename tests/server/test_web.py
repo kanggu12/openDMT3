@@ -44,8 +44,9 @@ class WebBase(unittest.TestCase):
         import gc
         gc.collect()
         # A connection a job's thread closes as the test ends can take its write-ahead log (.sqlite-wal) away while the
-        # folder is being removed: a file already gone is no failure, so the removal goes on with what is left.
-        for _ in range(20):
+        # folder is being removed (a file already gone is no failure, so the removal goes on with what is left), or,
+        # on Windows, still hold the database open for a moment (the removal tried again, up to 2 s, then said).
+        for attempt in range(40):
             try:
                 shutil.rmtree(self.tmp)
                 break
@@ -53,6 +54,11 @@ class WebBase(unittest.TestCase):
                 # The folder itself gone too: nothing left to remove.
                 if not os.path.isdir(self.tmp):
                     break
+                time.sleep(0.05)
+            except PermissionError:
+                # Still open after 2 s: a connection the test left, which is the test's to find.
+                if attempt == 39:
+                    raise
                 time.sleep(0.05)
 
     def make(self, login_id="NOVA", password="pass1234", dj="DJ NOVA", admin=False):
