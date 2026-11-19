@@ -8,11 +8,11 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ### Changed
 
-- The launcher's pages are composed, not stacked boxes: **Play** sets the ready check beside the player (who plays,
-  their records, their last game), as tall as each other, under a head that says where PLAY plays in large words;
-  **Help** sets its checks beside what to try when the game closes and its tools beside what puts back and takes
-  away; **Launcher** sets playing without the window beside what openDMT3 is, under one General group with the
-  language, the guide and the look for updates. On **Online**, another server's address, the sign-in (or who is
+- The launcher's pages are composed, not stacked boxes: **Play** sets the ready check beside the player (their card,
+  who plays, their records) and the last game the full width under them, under a head that says where PLAY plays in
+  large words; **Help** sets its checks beside what to try when the game closes and its tools beside what puts back
+  and takes away; **Launcher** sets playing without the window beside what openDMT3 is, under one General group with
+  the language, the guide and the look for updates. On **Online**, another server's address, the sign-in (or who is
   signed in) and the connection test are parts of **Where you play**: once the server answers it is said under the
   choice with **Change**, the test's key stands at the group's title and its steps are on a card only once it runs.
   This PC's switch for the other PCs and the form that adds a player are rows of their groups, and the first-start
