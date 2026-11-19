@@ -10,7 +10,7 @@
 #   4. the release's files gathered into OUT_DIR/files by packaging/release_files.py, each named in lowercase with the
 #      tool, its part and the version, then the systems it runs on or what it holds (the launcher's update files keep
 #      Velopack's names, which installed launchers read), with opendmt3-<version>-sha256sums.txt over them:
-#        opendmt3-launcher-<version>-windows-x64-setup.exe   the launcher's installer
+#        opendmt3-launcher-<version>-windows-x64-installer.exe   the launcher's installer
 #        opendmt3-server-<version>-linux-macos.zip           the server alone on Linux and macOS, for Docker Compose or
 #                                                            Python
 #        opendmt3-server-<version>-windows-x64.zip           the server on Windows, without Docker or Python
@@ -127,7 +127,7 @@ V=${TAG#v}
 SERVER="$OUT/server"
 rm -rf "$SERVER" && mkdir -p "$SERVER"
 # The Windows server package, bringing the installer just built for the site's Download page.
-OPENDMT3_SERVER_INSTALLER="$BUILD/releases/opendmt3-launcher-$V-windows-x64-setup.exe" \
+OPENDMT3_SERVER_INSTALLER="$BUILD/releases/opendmt3-launcher-$V-windows-x64-installer.exe" \
   packaging/windows/server.sh "$OUT/server-windows" > "$OUT/server-windows.log" 2>&1 \
   || { tail -n 40 "$OUT/server-windows.log"; exit 1; }
 cp "$OUT/server-windows/opendmt3-server-$V-windows-x64.zip" "$SERVER/"
@@ -148,7 +148,7 @@ ls -l "$FILES"
 compare=$(sed -n "s#^\[${TAG#v}\]: \(https://.*\)#\1#p" CHANGELOG.md)
 [ -n "$compare" ] || { echo "CHANGELOG.md has no link for [${TAG#v}] at its end" >&2; exit 1; }
 v=${TAG#v}
-{ printf 'openDMT3 %s. Players install `opendmt3-launcher-%s-windows-x64-setup.exe`; server owners run `opendmt3-server-%s-windows-x64.zip` on Windows, `opendmt3-server-%s-linux-macos.zip` on Linux or macOS with Docker or Python, the `-linux-installer.sh` or `-macos-installer.sh` for a one-line install without Docker, or the Helm chart ([the server guide](https://github.com/kanggu12/openDMT3/blob/%s/docs/server.md)).\n\n' "$v" "$v" "$v" "$v" "$TAG"
+{ printf 'openDMT3 %s. Players install `opendmt3-launcher-%s-windows-x64-installer.exe`; server owners run `opendmt3-server-%s-windows-x64.zip` on Windows, `opendmt3-server-%s-linux-macos.zip` on Linux or macOS with Docker or Python, the `-linux-installer.sh` or `-macos-installer.sh` for a one-line install without Docker, or the Helm chart ([the server guide](https://github.com/kanggu12/openDMT3/blob/%s/docs/server.md)).\n\n' "$v" "$v" "$v" "$v" "$TAG"
   printf 'The `openDMT3-%s-*.nupkg` files, their `.sig` and `releases.win.json` are the launcher'\''s own update files, fetched by installed launchers: nothing to download by hand.\n\n' "$v"
   cat "$OUT/changelog-section.md"; printf '\n**Full Changelog**: %s\n' "$compare"; } \
   > "$OUT/release-notes.md"

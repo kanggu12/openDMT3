@@ -254,7 +254,7 @@ fetch them by themselves. The guides' download lines name the version too: after
 
 | What | Files |
 | :--- | :--- |
-| The launcher's installer | `opendmt3-launcher-X.Y.Z-windows-x64-setup.exe` |
+| The launcher's installer | `opendmt3-launcher-X.Y.Z-windows-x64-installer.exe` |
 | The server alone on Linux and macOS, for Docker Compose or Python, with its guides | `opendmt3-server-X.Y.Z-linux-macos.zip` |
 | The server on Windows, without Docker or Python | `opendmt3-server-X.Y.Z-windows-x64.zip` (`packaging/windows/server.sh`) |
 | The one-line install without Docker | `opendmt3-server-X.Y.Z-linux-installer.sh` and `opendmt3-server-X.Y.Z-macos-installer.sh`: `packaging/server/install.sh` with the version put in |

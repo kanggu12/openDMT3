@@ -79,7 +79,7 @@ class SettingsTest(unittest.TestCase):
         package = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, package)
         os.makedirs(os.path.join(package, standalone.BUNDLED_INSTALLER))
-        name = "opendmt3-launcher-1.2.3-windows-x64-setup.exe"
+        name = "opendmt3-launcher-1.2.3-windows-x64-installer.exe"
         with open(os.path.join(package, standalone.BUNDLED_INSTALLER, name), "wb") as f:
             f.write(b"MZ bundled")
         downloads = os.path.join(self.data, "downloads")

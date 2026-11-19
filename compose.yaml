@@ -14,7 +14,7 @@
 # (./dmt3 catalog PATH does the same, with the folders a game folder's links point into mounted too; the admin pages'
 # Song list takes an uploaded song list.)
 # The installer for the site's Download page, under the release's own name (of those there, the newest is handed out):
-#   docker compose cp opendmt3-launcher-<version>-windows-x64-setup.exe server:/data/downloads/
+#   docker compose cp opendmt3-launcher-<version>-windows-x64-installer.exe server:/data/downloads/
 # The project's name: its container (opendmt3-server-1), its network (opendmt3_default) and its data volume
 # (opendmt3_data) carry it.
 # .env beside this file (./dmt3 writes it, a comment above each line): GAME_PORT, WEB_PORT and ADMIN_PORT (the ports on

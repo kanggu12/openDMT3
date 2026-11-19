@@ -1,5 +1,5 @@
 # PyInstaller recipe for the launcher's installer (build.sh copies it out as
-# opendmt3-launcher-<version>-windows-x64-setup.exe, the release's name for it): one file holding the installer's
+# opendmt3-launcher-<version>-windows-x64-installer.exe, the release's name for it): one file holding the installer's
 # dialogs (opendmt3/client/installer.py) and Velopack's own setup, which it runs without a window. Run by packaging/windows/build.sh inside the Wine build
 # container, from the repository root, after vpk has made Velopack's setup.
 import os

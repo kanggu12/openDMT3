@@ -5,7 +5,7 @@
 Run by packaging/release.sh after packaging/windows/build.sh has built into BUILD_DIR. Into OUT_DIR it puts, and
 prints the Markdown table of (FILES.md beside them):
 
-  opendmt3-launcher-<version>-windows-x64-setup.exe   the launcher's installer, for players (build.sh names it so)
+  opendmt3-launcher-<version>-windows-x64-installer.exe   the launcher's installer, for players (build.sh names it so)
   opendmt3-server-<version>-linux-macos.zip           the server on Linux and macOS, with Docker Compose or the PC's
                                                       Python, for server owners: what it needs and nothing else (docs,
                                                       the front door, Compose, the package's core and server)
@@ -74,8 +74,8 @@ SOURCES_ZIP = "opendmt3-launcher-{v}-openal-sources.zip"
 SUMS = "opendmt3-{v}-sha256sums.txt"
 # FILES.md's table: each file, what it is, for whom. Names are made from these with the version put in.
 ROLES = [
-    ("opendmt3-launcher-{v}-windows-x64-setup.exe", "The launcher's installer for Windows (x64); runs under Wine on "
-     "Linux too", "Players"),
+    ("opendmt3-launcher-{v}-windows-x64-installer.exe", "The launcher's installer for Windows (x64); runs under Wine "
+     "on Linux too", "Players"),
     (SERVER_ZIP, "The server (game server and site) on Linux or macOS, for Docker Compose (`./dmt3 setup`) or the "
      "PC's Python, with its guides", "Server owners on Linux and macOS"),
     ("opendmt3-server-{v}-windows-x64.zip", "The server on a Windows PC of its own, without Docker or Python, with "

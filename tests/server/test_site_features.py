@@ -457,7 +457,8 @@ class LookTest(SiteBase):
         self.assertIn('href="/admin/backups"', lines[0])
         self.assertIn("No song list", lines[1])
         self.assertIn('href="/admin/song_list"', lines[1])
-        self.assertIn("put opendmt3-launcher-&lt;version&gt;-windows-x64-setup.exe in " + self.site.downloads, lines[2])
+        self.assertIn("put opendmt3-launcher-&lt;version&gt;-windows-x64-installer.exe in " + self.site.downloads,
+                      lines[2])
         # A backup eight days old is still too old; one now is not.
         backups.make(self.site.db_path, self.tmp, "manual", now=time.time() - 8 * 86400)
         self.assertIn("No backup", self.looks()[0])
@@ -1091,7 +1092,7 @@ class HomeSongsDownloadTest(SiteBase):
         self.assertNotIn("Run anyway", page)
         got = browser.get("/download/windows")
         self.assertEqual(got.headers["content-disposition"],
-                         'attachment; filename="opendmt3-launcher-windows-x64-setup-dmt.example-443.exe"')
+                         'attachment; filename="opendmt3-launcher-windows-x64-installer-dmt.example-443.exe"')
         self.assertEqual(int(got.headers["content-length"]), len(got.content))
         # A program with a version resource: its version too.
         with open(path, "wb") as f:
@@ -1106,17 +1107,22 @@ class HomeSongsDownloadTest(SiteBase):
     def test_the_installers_name_keeps_letters_digits_dots_and_dashes_only(self):
         from opendmt3.server.services import downloads
         self.assertEqual(downloads.download_name("dmt.example.org", 4730),
-                         "opendmt3-launcher-windows-x64-setup-dmt.example.org-4730.exe")
-        self.assertEqual(downloads.download_name("::1", 4730), "opendmt3-launcher-windows-x64-setup---1-4730.exe")
+                         "opendmt3-launcher-windows-x64-installer-dmt.example.org-4730.exe")
+        self.assertEqual(downloads.download_name("::1", 4730), "opendmt3-launcher-windows-x64-installer---1-4730.exe")
         self.assertEqual(downloads.download_name("게임.example", 80),
-                         "opendmt3-launcher-windows-x64-setup---.example-80.exe")
-        self.assertEqual(downloads.download_name('a"b/c\\d', 1), "opendmt3-launcher-windows-x64-setup-a-b-c-d-1.exe")
+                         "opendmt3-launcher-windows-x64-installer---.example-80.exe")
+        self.assertEqual(downloads.download_name('a"b/c\\d', 1),
+                         "opendmt3-launcher-windows-x64-installer-a-b-c-d-1.exe")
         # The version read from the file goes in after the part, as the release names it; a host in capitals is the
         # same host, named in lowercase as every release file is.
-        self.assertEqual(downloads.download_name("DMT.Example.org", 443, "0.3.1"),
-                         "opendmt3-launcher-0.3.1-windows-x64-setup-dmt.example.org-443.exe")
+        self.assertEqual(downloads.download_name("DMT.Example.org", 443, "0.4.2"),
+                         "opendmt3-launcher-0.4.2-windows-x64-installer-dmt.example.org-443.exe")
+        # An older release's installer the folder holds is handed out under the same form: it reads its server from its
+        # file's end, never from its name (core/preset.py).
+        self.assertEqual(downloads.download_name("dmt.example.org", 443, "0.3.1"),
+                         "opendmt3-launcher-0.3.1-windows-x64-installer-dmt.example.org-443.exe")
         # Anything but a version's letters from a file's resource is left out of the name.
-        self.assertEqual(downloads.download_name("h", 1, "1/../2"), "opendmt3-launcher-windows-x64-setup-h-1.exe")
+        self.assertEqual(downloads.download_name("h", 1, "1/../2"), "opendmt3-launcher-windows-x64-installer-h-1.exe")
 
     def test_the_downloads_folder_hands_out_the_newest_installer_under_either_name(self):
         from opendmt3.server.services import downloads
@@ -1144,13 +1150,26 @@ class HomeSongsDownloadTest(SiteBase):
         with open(bare, "wb") as f:
             f.write(b"MZ")
         self.assertEqual(downloads.installer_path(folder), stored)
-        # Other names are no installer of openDMT3's: a mixed-case copy, a vpk setup, a folder with the name.
+        # A release from 0.4.2 on names it -installer.exe: one of those, newer, beside the -setup.exe ones and the
+        # stored one, is the one handed out; a folder that holds only the older names hands those out as before.
+        renamed = os.path.join(folder, "opendmt3-launcher-0.4.2-windows-x64-installer.exe")
+        with open(renamed, "wb") as f:
+            f.write(windows_program((0, 4, 2, 0)))
+        self.assertEqual(downloads.installer_path(folder), renamed)
+        # Without its version resource, its name's version still ranks it among the others (above the stored 0.4.0).
+        with open(renamed, "wb") as f:
+            f.write(b"MZ")
+        self.assertEqual(downloads.installer_path(folder), renamed)
+        # Other names are no installer of openDMT3's: mixed-case copies, a vpk setup, a folder with the name.
         os.remove(stored)
         os.remove(bare)
-        for other in ("openDMT3-Launcher-9.0.0-Windows-x64-Setup.exe", "Setup.exe", "notes.txt"):
+        os.remove(renamed)
+        for other in ("openDMT3-Launcher-9.0.0-Windows-x64-Setup.exe",
+                      "opendmt3-launcher-9.0.0-windows-x64-Installer.exe", "Setup.exe", "notes.txt"):
             with open(os.path.join(folder, other), "wb") as f:
                 f.write(windows_program((9, 0, 0, 0)))
         os.makedirs(os.path.join(folder, "opendmt3-launcher-9.9.9-windows-x64-setup.exe"))
+        os.makedirs(os.path.join(folder, "opendmt3-launcher-9.9.9-windows-x64-installer.exe"))
         self.assertEqual(downloads.installer_path(folder), newer)
 
 

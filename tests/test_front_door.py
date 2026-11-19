@@ -470,12 +470,18 @@ class ReleasePackageTest(unittest.TestCase):
             with mock.patch.object(dmt3, "BUILD_DIR", built):
                 # No build yet: no installer to hand out.
                 self.assertIsNone(dmt3.default_installer())
-                # Two builds' installers in the folder: the newer version's (by its name, these hold no version).
-                for version in ("0.3.1", "0.3.10", "0.3.2"):
-                    with open(os.path.join(releases, "opendmt3-launcher-%s-windows-x64-setup.exe" % version), "wb") as f:
+                # Builds' installers in the folder: the newer version's (by its name, these hold no version).
+                for version in ("0.4.2", "0.4.10", "0.4.3"):
+                    name = "opendmt3-launcher-%s-windows-x64-installer.exe" % version
+                    with open(os.path.join(releases, name), "wb") as f:
                         f.write(b"MZ")
                 self.assertEqual(os.path.basename(dmt3.default_installer()),
-                                 "opendmt3-launcher-0.3.10-windows-x64-setup.exe")
+                                 "opendmt3-launcher-0.4.10-windows-x64-installer.exe")
+                # A build of a release from before 0.4.2 named it -setup.exe: still an installer, older here.
+                with open(os.path.join(releases, "opendmt3-launcher-0.4.1-windows-x64-setup.exe"), "wb") as f:
+                    f.write(b"MZ")
+                self.assertEqual(os.path.basename(dmt3.default_installer()),
+                                 "opendmt3-launcher-0.4.10-windows-x64-installer.exe")
 
     def test_the_clone_s_own_commands_say_so_in_the_server_package(self):
         # The server package has no tests/ and no packaging/windows/: ./dmt3 test and build say where they run.

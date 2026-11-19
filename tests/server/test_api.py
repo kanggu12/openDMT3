@@ -263,7 +263,8 @@ class StatusAndLogsTwinTest(ApiBase):
         self.assertEqual([item["key"] for item in server["look"]], ["backup", "songs", "installer"])
         self.assertEqual(server["look"][0], {"key": "backup", "values": {"days": 7}, "href": "/admin/backups",
                                              "text": "No backup in the last 7 days."})
-        self.assertIn("put opendmt3-launcher-<version>-windows-x64-setup.exe in " + self.site.downloads, server["look"][2]["text"])
+        self.assertIn("put opendmt3-launcher-<version>-windows-x64-installer.exe in " + self.site.downloads,
+                      server["look"][2]["text"])
         # The numbers as before.
         self.assertEqual(server["accounts"], {"all": 1, "disabled": 0})
         ko = self.call("GET", "/api/v1/server?lang=ko", self.boss).json()
@@ -477,7 +478,8 @@ class FilesTwinTest(ApiBase):
         program = TestClient(self.app, base_url="https://dmt.example", client=("203.0.113.9", 50000))
         auth = {"Authorization": "Bearer " + self.token(client=program)}
         self.assertEqual(program.get("/api/v1/download", headers=auth).json(),
-                         {"installer": None, "address": "dmt.example:443", "file": "opendmt3-launcher-windows-x64-setup-dmt.example-443.exe"})
+                         {"installer": None, "address": "dmt.example:443",
+                          "file": "opendmt3-launcher-windows-x64-installer-dmt.example-443.exe"})
         self.refused(program.get("/api/v1/download/windows", headers=auth), 404, "no_installer")
         os.makedirs(self.site.downloads)
         path = os.path.join(self.site.downloads, "openDMT3-win-Setup.exe")
@@ -489,7 +491,7 @@ class FilesTwinTest(ApiBase):
                          {"size": os.path.getsize(path), "at": int(moment), "version": "1.2.3"})
         got = program.get("/api/v1/download/windows", headers=auth)
         self.assertEqual(got.headers["content-disposition"],
-                         'attachment; filename="opendmt3-launcher-1.2.3-windows-x64-setup-dmt.example-443.exe"')
+                         'attachment; filename="opendmt3-launcher-1.2.3-windows-x64-installer-dmt.example-443.exe"')
         self.assertEqual(int(got.headers["content-length"]), len(got.content))
         # The installer as kept, then this server's address on its end: the launcher it installs starts here.
         self.assertTrue(got.content.startswith(windows_program((1, 2, 3, 0))))

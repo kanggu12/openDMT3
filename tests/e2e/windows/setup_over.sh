@@ -14,10 +14,10 @@ OLD=$(realpath "${1:?usage: setup_over.sh OLD_VELOPACK_SETUP NEW_RELEASES_DIR OU
 REL=$(realpath "${2:?}")
 OUT=$(realpath -m "${3:?}")
 mkdir -p "$OUT"
-# The launcher's installer as packaging/windows/build.sh names it (opendmt3-launcher-<version>-windows-x64-setup.exe):
-# the newest, when the folder holds builds of several versions.
-SETUP=$(cd "$REL" && ls opendmt3-launcher-*-windows-x64-setup.exe 2>/dev/null | sort -V | tail -1)
-[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-setup.exe in $REL"; exit 1; }
+# The launcher's installer as packaging/windows/build.sh names it
+# (opendmt3-launcher-<version>-windows-x64-installer.exe): the newest, when the folder holds builds of several versions.
+SETUP=$(cd "$REL" && ls opendmt3-launcher-*-windows-x64-installer.exe 2>/dev/null | sort -V | tail -1)
+[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-installer.exe in $REL"; exit 1; }
 NEW_VERSION=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$(dirname "$0")/../../../opendmt3/__init__.py")
 C=opendmt3-setup-over
 docker rm -f "$C" >/dev/null 2>&1

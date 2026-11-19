@@ -52,10 +52,10 @@ chmod -R a+rwX "$DATA"
 docker run --rm --network none -v "$DATA:/data" opendmt3-server:local --add-player BOSS --password pass1234 --dj BOSS --admin
 docker run --rm --network none -v "$DATA:/data" opendmt3-server:local --add-player NOVA --password pass1234 --dj "DJ NOVA"
 [ -f "$DATA/catalog.json" ] || { echo "FAIL: no song list"; cleanup; exit 1; }
-# The launcher's installer as packaging/windows/build.sh names it (opendmt3-launcher-<version>-windows-x64-setup.exe):
-# the newest, when the folder holds builds of several versions.
-SETUP=$(cd "$REL" && ls opendmt3-launcher-*-windows-x64-setup.exe 2>/dev/null | sort -V | tail -1)
-[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-setup.exe in $REL"; exit 1; }
+# The launcher's installer as packaging/windows/build.sh names it
+# (opendmt3-launcher-<version>-windows-x64-installer.exe): the newest, when the folder holds builds of several versions.
+SETUP=$(cd "$REL" && ls opendmt3-launcher-*-windows-x64-installer.exe 2>/dev/null | sort -V | tail -1)
+[ -n "$SETUP" ] || { echo "FAIL: no opendmt3-launcher-*-windows-x64-installer.exe in $REL"; exit 1; }
 # Put in the downloads folder under the release's own name, as an owner drops a downloaded one in.
 cp "$REL/$SETUP" "$DATA/downloads/"
 docker run -d --name "$SRV" --network "$NET" --network-alias dmt-server -v "$DATA:/data" opendmt3-server:local >/dev/null

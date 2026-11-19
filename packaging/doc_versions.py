@@ -3,7 +3,7 @@
     python3 packaging/doc_versions.py [--write] [--root DIR]
 
 The README and the guides name a release's files by their versioned names (opendmt3-launcher-1.2.3-windows-x64-
-setup.exe, opendmt3-server-1.2.3-linux-macos.zip) and download them from that release's own address
+installer.exe, opendmt3-server-1.2.3-linux-x64.tar.gz) and download them from that release's own address
 (releases/download/v1.2.3/), so a line copied from them fetches the file it names; compose.yaml's default image and
 the Helm chart's Chart.yaml are read the same way. Every such version must be `__version__` (opendmt3/__init__.py);
 so must the bug form's example version. Lists each line that names another and exits 1; --write puts this version in

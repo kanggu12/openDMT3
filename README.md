@@ -45,7 +45,7 @@ you, and a server of your own in place of the game's online service.
 
 On Windows 10 or 11, with your own client data ([which](docs/client-data.md#which-client-data)):
 
-1. Download **[opendmt3-launcher-0.4.1-windows-x64-setup.exe](https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-setup.exe)**
+1. Download **[opendmt3-launcher-0.4.1-windows-x64-installer.exe](https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-installer.exe)**
    and run it. If Windows says it protected your PC, choose **More info**, then **Run anyway**.
 2. Choose **Install**. The launcher's first-start guide finds your client data and takes you to **PLAY**.
 

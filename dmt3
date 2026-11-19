@@ -660,8 +660,8 @@ def admin_line():
 
 
 def default_installer():
-    """The installer ./dmt3 build left in its default folder (opendmt3-launcher-<version>-windows-x64-setup.exe, the
-    newest when builds of several versions are there), or None."""
+    """The installer ./dmt3 build left in its default folder (opendmt3-launcher-<version>-windows-x64-installer.exe,
+    the newest when builds of several versions are there), or None."""
     library()
     # The same choice the site makes in its downloads folder, so a build's folder is read as one too.
     from opendmt3.server.services import downloads

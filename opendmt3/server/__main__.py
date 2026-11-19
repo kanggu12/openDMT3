@@ -18,7 +18,7 @@ address as --host unless given: 127.0.0.1 keeps the site for a reverse proxy on 
 their own on --admin-port (0: none), at --admin-host (127.0.0.1 unless given: this PC alone); --admin-on-site-port
 serves them on the site's port too, at /admin/ (one port for everything). DIR holds the
 database, the site's signing secret, backups/ (one a day while it runs, a week kept) and downloads/ (put a release's
-opendmt3-launcher-<version>-windows-x64-setup.exe there, as it is, to hand it out).
+opendmt3-launcher-<version>-windows-x64-installer.exe there, as it is, to hand it out).
 On a first start with no account, open the admin pages (or the site) from this PC to make the owner's account.
 """
 

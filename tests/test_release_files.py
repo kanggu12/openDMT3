@@ -43,7 +43,7 @@ def build(folder, signed=True, delta=True):
     ones of vpk's that are no part of a release), and the two LGPL archives with their SHA256SUMS."""
     releases = Path(folder) / "releases"
     releases.mkdir(parents=True)
-    names = ["opendmt3-launcher-%s-windows-x64-setup.exe" % V, "openDMT3-%s-full.nupkg" % V, "releases.win.json",
+    names = ["opendmt3-launcher-%s-windows-x64-installer.exe" % V, "openDMT3-%s-full.nupkg" % V, "releases.win.json",
              "RELEASES", "assets.win.json", "openDMT3-win-Portable.zip", "openDMT3-9.8.6-full.nupkg"]
     names += ["openDMT3-%s-delta.nupkg" % V] if delta else []
     names += [n + ".sig" for n in names if n.startswith("openDMT3-%s-" % V)] if signed else []
@@ -79,7 +79,7 @@ class ReleaseFilesTest(unittest.TestCase):
         self.assertEqual((code, err), (0, ""))
         got = sorted(os.listdir(self.out))
         self.assertEqual(got, sorted([
-            "opendmt3-launcher-%s-windows-x64-setup.exe" % V, "opendmt3-server-%s-linux-macos.zip" % V,
+            "opendmt3-launcher-%s-windows-x64-installer.exe" % V, "opendmt3-server-%s-linux-macos.zip" % V,
             "opendmt3-launcher-%s-openal-sources.zip" % V, "opendmt3-%s-sha256sums.txt" % V,
             "openDMT3-%s-full.nupkg" % V, "openDMT3-%s-delta.nupkg" % V, "openDMT3-%s-full.nupkg.sig" % V,
             "openDMT3-%s-delta.nupkg.sig" % V, "releases.win.json",
@@ -160,13 +160,13 @@ class ReleaseFilesTest(unittest.TestCase):
         self.assertNotIn(".sig", table)
         self.assertNotIn("delta", table)
         # Without the installer, no release.
-        os.remove(Path(self.tmp) / "build" / "releases" / ("opendmt3-launcher-%s-windows-x64-setup.exe" % V))
+        os.remove(Path(self.tmp) / "build" / "releases" / ("opendmt3-launcher-%s-windows-x64-installer.exe" % V))
         code, _, err = run(files, V, str(Path(self.tmp) / "build"), str(self.out))
         self.assertEqual(code, 1)
-        self.assertIn("missing: opendmt3-launcher-%s-windows-x64-setup.exe" % V, err)
+        self.assertIn("missing: opendmt3-launcher-%s-windows-x64-installer.exe" % V, err)
 
     def test_names_out_of_line_are_refused(self):
-        problems = files.check_names(V, ["opendmt3-launcher-%s-windows-x64-setup.exe" % V, "Openal-soft.tar.gz",
+        problems = files.check_names(V, ["opendmt3-launcher-%s-windows-x64-installer.exe" % V, "Openal-soft.tar.gz",
                                          "openDMT3-%s-full.nupkg" % V])
         self.assertEqual(problems, ["Openal-soft.tar.gz is not one of a release's files"])
         # The table's own names: only the update files are in other letters.
@@ -242,7 +242,7 @@ class DocVersionsTest(unittest.TestCase):
         self.assertEqual(doc_versions.stale(Path(ROOT), version), [])
         # The README's download is this version's installer, from this version's release.
         readme = Path(ROOT, "README.md").read_text(encoding="utf-8")
-        self.assertIn("releases/download/v%s/opendmt3-launcher-%s-windows-x64-setup.exe" % (version, version), readme)
+        self.assertIn("releases/download/v%s/opendmt3-launcher-%s-windows-x64-installer.exe" % (version, version), readme)
 
     def test_the_guides_name_only_files_a_release_has(self):
         # Every release file a page names by a version (this one, <version> or X.Y.Z) is one the release makes, so a
@@ -273,10 +273,10 @@ class DocVersionsTest(unittest.TestCase):
         (tmp / "opendmt3" / "__init__.py").write_text('__version__ = "1.2.4"\n')
         (tmp / "docs").mkdir()
         (tmp / "docs" / "install.md").write_text(
-            "curl -LO https://x/releases/download/v1.2.3/opendmt3-launcher-1.2.3-windows-x64-setup.exe\n"
+            "curl -LO https://x/releases/download/v1.2.3/opendmt3-launcher-1.2.3-windows-x64-installer.exe\n"
             "unzip opendmt3-server-1.2.3-linux-macos.zip\ncd opendmt3-server-1.2.3-linux-macos\n"
             "opendmt3-server-1.2.3-helm-chart.tgz, opendmt3-1.2.3-sha256sums.txt and "
-            "opendmt3-launcher-1.2.3-openal-sources.zip\nopendmt3-launcher-<version>-windows-x64-setup.exe stays\n")
+            "opendmt3-launcher-1.2.3-openal-sources.zip\nopendmt3-launcher-<version>-windows-x64-installer.exe stays\n")
         code, _, err = run(doc_versions, "--root", str(tmp))
         self.assertEqual(code, 1)
         # Each name's version: the address and the installer, the zip and its folder, the chart, the sums, the sources.
@@ -284,11 +284,11 @@ class DocVersionsTest(unittest.TestCase):
         run(doc_versions, "--root", str(tmp), "--write")
         text = (tmp / "docs" / "install.md").read_text()
         # The version alone changed: the part after it stays (-windows-x64), and a pattern without one stays.
-        self.assertIn("v1.2.4/opendmt3-launcher-1.2.4-windows-x64-setup.exe", text)
+        self.assertIn("v1.2.4/opendmt3-launcher-1.2.4-windows-x64-installer.exe", text)
         self.assertIn("opendmt3-server-1.2.4-linux-macos.zip\ncd opendmt3-server-1.2.4-linux-macos\n", text)
         self.assertIn("opendmt3-server-1.2.4-helm-chart.tgz, opendmt3-1.2.4-sha256sums.txt and "
                       "opendmt3-launcher-1.2.4-openal-sources.zip", text)
-        self.assertIn("opendmt3-launcher-<version>-windows-x64-setup.exe stays", text)
+        self.assertIn("opendmt3-launcher-<version>-windows-x64-installer.exe stays", text)
         self.assertEqual(run(doc_versions, "--root", str(tmp))[0], 0)
 
 

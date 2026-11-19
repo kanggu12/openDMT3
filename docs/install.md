@@ -21,7 +21,7 @@ everyday play; to run a server for other players' PCs, see [Running a server](se
 
 ## Install
 
-1. Get `opendmt3-launcher-0.4.1-windows-x64-setup.exe` from the
+1. Get `opendmt3-launcher-0.4.1-windows-x64-installer.exe` from the
    [releases](https://github.com/kanggu12/openDMT3/releases/latest), or the installer on your server's **Download**
    page (its name carries the server's address).
 2. Run it. Downloaded with a browser, it may make Windows say it protected your PC: **More info**, then **Run anyway**
@@ -37,8 +37,8 @@ internet, so step 2's question does not come; Smart App Control, when it is on, 
 
 ```powershell
 cd ~
-curl.exe -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-setup.exe
-.\opendmt3-launcher-0.4.1-windows-x64-setup.exe
+curl.exe -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-installer.exe
+.\opendmt3-launcher-0.4.1-windows-x64-installer.exe
 ```
 
 Run again, the installer updates an older openDMT3, offers **Uninstall**, **Repair** or **Open openDMT3** over the
@@ -56,8 +56,8 @@ in-game overlay, updates and **Repair**, drawn on the processor and on a graphic
 3. Download the installer and run it; the launcher opens as on Windows:
 
    ```sh
-   curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-setup.exe
-   wine opendmt3-launcher-0.4.1-windows-x64-setup.exe
+   curl -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-installer.exe
+   wine opendmt3-launcher-0.4.1-windows-x64-installer.exe
    ```
 
 The launcher looks for client data in your Desktop, Downloads and Documents (Wine shows your own folders there), and

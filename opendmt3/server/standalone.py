@@ -336,8 +336,8 @@ def log_to(data, console):
 
 
 def hand_out_bundled(data):
-    """The launcher's installer the Windows package brings, into the downloads folder under its release name
-    (opendmt3-launcher-<version>-windows-x64-setup.exe) when it is not there yet: of the installers there the site
+    """The launcher's installer a release's server package brings, into the downloads folder under its release name
+    (opendmt3-launcher-<version>-windows-x64-installer.exe) when it is not there yet: of the installers there the site
     hands out the newest version (services/downloads.py), so a newer package moved onto an older data folder hands out
     its own, and an installer the owner put there is never replaced or deleted. One without a release name goes in only
     when the folder has none."""
