@@ -101,8 +101,8 @@ def section_colours(page):
     return SECTION_COLOURS[PAGE_SECTIONS.get(page, "technika")]
 
 
-# Bundled font files and the family names Windows and fontconfig give them.
-FONT_FILES = ("DMT3Wide-Regular.ttf", "Pretendard-Regular.ttf", "Pretendard-SemiBold.ttf", "Pretendard-Bold.ttf")
+# Bundled font files (register_fonts adds them on Windows) and the family names Windows and fontconfig give them.
+FONT_FILE_NAMES = ("DMT3Wide-Regular.ttf", "Pretendard-Regular.ttf", "Pretendard-SemiBold.ttf", "Pretendard-Bold.ttf")
 DISPLAY = "DMT3 Wide"
 TEXT_FONT = "Pretendard"
 TEXT_BOLD = "Pretendard SemiBold"
@@ -187,7 +187,7 @@ def register_fonts():
     import ctypes
     # FR_PRIVATE: only this process sees the font, and it goes away when the launcher closes.
     fr_private = 0x10
-    for name in FONT_FILES:
+    for name in FONT_FILE_NAMES:
         ctypes.windll.gdi32.AddFontResourceExW(os.path.join(FONT_DIR, name), fr_private, 0)
 
 

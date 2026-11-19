@@ -377,6 +377,36 @@ class PictureTest(unittest.TestCase):
             self.assertEqual(updates.shown_version(), "0.7.1-updatetest")
 
 
+class FontsTest(unittest.TestCase):
+    """The bundled fonts the launcher adds to its own process on Windows before its first window."""
+
+    def test_the_fonts_registered_on_windows_are_the_bundled_files(self):
+        # As Windows runs it (on any other system it adds nothing): every path handed to Windows' GDI a file of the
+        # fonts folder, each bundled face once. A table of the same name that maps a face to its file (theme's
+        # FONT_FILES since 0.4.2) once stood in for the file list here, and the launcher stopped at its start.
+        import os
+        import sys
+        import types
+        from unittest import mock
+        added = []
+
+        class Gdi:
+            def AddFontResourceExW(self, path, flags, reserved):
+                added.append(path)
+                return 1
+
+        fake = types.SimpleNamespace(windll=types.SimpleNamespace(gdi32=Gdi()))
+        with mock.patch.object(sys, "platform", "win32"), mock.patch.dict(sys.modules, {"ctypes": fake}):
+            theme.register_fonts()
+        self.assertTrue(added)
+        for path in added:
+            self.assertIsInstance(path, str)
+            self.assertTrue(os.path.isfile(path), path)
+        self.assertEqual(sorted(os.path.basename(p) for p in added),
+                         sorted(["DMT3Wide-Regular.ttf", "Pretendard-Regular.ttf", "Pretendard-SemiBold.ttf",
+                                 "Pretendard-Bold.ttf"]))
+
+
 class ScrollBarTest(unittest.TestCase):
     """Where the scroll bar's thumb sits (widgets.thumb_span), without a window."""
 
