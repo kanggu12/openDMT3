@@ -647,9 +647,12 @@ wait_s 20
 # 8 s of nothing shown between (the chip, the bar, the question, the menu, a toast), on the title screen (it waits for
 # TOUCH to START as long as it is left: the game's later screens count down to the tutorial, which the hold below
 # needs). A part is judged only on a quiet machine and next to a phase where the game alone held 60 (Wine's software
-# renderer misses 60 by itself in some stretches), and there it must hold 60 too. Rounds go on until every part is
-# judged or the time for them runs out (QUIET_WAIT seconds, the waits for a quiet machine among them): then the
-# pacing could not be judged, and the test fails saying so (never a pass).
+# renderer misses 60 by itself in some stretches), and there it must hold 60 too; a judged phase that does not is
+# confirmed by the part's next judged phase, in the next round, before the part fails (the same threshold: a single
+# stall of the machine, one frame of some 30 ms whose spread shows in the windows round it, misses one phase; what
+# openDMT3 adds would miss every one). Rounds go on until every part is judged with its last judged phase holding, or
+# a part misses twice in a row, or the time for them runs out (QUIET_WAIT seconds, the waits for a quiet machine among
+# them): then the pacing could not be judged, and the test fails saying so (never a pass).
 # A quiet machine: the others' share of the 1-minute load average under QUIET_LOAD. The others' share is the load
 # average less our container's CPU over the last minute (ingame/quiet.py: the game alone keeps about a dozen of Wine's
 # rendering threads busy, which the load average counts). QUIET_LOAD is the 1-minute load average of the test PC with
@@ -729,8 +732,10 @@ if [ $software = 1 ]; then
   echo "  the pacing not judged: the game was drawn on the CPU"
   verdict=0
 fi
-[ $verdict -eq 1 ] && unjudged="a part of the layer did not hold 60 where the game alone did, on a quiet machine ($(grep -oE 'failed: .*' "$OUT/pace.txt" | head -1))"
-[ $verdict -eq 2 ] && unjudged="the pacing could not be judged in $QUIET_WAIT s ($(grep -oE 'phases not judged: .*' "$OUT/pace.txt" 2>/dev/null || echo 'no round on a quiet machine: the others'"'"' share of the load never under '"$QUIET_LOAD"))"
+[ $verdict -eq 1 ] && unjudged="a part of the layer did not hold 60 where the game alone did, on a quiet machine, in two judged phases in a row ($(grep -oE 'failed: .*' "$OUT/pace.txt" | head -1))"
+# A part that missed once with no judged phase after it in the time is said first.
+again=$(grep -oE 'to judge again: [^;]*' "$OUT/pace.txt" 2>/dev/null | grep -v ': none$' | head -1)
+[ $verdict -eq 2 ] && unjudged="the pacing could not be judged in $QUIET_WAIT s (${again:+$again; }$(grep -oE 'phases not judged: .*' "$OUT/pace.txt" 2>/dev/null || echo 'no round on a quiet machine: the others'"'"' share of the load never under '"$QUIET_LOAD"))"
 [ -n "$unjudged" ] && echo "  $unjudged"
 # The chip's own cost as a player has it: its CPU time a frame alone, its updates, no GDI drawing in them, and the
 # mark's alone. Read from the rounds' marks: with no round run (the machine never quiet), not measured, and the run

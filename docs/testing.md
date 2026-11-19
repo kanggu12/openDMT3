@@ -176,9 +176,13 @@ music.**
   - A part is judged only on a quiet machine (the others' share of the 1-minute load average, the average less the
     test container's own CPU, under 5: `ingame/quiet.py`; each round waits for it, and the load at every judged phase
     is in the output) and next to a phase where the game alone held 60 (Wine's software renderer misses 60 by itself
-    in some stretches). It passes when it held 60 there too.
-  - A part that did not hold 60, or parts not judged in the time (the machine busy, or the game alone missing 60 next
-    to them), fail the run at its end, never a pass. Its other steps still run and are checked, and the output says
+    in some stretches). It passes when it held 60 there too. A judged phase that did not is confirmed by the part's
+    next judged phase, in the next round, before the part fails, on the same threshold: a single stall of the machine
+    (one frame of some 30 ms, its spread in the windows round it) misses one phase, what the layer adds would miss
+    every one.
+  - A part that did not hold 60 in two judged phases in a row, or parts not judged in the time (the machine busy, the
+    game alone missing 60 next to them, or a part that missed once with no judged phase after it), fail the run at its
+    end, never a pass. Its other steps still run and are checked, and the output says
     how many phases were not judged for which reason and how often the game alone held 60.
 - The chip's own CPU time a frame, its updates and no GDI drawing in them, and the mark's CPU time a frame, against
   their targets (`ingame/costs.py play`).

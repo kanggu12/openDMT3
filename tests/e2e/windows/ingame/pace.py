@@ -14,9 +14,13 @@ shows in one). The same rule for the game alone and for a part.
 A part is judged only on a quiet machine and where the game alone held 60 next to it: with QUIET given, the others'
 share of the load (OTHERS) at each edge of the part's phase and of the nothing phase next to it under QUIET; and that
 nothing phase (just before or just after) holding 60, the same kind of stretch (Wine's software renderer misses 60 by
-itself in some). There it must hold 60 too. Exit 0 when every part had such a phase and each held 60; 1 when a judged
-phase did not; 2 when a part has no such phase yet (more rounds, or the machine was not quiet). Prints every phase with
-its windows and the others' load.
+itself in some). There it must hold 60 too, and a judged phase that does not is confirmed by the part's next judged
+phase before the part fails: a single stall of the machine (one frame of 30 ms, say, whose spread shows in the one or
+two windows round it) misses one phase, what openDMT3 adds would miss every one. The threshold is the same for both
+phases. Exit 0 when every part had such a phase, its last one held 60 and no two of its judged phases in a row did
+not; 1 when two judged phases of a part in a row did not hold 60; 2 when a part has no such phase yet, or its last
+one did not hold and none came after it (more rounds, or the machine was not quiet). Prints every phase with its
+windows and the others' load.
 """
 import re
 import sys
@@ -53,6 +57,17 @@ def held(wins):
     return len(wins) >= 2 and 2 * good > len(wins)
 
 
+def verdict(turns):
+    """A part's judged phases in order (True: held 60) to its verdict: "failed" when two in a row did not hold (a
+    phase that missed confirmed by the next), "again" when its last did not hold and none came after it yet (the next
+    decides), "held" when its last held and no two in a row missed, "none" with no judged phase."""
+    if not turns:
+        return "none"
+    if any(not a and not b for a, b in zip(turns, turns[1:])):
+        return "failed"
+    return "held" if turns[-1] else "again"
+
+
 def quiet(loads, limit):
     """Whether the others' load stayed under the limit at a phase's edges (always, with no limit)."""
     return limit is None or (bool(loads) and max(loads) < limit)
@@ -62,7 +77,8 @@ def main(log_path, marks_path, limit=None):
     wins = windows(open(log_path).read())
     order = phases(open(marks_path).read())
     inside = [[w for w in wins if w[1] >= start and w[0] <= end] for _, start, end, _ in order]
-    judged, failed = {}, []
+    # Each part's judged phases in order, True where it held 60.
+    judged = {}
     # Why the parts not judged were not: a busy machine, or the game alone missing 60 next to them on a quiet one.
     busy = slow = 0
     for i, (name, _, _, loads) in enumerate(order):
@@ -75,12 +91,14 @@ def main(log_path, marks_path, limit=None):
                 busy += 1
                 mark = "not judged: the machine was busy (others' load over %.1f)" % limit
             elif any(held(inside[j]) and quiet(order[j][3], limit) for j in near):
-                judged[name] = judged.get(name, 0) + 1
-                if held(inside[i]):
+                turns = judged.setdefault(name, [])
+                turns.append(held(inside[i]))
+                if turns[-1]:
                     mark = "judged: held 60"
+                elif len(turns) > 1 and not turns[-2]:
+                    mark = "judged: DID NOT hold 60, the second time in a row"
                 else:
-                    mark = "judged: DID NOT hold 60"
-                    failed.append(name)
+                    mark = "judged: DID NOT hold 60 (its next judged phase decides)"
             else:
                 slow += 1
                 mark = "not judged: the game alone did not hold 60 next to it on a quiet machine"
@@ -88,16 +106,19 @@ def main(log_path, marks_path, limit=None):
         load = " [others' load %s]" % "-".join("%.1f" % x for x in loads) if loads else ""
         print("  %-9s %s%s%s" % (name, shown, load, "; " + mark if mark else ""))
     parts = sorted({name for name, _, _, _ in order if name != "nothing"})
-    missing = [p for p in parts if not judged.get(p)]
-    print("  judged: %s; not judged anywhere: %s; failed: %s" % (
-        ", ".join("%s %d" % (p, judged[p]) for p in parts if judged.get(p)) or "none",
-        ", ".join(missing) or "none", ", ".join(failed) or "none"))
+    said = {p: verdict(judged.get(p, [])) for p in parts}
+    missing = [p for p in parts if said[p] == "none"]
+    again = [p for p in parts if said[p] == "again"]
+    failed = [p for p in parts if said[p] == "failed"]
+    print("  judged: %s; not judged anywhere: %s; to judge again: %s; failed: %s" % (
+        ", ".join("%s %d" % (p, len(judged[p])) for p in parts if judged.get(p)) or "none",
+        ", ".join(missing) or "none", ", ".join(again) or "none", ", ".join(failed) or "none"))
     # The game alone's own frame rate over the phases of nothing: what the machine gave it.
     alone = [w for (name, _, _, _), wins in zip(order, inside) if name == "nothing" for w in wins]
     held_alone = sum(1 for _, _, rate, sd in alone if rate >= 59.5 and sd < 0.5)
     print("  phases not judged: %d on a busy machine, %d where the game alone missed 60 on a quiet one; the game alone "
           "held 60 in %d of its %d windows" % (busy, slow, held_alone, len(alone)))
-    sys.exit(1 if failed else 2 if missing else 0)
+    sys.exit(1 if failed else 2 if missing or again else 0)
 
 
 if __name__ == "__main__":
