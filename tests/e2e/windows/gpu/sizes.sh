@@ -169,7 +169,13 @@ shot() {
 }
 # The picture's place in a client CW CH at OX OY and the layer's parts there (sizes.py places: PX PY PW PH U, the *_AT
 # points on the screen, PROBES in the client's pixels).
-places() { eval "$(python3 "$HERE/sizes.py" places "$1" "$2" "${3:-0}" "${4:-0}" "$DPI")"; }
+places() {
+  # The scaling the layer's smallest unit follows: a layer that says its unit with its textures has the smallest unit
+  # grow with the scaling (logic.c ui_unit_floor); 0.4.0's never did (96 here: 0.75 whatever the scaling).
+  local floor_dpi=96
+  grep -q "parts' textures made for .* output pixels a game pixel" "$LOG" 2>/dev/null && floor_dpi=$DPI
+  eval "$(python3 "$HERE/sizes.py" places "$1" "$2" "${3:-0}" "${4:-0}" "$floor_dpi")"
+}
 # Whether the bar is on the screen now: the layer's last "on the screen" line after its last "gone" line.
 bar_up() {
   local on gone

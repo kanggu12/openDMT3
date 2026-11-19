@@ -30,10 +30,12 @@ Judged, each with its numbers:
              whether it held
   textures   the layer's parts' textures never made while the game plays, nothing of the chain or the layer failing
              to be made at any size, and after each reset and change of the window's size the frames going on
-  crisp      the layer's words drawn at the screen's own pixels: the edges of the menu's, the question's, the sound
-             panel's and the toast's words as sharp at every size as at 1920x1080 (the median width of their rise
-             from 10 % to 90 % of their contrast under 1.5 times 1920x1080's: words drawn at a size and enlarged to the
-             screen would rise over about the enlargement, 2 times at 3840x2160)
+  crisp      the layer's words drawn at the screen's own pixels: the median width of their edges' rise from 10 % to
+             90 % of their contrast under 2 pixels in every cut-out of words (the menu, the sound panel, the
+             question, a toast, the quitting bar, the FPS counter), at every size. Words drawn at the screen's pixels
+             rise over about a pixel whatever their size; drawn at the game's size and enlarged they would rise over
+             about the enlargement (2.8 pixels at 3840x2160). The width against 1920x1080's is said, not judged (thin
+             strokes at 1920x1080 hold their edges under a pixel, which makes any larger size look softer by it)
 Said, not judged: each choice's frame time and the chain's GPU time by pass, the parts' costs, the card's clock;
 the layer's measures in pixels and in millimetres on a usual monitor of each size, beside Windows' own 9 point text
 at its scaling there; the process's address space and the device's texture memory (OPENDMT3_MEMORY_WATCH) and the
@@ -150,9 +152,10 @@ def places(cw, ch, ox=0, oy=0, dpi=96):
         "TOP_AT": "%d %d" % (round(ox + px + 0.69 * pw), oy), "AWAY_AT": at(pw / 2, 0.65 * ph),
         "START_AT": at((START_GAME[0] + 0.5) * pw / GAME_W, (START_GAME[1] + 0.5) * ph / GAME_H),
     }
-    # The pointer's points, in the client's pixels: the picture's corners, its middle, TOUCH to START's middle, and
-    # the middle of each bar there is.
-    probes = [("top-left", px, py), ("bottom-right", px + pw - 1, py + ph - 1), ("middle", px + pw // 2, py + ph // 2),
+    # The pointer's points, in the client's pixels: the picture's left edge and bottom corners, its middle, TOUCH to
+    # START's middle, and the middle of each bar there is (none on its top edge, which is the layer's).
+    probes = [("left-edge", px, py + ph // 2), ("bottom-left", px, py + ph - 1), ("bottom-right", px + pw - 1, py + ph - 1),
+              ("middle", px + pw // 2, py + ph // 2),
               ("start", round(px + (START_GAME[0] + 0.5) * pw / GAME_W), round(py + (START_GAME[1] + 0.5) * ph / GAME_H))]
     if px > 0:
         probes += [("left-bar", px // 2, ch // 2), ("right-bar", px + pw + (cw - px - pw) // 2, ch // 2)]
@@ -285,7 +288,7 @@ CROPS = [
     ("question", "question", "right", 330, 0, 0, 200, True),
     ("toast", "toast", "middle", -320, 320, 0, 60, True),
     ("play-question", "question-song", "right", 330, 0, 0, 200, True),
-    ("play-resume", "resume", "middle", -110, 110, 300, 470, True),
+    ("play-resume", "resume", "middle", -110, 110, 300, 470, False),
     ("play-quitting", "quitting", "right", 640, 0, 0, 70, True),
     ("title", "fps-chip", "right", 330, 0, 690, 768, True),
 ]
@@ -318,12 +321,11 @@ def crops(d, info, out_dir):
             box = tuple(int(round(v)) for v in box)
             cut = im.crop(box)
             cut.save(os.path.join(out_dir, name + ".png"))
-            entry = {"box": box}
-            if words:
-                gray = np.asarray(cut.convert("L"))
-                ws = edge_widths(gray)
-                entry["edges"] = len(ws)
-                entry["edge_width_median"] = frames.median(ws)
+            # Every cut-out's edges are measured; only the words' are judged (the 3, 2, 1 is the game's own chrome
+            # digits, a picture with soft edges of its own, and the bar's ends are pictures).
+            gray = np.asarray(cut.convert("L"))
+            ws = edge_widths(gray)
+            entry = {"box": box, "words": words, "edges": len(ws), "edge_width_median": frames.median(ws)}
             result[name] = entry
     return result
 
@@ -397,17 +399,32 @@ def judge_start(d, clocks):
         if pic != want_pic:
             r["fails"].append("pointer %s: turned by the picture %s, not %s in a client %dx%d" % (
                 name, pic, want_pic, lcw, lch))
-        if inside and (gx, gy) != (ex, ey):
+        # The display fix's helper turns a client point into a game pixel by whole-number sums (q * 1280 / width): in
+        # a picture smaller than the game's on an axis, a client pixel spans more than one game pixel and some game
+        # pixels are reached by no client point, so the one next to it is the nearest there is (logic.c
+        # pointer_axis). Anywhere else the very game pixel.
+        slack = (1 if pic[2] < GAME_W else 0, 1 if pic[3] < GAME_H else 0)
+        if inside and (abs(gx - ex) > slack[0] or abs(gy - ey) > slack[1]):
             r["fails"].append("pointer %s: the game's pixel %d,%d, not %d,%d" % (name, gx, gy, ex, ey))
+        elif inside and (gx, gy) != (ex, ey):
+            entry["result"] = "the nearest game pixel the helper's sums reach (the picture smaller than the game's)"
         if not inside:
             past = (gx < 0 if cx < pic[0] else gx >= GAME_W if cx >= pic[0] + pic[2] else True) and \
                    (gy < 0 if cy < pic[1] else gy >= GAME_H if cy >= pic[1] + pic[3] else True)
             if not past:
                 r["fails"].append("pointer %s: the game's pixel %d,%d is not past the game's edge" % (name, gx, gy))
         probes.append(entry)
-    # Each press must have been read by the game.
+    # Each press must have been read by the game, but one on the picture's top edge: the layer's (logic.c
+    # ui_at_top_edge, the top two of the game's lines, above every control of the game's), never the game's.
     for ms, mode, label, cx, cy in presses:
-        if not any(e["client"] == [cx, cy] for e in probes):
+        if any(e["client"] == [cx, cy] for e in probes):
+            continue
+        top = (cy - picture_rect(*(r.get("attached", {}).get("client") or [w, h]))[1]) <= 2 * unit(
+            picture_rect(w, h)[3], dpi) if mode == "full" else False
+        if top:
+            probes.append({"mode": mode, "point": label, "client": [cx, cy], "result": "the layer's top edge: not "
+                           "the game's, by design"})
+        else:
             r["fails"].append("pointer: the press %s %s at %d,%d was not read by the game" % (mode, label, cx, cy))
     r["pointer"] = probes
     # The dart's own picture: 32 pixels at 96 dpi, as Windows' scaling sizes it.
@@ -560,9 +577,9 @@ def report(out):
             wmed = c.get("edge_width_median")
             if b and wmed:
                 c["against_1080p"] = round(wmed / b, 2)
-                if wmed / b >= 1.5:
-                    r["fails"].append("the %s's words not sharp: edges %.2f px against %.2f at 1920x1080" % (
-                        name, wmed, b))
+            if c.get("words") and wmed is not None and c.get("edges", 0) >= 20 and wmed >= 2.0:
+                r["fails"].append("the %s's words not drawn at the screen's pixels: their edges rise over %.2f px "
+                                  "(%d edges)" % (name, wmed, c["edges"]))
     for r in starts:
         for f in r["fails"]:
             fails.append("%s: %s" % (os.path.relpath(r["dir"], out), f))
@@ -644,7 +661,8 @@ def summary_md(result, out):
                 for k, c in r["crops"].items() if "edges" in c))
         pts = r.get("pointer", [])
         judged = [p for p in pts if "expected" in p]
-        bad = [p for p in judged if isinstance(p["expected"], list) and p["read"] != p["expected"]]
+        bad = [p for p in judged if isinstance(p["expected"], list) and p["read"] != p["expected"]
+               and "nearest" not in p.get("result", "")]
         lines.append("- pointer: %d points the game read, %d judged (%d in a window), %d wrong: %s" % (
             len(pts), len(judged), sum(1 for p in judged if p["mode"].startswith("window")), len(bad),
             "; ".join("%s %s %d,%d -> %d,%d" % (p["mode"], p["point"], p["client"][0], p["client"][1], p["read"][0],
@@ -680,7 +698,7 @@ def summary_md(result, out):
     if not result["fails"] and not result["not_judged"]:
         lines.append("- PASS: every start attached at its size and scaling, every act answered, every pointer point "
                      "read as the game pixel under it, the dart at its size, the defaults held 60, nothing failed to be "
-                     "made, and the words as sharp at every size as at 1920x1080")
+                     "made, and the words drawn at the screen's pixels at every size")
     return "\n".join(lines) + "\n"
 
 
