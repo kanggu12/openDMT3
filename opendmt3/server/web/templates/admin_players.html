@@ -50,7 +50,8 @@
   {# A column's header sorts by it (its first order: names from A, times and counts from the highest), and again the
      other way; the column sorted by says so for a screen reader (aria-sort). #}
   {% macro sorted(key, label, cls="") %}{% set on = sort == key %}{% set first = "desc" if sorts[key][1] else "asc" %}<th class="{{ cls }}"{% if on %} aria-sort="{{ 'ascending' if order == 'asc' else 'descending' }}"{% endif %}><a class="sort{{ ' on ' + order if on }}" href="/admin/players?sort={{ key }}{% if on and order == first %}&amp;order={{ 'asc' if first == 'desc' else 'desc' }}{% endif %}">{{ label }}</a></th>{% endmacro %}
-  {% from "_charts.html" import cells %}
+  {% from "_charts.html" import cells %}{# The words every row repeats, looked up once for the page (every row of 1,000
+     players asked for each of them), on this line so the page's markup stays as it was. #}{% set dj_word, days_word, played_word, last_word, never_word, admin_word, off_word = w('account.dj'), w('players.days'), w('players.played'), w('admin.last'), w("admin.never"), w("admin.role"), w("admin.disabled") %}
   <div class="card">
     <h3>{{ w("players.list") }}</h3>
     <p class="players-file"><a class="btn small" href="/admin/players.csv" download>{{ w("players.download") }}</a></p>
@@ -62,12 +63,12 @@
            name lead there): a list for looking, a page for changing (player_pages.py). #}
         <tr class="{{ 'off' if r.disabled }}">
           <td><a href="/admin/players/{{ r.login_id }}"><code>{{ r.login_id }}</code></a></td>
-          <td data-label="{{ w('account.dj') }}"><a href="/admin/players/{{ r.login_id }}">{{ r.dj_name }}</a>{% if r.is_admin %} <span class="tag">{{ w("admin.role") }}</span>{% endif %}{% if r.disabled %} <span class="tag bad">{{ w("admin.disabled") }}</span>{% endif %}</td>
+          <td data-label="{{ dj_word }}"><a href="/admin/players/{{ r.login_id }}">{{ r.dj_name }}</a>{% if r.is_admin %} <span class="tag">{{ admin_word }}</span>{% endif %}{% if r.disabled %} <span class="tag bad">{{ off_word }}</span>{% endif %}</td>
           {# On a phone the row is a block and the headers are gone: a cell that is not its own name says what it is. #}
           {# The last two weeks, a cell a day on one scale for every row, and its sum beside it. #}
-          <td class="days" data-label="{{ w('players.days') }}">{{ cells(r.days, days, most, w) }} <span class="muted small">{{ r.plays_days }}</span></td>
-          <td class="muted time when" data-label="{{ w('players.played') }}">{{ r.last_play|when if r.last_play else w("admin.never") }}</td>
-          <td class="muted time when" data-label="{{ w('admin.last') }}">{{ r.last_login|when if r.last_login else w("admin.never") }}</td>
+          <td class="days" data-label="{{ days_word }}">{{ cells(r) }} <span class="muted small">{{ r.plays_days }}</span></td>
+          <td class="muted time when" data-label="{{ played_word }}">{{ r.last_play|when if r.last_play else never_word }}</td>
+          <td class="muted time when" data-label="{{ last_word }}">{{ r.last_login|when if r.last_login else never_word }}</td>
         </tr>
       {% endfor %}
       </tbody>

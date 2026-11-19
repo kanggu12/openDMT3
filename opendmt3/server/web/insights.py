@@ -13,6 +13,7 @@ import io
 import os
 import time
 
+from markupsafe import Markup, escape
 from starlette.responses import StreamingResponse
 
 from opendmt3.server.services import backups as bak
@@ -307,6 +308,36 @@ def players_rows(site, sort="played", order=None, now=None):
     rows.sort(key=key, reverse=order == "desc")
     most = max([max(r["days"]) for r in rows] + [0])
     return rows, sort, order, start, most
+
+
+def day_cells(rows, days, most, w):
+    """Each row of the Players tab (players_rows) given its row of cells as the page shows them: `day_cells`, the
+    cells' markup (a cell a day, oldest first, stronger with more on the one scale `most`, its day and count in its
+    tip), and `days_label`, what the row says to a screen reader. `days`: each day's start; `w`: the page's words.
+
+    The template made each of the 14 cells of every row itself, with a date, a sentence and a scale of their own each
+    time: 15,000 of them took most of the 130 ms the page took on 1,000 players. A cell is the same for the same day and
+    count, so each such cell is made once for the page (most are a day without plays), and the markup is the same."""
+    # The dates in the cells' tips, as the page's `day` filter writes them (app.Site), once for the page.
+    names = [time.strftime("%m/%d", time.localtime(t)) for t in days]
+    # (the day's place, the count) -> the cell's markup: what made it differ, and nothing else.
+    made = {}
+    for r in rows:
+        cells = []
+        for place, n in enumerate(r["days"]):
+            cell = made.get((place, n))
+            if cell is None:
+                # The cell's strength: none without plays (or without any plays on the page), else 1 to 4 by its share
+                # of the most any player played on a day.
+                step = 0 if not n or not most else 1 + min(3, int(3 * n / most))
+                # Escaped as the template escaped the tip (markupsafe, as Jinja's autoescape does).
+                cell = made[(place, n)] = '<i class="h%d" title="%s"></i>' % (
+                    step, escape(w("players.days.tip", day=names[place], n=n)))
+            cells.append(cell)
+        # Markup: the template puts the cells in as they are (each tip escaped above).
+        r["day_cells"] = Markup("".join(cells))
+        r["days_label"] = w("players.days.label", n=sum(r["days"]))
+    return rows
 
 
 def _players_csv(site):

@@ -63,8 +63,9 @@
 <div class="heat-key" aria-hidden="true">{{ w("hours.fewer") }}{% for step in range(5) %}<i class="h{{ step }}"></i>{% endfor %}{{ w("hours.more") }}</div>
 {% endmacro %}
 
-{# A player's last days as a row of small cells, oldest first, stronger with more, on one scale for every row (most):
-   the row names its sum for a screen reader, each cell its day in its tip. #}
-{% macro cells(counts, days, most, w) %}
-<span class="daycells" role="img" aria-label="{{ w('players.days.label', n=counts|sum) }}">{% for n in counts %}{% set step = 0 if not n or not most else 1 + [3, (3 * n / most)|int]|min %}<i class="h{{ step }}" title="{{ w('players.days.tip', day=days[loop.index0]|day, n=n) }}"></i>{% endfor %}</span>
+{# A player's last days as a row of small cells, oldest first, stronger with more, on one scale for every row: the row
+   names its sum for a screen reader, each cell its day in its tip. The cells come made (insights.day_cells: each cell
+   of a day and count made once for the page, where 15,000 made here took most of a page of 1,000 players). #}
+{% macro cells(row) %}
+<span class="daycells" role="img" aria-label="{{ row.days_label }}">{{ row.day_cells }}</span>
 {% endmacro %}

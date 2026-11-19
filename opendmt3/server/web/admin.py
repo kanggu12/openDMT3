@@ -145,6 +145,8 @@ def routes(site):
                                                                request.query_params.get("order"))
         # Each day of the row of cells, for their tips and the column's words.
         days = [start + n * 86400 for n in range(insights.ACTIVITY_DAYS)]
+        # Each row's cells made here (insights.day_cells), every cell of a day and count once for the whole page.
+        insights.day_cells(rows, days, most, strings.words(site.language(request)))
         # With a message whose address only this PC reaches, the page says which address to send in its place.
         return site.render(request, "admin_players.html", user=user, rows=rows, notice=notice, error=error, field=field,
                            typed=typed,
