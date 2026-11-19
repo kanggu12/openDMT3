@@ -84,7 +84,9 @@ forms are used as a person uses them: a wrong value said under its field and gon
 order after its password, and the sign-in against a made-up server in each state (asked, a wrong ID or password, not
 answering, too many tries, banned), each said where it belongs and scrolled into view. A run with no new screenshot
 for five minutes prints its stack and ends, failing: a window that never finishes drawing would hold it silent
-otherwise. The
+otherwise. `tests/e2e/ui/start.py` starts the launcher as starts are (the guide done, a player, a last game) at each
+size: PLAY, PLAY with the window resized before its first drawing, every page as the first one drawn and the guide's
+first step, each start in a process of its own with a minute to finish drawing its first page. The
 site's check (`tests/e2e/web/shoot.js`, measuring with `measure.js`) fails on anything past a page's right edge, words
 cut off inside a box that hides its overflow, a stacked row's cell with no label at the phone width, a word of the phone
 menu that does not fit, a button whose words are out of its middle, boxes that touch or overlap, words nearer a box's

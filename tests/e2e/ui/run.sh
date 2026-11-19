@@ -3,7 +3,8 @@
 # Nothing opens on the developer's screen. Usage: tests/e2e/ui/run.sh OUT_DIR [lang ...] (default: en ko)
 # Window sizes: the default 1180x760, the smallest allowed 960x640, and a large 1600x1000. At the first of them every
 # page is also drawn at every window width from the narrowest to 1900 (shots.py --resize): a width at which the window
-# never finishes drawing fails the run.
+# never finishes drawing fails the run. And at each, the launcher's first page drawn at the start (start.py: PLAY with a
+# player and a last game, the window resized before its first drawing, every page as the first one drawn).
 set -u
 OUT=$(realpath -m "${1:?usage: run.sh OUT_DIR [lang ...]}")
 shift
@@ -37,5 +38,7 @@ docker run --rm --name "${OPENDMT3_E2E_NAME:-odt3-ui}-$$" --network none -e PYTH
         # A screen that waits for an answer no step gives would hold the run for good: each size has 15 minutes.
         timeout 900 python tests/e2e/ui/shots.py --out /out --lang \$lang --size \$size \$resize || status=1
       done
+      # The first page at the start, each start in a process of its own with a minute to finish drawing (start.py).
+      timeout 1800 python tests/e2e/ui/start.py --lang \$lang || status=1
     done
     exit \$status"

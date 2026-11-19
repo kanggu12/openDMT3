@@ -469,6 +469,12 @@ class ScrollArea(tk.Frame):
         self.on_width = None
         self._told_width = None
         self._window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
+        # The content's width is the area's, and never what the content asks for: until the area has a width (its
+        # first <Configure>, _on_resize), a pixel. A page made before the window was laid out (the first page, at the
+        # start) was as wide as its words asked, and its wrapping words follow their box (follow_width): its columns
+        # and the words in them handed the width back and forth, and the window never finished drawing (PLAY at the
+        # start with a player and a last game, 2026-11-19; tests/e2e/ui/start.py).
+        self.canvas.itemconfigure(self._window, width=1)
         self.canvas.configure(yscrollcommand=self._bar_set)
         self.canvas.pack(side="left", fill="both", expand=True)
         # The content's height decides how far it scrolls.
