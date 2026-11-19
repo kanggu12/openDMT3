@@ -60,6 +60,11 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
   that changes or removes something starts on **Cancel**, pink is only for what failed, and the tab names the state
   (**Older version**, **Game open**, **Not installed**, **Done**). **Uninstall** asks **Remove** (settings, players and
   records stay) or **Remove all**; work under way, an unpacking or an uninstall included, is blue with moving stripes.
+- The launcher's and the installer's dialogs follow one rule: the main key is blue (a page's too; lime on the settings'
+  pages) and says what it does, a question that changes or removes something starts on **Cancel**, pink is only for what
+  failed, and the tab names the state (**Older version**, **Game open**, **Not installed**, **Done**). **Uninstall**
+  asks **Remove** (settings, players and records stay) or **Remove all**; work under way, an unpacking or an uninstall
+  included, is blue with moving stripes.
 - The ready check, the **NET** lamp and **PLAY** follow what the launcher last learned: another server that did not
   answer, another server not chosen yet (**Connect** in place of **Sign in**), or a players' database that cannot be
   opened stop **PLAY** and say so; on **PLAY** the foot points at the check's line instead of repeating it.

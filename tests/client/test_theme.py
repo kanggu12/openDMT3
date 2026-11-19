@@ -569,6 +569,14 @@ class FinalReviewTest(unittest.TestCase):
         # A card's English name is found from its Korean words with their kept phrases.
         self.assertEqual(i18n.english_of(ko("songlist.send.title")), i18n.TEXT["songlist.send.title"][0])
 
+    def test_a_pages_main_key_is_never_pink_or_amber(self):
+        # The colour rule: pink is for what failed, amber for something to look at; a page's main key (ONLINE's
+        # Connect and Sign in, LAUNCHER's update) is openDMT3's blue, or the settings' lime on their pages.
+        for section, look in art.SECTION_LOOKS.items():
+            fill = art.BUTTON_LOOKS[look]["normal"][1]
+            self.assertNotIn(fill, (theme.PINK, theme.AMBER), section)
+        self.assertEqual(art.SECTION_LOOKS["star"], "star")
+
     def test_a_row_of_choices_fits_its_room(self):
         # B-01: the fifth upscale filter was cut by the card's edge at the smallest window.
         texts = ["Nearest", "Bilinear", "Bicubic", "Lanczos", "Anime4K"]

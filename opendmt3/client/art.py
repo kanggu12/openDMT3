@@ -1144,8 +1144,10 @@ BUTTON_LOOKS = {
                      "pressed": (theme.PINK, "#d93684"), "disabled": ("#20262e", "#1c2128"),
                      "edge": ("#7a4d6c", "#4b3044"), "text": "#ffb8d9", "hover_text": theme.INK},
 }
-# The section a page belongs to gives its main buttons their look.
-SECTION_LOOKS = {"technika": "info", "star": "star", "pop": "danger", "console": "warn"}
+# The section a page belongs to gives its main buttons their look: the settings' lime (THEME.md: STAR's colour for
+# the settings' keys), elsewhere openDMT3's blue. Never the pink of what failed or the amber of something to look at
+# (ONLINE's Connect and Sign in were pink, LAUNCHER's update amber: the final review's colour rule).
+SECTION_LOOKS = {"technika": "info", "star": "star", "pop": "info", "console": "info"}
 
 
 # A button's faces (four for each button, four more once it has the keyboard): the faces of a page's buttons are

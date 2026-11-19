@@ -2067,7 +2067,8 @@ def standalone_check(out, tag, lang, problems):
     root, dialog = dialogs.window("error", w("start.title"), w("start.broken"),
                                   w("start.broken.detail",
                                     path="C:\\Users\\player\\AppData\\Roaming\\openDMT3\\launcher.json"),
-                                  [(w("common.close"), "close", "neutral"), (w("start.over"), "reset", "warn")],
+                                  # As main._cannot_start has it: Start over in the main action's blue.
+                                  [(w("common.close"), "close", "neutral"), (w("start.over"), "reset", "info")],
                                   default=1, cancel="close", language=lang)
     end = time.time() + 1.0
     while time.time() < end:
