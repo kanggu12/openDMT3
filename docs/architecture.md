@@ -220,6 +220,7 @@ the cabinet's touch screen library, which hands the game every finger through th
 | `trace.c` | With `OPENDMT3_INGAME_TRACE` set, how the game draws (its device, its draws' vertex formats, transforms, render targets, copies), into the log; never set by the launcher |
 | `clock.c` | The score's clock: the client's one read of the system's interrupt time, which its score player counts a song's ticks on, turned to openDMT3's, which leaves out the time the game was held still ([holding the game still](#frame-pacing-and-the-music)); called at the start of the score's count with an audio offset, it first puts the count back (`score.c`) |
 | `score.c` | The score player's update followed, when an audio offset is set or the score is watched: after each update its count set back by the offset's lag, so the notes and the judging are that far behind the music, and put back before the next count ([the audio offset](#frame-pacing-and-the-music)) |
+| `freeplay.c` | The game's FREE PLAY label left out: the five copies of the string the client's font draws it from, each handed over by one push, made blank at the first device when they and their pushes hold the bytes measured; any other client left as it is, said in the log ([the chip's corner](#the-layer-in-the-chain)) |
 | `press.c` | With `OPENDMT3_PRESS_LATE` set, each plain note pressed by the layer at a set time after it and its judgement written into the log (measuring only; `tests/e2e/windows/gpu/judge.sh`); never set by the launcher |
 | `line.c` | With `OPENDMT3_LINE_WATCH` naming a file, the score watched (through `score.c`): a row a frame of the score player's clock, its ticks (counted, and shown and judged) and tempo, the line's place by the game's own fields and the music's position (`tests/e2e/windows/gpu/line.py` reads it); never set by the launcher |
 | `test_native.c`, `test.sh` | The tests of the files with no Windows calls (the touch screen's rules read back the way the game reads them), and of the methods' watch, built with the same compiler and run under Wine |
@@ -319,7 +320,7 @@ first points) into the log, read from its memory in the PC build.
 ### The layer's parts and their input
 
 <p align="center">
-  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, SOUND with an arrow to its panel, QUIT THE GAME in red. Under it, four pieces of other frames, two by two: the quit question hanging from the bar under the X, Quit the game?, with This play will not be recorded., KEEP PLAYING and QUIT THE GAME; the sound panel hanging from the bar under the X, Sound with a way back to the menu, and eight columns: MASTER, MUSIC and KEYS at 100, then the bands 60 at +3, 250 at 0, 1K at +2, 4K and 12K at 0; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS: now Smooth upscale; and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.8 ms on one line" width="100%">
+  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, SOUND with an arrow to its panel, QUIT THE GAME in red. Under it, four pieces of other frames, two by two: the quit question hanging from the bar under the X, Quit the game?, with This play will not be recorded., KEEP PLAYING and QUIT THE GAME; the sound panel hanging from the bar under the X, Sound with a way back to the menu, and eight columns: MASTER, MUSIC and KEYS at 100, then the bands 60 at +3, 250 at 0, 1K at +2, 4K and 12K at 0; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS: now Smooth upscale; and the FPS counter in the bottom right corner where the game's FREE PLAY stood, on a small plate of glass cut at two corners, 60 FPS and 16.5 ms on one line" width="100%">
 </p>
 
 - **The bar** comes when the pointer, moved to the game's very top edge or onto the mark at its top centre (the player's
@@ -604,10 +605,23 @@ and words are sharp at any size and its motion keeps the game's frame timing; no
 - **The chip** has no live blur: its glass reads a blurred frame made whole in one frame when it first shows and
   again after any live blur (reading the last live one cost that renderer about 1 ms a frame for as long as the chip
   showed; one made whole, about 0.2 ms).
-  - Its picture is its glass and edge, drawn once for a size, with its words laid over from pieces kept for good
-    (`text.c`, TEXT_GLYPHS: each digit in a cell as wide as the widest, so the number does not shift, and each other
-    run as one piece, made by GDI the first time at a size), so its two updates a second copy rows and blend about
-    ten small pieces, with no GDI drawing.
+  - Its picture is its plate and edge, drawn once for a size and again when its width changes (`sprite_for` says when
+    its sprite was made again: a new canvas may get the old one's address; its textures are made at a size as wide as
+    its widest reading, so a wider one never makes them again while a game plays), with its words laid over from
+    pieces kept for good (`text.c`, TEXT_GLYPHS: each digit in a cell as wide as the widest, so the number does not
+    shift, and each other run as one piece, made by GDI the first time at a size), so its two updates a second copy
+    rows and blend about ten small pieces, with no GDI drawing.
+  - Its look is openDMT3's: a plate of the glass cut at its top right and its foot left, as the launcher's and the
+    sites' result cards (scores) are, its edge the cards' one seam (lit along its top and falling to the seam's colour
+    down the cut, its foot a step darker), in whole pixels; on it one line in Pretendard, the menu's face: the frames a
+    second in Bold, white, or the theme's amber for a half second under 60 (`logic.c` fps_short: a count under 59.5,
+    the tests' own line for holding 60; over five songs on a GPU at 240 Hz the game held 60 in 97 % of its half
+    seconds, read 59.50 to 60.50, and two frames late by a refresh read 59), FPS in the overlay's light blue, the
+    frame's length and ms in Regular, quieter; the figures' ink centred on the plate (measured: 4 pixels over and
+    under at 1080 lines, 9 and 8 at 2160). It is as wide as its words, each number with the room of its widest
+    reading (two digits, the length 00.0), so it keeps its width as they change. When more pictures are shown than
+    the game makes, `layer_fps` takes their count too and the chip shows it after a middle dot (`60 · 180`), wider by
+    that room.
   - Its glass is faint (80 %), so the game shows through it, with its tint deeper than the panels' (92 %, so the
     blurred frame it reads, made when it first showed, comes through at 8 %: no old screen to be seen in it), and its
     words are drawn whole over it, so they keep 4.5:1 over the game's brightest screens (62 % as a whole, words
@@ -626,16 +640,27 @@ and words are sharp at any size and its motion keeps the game's frame timing; no
   over its gauge, the chip sits in the corner chosen. The parts' quads are cut to the picture, so a part on its way out
   of the top edge never shows over a bar above the picture. Nothing reaches the middle half of the game, where notes
   come, and none of these parts covers another (`native/cardreader/test_native.c` checks both at seven window shapes).
-- **The chip's corner.** Its default is the bottom right, beside the game's FREE PLAY label: on the game's screens (its
-  warning, the title, the mode and song selects, a song, the results) every corner's very edge holds something of the
-  game's own (JOIN THE CREW or a mode's banner at the top left, SKIP or a countdown at the top right, ID CARD and NET at
-  the bottom left, FREE PLAY at the bottom right), and its notes come right up to the sides: a note of the third lower
-  row, measured in a song, has its centre on line 693 of 768 and the foot of its ring on line 748, the line of the
-  game's own labels. So at the foot the chip is one line of 118 by 13 game pixels on that line, from line 742: at the
-  right its right end 8 game pixels left of FREE PLAY, at the left 8 right of ID CARD, NET and PATCH, placed across in
-  the game's own pixels (a filled picture stretches them). There it covers none of the game's labels or buttons on any
-  of its screens, and at most the foot of a note's ring passes under it, as under FREE PLAY; above FREE PLAY, where it
-  was, half of such a note came under it.
+- **The chip's corner.** Its default is the bottom right, the corner the game's FREE PLAY label held: on the game's
+  screens (its warning, the title, the mode and song selects, a song, the results) every corner's very edge holds
+  something of the game's own (JOIN THE CREW or a mode's banner at the top left, SKIP or a countdown at the top right,
+  ID CARD and NET at the bottom left, FREE PLAY at the bottom right), and its notes come right up to the sides: a note
+  of the third lower row, measured in songs, has its centre on line 693 of 768, its silver ring ending on line 748 and
+  its dark outline on 749. So at the foot the chip is one line 14 game pixels tall from line 750, its foot 4 over the
+  picture's: at the right where FREE PLAY stood, its right end 8 game pixels left of the result panel's right frame
+  line (x 1204 to 1208, down to the picture's foot on the results, which FREE PLAY crossed); at the left 8 right of ID
+  CARD, NET and PATCH; both placed across in the game's own pixels (a filled picture stretches them). There it covers
+  none of the game's labels, lines or buttons on any of its screens and no note's ring. In a small window at 150 % or
+  200 %, where the unit's floor makes the parts larger than the game's own, it stays whole in the picture, standing
+  higher.
+- **FREE PLAY left out.** The game says FREE PLAY on its screens while its coin mode is free play, as a cabinet that
+  takes no coins does (at the title's foot and at every other screen's bottom right); on a PC it says nothing. Its
+  words are text: the client's font routine is handed "     FREE  PLAY     " from five copies in the client's
+  read-only data, each pushed by one call only (the screens' common draw at its two places, and the coin output parts
+  `CCoinOutput_Default`, `CCoinOutput_Logo` and `CCoinOutput_Title`). At the first device `freeplay.c` makes the five
+  copies twenty spaces when every copy and its push hold the bytes measured, and says so in the log; the font is then
+  called as before with twenty blank characters, so nothing else of the frame changes. Any other client is left as it
+  is, said in the log. `OPENDMT3_FREE_PLAY=keep` (measuring only) keeps the words, to compare frames with and
+  without.
 - **The game's first screen** is found by averaging every 15th frame 8 by 8 and reading it back until one has
   anything on it (the frames while the game loads are black): the bar then comes down by itself for 3 s.
 - **Without the glass.** When the glass passes do not compile, or the chain does not run, the parts are drawn with

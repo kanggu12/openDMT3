@@ -129,7 +129,7 @@ tab, metal frame and glossy buttons), in the launcher's language. Nothing of it 
 the notes come, and no key of the keyboard brings it:
 
 <p align="center">
-  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, SOUND with an arrow to its panel, QUIT THE GAME in red. Under it, four pieces of other frames, two by two: the quit question hanging from the bar under the X, Quit the game?, with This play will not be recorded., KEEP PLAYING and QUIT THE GAME; the sound panel hanging from the bar under the X, Sound with a way back to the menu, and eight columns: MASTER, MUSIC and KEYS at 100, then the bands 60 at +3, 250 at 0, 1K at +2, 4K and 12K at 0; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS: now Smooth upscale; and the FPS counter at the bottom right beside the game's FREE PLAY, 60 FPS and 16.8 ms on one line" width="100%">
+  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, SOUND with an arrow to its panel, QUIT THE GAME in red. Under it, four pieces of other frames, two by two: the quit question hanging from the bar under the X, Quit the game?, with This play will not be recorded., KEEP PLAYING and QUIT THE GAME; the sound panel hanging from the bar under the X, Sound with a way back to the menu, and eight columns: MASTER, MUSIC and KEYS at 100, then the bands 60 at +3, 250 at 0, 1K at +2, 4K and 12K at 0; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS: now Smooth upscale; and the FPS counter in the bottom right corner where the game's FREE PLAY stood, on a small plate of glass cut at two corners, 60 FPS and 16.5 ms on one line" width="100%">
 </p>
 
 - **The overlay bar.** Tap the handle at the game's top center (a short line along the edge with a small tab and an
@@ -172,10 +172,12 @@ the notes come, and no key of the keyboard brings it:
   1 counts down in the middle of the screen over 1.5 s, and then both go on together. The game sees none of the keys
   and clicks that answer them.
 - **The FPS counter** (**Screen**, **FPS counter**; off by default) shows the frames a second and the time of a frame, on
-  one line, on faint glass that its words read over on any screen, in the corner chosen under **Position** (the bottom
-  right by default, beside the game's FREE PLAY on its line, below the notes: it covers none of the game's own labels or
-  buttons, and no more of a note than the game's own FREE PLAY). In a top corner it moves down with the bar. Clicks go
-  through it to the game, and it hides while the game holds still.
+  one line, on a small plate of the overlay's glass cut at two corners, as the launcher's score cards are, in the
+  corner chosen under **Position** (the bottom right by default, in the game's bottom right corner under its notes,
+  where the game's own FREE PLAY label stood: openDMT3 leaves that label out, as a PC takes no coins). The number is
+  white while the game holds its 60 frames a second and amber in a half second it falls short (the game's speed is its
+  frame rate: its notes then fall behind the music until frame pacing catches them up). In a top corner it moves down
+  with the bar. Clicks go through it to the game, and it hides while the game holds still.
 - **A notice** hangs from the top edge for a few seconds when openDMT3 has something to say: `Picture quality lowered
   to keep 60 FPS: now Smooth upscale`, with the step it took
   ([the safety net](#frame-pacing-the-picture-the-fps-counter-and-the-sound-device)). It moves down with the bar, and
@@ -242,13 +244,12 @@ is read as late as the frame's own work allows.
 - **Anti-aliasing** (**Screen**): smooths the game's jagged edges before the picture is enlarged (with **Screen size**,
   in the picture the game draws): **Off** (the default), **FXAA**, **SMAA Low**, **SMAA Medium**, **SMAA High** or
   **SMAA Ultra**.
-- **FPS counter** (**Screen**, off by default): a small, faint counter over the game on one line, the frames a
-  second and the frame's length, updated twice a second. **SHOW FPS** in the in-game menu turns it on or off for
-  that run; the launcher's choice is how each run starts.
+- **FPS counter** (**Screen**, off by default): a small counter over the game on one line, the frames a second
+  (white, amber in a half second short of 60) and the frame's length, updated twice a second. **SHOW FPS** in the
+  in-game menu turns it on or off for that run; the launcher's choice is how each run starts.
 - **Position** (**Screen**, shown while **FPS counter** is on): the counter's corner, **Bottom right** by default
-  (beside the game's FREE PLAY, below the notes, where it covers none of the game's own labels); **Top left**,
-  **Top right** or
-  **Bottom left** can be chosen instead.
+  (the game's bottom right corner, under its notes, where it covers none of the game's own labels); **Top left**,
+  **Top right** or **Bottom left** can be chosen instead.
 - **Motion clarity** (**Screen**, shown when the main screen can run at a whole multiple of 60 Hz from 120 up at its
   size, such as 120, 180 or 240 Hz, off by default): each frame is shown over its refreshes as a CRT showed it. **CRT
   beam** lights the picture row by row from the top down, as a CRT's beam did, so its lower rows show later in the frame
