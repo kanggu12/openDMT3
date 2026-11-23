@@ -171,8 +171,18 @@ helm upgrade dmt3 https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/
 The old pod stops, the new one starts on the same volume, and a newer server takes the database forward on its first
 start (a copy of it is kept first). Then copy the new launcher's installer into `/data/downloads/` as above.
 
-`helm uninstall dmt3 -n opendmt3` removes the server and keeps the volume. `kubectl -n opendmt3 delete pvc
-dmt3-opendmt3-data` removes the data too.
+## Removing
+
+```sh
+helm uninstall dmt3 -n opendmt3
+```
+
+removes the server and keeps the volume, so installing the chart again finds every account and play. Deleting the
+volume deletes the data too, its backups with it:
+
+```sh
+kubectl -n opendmt3 delete pvc dmt3-opendmt3-data
+```
 
 ## The admin pages
 

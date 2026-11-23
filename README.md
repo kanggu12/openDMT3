@@ -45,11 +45,12 @@ you, and a server of your own in place of the game's online service.
 
 On Windows 10 or 11, with your own client data ([which](docs/client-data.md#which-client-data)):
 
-1. Download **[opendmt3-launcher-0.4.1-windows-x64-installer.exe](https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-installer.exe)**
-   and run it. If Windows says it protected your PC, choose **More info**, then **Run anyway**.
-2. Choose **Install**. The launcher's first-start guide finds your client data and takes you to **PLAY**.
+1. Download and run
+   **[opendmt3-launcher-0.4.1-windows-x64-installer.exe](https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-installer.exe)**,
+   then choose **Install**. If Windows says it protected your PC: **More info**, then **Run anyway**.
+2. The launcher finds your client data. Press **PLAY**.
 
-On Linux the same installer runs under Wine ([how](docs/install.md#on-linux-with-wine)). More in
+On Linux the installer runs under Wine ([how](docs/install.md#on-linux-with-wine)). The rest is in
 [the player's guide](docs/install.md).
 
 <p align="center">
@@ -61,22 +62,38 @@ On Linux the same installer runs under Wine ([how](docs/install.md#on-linux-with
 
 ### Run a server
 
-For players on their own PCs. On Linux, macOS or Windows in WSL 2, with Docker (Compose v2) and Python 3, from a
-copy of the repository (a clone, or the release's source archive):
+For the players' own PCs, with no Docker or Python. On Linux (on a Mac, the same with `-macos-installer.sh`):
 
 ```sh
-git clone https://github.com/kanggu12/openDMT3.git
-cd openDMT3
+curl -fsSL https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-linux-installer.sh | sh
+~/.local/bin/opendmt3-server setup --admin BOSS
+~/.local/bin/opendmt3-server start
+```
+
+On Windows, in PowerShell:
+
+```powershell
+irm https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-windows-installer.ps1 | iex
+cd "$env:LOCALAPPDATA\Programs\opendmt3-server"
+.\opendmt3-server setup --admin BOSS; .\opendmt3-server start
+```
+
+With Docker (Compose v2 and Python 3), a wizard sets up the published image:
+
+```sh
+git clone https://github.com/kanggu12/openDMT3.git && cd openDMT3
 ./dmt3 setup
 ```
 
-The wizard asks where your client data is (for the song list) and which installer to hand out, then gives the site's
-address and the admin's password. A server also runs [in the launcher](docs/server.md#in-the-launcher), from the
-release's package for [Windows](docs/server.md#on-windows) or for [Linux and macOS](docs/server.md#on-linux-or-macos)
-without Docker or Python (each with a one-line install,
-`opendmt3-server-0.4.1-windows-installer.ps1` and `opendmt3-server-0.4.1-linux-installer.sh`), or
-[on Kubernetes](docs/kubernetes.md); `./dmt3 expose` puts it on [HTTPS for the internet](docs/internet.md). More in
-[the server guide](docs/server.md).
+On Kubernetes, the release's Helm chart:
+
+```sh
+helm install dmt3 https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-helm-chart.tgz \
+  -n opendmt3 --create-namespace --set admin.enabled=true --set admin.password=CHANGE1234
+```
+
+`setup --admin BOSS` makes the owner's account and prints its password. [The server guide](docs/server.md) has the
+rest: the song list, the players' accounts, the firewall, and the launcher's own server for the PCs on one network.
 
 ## What it does
 
@@ -167,22 +184,19 @@ Choose how you play on the launcher's **Online** page:
 - **Players:** [Playing on your PC](docs/install.md), [The client data](docs/client-data.md),
   [Troubleshooting](docs/troubleshooting.md)
 - **Server owners:** [Running a server](docs/server.md), [Playing from outside your home](docs/internet.md),
-  [A closed network](docs/closed-network.md), [On Kubernetes](docs/kubernetes.md), [Server questions](docs/faq.md),
-  [The API](docs/api.md)
-- **Everyone:** [License and notice](docs/notice.md)
+  [A closed network](docs/closed-network.md), [On Kubernetes](docs/kubernetes.md), [The API](docs/api.md)
+- **Everyone:** [Questions and answers](docs/faq.md), [License and notice](docs/notice.md)
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome in [Issues](https://github.com/kanggu12/openDMT3/issues/new/choose).
-[CONTRIBUTING.md](CONTRIBUTING.md) is the contributors' guide: where the code is, how to run it and its tests with no
-game files, and how a change goes in.
+[CONTRIBUTING.md](CONTRIBUTING.md) has where the code is, how to run it and its tests with no game files, and how a
+change goes in. Bug reports and ideas go to [Issues](https://github.com/kanggu12/openDMT3/issues/new/choose); see what
+changed in [CHANGELOG.md](CHANGELOG.md), and report security problems as [SECURITY.md](.github/SECURITY.md) says.
 
 ## License
 
-MIT ([LICENSE](LICENSE)). The libraries, filters and fonts openDMT3 brings are listed with their licenses in
-[the notice](docs/notice.md#license): AMD FidelityFX Super Resolution 1, NVIDIA Image Scaling, Anime4K, SMAA, FXAA, the
-Blur Busters CRT beam simulator, DSOAL, OpenAL Soft, Velopack and 7-Zip, and DMT3 Wide (a cut of Saira) and Pretendard,
-in which the launcher and the site follow the look of TECHNIKA 3's own screens.
+MIT ([LICENSE](LICENSE)). The libraries, filters, fonts and programs openDMT3 brings are listed with their licenses in
+[THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md).
 
 The license does not cover the game or its files. DJMAX and TECHNIKA are trademarks of NEOWIZ.
 This repository contains no game data. If the copyright holder requests it, this project may be made private or shut

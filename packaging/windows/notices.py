@@ -32,7 +32,7 @@ import sys
 
 # The texts this Python does not carry, kept unchanged beside this script (licenses/README.md says where from).
 KEPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "licenses")
-# The folder the installed program's texts go in, beside openDMT3.exe (docs/notice.md names it).
+# The folder the installed program's texts go in, beside openDMT3.exe (docs/THIRD_PARTY_NOTICES.md names it).
 FOLDER = "licenses"
 # The file in it that says which text is whose.
 NOTICES = "NOTICES.txt"

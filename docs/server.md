@@ -23,7 +23,8 @@ player's guide). Run one when others play from their own PCs, in one of these wa
 | [On Kubernetes](kubernetes.md) | The Helm chart, from the published image | A cluster you run already |
 
 The other guides for server owners: [Playing from outside your home](internet.md) (a name, the router, HTTPS),
-[A closed network](closed-network.md) (no internet), [On Kubernetes](kubernetes.md) and [Server questions](faq.md).
+[A closed network](closed-network.md) (no internet), [On Kubernetes](kubernetes.md) and
+[Questions and answers](faq.md#for-server-owners).
 
 <p align="center">
   <picture>
@@ -467,6 +468,29 @@ When a player logs in at the cabinet, the server sends what the game shows of th
   server's first place with its DJ (BEST RECORD).
 
 Guests (NO ID CARD) see neither. The game shows a new choice from the player's next login.
+
+## The data folder
+
+Everything a server keeps is in its data folder:
+
+| Way | The data folder |
+| :--- | :--- |
+| In the launcher | `%AppData%\openDMT3\server` on that PC |
+| On Windows | `data` beside `opendmt3-server.exe`; after the one-line install, `%LOCALAPPDATA%\Programs\opendmt3-server\data` |
+| On Linux or macOS | `data` beside the program; after the one-line install, `~/.local/share/opendmt3-server/data` |
+| With Docker | The volume `opendmt3_data` |
+| With Python | The folder `--data` names (`data` where the server starts) |
+| On Kubernetes | The chart's volume, `dmt3-opendmt3-data` for a release named `dmt3` |
+
+In it: the database, `openDMT3.sqlite`, with its backups in `backups/`; the logs in `logs/`; the song list with its
+jackets and DJ cards; the players' pictures; the installer the **Download** page hands out, in `downloads/`, and the
+launcher's updates in `updates/` when you hand them out; `web.secret`, which signs the sign-ins; and the notice and
+maintenance ([What the pages keep on disk](admin.md#what-the-pages-keep-on-disk)). The server's own program keeps its
+settings there too; Docker keeps them in `.env` beside `compose.yaml`.
+
+To move a server to another PC, take its database with it: download a backup on the old server's **Backups**, upload it
+on the new one's and restore it ([Backups](#backups)). It holds the accounts with their cards, and the plays. Read the
+song list again on the new server; the players' pictures stay in the old data folder.
 
 ## Backups
 

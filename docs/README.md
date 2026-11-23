@@ -23,23 +23,25 @@ them.
 
 | Guide | For |
 | :--- | :--- |
-| [Playing on your PC](install.md) | The player's guide: what you need, the installer on Windows or on Linux with Wine, the first start, the three ways to play, the overlay in the game, the pages, frame pacing, the picture's shape and filters, records, the other PCs on your network, the song list for a server, playing without the window, updates, what PLAY makes in openDMT3's own folder, removing it, the command line |
+| [Playing on your PC](install.md) | The player's guide: what you need, the installer on Windows or on Linux with Wine, checking a download, the first start, the three ways to play, the overlay in the game, the pages, frame pacing, the picture's shape and filters, records, the other PCs on your network, the song list for a server, playing without the window, updates, what PLAY makes in openDMT3's own folder, removing it, the command line |
 | [The client data](client-data.md) | Which client data plays, where the launcher finds it, the forms it comes in, what each card on DISC CHECK says and the one thing to do, what a server takes, checking from the command line, questions and answers |
 | [Troubleshooting](troubleshooting.md) | The installer, finding the game, PLAY, the game closing, the picture, the sound, logins, records, the other PCs, putting everything back |
-| [License and notice](notice.md) | What the project is, its license, the third-party parts |
+| [Questions and answers](faq.md#for-players) | Whether you need a server, which client data, your client data kept as it is, which PCs, Windows' question about the installer, where your settings are, updating and removing; what leaves your PC; the project |
+| [License and notice](notice.md) | What the project is, its license, the rights holders' requests |
+| [Third-party notices](THIRD_PARTY_NOTICES.md) | Each part openDMT3 brings, where it goes, and its license |
 
 ## For server owners
 
 | Guide | For |
 | :--- | :--- |
-| [Running a server](server.md) | The server owner's guide: what you need, the ways (in the launcher, on Windows, with Docker, with Python, on Kubernetes), the ports, removing a server, the song list, players, the site and the admin pages, DJ cards and the song select, backups, updating the server, handing out updates, a chat webhook, the internet, many players at once, without internet, what to keep private, the command line |
+| [Running a server](server.md) | The server owner's guide: what you need, the ways (in the launcher, on Windows, on Linux or macOS, with Docker, with Python, on Kubernetes), the ports, removing a server, the song list, players, the site and the admin pages, DJ cards and the song select, the data folder and moving a server, backups, updating the server, handing out updates, a chat webhook, the internet, many players at once, without internet, what to keep private, the command line |
 | [Playing from outside your home](internet.md) | A name, the router's forwards, HTTPS with `./dmt3 expose` and Caddy, checking from outside, what is open |
 | [A closed network](closed-network.md) | What to bring in for a network with no internet, HTTPS with Caddy's own authority or yours, LAN parties |
-| [On Kubernetes](kubernetes.md) | The Helm chart: what it makes, the first account, the song list, the game's port, an Ingress with HTTPS, backups, updates, the kind test |
-| [Server questions](faq.md) | Which way to run it, why two ports, other ports, inviting players, HTTPS, the data, updating, removing, what to run first |
+| [On Kubernetes](kubernetes.md) | The Helm chart: what it makes, the first account, the song list, the game's port, an Ingress with HTTPS, backups, updates, removing, the kind test |
+| [Questions and answers](faq.md#for-server-owners) | Which way to run it, why two ports, other ports, inviting players, HTTPS, the data, updating, removing, what to run first |
 | [What a server takes](client-data.md#what-a-server-takes) | The song list from the client data, and each way it comes in |
-| [The API](api.md) | What the site shows and does, as JSON, for scripts and the launcher; named tokens, the OpenAPI document |
-| [Troubleshooting a server](troubleshooting.md#the-server) | `./dmt3 doctor`, the owner's first account, the ports and WSL 2, sign-ins held back, the song list |
+| [The API](api.md) | What the site shows and does, as JSON, for scripts and the launcher: a first call, named tokens, the OpenAPI document |
+| [Troubleshooting a server](troubleshooting.md#the-server) | `opendmt3-server repair` and `./dmt3 doctor`, a port another program has, the owner's first account, the ports and WSL 2, sign-ins held back, the song list |
 | [If you run a server](notice.md#if-you-run-a-server) | What a server reads and keeps, and the rights holders' requests |
 
 ## For contributors

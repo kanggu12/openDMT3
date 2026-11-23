@@ -135,10 +135,18 @@ says the step: 0 every step passed, 2 the address, 3 the site, 4 the game's port
 
 ## The server
 
-With Docker, start with `./dmt3 doctor`: Docker, the server's image, the two ports and the data folder, each problem
-with its fix. `./dmt3 status` shows the container's state, whether the site and the game's port answer, and the site's
-address; `./dmt3 logs` shows the server's log.
+**The server's packages** (Windows, Linux or macOS, and their one-line installs): `opendmt3-server repair` checks the
+package's files, the data folder and the ports, each problem with its fix; `opendmt3-server status` says whether the
+server runs and answers, with its addresses; `opendmt3-server logs` shows the last lines of its log. A start in the
+background that fails prints what the server said, which stays in `logs/output.txt` in the data folder.
 
+**Docker**: `./dmt3 doctor` checks Docker, the server's image, the ports and the data folder, each problem with its
+fix; `./dmt3 status` shows the container's state, whether the site and the game's port answer, and the site's address;
+`./dmt3 logs` shows the server's log.
+
+- **A port is taken by another program**: the server does not start, and names the port. Stop that program, or give
+  the server other ports: `opendmt3-server setup --game-port N --web-port N --admin-port N`, or `./dmt3 ports`
+  ([Ports](server.md#ports)).
 - **No account to sign in with**, in Docker: the page that makes the owner's account shows only to visits from the
   server PC itself, and Docker's network hides them. Make it with `./dmt3 add-player ID --admin`
   ([Players](server.md#players)).

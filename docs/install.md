@@ -42,8 +42,22 @@ curl.exe -LO https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opend
 ```
 
 Run again, the installer updates an older openDMT3, offers **Uninstall**, **Repair** or **Open openDMT3** over the
-same version (**Uninstall** with the same choice as **Help**'s, below), and asks before going back from a newer one. It closes an open launcher first, and does not go on while a game the
-launcher started is running (close the game, then **Try again**).
+same version (**Uninstall** with the same choice as **Help**'s, below), and asks before going back from a newer one.
+It closes an open launcher first, and does not go on while a game the launcher started is running (close the game,
+then **Try again**).
+
+### Checking a download
+
+Each release lists the SHA-256 of its files in `opendmt3-0.4.1-sha256sums.txt`. In PowerShell, in the folder you
+downloaded to, this prints the installer's, to compare with its line there:
+
+```powershell
+(Get-FileHash .\opendmt3-launcher-0.4.1-windows-x64-installer.exe -Algorithm SHA256).Hash
+```
+
+On Linux, `sha256sum -c --ignore-missing opendmt3-0.4.1-sha256sums.txt` checks every file of the release in the
+folder. The launcher's own updates are checked by itself: it puts in only a package signed by the openDMT3 project
+([Updates](#updates)).
 
 ## On Linux, with Wine
 

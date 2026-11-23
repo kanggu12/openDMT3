@@ -7,6 +7,19 @@ site's port (4731, [admin.md](admin.md#the-admin-site)) answers the same calls w
 server PC may use either; an address the API gives (the invite, the installer's) is the players' site's on both.
 What each admin page shows and does, beside its calls here: [admin.md](admin.md).
 
+## A first call
+
+A few calls answer anyone, as the server's status does; the rest take a token. A named token, made on the site under
+**My account**, **API tokens** ([Named tokens](#named-tokens)), is the shortest way for a program:
+
+```sh
+curl -s http://SERVER:4730/api/v1/status
+curl -s -H "Authorization: Bearer odt3_..." http://SERVER:4730/api/v1/rankings
+```
+
+The first answers `{"server": "openDMT3", "version", "game_port", "updates"}`; the second, the ranking of the first
+mode played, by each DJ's total ([Calls](#calls) has every one).
+
 ## Signing in and out
 
 `POST /api/v1/session` with `{"login_id": "NOVA", "password": "..."}` answers the account and a token:
