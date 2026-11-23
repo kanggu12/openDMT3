@@ -53,6 +53,11 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   launcher's update files keep their names, `openDMT3-<version>-full.nupkg`: every launcher installed so far takes an
   update under that name alone. A server of 0.4.1 or older takes the newly named installer through
   `setup --installer FILE`.
+- The README's Quick start is a short block for each way in: the launcher's installer for playing, and one line for
+  each system, Docker or Kubernetes for a server, the rest in the guides. The guides answer the players' questions
+  too (what leaves the PC, the project), and say how to check a download, where a server keeps its data and how to
+  move it to another PC, how to remove it from Kubernetes, a first call to the API and a server package's first
+  checks. The third-party parts and their licenses are in `docs/THIRD_PARTY_NOTICES.md`.
 
 ### Fixed
 
