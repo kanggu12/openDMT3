@@ -164,6 +164,18 @@ void clock_attach(void);
 int64_t clock_interrupt_now(void);
 void clock_held(int64_t held);
 int64_t clock_held_total(void);
+
+/* The game's FREE PLAY (freeplay.c): the copies of "     FREE  PLAY     " the client's font draws the words from, each
+ * handed over by one push, made as many spaces. freeplay_turn does it to `n` places (the push's bytes at push[i], the
+ * copy at text[i]) when every push is 68 and its copy's address and every copy holds the words (FREE_PLAY_OUT, also
+ * when they are blank already); any other bytes at any place leave all as they are (FREE_PLAY_LEFT). freeplay_attach
+ * does it to the client's own five, once, with a line in the log (OPENDMT3_FREE_PLAY=keep, measuring only, keeps
+ * them). */
+#define FREE_PLAY_TEXT "     FREE  PLAY     "
+#define FREE_PLAY_PLACES 5
+enum { FREE_PLAY_LEFT = 0, FREE_PLAY_OUT = 1 };
+int freeplay_turn(BYTE *const push[], char *const text[], int n);
+void freeplay_attach(void);
 /* Where the client's call of the read in the score's count returns to, with the audio offset on (score.c sets it): the
  * read called from there puts the score's count back first (score_before_count). 0: no offset. */
 extern volatile ULONG g_clock_count_return;

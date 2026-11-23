@@ -575,6 +575,10 @@ docker exec -d -e WINEPREFIX=/w -e WINEDEBUG=-all -e DISPLAY=:99 -e 'OPENDMT3_IN
   "wine '$APP' --mode offline --set vsync=off --set frame_pacing=music --set show_fps=on --set 'sound_device=$GUID' --set upscale=fsr1 --set sharpness=50 --set antialiasing=off --set master_volume=80 --set eq_60=4 --set eq_1k=3 --play > /out/play-offline.txt 2>&1; echo \"exit \$?\" >> /out/play-offline.txt"
 wait_for "\|ClientApp\|" 120 || fail "the game did not start offline"
 wait_log "layer: attached" 60 || fail "the layer did not attach offline"
+# The game's FREE PLAY left out (freeplay.c), said once before the layer attaches: checked in this play, whose layer
+# OPENDMT3_E2E_CARD_READER may give.
+grep -q "label: the game's FREE PLAY left out" "$OUT/ingame.log" \
+  || fail "the game's FREE PLAY was not left out ($(grep 'label:' "$OUT/ingame.log"))"
 # Whether the client's read of the score's clock was turned (clock.c), said before the layer attaches: kept for the
 # holds' check in the tutorial's song (this log is started again below).
 clock_turned=$(grep -c "clock: the score's clock read turned to openDMT3's" "$OUT/ingame.log")

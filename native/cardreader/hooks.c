@@ -1935,6 +1935,8 @@ static HRESULT STDMETHODCALLTYPE our_create_device(IDirect3D9 *d3d, UINT adapter
         g_own_clock = take_out_limiter();
     /* The score's clock read turned to openDMT3's (clock.c), which a hold holds: once, at the first device. */
     clock_attach();
+    /* The game's FREE PLAY left out (freeplay.c): once, at the first device, before anything is drawn. */
+    freeplay_attach();
     if (pp)
         take_parameters(pp);
     take_refresh(*out);

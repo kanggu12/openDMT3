@@ -3414,6 +3414,67 @@ static void test_clock(void)
     score_lag_ms(0);
 }
 
+/* The game's FREE PLAY made blank (freeplay.c), on copies in memory of this program's own laid out as the client's:
+ * the five strings in read-only pages, each handed over by a push (68 and its address) elsewhere. */
+static void test_free_play(void)
+{
+    char *data = VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    BYTE *code = VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!data || !code) {
+        check(0, "free play: memory for the client's strings and pushes");
+        return;
+    }
+    char *text[FREE_PLAY_PLACES];
+    BYTE *push[FREE_PLAY_PLACES];
+    /* Each copy 48 bytes apart (with the words' neighbours' bytes between), each push 8 apart. */
+    memset(data, 'x', 4096);
+    for (int i = 0; i < FREE_PLAY_PLACES; i++) {
+        text[i] = data + 64 + 48 * i;
+        memcpy(text[i], FREE_PLAY_TEXT, sizeof FREE_PLAY_TEXT);
+        push[i] = code + 16 + 8 * i;
+        DWORD at = (DWORD)(uintptr_t)text[i];
+        push[i][0] = 0x68;
+        memcpy(push[i] + 1, &at, sizeof at);
+    }
+    DWORD old;
+    VirtualProtect(data, 4096, PAGE_READONLY, &old);
+    char before[4096];
+    memcpy(before, data, sizeof before);
+    /* As measured: every copy twenty spaces with its end, nothing else of the page changed, still read-only. */
+    int out = freeplay_turn(push, text, FREE_PLAY_PLACES) == FREE_PLAY_OUT;
+    int blank = 1, others = 1;
+    for (int i = 0; i < FREE_PLAY_PLACES; i++) {
+        for (size_t k = 0; k + 1 < sizeof FREE_PLAY_TEXT; k++)
+            blank &= text[i][k] == ' ';
+        blank &= text[i][sizeof FREE_PLAY_TEXT - 1] == '\0';
+        memcpy(before + (text[i] - data), text[i], sizeof FREE_PLAY_TEXT);
+    }
+    others = !memcmp(before, data, sizeof before);
+    MEMORY_BASIC_INFORMATION info;
+    int still = VirtualQuery(data, &info, sizeof info) && info.Protect == PAGE_READONLY;
+    check(out && blank && others && still,
+          "free play: the five copies made blank, nothing else of their page, which stays read-only");
+    /* A second device: blank already, nothing written. */
+    check(freeplay_turn(push, text, FREE_PLAY_PLACES) == FREE_PLAY_OUT && !memcmp(before, data, sizeof before),
+          "free play: turned again, the copies stay blank and nothing more is written");
+    /* Another build of the client: one copy with other words, or one push handing over another address, leaves every
+     * copy as it is. */
+    VirtualProtect(data, 4096, PAGE_READWRITE, &old);
+    for (int i = 0; i < FREE_PLAY_PLACES; i++)
+        memcpy(text[i], FREE_PLAY_TEXT, sizeof FREE_PLAY_TEXT);
+    memcpy(text[3], "     FREE  PLAY!    ", sizeof FREE_PLAY_TEXT);
+    memcpy(before, data, sizeof before);
+    int left = freeplay_turn(push, text, FREE_PLAY_PLACES) == FREE_PLAY_LEFT && !memcmp(before, data, sizeof before);
+    memcpy(text[3], FREE_PLAY_TEXT, sizeof FREE_PLAY_TEXT);
+    DWORD elsewhere = (DWORD)(uintptr_t)(text[3] + 1);
+    memcpy(push[2] + 1, &elsewhere, sizeof elsewhere);
+    memcpy(before, data, sizeof before);
+    left &= freeplay_turn(push, text, FREE_PLAY_PLACES) == FREE_PLAY_LEFT && !memcmp(before, data, sizeof before);
+    check(left, "free play: a copy with other bytes, or a push of another address, leaves every copy as it is");
+    VirtualFree(data, 0, MEM_RELEASE);
+    VirtualFree(code, 0, MEM_RELEASE);
+}
+
 static void test_unit_floor(void)
 {
     /* At 100 % (96 dpi) the smallest unit is UI_UNIT_MIN: a window 576 tall and one 300 tall both at 0.75, a chip
@@ -3499,6 +3560,7 @@ int main(void)
 {
     test_single_precision();
     test_clock();
+    test_free_play();
     test_score_lag();
     test_settings();
     test_engine();
