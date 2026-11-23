@@ -606,6 +606,15 @@ class OperationsReview2Test(unittest.TestCase):
         self.assertIn("a password is 6 to 16 letters or digits", said)
         self.assertIn("the two passwords differ", said)
         self.assertFalse(standalone.first_account_needed(self.data))
+        # The questions left with the input's end (Ctrl+D, as the one-line install's terminal may): no account, no
+        # error, and the way to make one said as from a script.
+        other = os.path.join(self.base, "left")
+        with mock.patch.object(standalone, "at_terminal", return_value=True), \
+                mock.patch("builtins.input", side_effect=EOFError):
+            code, said = quiet("--data", other, "setup")
+        self.assertEqual(code, 0, said)
+        self.assertTrue(standalone.first_account_needed(other))
+        self.assertIn("setup --admin ID", said)
 
     def test_restart_says_a_port_another_program_holds_and_leaves_the_server_running(self):
         # The running server (this test's own process stands in for it) has the game's port, the site's and the admin
@@ -662,20 +671,28 @@ class StartStopTest(unittest.TestCase):
             quiet("--data", data, "setup", "--game-port", str(game), "--web-port", str(web))
             # The child is this same Python with this tree's package.
             # The admin site's port a free one too (the server's own default, 4731, may be another test's now).
+            admin = free_port()
+            # --browser, as the Windows one-line install's first start asks: no browser opens in a test, the page
+            # asked for is kept instead.
             with mock.patch.dict(os.environ, {"PYTHONPATH": os.pathsep.join([os.getcwd()] + sys.path),
-                                              "OPENDMT3_ADMIN_PORT": str(free_port())}):
-                code, said = quiet("--data", data, "start")
+                                              "OPENDMT3_ADMIN_PORT": str(admin)}), \
+                    mock.patch("webbrowser.open") as browser:
+                code, said = quiet("--data", data, "start", "--browser")
             if "is taken by another program" not in said:
                 break
         self.assertEqual(code, 0, said)
+        # No account yet: the owner's first-run page, on the admin pages' own port on this PC, once.
+        browser.assert_called_once_with("http://127.0.0.1:%d/" % admin)
         record = standalone.running(data)
         self.assertIsNotNone(record)
         self.assertEqual(record["web_port"], web)
         with urllib.request.urlopen("http://127.0.0.1:%d/health" % web, timeout=5) as answer:
             self.assertTrue(json.loads(answer.read())["ok"])
         self.assertEqual(quiet("--data", data, "status")[0], 0)
-        # A second start finds it running, and a run on the same folder is refused.
-        self.assertIn("already runs", quiet("--data", data, "start")[1])
+        # A second start finds it running, opening nothing, and a run on the same folder is refused.
+        with mock.patch("webbrowser.open") as browser:
+            self.assertIn("already runs", quiet("--data", data, "start", "--browser")[1])
+        browser.assert_not_called()
         self.assertEqual(quiet("--data", data, "run", "--no-browser")[0], 2)
         code, said = quiet("--data", data, "stop")
         # Stopped by its own request, not ended from outside.
@@ -701,11 +718,14 @@ class StartStopTest(unittest.TestCase):
             quiet("--data", data, "setup", "--game-port", str(game), "--web-port", str(web))
             # The admin site's port a free one too (the server's own default, 4731, may be another test's now).
             with mock.patch.dict(os.environ, {"PYTHONPATH": os.pathsep.join([os.getcwd()] + sys.path),
-                                              "OPENDMT3_ADMIN_PORT": str(free_port())}):
-                code, said = quiet("--data", data, "start")
+                                              "OPENDMT3_ADMIN_PORT": str(free_port())}), \
+                    mock.patch("webbrowser.open") as browser:
+                code, said = quiet("--data", data, "start", "--browser")
             if "is taken by another program" not in said:
                 break
         self.assertEqual(code, 0, said)
+        # The owner's account is there: --browser opens no first-run page.
+        browser.assert_not_called()
         before = standalone.running(data)
         code, said = quiet("--data", data, "restart")
         self.assertEqual(code, 0, said)

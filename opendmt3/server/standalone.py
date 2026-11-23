@@ -619,6 +619,12 @@ def cmd_start(args):
             show_banner(data)
             say("It runs in the background (process %d): %s stop stops it, %s logs shows its log."
                 % (process.pid, PROG, PROG))
+            if getattr(args, "browser", False) and first_account_needed(data):
+                # Asked for (the Windows one-line install's first start), and no account yet: the admin pages'
+                # first-run page in the browser, where the owner's account is made, as run's first start opens it.
+                # The page answers this PC alone, and the banner above names it for a PC that opens no browser.
+                import webbrowser
+                webbrowser.open(admin_here(data) or "http://127.0.0.1:%d/" % port)
             return 0
         if process.poll() is not None:
             break
@@ -829,7 +835,12 @@ def cmd_setup(args):
         # No account yet, and a person at this terminal: the owner's account made here, so a PC with no screen of its
         # own needs no browser (the admin pages' first-run page answers this PC alone).
         say("The owner's account, with the admin pages (Enter takes what is in brackets):")
-        args.admin, args.password = ask_owner()
+        try:
+            args.admin, args.password = ask_owner()
+        except EOFError:
+            # The questions left with the input's end (Ctrl+D): no account, and the way to make one is said below,
+            # as from a script.
+            say("")
     if args.admin:
         if not first_account_needed(data):
             say("accounts are there already: no first account is made (%s add-player makes one)" % PROG)
@@ -1321,6 +1332,9 @@ def parser():
     c["run"].add_argument("--background", action="store_true", help=argparse.SUPPRESS)
     c["run"].add_argument("--no-browser", action="store_true",
                           help="do not open the owner's first-run page in the browser on the first start")
+    # The Windows one-line install's first start: the first-run page, as the first start in a window opens it.
+    c["start"].add_argument("--browser", action="store_true",
+                            help="open the owner's first-run page in the browser while the server has no account")
     c["logs"].add_argument("-n", "--tail", type=int, default=100, help="how many of the last lines (100)")
     c["setup"].add_argument("--address", help="the address players reach this PC at (192.168.0.5, a name, or a "
                                               "whole https://... address)")

@@ -13,7 +13,11 @@
 # starts it once (--version), while the running server goes on; only then it stops the server it finds running, puts
 # the new package in place and starts it again. A step that fails before the stop (a download, a checksum, a package
 # that does not start on this machine) leaves the running server as it was, and says so. An install made by an older
-# release's script (with a Python environment of its own) is taken over the same way, its data kept.
+# release's script (with a Python environment of its own) is taken over the same way, its data kept. A first install
+# (no command there before) ends with the server running: the owner's account asked for at the terminal when there is
+# one (the script itself comes through curl's pipe, so the questions go to /dev/tty), none made without one (setup then
+# says the one command that makes it), then the server started, its banner naming the site's and the admin pages'
+# addresses.
 #
 #   sh -s -- --uninstall      (after the pipe's sh: the server stopped, the program removed, the data kept)
 #
@@ -124,6 +128,10 @@ install() {
   [ "$(sha256 "$work/$archive")" = "$want" ] \
     || die "$archive is not the release's (its SHA-256 differs): run this again"
   mkdir -p "$DIR" "$BIN"
+  # A first install: no command of any release's here yet (an older release's own counts as one), so the end sets the
+  # server up and starts it. An install again, or an update, leaves a stopped server stopped.
+  first=
+  [ -e "$BIN/opendmt3-server" ] || first=yes
   # Whether a server runs now: it is stopped only once this version is unpacked and has started here, so a failure
   # before that leaves it running as it was. Its status says 0 when it runs and answers, 1 when it runs and does not
   # answer (yet), 3 when none runs.
@@ -172,21 +180,46 @@ install() {
   rm -f "$BIN/opendmt3-server.old"
   tidy
   "$BIN/opendmt3-server" --version
-  if [ -n "$was_running" ]; then
-    "$BIN/opendmt3-server" start
-  fi
+  # The command as the person types it next: by name when its folder is on PATH, else by its whole path.
   case ":$PATH:" in
     *":$BIN:"*) cmd=opendmt3-server ;;
-    *) cmd="$BIN/opendmt3-server"; say "($BIN is not on PATH: add it, or type the whole path)" ;;
+    *) cmd="$BIN/opendmt3-server" ;;
   esac
+  started=
+  if [ -n "$was_running" ]; then
+    "$BIN/opendmt3-server" start
+    started=yes
+  elif [ -n "$first" ]; then
+    # The owner's account before the first start, asked at the terminal when there is one: this script's own input
+    # is curl's pipe, so the questions read /dev/tty, and setup asks only when its output is a terminal too. With none
+    # (a script, a CI job), setup makes no account and says the one command that makes it. Data kept from an earlier
+    # install that has accounts is asked nothing.
+    if [ -t 1 ] && (exec </dev/tty) 2>/dev/null; then
+      "$BIN/opendmt3-server" setup </dev/tty || say "(no account made: $cmd setup --admin BOSS makes it)"
+    else
+      "$BIN/opendmt3-server" setup </dev/null || true
+    fi
+    # Started in the background; its banner names the players' address, this PC's, the admin pages' and the game's
+    # port (and, with no account yet, the page that makes it). A start that fails says why, and the install stands.
+    if "$BIN/opendmt3-server" start; then
+      started=yes
+    else
+      say "The server is installed, not started: $cmd start starts it once that is fixed."
+    fi
+  fi
   say ""
+  [ "$cmd" = opendmt3-server ] || say "($BIN is not on PATH: add it, or type the whole path)"
   say "Next:"
-  say "  $cmd setup --admin BOSS        the owner's account, with the admin pages (its password printed)"
-  say "  $cmd start                     the server, in the background"
-  say "  $cmd setup --game PATH         the song list from your client data (a folder or an archive)"
-  say "  $cmd firewall                  the commands that open its ports"
-  say "  $cmd --help                    every command"
-  say "The admin pages: http://127.0.0.1:4731/ on this PC ($cmd setup --admin-host 0.0.0.0 opens them to the network)."
+  # A server this install did not start (one stopped before an update, or a start that failed).
+  [ -n "$started" ] || say "  $cmd start                       the server, in the background"
+  say "  $cmd setup --game PATH           the song list from your client data (a folder or an archive)"
+  say "  $cmd firewall                    the commands that open its ports"
+  say "  $cmd --help                      every command"
+  say "  $cmd setup --admin-host 0.0.0.0  the admin pages for the other PCs of the network too"
+  if [ -n "$started" ]; then
+    # Last, the site's and the admin pages' addresses in the server's own words (its ports and reach as kept).
+    "$BIN/opendmt3-server" status 2>/dev/null | sed -n -e '/^Players: /p' -e '/^The admin pages: /p'
+  fi
 }
 
 main() {

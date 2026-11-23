@@ -2,11 +2,14 @@
 # The one-line install (packaging/server/install.sh) as a server owner runs it on Linux, in containers, as a user of
 # its own, from a folder of release files: this tree's server package for Linux x64 (packaging/server/bundle.sh, as the
 # release makes it), the SHA-256 sums and the installer with this version put in.
-#   1. In a bare Debian 10 (glibc 2.28, no Python, no curl) with no network: the install, the command it puts on PATH
-#      (--version, setup, start, /health and the admin pages', status), the installer again while the server runs (an
-#      update: stopped, put in place, started again), a later release whose package is not the release's (refused by
-#      its SHA-256) and one whose package does not start there (refused at its --version), each leaving the running
-#      server as it was, then --uninstall, the data still there.
+#   1. In a bare Debian 10 (glibc 2.28, no Python, no curl) with no network: the install from a script (no terminal:
+#      no account made and its one command said, the server started, the site's and the admin pages' addresses said
+#      last), the command it puts on PATH (--version, setup, start finding it running, /health and the admin pages',
+#      status), the installer again while the server runs (an update: stopped, put in place, started again), a later
+#      release whose package is not the release's (refused by its SHA-256) and one whose package does not start there
+#      (refused at its --version), each leaving the running server as it was, then --uninstall, the data still there;
+#      then a first install at a terminal that `script` gives it (the owner's account asked for there and made, the
+#      server started with it).
 #   2. In python:3.12-slim-bookworm, with the network for an older release's own download: 0.4.1's one line from its
 #      release (the server with a Python environment of its own) and a first account, then this version's one line
 #      over that install while it runs (the package in its place, the old code and environments gone, the account
@@ -80,13 +83,21 @@ docker run --rm --name "$C" --network none -v "$OUT/files:/files:ro" -v "$OUT:/o
   r=$?; step "this machine has no Python and no curl of its own" $r
   as "cat /files/opendmt3-server-$VERSION-linux-installer.sh | sh" > /out/install.txt 2>&1
   r=$?; step "the one line installs the server" $r
+  # A first install from a script, with no terminal: no account made and the one command that makes it said, the
+  # server started, and the site and the admin pages named last.
+  as "opendmt3-server status" > /out/first-status.txt 2>&1
+  r1=$?
+  [ $r1 = 0 ] && grep -q "setup --admin ID makes it" /out/install.txt && ! grep -q "^made " /out/install.txt \
+    && grep -q "^Players: http" /out/install.txt && grep -q "^The admin pages: http://127.0.0.1:4731/" /out/install.txt
+  r=$?; step "a first install with no terminal: no account made, its command said, the server started, its addresses said" $r
   as "opendmt3-server --version" > /out/version.txt 2>&1; grep -q "openDMT3 server $VERSION" /out/version.txt
   r=$?; step "opendmt3-server --version: $(cat /out/version.txt)" $r
   [ -x /home/owner/.local/share/opendmt3-server/$PACKAGE/lib/7-zip/7zz ] \
     && [ -f /home/owner/.local/share/opendmt3-server/$PACKAGE/licenses/NOTICES.txt ]
   r=$?; step "the package in its place, with the official 7-Zip and its notices" $r
   as "opendmt3-server setup --admin BOSS --password pass1234 && opendmt3-server start" > /out/start.txt 2>&1
-  r=$?; step "setup and start" $r
+  r=$?; grep -q "made BOSS" /out/start.txt && grep -q "already runs" /out/start.txt || r=1
+  step "setup makes the owner'"'"'s account, and start finds the server running" $r
   get http://127.0.0.1:4730/health > /out/health.txt 2>&1
   grep -q "\"ok\":true" /out/health.txt && grep -q "\"version\":\"$VERSION\"" /out/health.txt
   r=$?; step "/health: $(cat /out/health.txt)" $r
@@ -118,6 +129,28 @@ docker run --rm --name "$C" --network none -v "$OUT/files:/files:ro" -v "$OUT:/o
   [ ! -e /home/owner/.local/bin/opendmt3-server ] && [ -f /home/owner/.local/share/opendmt3-server/data/openDMT3.sqlite ] \
     && [ -z "$(ls -A /home/owner/.local/share/opendmt3-server | grep -v "^data$")" ]
   r=$?; step "--uninstall: stopped and removed, the data kept" $r
+  # A first install at a terminal, which script gives it as a person'"'"'s window would: the owner'"'"'s account asked for
+  # there and made, then the server started with it. Each answer goes in once its question is on the screen (the
+  # password'"'"'s question empties whatever was typed before it), through a pipe that stays open until the end.
+  useradd -m owner2
+  mkfifo /tmp/answers && chmod 0666 /tmp/answers
+  su owner2 -c "export OPENDMT3_SERVER_FILES=/files; timeout 300 script -qfec \"cat /files/opendmt3-server-$VERSION-linux-installer.sh | sh\" /tmp/tty.txt" \
+    < /tmp/answers > /out/tty-run.txt 2>&1 &
+  driver=$!
+  exec 3>/tmp/answers
+  answer() { for i in $(seq 600); do grep -q "$1" /tmp/tty.txt 2>/dev/null && { printf "%s\n" "$2" >&3; return 0; }; sleep 0.1; done; return 1; }
+  answer "ID \[BOSS\]" NOVA && answer "password (6 to 16" pass1234 && answer "the same password again" pass1234
+  asked=$?
+  wait $driver
+  ran=$?
+  exec 3>&-
+  cp /tmp/tty.txt /out/tty.txt 2>/dev/null
+  su owner2 -c "/home/owner2/.local/bin/opendmt3-server status" > /out/tty-status.txt 2>&1
+  r1=$?
+  [ $asked = 0 ] && [ $ran = 0 ] && [ $r1 = 0 ] && grep -q "made NOVA" /tmp/tty.txt && ! grep -q "First start: open" /tmp/tty.txt \
+    && grep -q "^The admin pages: http://127.0.0.1:4731/" /tmp/tty.txt
+  r=$?; step "a first install at a terminal: the owner'"'"'s account asked for there and made, the server started with it" $r
+  su owner2 -c "sh /files/opendmt3-server-$VERSION-linux-installer.sh --uninstall" > /out/uninstall-tty.txt 2>&1
   echo "failed: $failed"
   exit $failed
 '

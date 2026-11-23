@@ -62,20 +62,17 @@ On Linux the installer runs under Wine ([how](docs/install.md#on-linux-with-wine
 
 ### Run a server
 
-For the players' own PCs, with no Docker or Python. On Linux (on a Mac, the same with `-macos-installer.sh`):
+On a PC of its own, with no Docker or Python, one line installs the server for your user and starts it. On Linux (on a
+Mac, the same with `-macos-installer.sh`), it asks for the owner's account first:
 
 ```sh
 curl -fsSL https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-linux-installer.sh | sh
-~/.local/bin/opendmt3-server setup --admin BOSS
-~/.local/bin/opendmt3-server start
 ```
 
-On Windows, in PowerShell:
+On Windows, in PowerShell, the browser opens the page that makes the owner's account:
 
 ```powershell
 irm https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-windows-installer.ps1 | iex
-cd "$env:LOCALAPPDATA\Programs\opendmt3-server"
-.\opendmt3-server setup --admin BOSS; .\opendmt3-server start
 ```
 
 With Docker (Compose v2 and Python 3), a wizard sets up the published image:
@@ -92,8 +89,8 @@ helm install dmt3 https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/
   -n opendmt3 --create-namespace --set admin.enabled=true --set admin.password=CHANGE1234
 ```
 
-`setup --admin BOSS` makes the owner's account and prints its password. [The server guide](docs/server.md) has the
-rest: the song list, the players' accounts, the firewall, and the launcher's own server for the PCs on one network.
+[The server guide](docs/server.md) has the rest: the song list, the players' accounts, the firewall, and the launcher's
+own server for the PCs on one network.
 
 ## What it does
 

@@ -80,11 +80,14 @@ irm https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-serve
 ```
 
 It takes that zip, checked against the release's SHA-256 sums, into `%LOCALAPPDATA%\Programs\opendmt3-server` and puts
-that folder on your PATH, so `opendmt3-server` runs by name in a new terminal; the data folder is `data` in it. The
-same line again, or a newer release's, starts the new version once, then stops the running server, puts the new
-version in place with the data as it was and starts it again; a download or a package that does not start leaves the
-running server as it was. `$env:OPENDMT3_SERVER_UNINSTALL = '1'` before the same line stops the server, takes out
-its firewall rules and removes the program and its PATH entry, and keeps the data. By hand instead:
+that folder on your PATH, so `opendmt3-server` runs by name in that window and in new ones; the data folder is `data`
+in it. A first install then starts the server in the background, and while it has no account the browser opens the
+admin pages' first-run page on this PC (`http://127.0.0.1:4731/`), where you make the owner's account
+(`opendmt3-server setup --admin BOSS` makes it in the terminal instead, its password printed). The same line again,
+or a newer release's, starts the new version once, then stops the running server, puts the new version in place with
+the data as it was and starts it again; a download or a package that does not start leaves the running server as it
+was. `$env:OPENDMT3_SERVER_UNINSTALL = '1'` before the same line stops the server, takes out its firewall rules and
+removes the program and its PATH entry, and keeps the data. By hand instead:
 
 1. Unpack the whole zip into a folder of your own (for example `C:\openDMT3-server`), and start
    `opendmt3-server.exe`. The server runs in its window; on the first start your browser opens the admin pages on this
@@ -105,7 +108,7 @@ window. The same commands run on Linux and macOS ([On Linux or macOS](#on-linux-
 | Command | Does |
 | :--- | :--- |
 | `opendmt3-server` or `opendmt3-server run` | Runs the server in this window until it closes (Ctrl+C, or `stop` from another one); `--no-browser` |
-| `opendmt3-server start`, `stop`, `restart`, `status`, `logs` | In the background; stops the running one, however it was started; runs it again where it ran (its window, or the background); whether it runs and answers, with its addresses; the last lines of its log |
+| `opendmt3-server start`, `stop`, `restart`, `status`, `logs` | In the background (`--browser`: the owner's first-run page opened too while there is no account, as the Windows one-line install's first start does); stops the running one, however it was started; runs it again where it ran (its window, or the background); whether it runs and answers, with its addresses; the last lines of its log |
 | `opendmt3-server setup [--address A] [--game PATH] [--installer FILE] [--admin ID [--password P]] [--game-port N] [--web-port N] [--admin-port N] [--admin-host ADDRESS]` | The players' address, the song list, the installer to hand out, the first account, the ports (`--admin-port 0` turns the admin pages off), who may open the admin pages (`--admin-host 0.0.0.0`: the network too; `127.0.0.1`: this PC again); each only when given, and two parts never on one port. With no account yet and a person at the terminal, it asks for the owner's account and makes it there, each answer it refuses asked again and the password typed twice (a PC with no screen needs no browser) |
 | `opendmt3-server invite` | The address players open, with its QR code |
 | `opendmt3-server firewall [--remove] [--public] [--print]` | Opens the game's and the site's ports in Windows' firewall as an administrator (the admin pages' port too, only while they are opened to the network); elsewhere prints the commands for ufw and firewalld |
@@ -120,20 +123,21 @@ window. The same commands run on Linux and macOS ([On Linux or macOS](#on-linux-
 On a Linux machine, x64 or arm64, with the GNU C library 2.28 or newer (Debian 10, Ubuntu 20.04, RHEL 8 and newer), or
 a Mac, Intel or Apple silicon, without Docker or Python. One line installs the release's package for the machine,
 checked against the release's SHA-256 sums, into `~/.local/share/opendmt3-server`, and puts the command
-`opendmt3-server` in `~/.local/bin`:
+`opendmt3-server` in `~/.local/bin`. A first install then asks for the owner's account in the terminal (its ID, then
+its password twice; left empty, one is made and printed) and starts the server:
 
 ```sh
 curl -fsSL https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-linux-installer.sh | sh
-opendmt3-server setup --admin BOSS
-opendmt3-server start
 ```
 
-(on macOS the release's `-macos-installer.sh`). Its commands are the Windows package's ([On Windows](#on-windows));
-the data folder is `~/.local/share/opendmt3-server/data`. The same line again, or a newer release's, starts the new
-version once, then stops the running server, puts the new version in place and starts it again, with the data as it
-was; a download or a package that does not start leaves the running server as it was. It takes over a server an
-older release's line installed with Python of its own, the data kept. `sh -s -- --uninstall` after the pipe's `sh`
-removes it and keeps the data.
+(on macOS the release's `-macos-installer.sh`). From a script, with no terminal, it makes no account and says the
+command that makes one, `opendmt3-server setup --admin BOSS` (its password printed); the server starts all the same,
+and the admin pages' first-run page on this PC makes it too. Its commands are the Windows package's
+([On Windows](#on-windows)); the data folder is `~/.local/share/opendmt3-server/data`. The same line again, or a newer
+release's, starts the new version once, then stops the running server, puts the new version in place and starts it
+again, with the data as it was; a download or a package that does not start leaves the running server as it was. It
+takes over a server an older release's line installed with Python of its own, the data kept. `sh -s -- --uninstall`
+after the pipe's `sh` removes it and keeps the data.
 
 By hand instead: the release's `opendmt3-server-0.4.1-linux-x64.tar.gz`, `opendmt3-server-0.4.1-linux-arm64.tar.gz`,
 `opendmt3-server-0.4.1-macos-x64.tar.gz` or `opendmt3-server-0.4.1-macos-arm64.tar.gz`, each one folder that brings

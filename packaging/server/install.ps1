@@ -6,8 +6,11 @@
 # It takes this release's Windows server package (opendmt3-server-@VERSION@-windows-x64.zip), checked against the
 # release's SHA-256 sums (opendmt3-@VERSION@-sha256sums.txt), into %LOCALAPPDATA%\Programs\opendmt3-server
 # (OPENDMT3_SERVER_DIR says where), and puts that folder on this user's PATH, so opendmt3-server runs by name in a new
-# terminal. The package brings its own Python, the official 7-Zip and the launcher's installer for the Download page;
-# the data (accounts, plays, backups, settings) is in its data folder, beside the program, which every version keeps.
+# terminal, and in this window too. The package brings its own Python, the official 7-Zip and the launcher's installer
+# for the Download page; the data (accounts, plays, backups, settings) is in its data folder, beside the program, which
+# every version keeps. A first install (no program there before) ends with the server started in the background, as
+# the package's own first start does: with no account yet, the browser opens the admin pages' first-run page, where the
+# owner's account is made, and the server's banner names the site's and the admin pages' addresses.
 # Run again, or a newer release's, it unpacks this version's package first and starts it once (--version), while the
 # running server goes on; only then it stops the server it finds running, puts the new program in place, the data
 # folder moved into it, and starts it again. A step that fails before the stop (a download, a checksum, a package that
@@ -50,6 +53,13 @@
     }
   }
 
+  # A program of the package, its output lines returned (its error output dropped, not turned into PowerShell's errors).
+  function Lines([string] $program, [string[]] $arguments) {
+    $before = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { return @(& $program @arguments 2>$null) } finally { $ErrorActionPreference = $before }
+  }
+
   # Whether the installed server runs: its status says 0 (it answers) or 1 (it runs and does not answer yet); 3 is
   # none running, as is no program.
   function Running {
@@ -72,9 +82,14 @@
       }
       $entries = @($stored -split ';' | Where-Object { $_ })
       $ours = @($entries | Where-Object { [Environment]::ExpandEnvironmentVariables($_).TrimEnd('\') -eq $dir })
+      # This window too: iex runs this script in the caller's own process, whose PATH the next commands typed there
+      # read, so opendmt3-server runs by name at once (a new terminal reads the user's PATH above).
+      $here = @($env:Path -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ne $dir })
+      if ($add) { $here += $dir }
+      $env:Path = $here -join ';'
       if ($add -and $ours.Count -eq 0) {
         $key.SetValue('Path', (@($entries + $dir) -join ';'), $kind)
-        Say "added $dir to your PATH: open a new terminal to run opendmt3-server by name"
+        Say "added $dir to your PATH: opendmt3-server runs by name, in this window and in new ones"
       } elseif (-not $add -and $ours.Count -gt 0) {
         $key.SetValue('Path', (@($entries | Where-Object { $ours -notcontains $_ }) -join ';'), $kind)
       } else {
@@ -136,6 +151,9 @@
     try { $got = -join ($sha.ComputeHash($stream) | ForEach-Object { $_.ToString('x2') }) } finally { $stream.Close() }
     if ($got -ne $want) { Fail "$archive is not the release's (its SHA-256 differs): run this again" }
 
+    # A first install: no program here yet (the data alone may be, kept by a removal), so the end starts the server.
+    # An install again, or an update, leaves a stopped server stopped.
+    $firstInstall = -not (Test-Path -LiteralPath $exe -PathType Leaf)
     $wasRunning = Running
     $unchanged = if ($wasRunning) { 'nothing was changed: the server runs as it was' } else { 'nothing was changed' }
     # This version's package unpacked beside the installed one (on the same disk, so putting it in place is a rename),
@@ -199,13 +217,28 @@
 
   Set-UserPath $true
   $null = Run $exe @('--version')
-  if ($wasRunning) { $null = Run $exe @('start') }
+  $started = $false
+  if ($wasRunning) {
+    $started = (Run $exe @('start')) -eq 0
+  } elseif ($firstInstall) {
+    # The first start in the background, as the package's own first start in a window: with no account yet, the
+    # browser opens the admin pages' first-run page on this PC, where the owner's account is made (the banner names
+    # it too, for a PC that opens no browser). A start that fails says why, and the install stands.
+    $started = (Run $exe @('start', '--browser')) -eq 0
+    if (-not $started) { Say 'The server is installed, not started: opendmt3-server start starts it once that is fixed.' }
+  }
   Say ''
-  Say 'Next (in a new terminal, or with the whole path):'
-  Say '  opendmt3-server setup --admin BOSS   the owner''s account, with the admin pages (its password printed)'
-  Say '  opendmt3-server start                the server, in the background'
+  Say 'Next:'
+  # A server this install did not start (one stopped before an update, or a start that failed).
+  if (-not $started) { Say '  opendmt3-server start                the server, in the background' }
+  # The owner's account in this window instead of the browser's page (setup makes none where accounts are).
+  if ($firstInstall) { Say '  opendmt3-server setup --admin BOSS   the owner''s account here instead (its password printed)' }
   Say '  opendmt3-server setup --game PATH    the song list from your client data (a folder or an archive)'
   Say '  opendmt3-server firewall             its ports opened (Windows asks for an administrator''s yes)'
   Say '  opendmt3-server --help               every command'
-  Say "The admin pages: http://127.0.0.1:4731/ on this PC. The program: $exe"
+  Say "The program: $exe"
+  if ($started) {
+    # Last, the site's and the admin pages' addresses in the server's own words (its ports and reach as kept).
+    Lines $exe @('status') | Where-Object { $_ -match '^(Players|The admin pages): ' } | ForEach-Object { Say $_ }
+  }
 }

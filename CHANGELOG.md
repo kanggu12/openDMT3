@@ -45,7 +45,11 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
   each bringing its own Python, 7-Zip and the launcher's installer, as the Windows package does. The one-line installs
   on Linux and macOS take the package for the machine, with no Python needed, and take over a server an older line
   installed; Windows has one too, `opendmt3-server-<version>-windows-installer.ps1`, for the user, without an
-  administrator. With Docker, `./dmt3` runs from a clone of the repository or the release's source archive. The
+  administrator. A first install by one of these lines ends with the server running and its site's and admin pages'
+  addresses said: on Linux and macOS it asks for the owner's account in the terminal first (from a script, with no
+  terminal, it makes none and says the one command that does), and on Windows the browser opens the admin pages'
+  first-run page for it, as the package's own first start does; there `opendmt3-server` runs by name in the same
+  window at once. With Docker, `./dmt3` runs from a clone of the repository or the release's source archive. The
   launcher's update files keep their names, `openDMT3-<version>-full.nupkg`: every launcher installed so far takes an
   update under that name alone. A server of 0.4.1 or older takes the newly named installer through
   `setup --installer FILE`.

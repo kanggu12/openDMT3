@@ -378,8 +378,9 @@ jobs:
 
       # The server's one-line install for Windows (packaging/server/install.ps1) in Windows PowerShell 5.1, as irm | iex
       # runs it, from a folder holding this tree's Windows server package (frozen here by server.spec): for the
-      # runner's user with no administrator's rights, on its PATH, by name in a new PowerShell, started, installed
-      # again while it runs, a later release's zip that is not the release's refused, and removed with the data kept
+      # runner's user with no administrator's rights, by name in the same window and in a new PowerShell, the first
+      # install started with the owner's first-run page asked of a recorder in the browser's place, installed again
+      # while it runs, a later release's zip that is not the release's refused, and removed with the data kept
       # (tests/e2e/windows/server_install.py, which runs on a CI runner alone).
       - name: The server's one-line install for Windows
         run: python tests/e2e/windows/server_install.py windows-parts _work/windows-server
