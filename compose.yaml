@@ -29,7 +29,7 @@ services:
     # here is for docker compose run by hand, and moves with each release (tests/test_front_door.py checks it).
     # No recipe here: with the image missing, every command pulls it, and none builds this clone under the published
     # name (packaging/docker/build.yaml is the recipe, read only to build).
-    image: ${OPENDMT3_IMAGE:-ghcr.io/kanggu12/opendmt3-server:0.4.1}
+    image: ${OPENDMT3_IMAGE:-ghcr.io/kanggu12/opendmt3-server:0.4.2}
     restart: unless-stopped
     ports:
       # The game's port, for cabinets on other PCs.

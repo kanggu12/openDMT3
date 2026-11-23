@@ -21,10 +21,10 @@ The pod runs as the image's own user (4725), with a read-only root file system, 
 
 ## Install
 
-Each release has the chart as `opendmt3-server-0.4.1-helm-chart.tgz`:
+Each release has the chart as `opendmt3-server-0.4.2-helm-chart.tgz`:
 
 ```sh
-helm install dmt3 https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-helm-chart.tgz \
+helm install dmt3 https://github.com/kanggu12/openDMT3/releases/download/v0.4.2/opendmt3-server-0.4.2-helm-chart.tgz \
   -n opendmt3 --create-namespace \
   --set admin.enabled=true --set admin.password=CHANGE1234
 ```
@@ -74,7 +74,7 @@ The site shows the new song list at once. To hand out the launcher, copy the rel
 downloads folder the same way:
 
 ```sh
-kubectl -n opendmt3 cp opendmt3-launcher-0.4.1-windows-x64-installer.exe "${POD#pod/}":/data/downloads/openDMT3-win-Setup.exe -c server
+kubectl -n opendmt3 cp opendmt3-launcher-0.4.2-windows-x64-installer.exe "${POD#pod/}":/data/downloads/openDMT3-win-Setup.exe -c server
 ```
 
 ## The game's port
@@ -164,7 +164,7 @@ kubectl -n opendmt3 cp "${POD#pod/}":/data/backups/NAME.sqlite NAME.sqlite -c se
 Install the new release's chart over the old one:
 
 ```sh
-helm upgrade dmt3 https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-helm-chart.tgz \
+helm upgrade dmt3 https://github.com/kanggu12/openDMT3/releases/download/v0.4.2/opendmt3-server-0.4.2-helm-chart.tgz \
   -n opendmt3 --reuse-values
 ```
 

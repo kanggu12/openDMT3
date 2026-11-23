@@ -46,7 +46,7 @@ you, and a server of your own in place of the game's online service.
 On Windows 10 or 11, with your own client data ([which](docs/client-data.md#which-client-data)):
 
 1. Download and run
-   **[opendmt3-launcher-0.4.1-windows-x64-installer.exe](https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-launcher-0.4.1-windows-x64-installer.exe)**,
+   **[opendmt3-launcher-0.4.2-windows-x64-installer.exe](https://github.com/kanggu12/openDMT3/releases/download/v0.4.2/opendmt3-launcher-0.4.2-windows-x64-installer.exe)**,
    then choose **Install**. If Windows says it protected your PC: **More info**, then **Run anyway**.
 2. The launcher finds your client data. Press **PLAY**.
 
@@ -66,13 +66,13 @@ On a PC of its own, with no Docker or Python, one line installs the server for y
 Mac, the same with `-macos-installer.sh`), it asks for the owner's account first:
 
 ```sh
-curl -fsSL https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-linux-installer.sh | sh
+curl -fsSL https://github.com/kanggu12/openDMT3/releases/download/v0.4.2/opendmt3-server-0.4.2-linux-installer.sh | sh
 ```
 
 On Windows, in PowerShell, the browser opens the page that makes the owner's account:
 
 ```powershell
-irm https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-windows-installer.ps1 | iex
+irm https://github.com/kanggu12/openDMT3/releases/download/v0.4.2/opendmt3-server-0.4.2-windows-installer.ps1 | iex
 ```
 
 With Docker (Compose v2 and Python 3), a wizard sets up the published image:
@@ -85,7 +85,7 @@ git clone https://github.com/kanggu12/openDMT3.git && cd openDMT3
 On Kubernetes, the release's Helm chart:
 
 ```sh
-helm install dmt3 https://github.com/kanggu12/openDMT3/releases/download/v0.4.1/opendmt3-server-0.4.1-helm-chart.tgz \
+helm install dmt3 https://github.com/kanggu12/openDMT3/releases/download/v0.4.2/opendmt3-server-0.4.2-helm-chart.tgz \
   -n opendmt3 --create-namespace --set admin.enabled=true --set admin.password=CHANGE1234
 ```
 

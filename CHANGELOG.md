@@ -6,6 +6,12 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-24
+
+The launcher's and both sites' pages composed, with a card for each kind of content; a server package for each
+system, with a one-line install that starts it; the in-game FPS counter in openDMT3's look where the game's FREE PLAY
+was; and an audio offset that holds the notes and their judging behind the music.
+
 ### Changed
 
 - The launcher's pages are composed, not stacked boxes: **Play** sets the ready check beside the player (their card,
@@ -374,7 +380,8 @@ and in the game, new ways to run a server, and TECHNIKA 3's look for the launche
 - Updates inside the launcher, signed by the project, and an installer with repair and removal, in English and
   Korean.
 
-[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/kanggu12/openDMT3/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/kanggu12/openDMT3/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/kanggu12/openDMT3/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/kanggu12/openDMT3/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/kanggu12/openDMT3/compare/v0.3.0...v0.3.1

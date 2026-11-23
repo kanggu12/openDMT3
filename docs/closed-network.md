@@ -13,13 +13,13 @@ From a PC with internet, onto a USB stick or a share:
 - **The launcher's installer** for the players, from the [releases](https://github.com/kanggu12/openDMT3/releases),
   and your client data's song list ([what a server takes](client-data.md#what-a-server-takes)).
 - **The server**, one of these:
-  - **Windows**: the release's `opendmt3-server-0.4.1-windows-x64.zip`. It needs nothing else: it brings its own
+  - **Windows**: the release's `opendmt3-server-0.4.2-windows-x64.zip`. It needs nothing else: it brings its own
     Python, 7-Zip and the launcher's installer.
-  - **Linux or macOS**: the release's package for the server's machine, `opendmt3-server-0.4.1-linux-x64.tar.gz`
+  - **Linux or macOS**: the release's package for the server's machine, `opendmt3-server-0.4.2-linux-x64.tar.gz`
     (or `-linux-arm64`, `-macos-x64`, `-macos-arm64`). It needs nothing else either.
   - **Docker**: the server's image as a file. Pull it there and save it:
-    `docker pull ghcr.io/kanggu12/opendmt3-server:0.4.1` then
-    `docker save ghcr.io/kanggu12/opendmt3-server:0.4.1 -o opendmt3-server.tar`; with HTTPS, Caddy's too:
+    `docker pull ghcr.io/kanggu12/opendmt3-server:0.4.2` then
+    `docker save ghcr.io/kanggu12/opendmt3-server:0.4.2 -o opendmt3-server.tar`; with HTTPS, Caddy's too:
     `docker pull caddy:2.10.2-alpine` and `docker save caddy:2.10.2-alpine -o caddy.tar`. Bring a copy of the
     repository beside them (the release's source archive, or a clone).
   - **Python**: a copy of the repository, and the site's libraries as files, downloaded there on the same system and
