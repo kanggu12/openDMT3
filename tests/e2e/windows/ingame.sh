@@ -20,10 +20,11 @@
 #      (ingame/pace.py, ingame/quiet.py: rounds wait for other programs' load to fall, 25 minutes at most, then the
 #      pacing is not judged and the test fails; Wine's software renderer misses 60 by itself in some stretches, which
 #      are not judged either), and the chip's own CPU time, its updates and their GDI drawings (none) are within its
-#      targets (ingame/costs.py); the chip is in the bottom right corner beside the game's FREE PLAY, the menu's Show
-#      FPS hides and shows it; in the tutorial's song, the X's question (with its line) holds the game still (two
-#      screenshots 2 s apart the same in the middle half, the chip hidden, the sound faded out, held, and played again
-#      from where it stopped with a fade in), Keep playing lets it go on; across that hold and the one minimised below
+#      targets (ingame/costs.py); the game's FREE PLAY is left out (the log says so) and the chip is in the bottom
+#      right corner that label held, the menu's Show FPS hides and shows it; in the tutorial's song, the X's question
+#      (with its line) holds the game still (two screenshots 2 s apart the same in the middle half, the chip hidden,
+#      the sound faded out, held, and played again from where it stopped with a fade in), Keep playing lets it go on;
+#      across that hold and the one minimised below
 #      the song's chart holds with the game (the score's watch, OPENDMT3_LINE_WATCH: across a hold the score counted only
 #      the time between its two frames that was not held, within a tick and 20 ms: gpu/line.py holds); Esc does
 #      nothing; a minute of the song played
@@ -875,7 +876,7 @@ echo "== the chip in the corner: the menu's Show FPS"
 away
 [ "$(grep -oE 'layer: frame rate chip (on|off)' "$OUT/ingame.log" | tail -1 | awk '{print $NF}')" != off ] \
   || fail "the chip was left off by the menu's last Show FPS ($(grep -E 'layer: frame rate chip' "$OUT/ingame.log" | tail -2 | tr '\n' ' '))"
-drew c1 mark chip || fail "the chip is not showing in the bottom right corner beside FREE PLAY, or something is in the middle"
+drew c1 mark chip || fail "the chip is not showing in the bottom right corner, or something is in the middle"
 # The log holds the rounds' lines already: each step below is judged by the line it adds.
 opened=$(seen "layer: menu opened"); off=$(seen "layer: frame rate chip off"); on=$(seen "layer: frame rate chip on")
 closed=$(seen "layer: closed, back to the game")
@@ -1196,5 +1197,5 @@ dumps=$(x "find /root/Desktop /w/drive_c/users/root/AppData/Roaming/openDMT3 -na
 textures "the game with NVIDIA NIS and SMAA Ultra"
 # Every other step held; the pacing not judged in its time is a failure all the same.
 [ -n "$unjudged" ] && fail "$unjudged"
-echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click, from a click and a press held on the handle; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only, dragged larger and smaller with the picture following, and back to full screen; minimise and back; offline the chip in the corner beside FREE PLAY, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top or on the handle; minimised in a song held and going on, the song's chart held with the game across both holds; the picture options run by the chain and shown, $added, $stepped; the game's own music curve and the music's move by it, measured at the last stage of the sound within 1 dB"
+echo "PASS: the bar by itself at the first screen; the dart up and pressed; the bar only from a rest at the top edge or on the mark, never within 1.5 s of a click, from a click and a press held on the handle; the question dropping down under its X with Keep playing and Quit (exit 0, seen by the launcher), no line on the menus; Esc and Alt+F4 doing nothing; the window's close asking; the menu under its chip, a toast at the top, nothing of the layer in the middle; a window with its title bar and borders only, dragged larger and smaller with the picture following, and back to full screen; minimise and back; the game's FREE PLAY left out; offline the chip in its corner, pacing locked to the music with one frame queued, the chosen sound device opened, $paced, the chip within its costs, Show FPS; a song held still under the question (with its line, the chip hidden) and going on with its sound; Esc doing nothing in a song; no bar from clicks at the top or on the handle; minimised in a song held and going on, the song's chart held with the game across both holds; the picture options run by the chain and shown, $added, $stepped; the game's own music curve and the music's move by it, measured at the last stage of the sound within 1 dB"
 docker rm -f "$C" >/dev/null

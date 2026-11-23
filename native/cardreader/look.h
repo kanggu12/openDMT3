@@ -42,6 +42,11 @@ typedef struct {
 /* Make a sprite's two canvases for a box of w x h with `room` round it (NULL canvases when memory runs out). */
 void sprite_make(Sprite *s, float w, float h, float room);
 void sprite_free(Sprite *s);
+/* A part's sprite for a box of w x h with `room` round it: SPRITE_KEPT when it is that size already (its pictures as
+ * they were), SPRITE_NEW when its canvases were made again for the size (blank: every picture in them to be drawn
+ * again), 0 when memory ran out. Only this says a sprite is new: a new canvas may well get the old one's address. */
+enum { SPRITE_KEPT = 1, SPRITE_NEW = 2 };
+int sprite_for(Sprite *s, float w, float h, float room);
 
 /* The bar: its glass, the product's mark at its left, its lit foot. Its sprite is the bar's box. `mark` is the
  * launcher's own picture of the mark (premultiplied, any size: drawn to the layout's height for it), NULL for none. */
@@ -69,16 +74,27 @@ void look_toast(Sprite *s, float u, const char *words, TextFn text, void *ctx);
 void look_resume(Sprite *s, float u, int digit, TextFn text, void *ctx);
 /* The bar's words while the game ends (logic.c quit_words), where the chips were: a sprite of the chips' row. */
 void look_quitting(Sprite *s, const UiLayout *l, const char *words, TextFn text, void *ctx);
-/* The frame rate chip's glass and edge, without its words: drawn once for a size, into a sprite of fps_box's. Its
- * glass is faint (FPS_ALPHA), its words drawn over it whole. */
+/* The frame rate chip (logic.h fps_box): one line on a plate of the bar's glass cut at its top right and its foot left,
+ * as openDMT3's result cards are (figures on black glass), its edge one seam lit along its top and down the top cut.
+ * look_fps_base draws the plate without its words, once for a size, into a sprite of fps_box's: its glass faint as a
+ * whole (FPS_ALPHA), the words drawn over it whole. */
 void look_fps_base(Sprite *s, float u);
-/* The chip's pieces of words made ready for a size (its digits, the point, FPS and ms), so that no update draws a
- * piece for the first time. */
+/* The chip's pieces of words made ready for a size (the figures of both sizes, the middle dot, FPS, the point and ms),
+ * so that no update draws a piece for the first time. */
 void look_fps_glyphs(float u, TextFn text, void *ctx);
-/* The frame rate chip: its base (look_fps_base, the same size) copied in (its mask too when `mask_too`: it never
- * changes after), then the frames a second large, FPS beside it and the frame's mean length under it, from the pieces
- * (TEXT_GLYPHS). */
-void look_fps(Sprite *s, const Sprite *base, float u, double fps, int mask_too, TextFn text, void *ctx);
+/* The chip's width in pixels at a unit for what it shows: the game's frames a second (`game`) and, above 0, the
+ * pictures shown a second (`shown`: the smooth line's sub-frames on) after a middle dot, "60 · 180"; FPS; the frame's
+ * length and ms. Each number has the room of its widest reading (two digits for the frames, three for the pictures,
+ * "00.0" for the length), so the chip keeps its width as they change. */
+float look_fps_width(float u, double game, double shown, TextFn text, void *ctx);
+/* The widest the chip can be at a unit (three digits of frames, the pictures shown, a length of 999.9 ms): the room its
+ * textures are made with at a size, so that no reading (a stall's long frame, the smooth line's second number) makes
+ * them again while a game plays. */
+float look_fps_width_most(float u, TextFn text, void *ctx);
+/* The chip: its base (the same size) copied in (its mask too when `mask_too`: it never changes after), then its line
+ * from the pieces (TEXT_GLYPHS): the game's frames in white, in the product's amber while they are under 60
+ * (fps_short), the pictures shown after them, FPS in openDMT3's light blue, the frame's length and ms quieter. */
+void look_fps(Sprite *s, const Sprite *base, float u, double game, double shown, int mask_too, TextFn text, void *ctx);
 
 /* Korean words on a button or a row, where English is in capitals, as a share of the English size (Pretendard Bold's
  * Hangul has strokes a fifth thinner than its capitals and half their width a label: set alike it looks smaller). */

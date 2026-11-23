@@ -263,9 +263,11 @@ void layer_attach(HWND game);
 int layer_holds_input(void);
 /* The game's window, once the layer has it (NULL before). */
 HWND layer_window(void);
-/* The frame rate for the chip (OPENDMT3_FPS=on, the menu's Show FPS), twice a second from the device's present: the
- * chip shows it and the frame's mean length (the chain's own time is the log's, never the screen's). */
-void layer_fps(double fps);
+/* The chip's numbers (OPENDMT3_FPS=on, the menu's Show FPS), twice a second from the device's present: `game`, the
+ * game's frames a second, and `shown`, the pictures shown a second when more are shown than the game makes (the smooth
+ * line's sub-frames), 0 otherwise. The chip shows them and the frame's mean length (the chain's own time is the log's,
+ * never the screen's). */
+void layer_fps(double game, double shown);
 /* The game's first screen is showing (the chain saw a frame with something on it): the chip and the mark may show
  * from now on, and the bar shows by itself for a few seconds so the player sees where it is. */
 void layer_first_screen(void);

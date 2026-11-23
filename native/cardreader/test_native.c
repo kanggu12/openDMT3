@@ -389,7 +389,7 @@ static void test_layout(void)
         }
         clear &= !overlap(toast_box(w, h, 0.35f * (float)w), middle) && !overlap(ui_mark_box(w, h, 1), middle);
         for (int corner = 0; corner < 4; corner++)
-            clear &= !overlap(fps_box(w, h, corner), middle);
+            clear &= !overlap(fps_box(w, h, corner, 120 * ui_unit(h)), middle);
     }
     check(clear, "layout: nothing of the layer in the middle half of the game, at five sizes and shapes");
     Card q = {0, 0, 0, 0};
@@ -460,31 +460,42 @@ static void test_layout(void)
           "reveal: only the very top edge brings the bar (its two top lines of 768)");
     check(ui_swipe_down(2, 40, 1080) && !ui_swipe_down(2, 20, 1080) && !ui_swipe_down(30, 90, 1080),
           "reveal: a finger drawn down from the top edge, not a short one or one from lower down");
-    /* The chip at the foot: one line on the line of the game's labels, below the notes (a note of the third lower row
-     * has its centre on line 693 of 768 and the foot of its ring on line 748), beside the labels: left of FREE PLAY (x
-     * 1131 to 1215, lines 743 to 752) at the right, after ID CARD, NET and PATCH (to x 193, lines 732 to 762) at the
-     * left; across in the game's own pixels (a filled picture stretches them), at seven sizes and shapes, kept and
-     * filled. At the top, 6 lines down and 12 in from its side. */
+    /* The chip at the foot: one line under the notes' rings (a note of the third lower row has its centre on line 693
+     * of 768, the foot of its ring on line 748 and its dark outline on 749), whole in the picture: at the right where
+     * the game's FREE PLAY stood (x 1131 to 1215, which openDMT3 leaves out), its right end 8 left of the result
+     * panel's frame line (x 1204 to 1208, down to the foot); at the left 8 after ID CARD, NET and PATCH (to x 193,
+     * lines 732 to 762), across in the game's own pixels (a filled picture stretches them); at seven sizes and shapes,
+     * kept and filled, whole pixels. At the top, 6 lines down and 12 in from its side. */
     static const int shapes[7][2] = {{1280, 768}, {1800, 1080}, {1920, 1080}, {2560, 1080}, {1920, 1152}, {1280, 1024},
                                      {3600, 2160}};
     int band = 1;
     for (int k = 0; k < 7; k++) {
         int w = shapes[k][0], h = shapes[k][1];
-        float sx = (float)w / 1280.0f, sy = (float)h / 768.0f;
-        Box br = fps_box(w, h, CORNER_BOTTOM_RIGHT), bl = fps_box(w, h, CORNER_BOTTOM_LEFT);
-        Box free_play = {1131 * sx, 743 * sy, 84 * sx, 9 * sy}, badges = {7 * sx, 732 * sy, 186 * sx, 30 * sy};
-        /* Under the notes, within the picture, its words' middle on FREE PLAY's (its rows 743 to 752 whole: their
-         * middle on line 748) within a game line. */
-        band &= br.y >= 741 * sy && br.y + br.h <= (float)h && bl.y >= 741 * sy && bl.y + bl.h <= (float)h &&
-                fabsf(br.y + br.h / 2 - 748.0f * sy) <= 1.0f * sy;
-        /* Beside the game's labels, never on them. */
-        band &= !overlap(br, free_play) && br.x + br.w <= free_play.x - 7.9f * sx && !overlap(bl, badges) &&
-                bl.x >= badges.x + badges.w + 7.9f * sx && br.x > bl.x + bl.w;
+        float sx = (float)w / 1280.0f, sy = (float)h / 768.0f, u = ui_unit(h), width = roundf(90 * u);
+        Box br = fps_box(w, h, CORNER_BOTTOM_RIGHT, width), bl = fps_box(w, h, CORNER_BOTTOM_LEFT, width);
+        Box badges = {7 * sx, 732 * sy, 186 * sx, 30 * sy}, line = {1204 * sx, 0, 5 * sx, (float)h};
+        /* Under the rings' outline, whole in the picture, its foot 4 game lines over the picture's. */
+        band &= br.y >= 749.5f * sy && br.y + br.h <= (float)h && bl.y == br.y &&
+                fabsf((float)h - (br.y + br.h) - 4 * u) <= 0.5f && br.h == roundf(14 * u);
+        /* At the right 8 left of the result panel's line, never on it; beside the game's badges at the left, never on
+         * them. */
+        band &= fabsf(br.x + br.w - 1196 * sx) <= 0.5f && !overlap(br, line) && !overlap(bl, badges) &&
+                bl.x >= badges.x + badges.w + 8 * sx - 0.5f && br.x > bl.x + bl.w;
+        /* Whole pixels, so the plate's edges are sharp. */
+        band &= br.x == roundf(br.x) && br.y == roundf(br.y) && bl.x == roundf(bl.x);
     }
-    Box tl = fps_box(1920, 1080, CORNER_TOP_LEFT), tr = fps_box(1920, 1080, CORNER_TOP_RIGHT);
-    check(band && fabsf(tl.y - 6 * 1.40625f) < 0.01f && fabsf(tr.x + tr.w - (1920 - 12 * 1.40625f)) < 0.01f &&
-              tl.y + tl.h <= 69 * 1.40625f,
-          "layout: the frame rate chip on the line of the game's labels below its notes, beside them, or in its top band");
+    Box tl = fps_box(1920, 1080, CORNER_TOP_LEFT, 127), tr = fps_box(1920, 1080, CORNER_TOP_RIGHT, 127);
+    check(band && tl.y == roundf(6 * 1.40625f) && fabsf(tr.x + tr.w - (1920 - 12 * 1.40625f)) <= 0.5f &&
+              tl.y + tl.h <= 69 * 1.40625f && tl.w == 127,
+          "layout: the frame rate chip under the notes where FREE PLAY stood or beside the badges, or in its top band");
+    /* Its number as it reads (half a frame up) and whether it is short of 60: a count that holds 60 reads 59.5 to 60.5
+     * (60, not short), frames late by 8 ms in a half second 59 (short), one missed on a 60 Hz display 58; none counted
+     * is no number and not short; past 999 (the limiter out) three digits. */
+    check(fps_whole(60.0) == 60 && fps_whole(59.5) == 60 && fps_whole(60.49) == 60 && fps_whole(59.49) == 59 &&
+              fps_whole(58.06) == 58 && fps_whole(0) == 0 && fps_whole(-3) == 0 && fps_whole(1500) == 999 &&
+              !fps_short(60.0) && !fps_short(59.5) && !fps_short(61.2) && fps_short(59.49) && fps_short(58.06) &&
+              fps_short(12.0) && !fps_short(0),
+          "chip: its number whole as it reads, short of 60 from under 59.5 (the tests' line for holding 60)");
     /* The handle: at the top centre, deeper lit, on the groove meter's chrome rim (the game's top 12 lines) whatever the
      * shape; resting near it counts, the game's top band elsewhere not. */
     Box m0 = ui_mark_box(1920, 1080, 0), m1 = ui_mark_box(1920, 1080, 1);
@@ -1437,6 +1448,53 @@ static void test_mark_press(void)
     mark_press_begin(&m, 5000, 1, 1, 0, 5);
     check(!mark_press_move(&m, 0, 5 + 23.0f * 1.40625f, h) && mark_press_move(&m, 0, 5 + 24.0f * 1.40625f, h) &&
           !mark_press_move(&m, 0, 200, h) && !mark_press_end(&m, 0), "handle: drawn down 24 lines it brings the bar");
+}
+
+/* The frame rate chip's plate (look_fps_base, look_fps) and its sprites made again for another width and back, as
+ * layer.c does it (the pictures shown come and go, a stall's frame length outgrows its room): sprite_for says when a
+ * sprite is new, never its canvas's address, which a new canvas may get again (the plate was then left blank and the
+ * old mask stayed on the card); the plate whole at the end, its edge lit along the top, its corners cut. */
+static void test_chip_plate(void)
+{
+    Sprite base = {0}, chip = {0};
+    float u = 1.40625f, room = ceilf(2 * u);
+    /* Made, kept at the same size. */
+    int first = sprite_for(&base, 127, 20, room), kept = sprite_for(&base, 127, 20, room);
+    check(first == SPRITE_NEW && kept == SPRITE_KEPT, "chip: a sprite made for a size is new, the same size again kept");
+    sprite_free(&base);
+    /* As the layer draws it: 60 at its width, wider (a stall's 500.0 ms), then 60 again. */
+    const float widths[3] = {127, 136, 127};
+    int made_base[3], made_chip[3];
+    for (int i = 0; i < 3; i++) {
+        made_base[i] = sprite_for(&base, widths[i], 20, room);
+        if (made_base[i] == SPRITE_NEW)
+            look_fps_base(&base, u);
+        made_chip[i] = sprite_for(&chip, widths[i], 20, room);
+        look_fps(&chip, &base, u, 60, 0, made_chip[i] == SPRITE_NEW, no_text, NULL);
+    }
+    check(made_base[0] == SPRITE_NEW && made_base[1] == SPRITE_NEW && made_base[2] == SPRITE_NEW &&
+              made_chip[1] == SPRITE_NEW && made_chip[2] == SPRITE_NEW,
+          "chip: each width's sprites new, the first width's again after the second's");
+    /* The plate at the end: its edge opaque along the top, nothing over the glass inside, the glass faint (FPS_ALPHA),
+     * the top right and the foot left cut (no glass, no edge in the corner's pixel). */
+    int o = (int)room, w = chip.content->w, top = o * w, foot = (o + 19) * w;
+    uint32_t edge = chip.content->px[top + o + 63], inside = chip.content->px[(o + 10) * w + o + 63];
+    uint32_t glass = chip.mask->px[(o + 10) * w + o + 63], cut_tr = chip.mask->px[top + o + 126];
+    uint32_t cut_bl = chip.mask->px[foot + o], cut_tr_edge = chip.content->px[top + o + 126];
+    check((edge >> 24) == 255 && (inside >> 24) == 0 && (glass >> 24) >= 200 && (glass >> 24) <= 208 &&
+              (cut_tr >> 24) == 0 && (cut_bl >> 24) == 0 && (cut_tr_edge >> 24) == 0,
+          "chip: the plate whole after its width came back: the lit edge along its top, the faint glass, both cuts");
+    sprite_free(&base);
+    sprite_free(&chip);
+    /* The room its textures are made with at a size: as wide as any reading it can show (60, a stall's long frame up
+     * to 999.9 ms, three digits, the pictures shown after the dot), so they are never made again while a game plays. */
+    float most = look_fps_width_most(u, no_text, NULL);
+    const double readings[8][2] = {{60, 0}, {5, 0}, {0.5, 0}, {0, 0}, {60, 180}, {999, 999}, {1500, 4000}, {59.4, 240}};
+    int fits = 1;
+    for (int i = 0; i < 8; i++)
+        fits &= look_fps_width(u, readings[i][0], readings[i][1], no_text, NULL) <= most;
+    check(fits && most > look_fps_width(u, 60, 0, no_text, NULL),
+          "chip: the room for its textures as wide as its widest reading, a stall's long frame and the pictures shown");
 }
 
 static void test_pictures(void)
@@ -3598,6 +3656,7 @@ int main(void)
     test_layout();
     test_places();
     test_pictures();
+    test_chip_plate();
     test_redirect();
     printf("%d checks, %d failed\n", checks, failures);
     return failures;

@@ -2069,8 +2069,8 @@ class LauncherTest(FolderCase):
         # Off, the row has no hint: its name says what it turns on.
         self.assertNotIn("screen.fps.hint.off", i18n.TEXT)
         self.assertEqual(i18n.Words("en")("screen.fps.position.hint"),
-                         "Bottom right is beside the game's FREE PLAY, below the notes.")
-        self.assertEqual(i18n.Words("ko")("screen.fps.position.hint"), "오른쪽 아래는 게임의 FREE PLAY 옆, 노트 아래입니다.")
+                         "Bottom right is under the notes, where the game's FREE PLAY was.")
+        self.assertEqual(i18n.Words("ko")("screen.fps.position.hint"), "오른쪽 아래는 노트 아래, 게임의 FREE PLAY가 있던 자리입니다.")
         # The pacing named plainly, the music lock first (the default).
         self.assertEqual(i18n.Words("en")("screen.pacing.music"), "Locked to the music")
         self.assertEqual(i18n.Words("ko")("screen.pacing.music"), "음악에 맞춤")

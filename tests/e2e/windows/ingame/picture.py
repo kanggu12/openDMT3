@@ -69,9 +69,9 @@ def main(out):
                 still.add((x, y))
     # The screen's pixels over still game pixels, every 2nd, away from where the in-game layer may draw (its bar, toast
     # and panels in the top fifth, its frame rate chip in the game's bottom band: native/cardreader/logic.c fps_box,
-    # from line 742 of 768, so every row from line 736 down is left out).
+    # from line 750 of 768, so every row from line 744 down is left out).
     screen = bmp(out + "/screen-e2e.bmp")
-    band_y = h * 736 // GAME_H
+    band_y = h * 744 // GAME_H
     points = []
     for y in range(h // 5, band_y, 2):
         for x in range(0, w, 2):

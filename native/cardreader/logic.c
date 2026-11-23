@@ -1496,41 +1496,61 @@ Box toast_box(int area_w, int area_h, float text_w)
     return b;
 }
 
-/* The chip: one line, 118 x 13 game pixels (the frames a second, FPS and the frame's mean length, three digits and
- * all). The game's notes come right up to the sides, and a note of its third lower row (its centre on line 693 of 768,
- * measured in a song) has the foot of its ring on line 748, the line of the game's own labels at its foot (FREE PLAY's
- * capitals on lines 743 to 752): so at the foot the chip sits on that line, beside the labels, where at most the foot of
- * a note's ring passes (above FREE PLAY half such a note came under it): from line 742, at the right its right end 8
- * game pixels left of FREE PLAY (from x 1131), at the left 8 right of the game's badges (ID CARD, NET and PATCH, to x
- * 193). Those places are the game's own pixels: across, they follow the picture's own width, which a filled picture
- * stretches. At the top it is 6 down and 12 in from its side, in the game's top band, where no note comes. */
-#define FPS_W 118.0f
-#define FPS_H 13.0f
-#define FPS_BAND 742.0f
-#define FREE_PLAY_X 1131.0f
+/* The chip: one line, FPS_H game pixels tall, as wide as its words (look_fps_width). The game's notes come right up to
+ * the sides, and a note of its third lower row (its centre on line 693 of 768, measured in songs) has its silver ring
+ * ending on line 748 and its dark outline on 749 (measured where it passes the bottom right): so at the foot the chip
+ * stands under that line, its top on line 750, its foot 4 game pixels over the picture's. At the right it stands where
+ * the game's FREE PLAY stood (freeplay.c leaves it out), its right end 8 game pixels left of the result panel's right
+ * frame line (x 1204 to 1208, down to the picture's foot on the results), which FREE PLAY crossed; the song select's
+ * stage bar and the title's copyright line end above and beside it. At the left it is 8 right of the game's badges
+ * (ID CARD, NET and PATCH, to x 193). Both in the game's own pixels across, which a filled picture stretches. At the
+ * top it is 6 down and 12 in from its side, in the game's top band, where no note comes. */
+#define FPS_H 14.0f
+#define FPS_FOOT 4.0f
+#define PANEL_LINE 1204.0f
 #define BADGES_END 193.0f
 #define LABEL_GAP 8.0f
 
-Box fps_box(int area_w, int area_h, int corner)
+Box fps_box(int area_w, int area_h, int corner, float width)
 {
     float u = ui_unit(area_h);
-    /* The game's own pixels to the area's, across and down (a filled picture stretches the game across). */
-    float sx = (float)area_w / (float)GAME_W, sy = (float)area_h / (float)GAME_H;
+    /* The game's own pixels to the area's, across (a filled picture stretches the game across). */
+    float sx = (float)area_w / (float)GAME_W;
     Box b;
-    b.w = FPS_W * u;
-    b.h = FPS_H * u;
+    b.w = width;
+    /* Whole pixels, so its plate's edges are sharp. */
+    b.h = roundf(FPS_H * u);
     int right = corner == CORNER_TOP_RIGHT || corner == CORNER_BOTTOM_RIGHT;
     int foot = corner == CORNER_BOTTOM_LEFT || corner == CORNER_BOTTOM_RIGHT;
-    if (foot) {
-        /* In the bottom band, beside the game's labels on their line. */
-        b.x = right ? (FREE_PLAY_X - LABEL_GAP) * sx - b.w : (BADGES_END + LABEL_GAP) * sx;
-        b.y = FPS_BAND * sy;
-    } else {
-        /* In the top band, 12 in from its side, 6 down. */
+    if (foot)
+        /* At the bottom right left of the result panel's line, at the bottom left right of the game's badges. */
+        b.x = right ? (PANEL_LINE - LABEL_GAP) * sx - b.w : (BADGES_END + LABEL_GAP) * sx;
+    else
+        /* At the top 12 in from its side. */
         b.x = right ? (float)area_w - EDGE * u - b.w : EDGE * u;
-        b.y = 6 * u;
-    }
+    /* At the foot its foot FPS_FOOT over the picture's (with a unit larger than the picture's, in a small window at
+     * 150 % or 200 %, it stays whole in the picture, higher); at the top 6 down. */
+    b.y = foot ? (float)area_h - FPS_FOOT * u - b.h : 6 * u;
+    b.x = roundf(b.x);
+    b.y = roundf(b.y);
     return b;
+}
+
+int fps_whole(double fps)
+{
+    /* Nothing under 0, and three digits at most (a measuring run with the game's limiter taken out goes far past 60). */
+    if (!(fps > 0))
+        return 0;
+    return fps >= 999.0 ? 999 : (int)floor(fps + 0.5);
+}
+
+int fps_short(double fps)
+{
+    /* The tests' own line for a count that holds 60 (59.5 a second, pace.py); none counted yet is not short. Over five
+     * songs on the GPU at 1920x1080 and 240 Hz (2,469 half seconds) the game held 60 in 97 % of them, read 59.50 to
+     * 60.50; frames late by two of that display's refreshes in a half second (8.3 ms in all) read 59, one frame missed
+     * on a 60 Hz display 58. */
+    return fps > 0 && fps_whole(fps) < 60;
 }
 
 void note_words(int korean, int aa_changed, int aa, char *out, int size)

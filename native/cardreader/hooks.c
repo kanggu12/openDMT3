@@ -1281,8 +1281,8 @@ static void count_present(LONGLONG now, int game)
          * own time is in the log's lines, never on the screen). */
         double fps = g_chip_frames * f / (double)(now - g_chip_from);
         /* The number to the layer, which draws the chip's picture again at the next frame inside the chain, from its
-         * kept pieces (no GDI work). */
-        layer_fps(fps);
+         * kept pieces (no GDI work); every frame shown is the game's here, so no second number. */
+        layer_fps(fps, 0.0);
         g_chip_frames = 0;
         g_chip_from = now;
     }

@@ -65,9 +65,9 @@ extern const char *const SOUND_PATH_NAMES[SOUND_PATHS];
 #define GAME_FPS 60
 
 /* The frame rate chip's corners, in the launcher's order (values.py FPS_POSITIONS). The bottom right is the default:
- * measured on the game's screens, the chip there (one line beside the game's FREE PLAY label, on its line, where at most
- * the foot of a note's ring passes) covers none of the game's own labels or buttons, where every corner's very edge
- * holds some. */
+ * measured on the game's screens, the chip there (one line under the notes' rings, in the corner the game's FREE PLAY
+ * label held: freeplay.c leaves it out) covers none of the game's own labels, lines or buttons, where every corner's
+ * very edge holds some. */
 enum { CORNER_TOP_LEFT = 0, CORNER_TOP_RIGHT = 1, CORNER_BOTTOM_LEFT = 2, CORNER_BOTTOM_RIGHT = 3 };
 /* A corner by the launcher's name for it (top_left, top_right, bottom_left, bottom_right, any case); -1 for none. */
 int corner_from_name(const char *name);
@@ -595,10 +595,16 @@ int bar_look_due(double *last, double now);
  * kept a gap left of the menu and the question, which hang under the bar's right end (moved left on a screen too
  * narrow). */
 Box toast_box(int area_w, int area_h, float text_w);
-/* The frame rate chip, one line, in its corner (CORNER_*): at the foot on the line of the game's own labels, below its
- * notes but the foot of a ring (left of FREE PLAY at the right, after ID CARD, NET and PATCH at the left); at the top 6
- * down and 12 in from its side. */
-Box fps_box(int area_w, int area_h, int corner);
+/* The frame rate chip, one line FPS_H game pixels tall and `width` pixels wide (look_fps_width at the area's unit), in
+ * its corner (CORNER_*): at the foot under the notes' rings, at the right where the game's FREE PLAY stood
+ * (freeplay.c leaves it out), left of the result panel's frame line, and at the left after ID CARD, NET and PATCH; at
+ * the top 6 down and 12 in from its side. */
+Box fps_box(int area_w, int area_h, int corner, float width);
+/* A half second's count of the game's frames as the chip shows it: whole (half a frame up, as the chip's words). */
+int fps_whole(double fps);
+/* Whether that count is under 60 (from 59.5 down): the game's frames fell behind its clock in that half second (its
+ * notes later than its music by as much, until frame pacing catches them up); the chip's number then in the amber. */
+int fps_short(double fps);
 /* The chip's glass's opacity: faint, so the game shows through it, and its words, drawn over it whole, keep 4.5:1 over
  * a white screen (the lightest, its quieter grey line: 4.8:1; at 62 %, the whole chip's opacity before, its words over
  * the game's brightest song came to 2.8:1). */

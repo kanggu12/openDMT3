@@ -143,9 +143,9 @@ static double g_mark_tap_at = -1e12;
 static char g_toast_words[192];
 static double g_toast_until;
 /* Whether the chip shows this run (the launcher's choice at the start, then the menu's Show FPS), and its numbers (none
- * until the first count). */
+ * until the first count): the game's frames a second, and the pictures shown a second (0: no more than the game's). */
 static int g_fps_on, g_fps_have;
-static double g_fps_value;
+static double g_fps_value, g_fps_shown;
 
 /* The target the layer is drawn on (the chain's output, or the game's own back buffer), as last drawn; the mouse's
  * client coordinates map onto it. */
@@ -178,6 +178,8 @@ static Sprite g_s_bar, g_s_chips, g_s_panel, g_s_toast, g_s_fps, g_s_mark, g_s_r
 /* The largest canvases the panel and the toast take at the size drawn for (warm works them out): the question with
  * its line is taller than without and the menu another shape, a note as wide as its words. */
 static int g_room_panel_w, g_room_panel_h, g_room_toast_w, g_room_toast_h;
+/* The chip's: as wide as its widest reading (look_fps_width_most) and its room round it, as tall as it is. */
+static int g_room_fps_w, g_room_fps_h;
 /* The chip's glass and edge without its words, drawn once for a size: each update starts from a copy of it. Its mask's
  * version, and whether the chip's own mask is still to be copied from it (a new size). */
 static Sprite g_s_fps_base;
@@ -205,7 +207,10 @@ static void redraw_end(int kind)
 }
 static unsigned g_v_bar, g_v_chips, g_v_panel, g_v_toast, g_v_fps, g_v_mark, g_v_resume, g_v_quitting;
 /* What each picture was drawn for: the target's size and the states it shows (drawn again when any differs). */
-static int g_drawn_bar = -1, g_drawn_chips = -1, g_drawn_panel = -1, g_drawn_fps = -1, g_drawn_mark = -1;
+static int g_drawn_bar = -1, g_drawn_chips = -1, g_drawn_panel = -1, g_drawn_mark = -1;
+/* What the chip's picture shows (fps_key), and its width for that at the unit it was measured at. */
+static long long g_drawn_fps = -1, g_fps_width_key = -1;
+static float g_fps_width, g_fps_width_u;
 static int g_drawn_resume = -1, g_drawn_quitting = -1;
 static int g_drawn_toast;
 static int g_drawn_w, g_drawn_h;
@@ -488,17 +493,6 @@ static const Canvas *mark_picture(void)
 
 /* ---------------------------------------------------------------------------------------------- the parts */
 
-/* Draw a part's pictures again for a box of w x h with `room` round it (the canvases made again for a new size). */
-static int sprite_for(Sprite *s, float w, float h, float room)
-{
-    int cw = (int)ceilf(w + 2 * room), ch = (int)ceilf(h + 2 * room);
-    if (s->content && s->content->w == cw && s->content->h == ch)
-        return 1;
-    sprite_free(s);
-    sprite_make(s, w, h, room);
-    return s->content && s->mask;
-}
-
 /* A canvas's size taken into the largest seen (a part's room). */
 static void room(const Canvas *c, int *w, int *h)
 {
@@ -553,16 +547,22 @@ static void warm(int w, int h)
             room(g_s_toast.content, &g_room_toast_w, &g_room_toast_h);
         }
     }
-    /* The chip: its base once for the size, its pieces of words made, then a first picture from them. */
-    Box fb = fps_box(w, h, g_settings.fps_corner);
-    if (sprite_for(&g_s_fps_base, fb.w, fb.h, 2 * l.u))
-        look_fps_base(&g_s_fps_base, l.u);
+    /* The chip: its pieces of words made, then its base once for the size (as wide as it reads at 60), then a first
+     * picture from them. */
     look_fps_glyphs(l.u, text_gdi, NULL);
-    if (g_s_fps_base.content && sprite_for(&g_s_fps, fb.w, fb.h, 2 * l.u)) {
-        look_fps(&g_s_fps, &g_s_fps_base, l.u, 60, 1, text_gdi, NULL);
+    Box fb = fps_box(w, h, g_settings.fps_corner, look_fps_width(l.u, 60, 0, text_gdi, NULL));
+    if (sprite_for(&g_s_fps_base, fb.w, fb.h, ceilf(2 * l.u)))
+        look_fps_base(&g_s_fps_base, l.u);
+    if (g_s_fps_base.content && sprite_for(&g_s_fps, fb.w, fb.h, ceilf(2 * l.u))) {
+        look_fps(&g_s_fps, &g_s_fps_base, l.u, 60, 0, 1, text_gdi, NULL);
         g_v_fps_mask++;
     }
     g_fps_mask_due = 0;
+    g_fps_width_key = -1;
+    /* Its textures' room at this size: its widest reading and the sprite's room round it, so that a reading that widens
+     * it (a stall's long frame, the pictures shown) never makes its textures again while a game plays. */
+    g_room_fps_w = (int)ceilf(look_fps_width_most(l.u, text_gdi, NULL) + 2 * ceilf(2 * l.u));
+    g_room_fps_h = g_s_fps.content ? g_s_fps.content->h : 0;
     /* The bar and its chips as they first show (drawn once for the size; the chips again on a hover). */
     if (sprite_for(&g_s_bar, l.bar.w, l.bar.h, ceilf(8 * l.u))) {
         look_bar(&g_s_bar, &l, mark_picture());
@@ -726,20 +726,35 @@ int layer_parts(LayerPart *out, int max, int w, int h)
     /* The chip first (under everything else). In a top corner it hangs that much lower while the bar is down, as
      * OpenDMTQ's counter rides down with its bar's foot. */
     if (g_fps.v > 0.0f && n < max) {
-        Box b = fps_box(w, h, g_settings.fps_corner);
+        /* What it shows, whole as it reads: the game's frames, the pictures shown, the tenths of the frame's length. */
+        int game = fps_whole(g_fps_value), pictures = g_fps_shown > 0 ? fps_whole(g_fps_shown) : 0;
+        int tenths = game > 0 ? (int)(10000.0 / g_fps_value + 0.5) : 0;
+        long long key = ((long long)game * 1000 + pictures) * 100000 + tenths;
+        /* Its width for that (each number's room as wide as its widest reading: it changes only when the pictures
+         * shown come or go or a number outgrows its room), measured from the kept pieces again only then. */
+        long long width_key = (long long)(game > 99) * 2 + (pictures > 0) + (pictures > 999) * 4 + (tenths > 999) * 8;
+        if (width_key != g_fps_width_key || u != g_fps_width_u) {
+            g_fps_width = look_fps_width(u, g_fps_value, g_fps_shown, text_gdi, NULL);
+            g_fps_width_key = width_key;
+            g_fps_width_u = u;
+        }
+        Box b = fps_box(w, h, g_settings.fps_corner, g_fps_width);
         if (g_settings.fps_corner == CORNER_TOP_LEFT || g_settings.fps_corner == CORNER_TOP_RIGHT)
-            b.y += rows;
-        /* Drawn again only when what it shows changes: the whole frames a second and the tenths of the frame's length. */
-        double shown = g_fps_value < 0 ? 0.0 : g_fps_value > 999 ? 999.0 : g_fps_value;
-        int key = (int)(shown + 0.5) * 100000 + (shown > 0 ? (int)(10000.0 / shown + 0.5) % 100000 : 0);
-        const Canvas *had = g_s_fps.content;
-        if (key != g_drawn_fps && g_s_fps_base.content && sprite_for(&g_s_fps, b.w, b.h, 2 * u)) {
+            b.y += roundf(rows);
+        float edge_room = ceilf(2 * u);
+        /* Its plate drawn again when its sprite is made again for a new width (the pictures shown came or went, or a
+         * number outgrew its room, as the frame's length does in a stall), once: as sprite_for says, never by the
+         * canvas's address (a new canvas may get the old one's, and the plate was then left blank). */
+        if (sprite_for(&g_s_fps_base, b.w, b.h, edge_room) == SPRITE_NEW)
+            look_fps_base(&g_s_fps_base, u);
+        int made = 0;
+        if (key != g_drawn_fps && g_s_fps_base.content && (made = sprite_for(&g_s_fps, b.w, b.h, edge_room)) != 0) {
             /* A sprite made again (blank) needs its mask from the base again. */
-            if (g_s_fps.content != had)
+            if (made == SPRITE_NEW)
                 g_fps_mask_due = 1;
             long before = text_renders();
             redraw_start();
-            look_fps(&g_s_fps, &g_s_fps_base, u, g_fps_value, g_fps_mask_due, text_gdi, NULL);
+            look_fps(&g_s_fps, &g_s_fps_base, u, g_fps_value, g_fps_shown, g_fps_mask_due, text_gdi, NULL);
             redraw_end(PART_FPS);
             if (g_fps_mask_due) {
                 g_v_fps_mask++;
@@ -890,9 +905,10 @@ int layer_warm_parts(LayerPart *out, int max, int w, int h)
     int kinds[8] = {PART_BAR, PART_BAR_CHIPS, PART_PANEL, PART_TOAST, PART_FPS, PART_MARK, PART_RESUME, PART_BAR_CHIPS};
     /* The chip's mask has its own version (its glass is drawn once for a size); the others' go with their pictures. */
     unsigned masks[8] = {0, 0, 0, 0, g_v_fps_mask, 0, 0, 0};
-    /* The room each may take: the panel's and the toast's as warm worked them out, the others' their own size. */
-    int room_w[8] = {0, 0, g_room_panel_w, g_room_toast_w, 0, 0, 0, 0};
-    int room_h[8] = {0, 0, g_room_panel_h, g_room_toast_h, 0, 0, 0, 0};
+    /* The room each may take: the panel's, the toast's and the chip's as warm worked them out, the others' their own
+     * size. */
+    int room_w[8] = {0, 0, g_room_panel_w, g_room_toast_w, g_room_fps_w, 0, 0, 0};
+    int room_h[8] = {0, 0, g_room_panel_h, g_room_toast_h, g_room_fps_h, 0, 0, 0};
     int n = 0;
     for (int i = 0; i < 8 && n < max; i++)
         if (all[i]->content)
@@ -1220,10 +1236,11 @@ static void minimise(void)
 
 /* ----------------------------------------------------------------------------------------- the frame rate chip */
 
-void layer_fps(double fps)
+void layer_fps(double game, double shown)
 {
-    /* The number only: the chip's picture is drawn again with it at the next frame (layer_parts). */
-    g_fps_value = fps;
+    /* The numbers only: the chip's picture is drawn again with them at the next frame (layer_parts). */
+    g_fps_value = game;
+    g_fps_shown = shown > 0 ? shown : 0;
     g_fps_have = 1;
 }
 
