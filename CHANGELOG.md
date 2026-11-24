@@ -64,11 +64,11 @@ was; and an audio offset that holds the notes and their judging behind the music
   too (what leaves the PC, the project), and say how to check a download, where a server keeps its data and how to
   move it to another PC, how to remove it from Kubernetes, a first call to the API and a server package's first
   checks. The third-party parts and their licenses are in `docs/THIRD_PARTY_NOTICES.md`.
-- The in-game FPS counter has openDMT3's own look: a small plate of the overlay's glass cut at two corners, as the
-  launcher's score cards are, with the cards' lit edge; the frames a second large in the menu's face, then FPS in the
-  overlay's blue and the frame's length quieter, its figures centred on the plate and its numbers keeping their places
-  as they change. The number turns amber in a half second the game falls short of 60. At the bottom right it now sits
-  in the game's bottom right corner under the notes, where FREE PLAY was, clear of the results' frame line.
+- The in-game FPS counter is a small card of the launcher's: FPS on the launcher's dark name tag, the frames a second
+  large in its title face, the frame's length quieter, and the launcher's blue line along its foot; its numbers keep
+  their places as they change. The number and the line turn amber in a half second the game falls short of 60. At the
+  bottom right it now sits in the game's bottom right corner under the notes, where FREE PLAY was, clear of the
+  results' frame line.
 - The game no longer says FREE PLAY on its screens, as a PC takes no coins; only that label is left out, and the rest of
   each screen is drawn as before. A client other than the one openDMT3 knows keeps it, and the in-game log says so.
 

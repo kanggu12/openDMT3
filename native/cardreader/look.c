@@ -636,87 +636,133 @@ void look_toast(Sprite *s, float u, const char *words, TextFn text, void *ctx)
 
 /* ------------------------------------------------------------------------------------------- the frame rate chip */
 
-/* The chip's type and room, in game pixels. One line on the plate's middle, all of it in Pretendard (the menu's words),
- * each digit in a cell as wide as the widest (TEXT_GLYPHS), so nothing moves as the numbers change: the frames a second
- * in Bold, their capitals FPS_CAPS tall; FPS after them in Bold, the frame's length and ms in Regular, smaller (their
- * capitals FPS_SMALL_CAPS). Pretendard's capitals and figures are 0.707 of its size (1448 of 2048), its round figures
- * reaching as far over and under them, so the figures' ink is centred where their capitals' middle is. */
-#define FPS_CAPS 8.0f
-#define FPS_SMALL_CAPS 6.5f
-#define FPS_CAP_SHARE 0.707f
-/* The plate's cut at its top right and its foot left, along each side (openDMT3's result cards are cut at those two
- * corners, as the game's result frames are). */
-#define FPS_CUT 4.0f
-/* From the plate's ends to the words, between a number and its unit, and between the two readings. */
-#define FPS_IN 6.0f
-#define FPS_UNIT_GAP 2.5f
-#define FPS_APART 6.0f
-/* The plate's edge, the product theme's card edge (theme.py SEAM, RIM, FOOT): one seam all round, the light along the
- * top falling to it down the cuts' height, the foot a step darker. */
-#define FPS_SEAM 0x2b3139u
+/* The chip is a small card of the launcher's (art.py name_plate, tube; CARDS.md): its name tag at the left, a dark slab
+ * with a light line along its top and its right end on the slant, FPS on it in the display face (DMT3 Wide: the
+ * launcher's titles, the sites' result figures); joined to it the value plate, the overlay's glass in the card's panel
+ * tone (post.c tints a chip FPS_TINT) with its top right cut and a light line along its top, holding the frames a
+ * second in the display face and the frame's length quieter; and along the whole foot the head's tube, light, full,
+ * light and a shade under them, in openDMT3's blue, in the amber while the frames are short of 60. Sizes are in game
+ * pixels at a unit of 1; the plate's and the tube's heights are logic.c's (fps_plate_h, fps_tube_row). */
+#define FPS_NUM_CAPS 8.8f
+#define FPS_TAG_CAPS 6.0f
+#define FPS_MS_CAPS 6.0f
+/* The faces' capitals as a share of their size: DMT3 Wide's 688 of 1000 (its OS/2 capital height), Pretendard's 1448
+ * of 2048; their figures as tall, so a figure's ink is centred where the capitals' middle is. */
+#define FPS_WIDE_SHARE 0.688f
+#define FPS_TEXT_SHARE 0.707f
+/* The tag's words from its ends and the plate's last words from its right end; between the tag and the number and
+ * between the number and the length; round the middle dot of "60 · 180". */
+#define FPS_PAD 4.5f
+#define FPS_GAP 4.5f
+#define FPS_DOT_GAP 2.5f
+/* The plate's top right cut along each side, and the tag's slant (art.py LEAN: the game's plates lean that much). */
+#define FPS_CUT 3.5f
+#define FPS_LEAN 0.36f
+/* The launcher's colours (theme.py): the tag's slab (INK) and its top line (LINE), the plate's light along its top
+ * (RIM) and its seam down its right side (SEAM). */
+#define FPS_INK 0x0b0e12u
+#define FPS_LINE 0x343c47u
 #define FPS_RIM 0x46505cu
-#define FPS_FOOT 0x111317u
-/* The frames a second when they are fewer than 60 (fps_short): the product's amber (theme.py AMBER, "something to look
- * at"), 9.6:1 on the plate over a dark screen and 4.6:1 over a white one. */
+#define FPS_SEAM 0x2b3139u
+/* The head's tube (art.py tube): technika's light, its accent, its light again, then a shade; the console section's
+ * light and accent (the product's amber, "something to look at") while the frames are short of 60. */
+static const uint32_t FPS_TUBE_BLUE[3] = {0x2f6bffu, 0x5b8cffu, 0x2f6bffu};
+static const uint32_t FPS_TUBE_AMBER[3] = {0xe3961fu, 0xffb33du, 0xe3961fu};
+#define FPS_SHADE 0x080a0cu
+/* The frames a second when they are fewer than 60 (fps_short): the product's amber (theme.py AMBER). */
 #define FPS_SHORT 0xffb33du
 
-/* The plate's edge's thickness: whole pixels, so its lines are sharp (one up to a unit of 1.5, two to 2.5, three
- * beyond, as the bar's foot). */
-static float fps_line(float u)
+/* The faces' sizes at a unit: the number's (and the middle dot's) and FPS's in DMT3 Wide, the length's in
+ * Pretendard. */
+static float fps_num_px(float u)
 {
-    return u < 1.5f ? 1.0f : u < 2.5f ? 2.0f : 3.0f;
+    /* The size whose capitals are FPS_NUM_CAPS game pixels, in DMT3 Wide. */
+    return FPS_NUM_CAPS / FPS_WIDE_SHARE * u;
+}
+static float fps_tag_px(float u)
+{
+    /* FPS on the tag, in DMT3 Wide as the launcher's tags are. */
+    return FPS_TAG_CAPS / FPS_WIDE_SHARE * u;
+}
+static float fps_ms_px(float u)
+{
+    /* The frame's length, in Pretendard (the overlay's words). */
+    return FPS_MS_CAPS / FPS_TEXT_SHARE * u;
 }
 
-void look_fps_base(Sprite *s, float u)
+/* The tag's width at a unit: FPS with its room either side, and its slant (whole pixels, so its edges are sharp). */
+static float fps_tag_w(float u, TextFn text, void *ctx)
 {
+    /* FPS measured as the piece it is drawn from. */
+    float words = text(ctx, NULL, "FPS", fps_tag_px(u), 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS);
+    /* Its room either side, and the slant over the plate's height (the right end leans that far). */
+    return ceilf(FPS_PAD * u + words + FPS_PAD * u + fps_plate_h(u) * FPS_LEAN);
+}
+
+void look_fps_base(Sprite *s, float u, TextFn text, void *ctx)
+{
+    /* A fresh picture and glass mask for the size. */
     canvas_clear(s->content);
     canvas_clear(s->mask);
+    /* The box inside the sprite's room, and its width. */
     float o = s->room;
-    float w = (float)s->content->w - 2 * o, h = (float)s->content->h - 2 * o;
-    /* The plate: its top right and foot left cut at 45 degrees, the cut in whole pixels. */
-    float c = roundf(FPS_CUT * u), t = fps_line(u);
-    Pt q[6] = {{o, o}, {o + w - c, o}, {o + w, o + c}, {o + w, o + h}, {o + c, o + h}, {o, o + h - c}};
-    /* The bar's glass, faint as a whole (FPS_ALPHA: the game shows through it), its words over it whole. */
-    Paint faint = paint_solid(0xffffff, FPS_ALPHA);
-    paint_polygon(s->mask, q, 6, &faint);
-    /* Its edge as one seam (the shape's own outline, t thick): the light along the top, falling to the seam's colour
-     * over the cuts' height (down the top cut, as the launcher's and the sites' cards light theirs), the seam down the
-     * sides and the foot cut, the foot's last line a step darker. */
-    Pt in[6], both[12];
-    if (!offset_outline(q, 6, t, in))
-        return;
-    memcpy(both, q, sizeof q);
-    memcpy(both + 6, in, sizeof in);
-    int counts[2] = {6, 6};
-    Stop edge[5] = {{0.0f, FPS_RIM}, {c / h, FPS_SEAM}, {(h - t) / h, FPS_SEAM}, {(h - t) / h + 0.001f, FPS_FOOT},
-                    {1.0f, FPS_FOOT}};
-    Paint p = ramp_stops(edge, 5, o, o + h, 1.0f);
-    paint_fill(s->content, both, counts, 2, &p);
+    float w = (float)s->content->w - 2 * o;
+    /* The plate's height (the tube under it is drawn with the words: its colour follows the number), the cut, the
+     * light lines' thickness (a whole pixel a row, as the tube's), the tag's width and its slant. */
+    float plate = fps_plate_h(u), cut = roundf(FPS_CUT * u), t = (float)fps_tube_row(u);
+    float tag = fps_tag_w(u, text, ctx), slant = plate * FPS_LEAN;
+    /* The glass: the plate's whole width, its top right cut (the tag lies over its left end, whole). */
+    Pt q[5] = {{o, o}, {o + w - cut, o}, {o + w, o + cut}, {o + w, o + plate}, {o, o + plate}};
+    /* Nearly whole (FPS_ALPHA), so the tag stands off it and its words read over any screen. */
+    Paint glass = paint_solid(0xffffff, FPS_ALPHA);
+    paint_polygon(s->mask, q, 5, &glass);
+    /* The plate's light along its top from the tag's end to the cut and down the cut, as a card's top is lit, and its
+     * seam down its right side. */
+    Paint rim = paint_solid(FPS_RIM, 1.0f), seam = paint_solid(FPS_SEAM, 1.0f);
+    /* Along the top, from under the tag's slant to the cut, a light line t thick. */
+    Pt top[4] = {{o + tag - slant, o}, {o + w - cut, o}, {o + w - cut, o + t}, {o + tag - slant, o + t}};
+    paint_polygon(s->content, top, 4, &rim);
+    /* Down the 45 degree cut: the same light, t thick across the slope (t times the root of two down). */
+    Pt diagonal[4] = {{o + w - cut, o}, {o + w, o + cut}, {o + w, o + cut + t * 1.4142f},
+                      {o + w - cut, o + t * 1.4142f}};
+    paint_polygon(s->content, diagonal, 4, &rim);
+    /* Down the right side to the plate's foot: the seam. */
+    Pt side[4] = {{o + w - t, o + cut + t}, {o + w, o + cut + t}, {o + w, o + plate}, {o + w - t, o + plate}};
+    paint_polygon(s->content, side, 4, &seam);
+    /* The tag: the launcher's name plate, its left end straight and its right end on the slant, whole, with its light
+     * line along its top. */
+    Paint ink = paint_solid(FPS_INK, 1.0f), line = paint_solid(FPS_LINE, 1.0f);
+    /* The slab over the plate's left end, whole (it hides the glass under it). */
+    Pt slab[4] = {{o, o}, {o + tag, o}, {o + tag - slant, o + plate}, {o, o + plate}};
+    paint_polygon(s->content, slab, 4, &ink);
+    /* Its top line, t thick, its right end following the slant. */
+    Pt lit[4] = {{o, o}, {o + tag, o}, {o + tag - t * FPS_LEAN, o + t}, {o, o + t}};
+    paint_polygon(s->content, lit, 4, &line);
 }
 
 void look_fps_glyphs(float u, TextFn text, void *ctx)
 {
-    /* Measuring each set once makes its pieces: the figures large and small, the middle dot, FPS, the point and ms. */
-    float big = FPS_CAPS / FPS_CAP_SHARE * u, small = FPS_SMALL_CAPS / FPS_CAP_SHARE * u;
-    text(ctx, NULL, "0123456789", big, 0, 0, 0, TEXT_GLYPHS);
-    text(ctx, NULL, " \xc2\xb7 ", big, 0, 0, 0, TEXT_GLYPHS);
-    text(ctx, NULL, "FPS", small, 0, 0, 0, TEXT_GLYPHS);
-    text(ctx, NULL, "0123456789", small, 0, 0, 0, TEXT_REGULAR | TEXT_GLYPHS);
-    text(ctx, NULL, ".", small, 0, 0, 0, TEXT_REGULAR | TEXT_GLYPHS);
-    text(ctx, NULL, " ms", small, 0, 0, 0, TEXT_REGULAR | TEXT_GLYPHS);
+    /* Measuring each set once makes its pieces: the figures and the middle dot in the display face, FPS on the tag,
+     * the length's figures, its point and ms. */
+    text(ctx, NULL, "0123456789", fps_num_px(u), 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS);
+    text(ctx, NULL, "\xc2\xb7", fps_num_px(u), 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS);
+    text(ctx, NULL, "FPS", fps_tag_px(u), 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS);
+    text(ctx, NULL, "0123456789", fps_ms_px(u), 0, 0, 0, TEXT_REGULAR | TEXT_GLYPHS);
+    text(ctx, NULL, ".", fps_ms_px(u), 0, 0, 0, TEXT_REGULAR | TEXT_GLYPHS);
+    text(ctx, NULL, " ms", fps_ms_px(u), 0, 0, 0, TEXT_REGULAR | TEXT_GLYPHS);
 }
 
-/* The chip's line at a unit: its numbers as words, and where each piece starts from the plate's left, with the plate's
- * width. Each number stands at the right of a field as wide as its widest reading (the frames two digits, the pictures
- * three, the length "00.0": more only when a number has more), so the plate and its words stay put as they change. */
+/* The chip's line at a unit: its numbers as words, where each piece starts from the chip's left, and its width. Each
+ * number stands at the right of a field as wide as its widest reading (the frames two digits, the pictures three, the
+ * length "00.0": more only when a number has more), so the plate and its words stay put as they change. */
 typedef struct {
     char game[8], shown[8], ms[12];
-    float x_game, x_dot, x_shown, x_fps, x_ms, x_unit, w;
+    float tag, x_game, x_dot, x_shown, x_ms, x_unit, w;
 } FpsLine;
 
 static void fps_line_of(FpsLine *f, float u, double game, double shown, TextFn text, void *ctx)
 {
-    float big = FPS_CAPS / FPS_CAP_SHARE * u, small = FPS_SMALL_CAPS / FPS_CAP_SHARE * u;
+    float big = fps_num_px(u), small = fps_ms_px(u);
     /* Whole numbers as the chip reads them (fps_whole: the same rounding that says short or not). */
     int g = fps_whole(game), p = shown > 0 ? fps_whole(shown) : 0;
     snprintf(f->game, sizeof f->game, "%d", g);
@@ -725,10 +771,12 @@ static void fps_line_of(FpsLine *f, float u, double game, double shown, TextFn t
         snprintf(f->shown, sizeof f->shown, "%d", p);
     double length = g > 0 ? 1000.0 / (game > 0 ? game : 1.0) : 0.0;
     snprintf(f->ms, sizeof f->ms, "%.1f", length > 999.9 ? 999.9 : length);
-    float x = FPS_IN * u;
+    /* The tag first, then the number after a gap. */
+    f->tag = fps_tag_w(u, text, ctx);
+    float x = f->tag + FPS_GAP * u;
     /* The frames: two digits' room, more for more. */
-    float field = text(ctx, NULL, "00", big, 0, 0, 0, TEXT_GLYPHS), wg = text(ctx, NULL, f->game, big, 0, 0, 0,
-                                                                            TEXT_GLYPHS);
+    float field = text(ctx, NULL, "00", big, 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS),
+          wg = text(ctx, NULL, f->game, big, 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS);
     if (wg > field)
         field = wg;
     f->x_game = x + field - wg;
@@ -736,21 +784,18 @@ static void fps_line_of(FpsLine *f, float u, double game, double shown, TextFn t
     /* The pictures shown, after a middle dot: three digits' room. */
     f->x_dot = f->x_shown = x;
     if (f->shown[0]) {
+        x += FPS_DOT_GAP * u;
         f->x_dot = x;
-        x += text(ctx, NULL, " \xc2\xb7 ", big, 0, 0, 0, TEXT_GLYPHS);
-        float room = text(ctx, NULL, "000", big, 0, 0, 0, TEXT_GLYPHS), ws = text(ctx, NULL, f->shown, big, 0, 0, 0,
-                                                                                TEXT_GLYPHS);
+        x += text(ctx, NULL, "\xc2\xb7", big, 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS) + FPS_DOT_GAP * u;
+        float room = text(ctx, NULL, "000", big, 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS),
+              ws = text(ctx, NULL, f->shown, big, 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS);
         if (ws > room)
             room = ws;
         f->x_shown = x + room - ws;
         x += room;
     }
-    /* FPS after the numbers. */
-    x += FPS_UNIT_GAP * u;
-    f->x_fps = x;
-    x += text(ctx, NULL, "FPS", small, 0, 0, 0, TEXT_GLYPHS);
-    /* The frame's length at the right: "00.0" of room, then ms (its space the face's own). */
-    x += FPS_APART * u;
+    /* The frame's length after a gap: "00.0" of room, then ms (its space the face's own). */
+    x += FPS_GAP * u;
     float room = text(ctx, NULL, "00.0", small, 0, 0, 0, TEXT_REGULAR | TEXT_GLYPHS),
           wm = text(ctx, NULL, f->ms, small, 0, 0, 0, TEXT_REGULAR | TEXT_GLYPHS);
     if (wm > room)
@@ -760,7 +805,7 @@ static void fps_line_of(FpsLine *f, float u, double game, double shown, TextFn t
     f->x_unit = x;
     x += text(ctx, NULL, " ms", small, 0, 0, 0, TEXT_REGULAR | TEXT_GLYPHS);
     /* Whole pixels, so the plate's ends are sharp. */
-    f->w = ceilf(x + FPS_IN * u);
+    f->w = ceilf(x + FPS_PAD * u);
 }
 
 float look_fps_width(float u, double game, double shown, TextFn text, void *ctx)
@@ -773,50 +818,71 @@ float look_fps_width(float u, double game, double shown, TextFn text, void *ctx)
 float look_fps_width_most(float u, TextFn text, void *ctx)
 {
     /* fps_line_of's pieces at their widest: three digits of frames (fps_whole stops at 999), the middle dot and three
-     * digits of pictures shown, FPS, then the length where fps_line_of stops it (999.9) and ms, each field never wider
+     * digits of pictures shown, then the length where fps_line_of stops it (999.9) and ms, each field never wider
      * than these. */
-    float big = FPS_CAPS / FPS_CAP_SHARE * u, small = FPS_SMALL_CAPS / FPS_CAP_SHARE * u;
-    float x = FPS_IN * u;
-    x += text(ctx, NULL, "999", big, 0, 0, 0, TEXT_GLYPHS);
-    x += text(ctx, NULL, " \xc2\xb7 ", big, 0, 0, 0, TEXT_GLYPHS);
-    x += text(ctx, NULL, "999", big, 0, 0, 0, TEXT_GLYPHS);
-    x += FPS_UNIT_GAP * u;
-    x += text(ctx, NULL, "FPS", small, 0, 0, 0, TEXT_GLYPHS);
-    x += FPS_APART * u;
+    float big = fps_num_px(u), small = fps_ms_px(u);
+    /* The tag and the gap after it. */
+    float x = fps_tag_w(u, text, ctx) + FPS_GAP * u;
+    /* Three digits of frames. */
+    x += text(ctx, NULL, "999", big, 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS);
+    /* The middle dot with its gaps, then three digits of pictures shown. */
+    x += FPS_DOT_GAP * u + text(ctx, NULL, "\xc2\xb7", big, 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS) + FPS_DOT_GAP * u;
+    x += text(ctx, NULL, "999", big, 0, 0, 0, TEXT_WIDE | TEXT_GLYPHS);
+    /* The gap, then the longest length and ms. */
+    x += FPS_GAP * u;
     x += text(ctx, NULL, "999.9", small, 0, 0, 0, TEXT_REGULAR | TEXT_GLYPHS);
     x += text(ctx, NULL, " ms", small, 0, 0, 0, TEXT_REGULAR | TEXT_GLYPHS);
     /* Whole pixels, as fps_line_of rounds the plate's width. */
-    return ceilf(x + FPS_IN * u);
+    return ceilf(x + FPS_PAD * u);
 }
 
 void look_fps(Sprite *s, const Sprite *base, float u, double game, double shown, int mask_too, TextFn text, void *ctx)
 {
-    /* The glass and edge as drawn once for this size (a copy of whole rows: the two canvases are the same size); the
-     * mask only the first time (the words are not in it). */
+    /* The plate and the tag as drawn once for this size (a copy of whole rows: the two canvases are the same size);
+     * the mask only the first time (the words are not in it). */
     if (base->content->w == s->content->w && base->content->h == s->content->h) {
         memcpy(s->content->px, base->content->px, (size_t)s->content->w * (size_t)s->content->h * 4);
         if (mask_too)
             memcpy(s->mask->px, base->mask->px, (size_t)s->mask->w * (size_t)s->mask->h * 4);
     } else {
-        look_fps_base(s, u);
+        /* Another size than the base's (not the layer's way): drawn whole here. */
+        look_fps_base(s, u, text, ctx);
     }
+    /* The box inside the sprite's room, the plate's height and the tube's row. */
     float o = s->room;
-    float h = (float)s->content->h - 2 * o;
+    float w = (float)s->content->w - 2 * o;
+    float plate = fps_plate_h(u);
+    int row = fps_tube_row(u);
+    /* Where each word goes, and whether the frames are short of 60 (the amber). */
     FpsLine f;
     fps_line_of(&f, u, game, shown, text, ctx);
-    float big = FPS_CAPS / FPS_CAP_SHARE * u, small = FPS_SMALL_CAPS / FPS_CAP_SHARE * u;
-    /* One baseline for the line: the large figures' capitals in the plate's middle, the small words on the same line.
-     * Every piece kept, so no GDI work here. */
-    float mid = o + h / 2, small_mid = mid + (FPS_CAPS - FPS_SMALL_CAPS) * u / 2;
-    uint32_t ink = fps_short(game) ? FPS_SHORT : RGB_WORDS;
-    text(ctx, s->content, f.game, big, o + f.x_game, mid, ink, TEXT_LEFT | TEXT_GLYPHS);
-    if (f.shown[0]) {
-        text(ctx, s->content, " \xc2\xb7 ", big, o + f.x_dot, mid, RGB_QUIET, TEXT_LEFT | TEXT_GLYPHS);
-        text(ctx, s->content, f.shown, big, o + f.x_shown, mid, RGB_WORDS, TEXT_LEFT | TEXT_GLYPHS);
+    int short_of_60 = fps_short(game);
+    /* The tube along the whole foot, in the state's colour: its light, full and light rows, then the shade. */
+    const uint32_t *tube = short_of_60 ? FPS_TUBE_AMBER : FPS_TUBE_BLUE;
+    int x0 = (int)lroundf(o), y = (int)lroundf(o + plate), wide = (int)lroundf(w);
+    for (int i = 0; i < 4; i++) {
+        /* Row i: the tube's three colours, then the shade, each `row` whole pixels, whole (over nothing). */
+        Paint rowp = paint_solid(i < 3 ? tube[i] : FPS_SHADE, 1.0f);
+        paint_rect(s->content, x0, y + i * row, wide, row, &rowp);
     }
-    text(ctx, s->content, "FPS", small, o + f.x_fps, small_mid, RGB_ACCENT_SMALL, TEXT_LEFT | TEXT_GLYPHS);
-    text(ctx, s->content, f.ms, small, o + f.x_ms, small_mid, RGB_QUIET, TEXT_REGULAR | TEXT_LEFT | TEXT_GLYPHS);
-    text(ctx, s->content, " ms", small, o + f.x_unit, small_mid, RGB_QUIET, TEXT_REGULAR | TEXT_LEFT | TEXT_GLYPHS);
+    /* The words on the plate's middle (each centred by its own capitals): FPS on the tag, the number (amber while
+     * short of 60), the pictures shown after the dot, the length quieter. Every piece kept, so no GDI work here. */
+    float mid = o + plate / 2;
+    /* FPS on the tag, from its left end's room. */
+    text(ctx, s->content, "FPS", fps_tag_px(u), o + FPS_PAD * u, mid, RGB_WORDS, TEXT_WIDE | TEXT_LEFT | TEXT_GLYPHS);
+    /* The frames a second at the right of their field. */
+    text(ctx, s->content, f.game, fps_num_px(u), o + f.x_game, mid, short_of_60 ? FPS_SHORT : RGB_WORDS,
+         TEXT_WIDE | TEXT_LEFT | TEXT_GLYPHS);
+    if (f.shown[0]) {
+        /* The quiet dot, then the pictures shown a second at the right of theirs. */
+        text(ctx, s->content, "\xc2\xb7", fps_num_px(u), o + f.x_dot, mid, RGB_QUIET,
+             TEXT_WIDE | TEXT_LEFT | TEXT_GLYPHS);
+        text(ctx, s->content, f.shown, fps_num_px(u), o + f.x_shown, mid, RGB_WORDS,
+             TEXT_WIDE | TEXT_LEFT | TEXT_GLYPHS);
+    }
+    /* The frame's length and ms, quieter. */
+    text(ctx, s->content, f.ms, fps_ms_px(u), o + f.x_ms, mid, RGB_QUIET, TEXT_REGULAR | TEXT_LEFT | TEXT_GLYPHS);
+    text(ctx, s->content, " ms", fps_ms_px(u), o + f.x_unit, mid, RGB_QUIET, TEXT_REGULAR | TEXT_LEFT | TEXT_GLYPHS);
 }
 
 void look_cursor(Canvas *c, int pressed, int *hot_x, int *hot_y)

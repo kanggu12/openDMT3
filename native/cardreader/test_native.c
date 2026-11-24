@@ -460,8 +460,9 @@ static void test_layout(void)
           "reveal: only the very top edge brings the bar (its two top lines of 768)");
     check(ui_swipe_down(2, 40, 1080) && !ui_swipe_down(2, 20, 1080) && !ui_swipe_down(30, 90, 1080),
           "reveal: a finger drawn down from the top edge, not a short one or one from lower down");
-    /* The chip at the foot: one line under the notes' rings (a note of the third lower row has its centre on line 693
-     * of 768, the foot of its ring on line 748 and its dark outline on 749), whole in the picture: at the right where
+    /* The chip at the foot: a plate and its tube under the notes' rings (a note of the third lower row has its centre
+     * on line 693 of 768, the foot of its ring on line 748 and its dark outline on 749), whole in the picture: at the
+     * right where
      * the game's FREE PLAY stood (x 1131 to 1215, which openDMT3 leaves out), its right end 8 left of the result
      * panel's frame line (x 1204 to 1208, down to the foot); at the left 8 after ID CARD, NET and PATCH (to x 193,
      * lines 732 to 762), across in the game's own pixels (a filled picture stretches them); at seven sizes and shapes,
@@ -471,12 +472,13 @@ static void test_layout(void)
     int band = 1;
     for (int k = 0; k < 7; k++) {
         int w = shapes[k][0], h = shapes[k][1];
-        float sx = (float)w / 1280.0f, sy = (float)h / 768.0f, u = ui_unit(h), width = roundf(90 * u);
+        float sx = (float)w / 1280.0f, sy = (float)h / 768.0f, u = ui_unit(h), width = roundf(100 * u);
         Box br = fps_box(w, h, CORNER_BOTTOM_RIGHT, width), bl = fps_box(w, h, CORNER_BOTTOM_LEFT, width);
         Box badges = {7 * sx, 732 * sy, 186 * sx, 30 * sy}, line = {1204 * sx, 0, 5 * sx, (float)h};
-        /* Under the rings' outline, whole in the picture, its foot 4 game lines over the picture's. */
-        band &= br.y >= 749.5f * sy && br.y + br.h <= (float)h && bl.y == br.y &&
-                fabsf((float)h - (br.y + br.h) - 4 * u) <= 0.5f && br.h == roundf(14 * u);
+        /* Under the rings' outline, its top on line 750 (the first whole pixel there), whole in the picture, its plate
+         * and its tube's four rows tall. */
+        band &= br.y >= 749.5f * sy && br.y <= 750 * sy + 1 && br.y + br.h <= (float)h && bl.y == br.y &&
+                br.h == fps_height(u) && br.h == roundf(13 * u) + 4 * fps_tube_row(u);
         /* At the right 8 left of the result panel's line, never on it; beside the game's badges at the left, never on
          * them. */
         band &= fabsf(br.x + br.w - 1196 * sx) <= 0.5f && !overlap(br, line) && !overlap(bl, badges) &&
@@ -1454,45 +1456,72 @@ static void test_mark_press(void)
  * layer.c does it (the pictures shown come and go, a stall's frame length outgrows its room): sprite_for says when a
  * sprite is new, never its canvas's address, which a new canvas may get again (the plate was then left blank and the
  * old mask stayed on the card); the plate whole at the end, its edge lit along the top, its corners cut. */
+/* An update's text calls that draw (a canvas given), and those of them not drawn from kept pieces (no TEXT_GLYPHS):
+ * the chip's own cost (logic of no GDI work in an update, ingame.sh measures the time). */
+static int g_text_draws, g_text_plain;
+static float counting_text(void *ctx, Canvas *c, const char *utf8, float px, float cx, float cy, uint32_t rgb,
+                           int flags)
+{
+    if (c) {
+        g_text_draws++;
+        g_text_plain += !(flags & TEXT_GLYPHS);
+    }
+    return no_text(ctx, c, utf8, px, cx, cy, rgb, flags);
+}
+
 static void test_chip_plate(void)
 {
     Sprite base = {0}, chip = {0};
-    float u = 1.40625f, room = ceilf(2 * u);
+    float u = 1.40625f, room = ceilf(2 * u), h = fps_height(u), plate = fps_plate_h(u);
     /* Made, kept at the same size. */
-    int first = sprite_for(&base, 127, 20, room), kept = sprite_for(&base, 127, 20, room);
+    int first = sprite_for(&base, 120, h, room), kept = sprite_for(&base, 120, h, room);
     check(first == SPRITE_NEW && kept == SPRITE_KEPT, "chip: a sprite made for a size is new, the same size again kept");
     sprite_free(&base);
-    /* As the layer draws it: 60 at its width, wider (a stall's 500.0 ms), then 60 again. */
-    const float widths[3] = {127, 136, 127};
+    /* As the layer draws it: 60 at its width, wider for a stall's long frame (2 a second: 500.0 ms), then 60 again. */
+    const double readings[3] = {60, 2, 60};
     int made_base[3], made_chip[3];
+    float widths[3];
     for (int i = 0; i < 3; i++) {
-        made_base[i] = sprite_for(&base, widths[i], 20, room);
+        widths[i] = look_fps_width(u, readings[i], 0, no_text, NULL);
+        made_base[i] = sprite_for(&base, widths[i], h, room);
         if (made_base[i] == SPRITE_NEW)
-            look_fps_base(&base, u);
-        made_chip[i] = sprite_for(&chip, widths[i], 20, room);
-        look_fps(&chip, &base, u, 60, 0, made_chip[i] == SPRITE_NEW, no_text, NULL);
+            look_fps_base(&base, u, no_text, NULL);
+        made_chip[i] = sprite_for(&chip, widths[i], h, room);
+        look_fps(&chip, &base, u, readings[i], 0, made_chip[i] == SPRITE_NEW, no_text, NULL);
     }
-    check(made_base[0] == SPRITE_NEW && made_base[1] == SPRITE_NEW && made_base[2] == SPRITE_NEW &&
+    check(widths[1] > widths[0] && made_base[1] == SPRITE_NEW && made_base[2] == SPRITE_NEW &&
               made_chip[1] == SPRITE_NEW && made_chip[2] == SPRITE_NEW,
           "chip: each width's sprites new, the first width's again after the second's");
-    /* The plate at the end: its edge opaque along the top, nothing over the glass inside, the glass faint (FPS_ALPHA),
-     * the top right and the foot left cut (no glass, no edge in the corner's pixel). */
-    int o = (int)room, w = chip.content->w, top = o * w, foot = (o + 19) * w;
-    uint32_t edge = chip.content->px[top + o + 63], inside = chip.content->px[(o + 10) * w + o + 63];
-    uint32_t glass = chip.mask->px[(o + 10) * w + o + 63], cut_tr = chip.mask->px[top + o + 126];
-    uint32_t cut_bl = chip.mask->px[foot + o], cut_tr_edge = chip.content->px[top + o + 126];
-    check((edge >> 24) == 255 && (inside >> 24) == 0 && (glass >> 24) >= 200 && (glass >> 24) <= 208 &&
-              (cut_tr >> 24) == 0 && (cut_bl >> 24) == 0 && (cut_tr_edge >> 24) == 0,
-          "chip: the plate whole after its width came back: the lit edge along its top, the faint glass, both cuts");
+    /* The card at the end, 60 again: the tag whole and dark at its left, the plate's light along its top after the tag,
+     * its glass nearly whole (FPS_ALPHA) with nothing over it inside, its top right cut (no glass, no light in the
+     * corner's pixel), and the tube along the whole foot in openDMT3's blue, its full row the accent, its shade
+     * under it. */
+    int o = (int)room, w = chip.content->w, cw = (int)widths[2], mid = o + (int)(plate / 2), foot = o + (int)plate;
+    uint32_t tag = chip.content->px[mid * w + o + 3], inside = chip.content->px[mid * w + o + cw - 12];
+    uint32_t glass = chip.mask->px[mid * w + o + cw - 12], light = chip.content->px[o * w + o + cw - 12];
+    uint32_t cut_glass = chip.mask->px[o * w + o + cw - 1], cut_light = chip.content->px[o * w + o + cw - 1];
+    uint32_t accent = chip.content->px[(foot + 1) * w + o + 5], shade = chip.content->px[(foot + 3) * w + o + cw - 5];
+    check(tag == 0xff0b0e12u && (inside >> 24) == 0 && (glass >> 24) >= 233 && (glass >> 24) <= 236 &&
+              light == 0xff46505cu && (cut_glass >> 24) == 0 && (cut_light >> 24) == 0 && accent == 0xff5b8cffu &&
+              shade == 0xff080a0cu,
+          "chip: the card whole after its width came back: the dark tag, the lit top, the plate, its cut, "
+          "the blue tube");
+    /* Short of 60 the tube is the amber, the rest as it was; an update draws only kept pieces (no GDI work): FPS, the
+     * number, the dot and the pictures shown, the length and ms, six at most. */
+    g_text_draws = g_text_plain = 0;
+    look_fps(&chip, &base, u, 58.06, 180, 0, counting_text, NULL);
+    uint32_t amber = chip.content->px[(foot + 1) * w + o + 5], tag_after = chip.content->px[mid * w + o + 3];
+    check(amber == 0xffffb33du && tag_after == tag && g_text_draws <= 6 && g_text_draws >= 5 && g_text_plain == 0,
+          "chip: short of 60 the tube in the amber; an update draws six kept pieces at most and nothing else");
     sprite_free(&base);
     sprite_free(&chip);
     /* The room its textures are made with at a size: as wide as any reading it can show (60, a stall's long frame up
      * to 999.9 ms, three digits, the pictures shown after the dot), so they are never made again while a game plays. */
     float most = look_fps_width_most(u, no_text, NULL);
-    const double readings[8][2] = {{60, 0}, {5, 0}, {0.5, 0}, {0, 0}, {60, 180}, {999, 999}, {1500, 4000}, {59.4, 240}};
+    const double shows[8][2] = {{60, 0}, {5, 0}, {0.5, 0}, {0, 0}, {60, 180}, {999, 999}, {1500, 4000}, {59.4, 240}};
     int fits = 1;
     for (int i = 0; i < 8; i++)
-        fits &= look_fps_width(u, readings[i][0], readings[i][1], no_text, NULL) <= most;
+        fits &= look_fps_width(u, shows[i][0], shows[i][1], no_text, NULL) <= most;
     check(fits && most > look_fps_width(u, 60, 0, no_text, NULL),
           "chip: the room for its textures as wide as its widest reading, a stall's long frame and the pictures shown");
 }

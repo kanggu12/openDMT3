@@ -320,7 +320,7 @@ first points) into the log, read from its memory in the PC build.
 ### The layer's parts and their input
 
 <p align="center">
-  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, SOUND with an arrow to its panel, QUIT THE GAME in red. Under it, four pieces of other frames, two by two: the quit question hanging from the bar under the X, Quit the game?, with This play will not be recorded., KEEP PLAYING and QUIT THE GAME; the sound panel hanging from the bar under the X, Sound with a way back to the menu, and eight columns: MASTER, MUSIC and KEYS at 100, then the bands 60 at +3, 250 at 0, 1K at +2, 4K and 12K at 0; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS: now Smooth upscale; and the FPS counter in the bottom right corner where the game's FREE PLAY stood, on a small plate of glass cut at two corners, 60 FPS and 16.5 ms on one line" width="100%">
+  <img src="images/ingame.png" alt="openDMT3's overlay over TECHNIKA 3's tutorial and title screen, in real frames. The overlay bar across the top: openDMT3's mark at its left, and at its right the menu, minimize, back to a window, and quit. The menu hangs from the bar under its button: BACK TO THE GAME, SHOW FPS ON, SOUND with an arrow to its panel, QUIT THE GAME in red. Under it, four pieces of other frames, two by two: the quit question hanging from the bar under the X, Quit the game?, with This play will not be recorded., KEEP PLAYING and QUIT THE GAME; the sound panel hanging from the bar under the X, Sound with a way back to the menu, and eight columns: MASTER, MUSIC and KEYS at 100, then the bands 60 at +3, 250 at 0, 1K at +2, 4K and 12K at 0; a notice hanging from the top edge of the title screen, Picture quality lowered to keep 60 FPS: now Smooth upscale; and the FPS counter in the bottom right corner where the game's FREE PLAY stood, a small card: FPS on a dark tag, 60 and 16.7 ms on its plate, a blue line along its foot" width="100%">
 </p>
 
 - **The bar** comes when the pointer, moved to the game's very top edge or onto the mark at its top centre (the player's
@@ -611,22 +611,22 @@ and words are sharp at any size and its motion keeps the game's frame timing; no
     pieces kept for good (`text.c`, TEXT_GLYPHS: each digit in a cell as wide as the widest, so the number does not
     shift, and each other run as one piece, made by GDI the first time at a size), so its two updates a second copy
     rows and blend about ten small pieces, with no GDI drawing.
-  - Its look is openDMT3's: a plate of the glass cut at its top right and its foot left, as the launcher's and the
-    sites' result cards (scores) are, its edge the cards' one seam (lit along its top and falling to the seam's colour
-    down the cut, its foot a step darker), in whole pixels; on it one line in Pretendard, the menu's face: the frames a
-    second in Bold, white, or the theme's amber for a half second under 60 (`logic.c` fps_short: a count under 59.5,
-    the tests' own line for holding 60; over five songs on a GPU at 240 Hz the game held 60 in 97 % of its half
-    seconds, read 59.50 to 60.50, and two frames late by a refresh read 59), FPS in the overlay's light blue, the
-    frame's length and ms in Regular, quieter; the figures' ink centred on the plate (measured: 4 pixels over and
-    under at 1080 lines, 9 and 8 at 2160). It is as wide as its words, each number with the room of its widest
-    reading (two digits, the length 00.0), so it keeps its width as they change. When more pictures are shown than
-    the game makes, `layer_fps` takes their count too and the chip shows it after a middle dot (`60 · 180`), wider by
-    that room.
-  - Its glass is faint (80 %), so the game shows through it, with its tint deeper than the panels' (92 %, so the
-    blurred frame it reads, made when it first showed, comes through at 8 %: no old screen to be seen in it), and its
-    words are drawn whole over it, so they keep 4.5:1 over the game's brightest screens (62 % as a whole, words
-    and all, gave 2.8:1 over a bright song). It lets clicks through, and hides while the game is held still and before
-    the game's first screen.
+  - Its look is the launcher's card's, small: its name tag at the left (the launcher's name plate: a dark slab with a
+    light line along its top and its right end on the slant, FPS on it in DMT3 Wide, the launcher's title face and the
+    sites' result figures'), joined to its value plate (the glass in the card's panel tone, its top right cut and lit
+    along its top), and the head's tube along the whole foot (light, full, light and a shade, openDMT3's blue), all in
+    whole pixels. On the plate the frames a second in DMT3 Wide, white, or the theme's amber with the tube for a half
+    second under 60 (`logic.c` fps_short: a count under 59.5, the tests' own line for holding 60; over five songs on a
+    GPU at 240 Hz the game held 60 in 97 % of its half seconds, read 59.50 to 60.50, and two frames late by a refresh
+    read 59), then the frame's length and ms in Pretendard Regular, smaller and quieter; each centred on the plate by
+    its capitals. It is as wide as its tag and its words, each number with the room of its widest reading (two digits,
+    the length 00.0), so it keeps its width as they change. When more pictures are shown than the game makes,
+    `layer_fps` takes their count too and the chip shows it after a middle dot (`60 · 180`), wider by that room.
+  - Its plate is nearly whole (92 %), as the launcher's cards are, in the card's panel tone (`look.h` FPS_TINT), with
+    its tint deeper than the panels' (92 %, so the blurred frame it reads, made when it first showed, comes through at
+    8 %: no old screen to be seen in it); its tag, tube and words are drawn whole, so over a white screen its number
+    keeps 9.3:1 and its amber and its quieter length 5.7:1, and the dark tag stands off the plate. It lets clicks
+    through, and hides while the game is held still and before the game's first screen.
 - **The mark and the bar's chips** have no glass of their own (the chips lie on the bar's): their pictures alone are
   drawn with the fixed function, the blurred frame not read (about 1.2 ms a frame on that renderer had the mark read
   the live blur's last frame; drawn so, nothing measurable).
@@ -645,13 +645,13 @@ and words are sharp at any size and its motion keeps the game's frame timing; no
   something of the game's own (JOIN THE CREW or a mode's banner at the top left, SKIP or a countdown at the top right,
   ID CARD and NET at the bottom left, FREE PLAY at the bottom right), and its notes come right up to the sides: a note
   of the third lower row, measured in songs, has its centre on line 693 of 768, its silver ring ending on line 748 and
-  its dark outline on 749. So at the foot the chip is one line 14 game pixels tall from line 750, its foot 4 over the
-  picture's: at the right where FREE PLAY stood, its right end 8 game pixels left of the result panel's right frame
-  line (x 1204 to 1208, down to the picture's foot on the results, which FREE PLAY crossed); at the left 8 right of ID
-  CARD, NET and PATCH; both placed across in the game's own pixels (a filled picture stretches them). There it covers
-  none of the game's labels, lines or buttons on any of its screens and no note's ring. In a small window at 150 % or
-  200 %, where the unit's floor makes the parts larger than the game's own, it stays whole in the picture, standing
-  higher.
+  its dark outline on 749. So at the foot the chip stands from line 750, its plate 13 game pixels tall and its tube
+  four whole-pixel rows under it (lines 750 to 766 at 768 lines): at the right where FREE PLAY stood, its right end 8
+  game pixels left of the result panel's right frame line (x 1204 to 1208, down to the picture's foot on the results,
+  which FREE PLAY crossed); at the left 8 right of ID CARD, NET and PATCH; both placed across in the game's own
+  pixels (a filled picture stretches them). There it covers none of the game's labels, lines or buttons on any of its
+  screens and no note's ring. In a small window at 150 % or 200 %, where the unit's floor makes the parts larger than
+  the game's own, it stays whole in the picture, standing higher.
 - **FREE PLAY left out.** The game says FREE PLAY on its screens while its coin mode is free play, as a cabinet that
   takes no coins does (at the title's foot and at every other screen's bottom right); on a PC it says nothing. Its
   words are text: the client's font routine is handed "     FREE  PLAY     " from five copies in the client's

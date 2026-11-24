@@ -74,16 +74,17 @@ void look_toast(Sprite *s, float u, const char *words, TextFn text, void *ctx);
 void look_resume(Sprite *s, float u, int digit, TextFn text, void *ctx);
 /* The bar's words while the game ends (logic.c quit_words), where the chips were: a sprite of the chips' row. */
 void look_quitting(Sprite *s, const UiLayout *l, const char *words, TextFn text, void *ctx);
-/* The frame rate chip (logic.h fps_box): one line on a plate of the bar's glass cut at its top right and its foot left,
- * as openDMT3's result cards are (figures on black glass), its edge one seam lit along its top and down the top cut.
- * look_fps_base draws the plate without its words, once for a size, into a sprite of fps_box's: its glass faint as a
- * whole (FPS_ALPHA), the words drawn over it whole. */
-void look_fps_base(Sprite *s, float u);
-/* The chip's pieces of words made ready for a size (the figures of both sizes, the middle dot, FPS, the point and ms),
- * so that no update draws a piece for the first time. */
+/* The frame rate chip (logic.h fps_box): a small card of the launcher's. Its name tag at the left (a dark slab, its
+ * right end on the slant, FPS in the display face), joined to its value plate (the overlay's glass in the card's panel
+ * tone, its top right cut), and along its whole foot the head's tube (openDMT3's blue, amber while the frames are short
+ * of 60). look_fps_base draws the plate and the tag without the words or the tube, once for a size, into a sprite of
+ * fps_box's: the plate's glass nearly whole (FPS_ALPHA), the tag whole. */
+void look_fps_base(Sprite *s, float u, TextFn text, void *ctx);
+/* The chip's pieces of words made ready for a size (the figures and the middle dot in the display face, FPS, the
+ * length's figures, its point and ms), so that no update draws a piece for the first time. */
 void look_fps_glyphs(float u, TextFn text, void *ctx);
-/* The chip's width in pixels at a unit for what it shows: the game's frames a second (`game`) and, above 0, the
- * pictures shown a second (`shown`: the smooth line's sub-frames on) after a middle dot, "60 · 180"; FPS; the frame's
+/* The chip's width in pixels at a unit for what it shows: the tag; the game's frames a second (`game`) and, above 0,
+ * the pictures shown a second (`shown`: the smooth line's sub-frames on) after a middle dot, "60 · 180"; the frame's
  * length and ms. Each number has the room of its widest reading (two digits for the frames, three for the pictures,
  * "00.0" for the length), so the chip keeps its width as they change. */
 float look_fps_width(float u, double game, double shown, TextFn text, void *ctx);
@@ -91,9 +92,10 @@ float look_fps_width(float u, double game, double shown, TextFn text, void *ctx)
  * textures are made with at a size, so that no reading (a stall's long frame, the smooth line's second number) makes
  * them again while a game plays. */
 float look_fps_width_most(float u, TextFn text, void *ctx);
-/* The chip: its base (the same size) copied in (its mask too when `mask_too`: it never changes after), then its line
- * from the pieces (TEXT_GLYPHS): the game's frames in white, in the product's amber while they are under 60
- * (fps_short), the pictures shown after them, FPS in openDMT3's light blue, the frame's length and ms quieter. */
+/* The chip: its base (the same size) copied in (its mask too when `mask_too`: it never changes after), the tube in the
+ * state's colour, then its line from the pieces (TEXT_GLYPHS): FPS on the tag, the game's frames in the display face,
+ * white or the product's amber while they are under 60 (fps_short), the pictures shown after them, the frame's length
+ * and ms quieter. */
 void look_fps(Sprite *s, const Sprite *base, float u, double game, double shown, int mask_too, TextFn text, void *ctx);
 
 /* Korean words on a button or a row, where English is in capitals, as a share of the English size (Pretendard Bold's
@@ -113,10 +115,13 @@ void look_cursor(Canvas *c, int pressed, int *hot_x, int *hot_y);
  * #0c0e11), opaque, as Direct3D writes a colour (ARGB). */
 #define BAR_COLOR 0xff0c0e11u
 #define GLASS_TINT_ALPHA 0.80f
-/* The frame rate chip's tint: deeper, as its glass is faint as a whole (FPS_ALPHA) and reads a blurred frame made when
- * it first showed (no live blur under it alone): 8 % of that frame comes through the tint, too little to tell an old
- * screen from the one behind it. */
+/* The frame rate chip's tint's opacity: deeper than the panels', as its glass reads a blurred frame made when it first
+ * showed (no live blur under it alone): 8 % of that frame comes through the tint, too little to tell an old screen
+ * from the one behind it. */
 #define FPS_TINT_ALPHA 0.92f
+/* The chip's plate's tint: the launcher's card panel (theme.py PANEL), so the dark name tag on it stands off it as the
+ * launcher's tags do on their cards. */
+#define FPS_TINT 0x1a1f25u
 
 /* The game's colours the layer uses, measured on its own screens. */
 #define RGB_ACCENT 0x7cc4f2u      /* the light blue of its glossy buttons' upper half: the keys' ring, the handle under

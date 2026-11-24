@@ -552,7 +552,7 @@ static void warm(int w, int h)
     look_fps_glyphs(l.u, text_gdi, NULL);
     Box fb = fps_box(w, h, g_settings.fps_corner, look_fps_width(l.u, 60, 0, text_gdi, NULL));
     if (sprite_for(&g_s_fps_base, fb.w, fb.h, ceilf(2 * l.u)))
-        look_fps_base(&g_s_fps_base, l.u);
+        look_fps_base(&g_s_fps_base, l.u, text_gdi, NULL);
     if (g_s_fps_base.content && sprite_for(&g_s_fps, fb.w, fb.h, ceilf(2 * l.u))) {
         look_fps(&g_s_fps, &g_s_fps_base, l.u, 60, 0, 1, text_gdi, NULL);
         g_v_fps_mask++;
@@ -746,7 +746,7 @@ int layer_parts(LayerPart *out, int max, int w, int h)
          * number outgrew its room, as the frame's length does in a stall), once: as sprite_for says, never by the
          * canvas's address (a new canvas may get the old one's, and the plate was then left blank). */
         if (sprite_for(&g_s_fps_base, b.w, b.h, edge_room) == SPRITE_NEW)
-            look_fps_base(&g_s_fps_base, u);
+            look_fps_base(&g_s_fps_base, u, text_gdi, NULL);
         int made = 0;
         if (key != g_drawn_fps && g_s_fps_base.content && (made = sprite_for(&g_s_fps, b.w, b.h, edge_room)) != 0) {
             /* A sprite made again (blank) needs its mask from the base again. */
@@ -765,7 +765,7 @@ int layer_parts(LayerPart *out, int max, int w, int h)
             g_drawn_fps = key;
             g_v_fps++;
         }
-        /* Its faintness is in its picture (FPS_ALPHA, its words whole over it): drawn at its fade alone. */
+        /* Its plate's opacity is in its picture (FPS_ALPHA, its tag, tube and words whole): drawn at its fade alone. */
         if (g_s_fps.content)
             out[n++] = (LayerPart){&g_s_fps, g_v_fps, (int)lroundf(b.x - g_s_fps.room), (int)lroundf(b.y - g_s_fps.room),
                                    g_fps.v, PART_FPS, g_v_fps_mask};

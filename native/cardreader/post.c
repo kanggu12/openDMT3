@@ -1574,8 +1574,10 @@ static void draw_part_fixed(IDirect3DDevice9 *dev, const PartTextures *t, const 
     IDirect3DDevice9_SetTextureStageState(dev, 0, D3DTSS_ALPHAARG2, D3DTA_TFACTOR);
     IDirect3DDevice9_SetRenderState(dev, D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
     IDirect3DDevice9_SetRenderState(dev, D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-    IDirect3DDevice9_SetRenderState(dev, D3DRS_TEXTUREFACTOR, D3DCOLOR_ARGB(a, (GLASS_TINT >> 16) & 0xff,
-                                                                          (GLASS_TINT >> 8) & 0xff, GLASS_TINT & 0xff));
+    /* The chip's plate is tinted the launcher card's panel (look.h FPS_TINT), every other part the overlay's glass. */
+    uint32_t tint_rgb = part->kind == PART_FPS ? FPS_TINT : GLASS_TINT;
+    IDirect3DDevice9_SetRenderState(dev, D3DRS_TEXTUREFACTOR, D3DCOLOR_ARGB(a, (tint_rgb >> 16) & 0xff,
+                                                                          (tint_rgb >> 8) & 0xff, tint_rgb & 0xff));
     IDirect3DDevice9_DrawPrimitiveUP(dev, D3DPT_TRIANGLESTRIP, 2, q, sizeof q[0]);
     /* The picture over it, premultiplied: its colour and opacity both times the part's opacity. */
     IDirect3DDevice9_SetTexture(dev, 0, (IDirect3DBaseTexture9 *)t->picture);
@@ -1627,8 +1629,10 @@ static int compose_part(IDirect3DDevice9 *dev, PartTextures *t, const LayerPart 
                    (float)w, (float)h, 1.0f / (float)w, 1.0f / (float)h,
                    (float)part->x, (float)part->y, 1.0f / (float)t->w, 1.0f / (float)t->h,
                    1.0f, part->kind == PART_FPS ? FPS_TINT_ALPHA : GLASS_TINT_ALPHA, 0, 0};
-    float tint[4] = {(float)((GLASS_TINT >> 16) & 0xff) / 255.0f, (float)((GLASS_TINT >> 8) & 0xff) / 255.0f,
-                     (float)(GLASS_TINT & 0xff) / 255.0f, 1.0f};
+    /* The tint's colour: the chip's the launcher card's panel (look.h FPS_TINT), the other parts' the overlay's glass. */
+    uint32_t tint_rgb = part->kind == PART_FPS ? FPS_TINT : GLASS_TINT;
+    float tint[4] = {(float)((tint_rgb >> 16) & 0xff) / 255.0f, (float)((tint_rgb >> 8) & 0xff) / 255.0f,
+                     (float)(tint_rgb & 0xff) / 255.0f, 1.0f};
     IDirect3DDevice9_SetPixelShaderConstantF(dev, 0, c, 4);
     IDirect3DDevice9_SetPixelShaderConstantF(dev, 4, tint, 1);
     /* One triangle over the whole texture. */
@@ -1912,8 +1916,10 @@ static void layer_draw_parts(IDirect3DDevice9 *dev, const LayerPart *parts, int 
                            (float)w, (float)h, 1.0f / (float)w, 1.0f / (float)h,
                            (float)parts[i].x, (float)parts[i].y, 1.0f / (float)t->w, 1.0f / (float)t->h,
                            parts[i].alpha, parts[i].kind == PART_FPS ? FPS_TINT_ALPHA : GLASS_TINT_ALPHA, 0, 0};
-            float tint[4] = {(float)((GLASS_TINT >> 16) & 0xff) / 255.0f, (float)((GLASS_TINT >> 8) & 0xff) / 255.0f,
-                             (float)(GLASS_TINT & 0xff) / 255.0f, 1.0f};
+            /* The tint's colour: the chip's the launcher card's panel (look.h FPS_TINT), the others' the glass's. */
+            uint32_t tint_rgb = parts[i].kind == PART_FPS ? FPS_TINT : GLASS_TINT;
+            float tint[4] = {(float)((tint_rgb >> 16) & 0xff) / 255.0f, (float)((tint_rgb >> 8) & 0xff) / 255.0f,
+                             (float)(tint_rgb & 0xff) / 255.0f, 1.0f};
             IDirect3DDevice9_SetPixelShaderConstantF(dev, 0, c, 4);
             IDirect3DDevice9_SetPixelShaderConstantF(dev, 4, tint, 1);
             draw_part_quad(dev, &parts[i], w, h);

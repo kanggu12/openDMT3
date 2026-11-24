@@ -1496,30 +1496,49 @@ Box toast_box(int area_w, int area_h, float text_w)
     return b;
 }
 
-/* The chip: one line, FPS_H game pixels tall, as wide as its words (look_fps_width). The game's notes come right up to
- * the sides, and a note of its third lower row (its centre on line 693 of 768, measured in songs) has its silver ring
- * ending on line 748 and its dark outline on 749 (measured where it passes the bottom right): so at the foot the chip
- * stands under that line, its top on line 750, its foot 4 game pixels over the picture's. At the right it stands where
- * the game's FREE PLAY stood (freeplay.c leaves it out), its right end 8 game pixels left of the result panel's right
- * frame line (x 1204 to 1208, down to the picture's foot on the results), which FREE PLAY crossed; the song select's
- * stage bar and the title's copyright line end above and beside it. At the left it is 8 right of the game's badges
- * (ID CARD, NET and PATCH, to x 193). Both in the game's own pixels across, which a filled picture stretches. At the
- * top it is 6 down and 12 in from its side, in the game's top band, where no note comes. */
-#define FPS_H 14.0f
-#define FPS_FOOT 4.0f
+/* The chip: a plate FPS_PLATE game pixels tall with the head's tube of four whole-pixel rows under it (fps_height), as
+ * wide as its words (look_fps_width). The game's notes come right up to the sides, and a note of its third lower row
+ * (its centre on line 693 of 768, measured in songs) has its silver ring ending on line 748 and its dark outline on 749
+ * (measured where it passes the bottom right): so at the foot the chip stands under that line, its top on line 750 and
+ * its foot on 767 at most (its 17 lines at a unit of 1). At the right it stands where the game's FREE PLAY stood
+ * (freeplay.c leaves it out), its right end 8 game pixels left of the result panel's right frame line (x 1204 to 1208,
+ * down to the picture's foot on the results), which FREE PLAY crossed; the song select's stage bar and the title's
+ * copyright line end above it (lines 738 and 746). At the left it is 8 right of the game's badges (ID CARD, NET and
+ * PATCH, to x 193). Both in the game's own pixels across, which a filled picture stretches. At the top it is 6 down
+ * and 12 in from its side, in the game's top band, where no note comes. */
+#define FPS_PLATE 13.0f
+#define FPS_TOP_LINE 750.0f
 #define PANEL_LINE 1204.0f
 #define BADGES_END 193.0f
 #define LABEL_GAP 8.0f
 
+float fps_plate_h(float u)
+{
+    /* Whole pixels, so the plate's edges are sharp. */
+    return roundf(FPS_PLATE * u);
+}
+
+int fps_tube_row(float u)
+{
+    /* A whole pixel a row, a logical pixel as the launcher's tube has it (art.py tube), never more than the unit. */
+    int row = (int)floorf(u);
+    return row < 1 ? 1 : row;
+}
+
+float fps_height(float u)
+{
+    /* The plate, then the tube's light, full and light rows and its shade. */
+    return fps_plate_h(u) + 4.0f * (float)fps_tube_row(u);
+}
+
 Box fps_box(int area_w, int area_h, int corner, float width)
 {
     float u = ui_unit(area_h);
-    /* The game's own pixels to the area's, across (a filled picture stretches the game across). */
-    float sx = (float)area_w / (float)GAME_W;
+    /* The game's own pixels to the area's, across (a filled picture stretches the game across) and down. */
+    float sx = (float)area_w / (float)GAME_W, sy = (float)area_h / (float)GAME_H;
     Box b;
     b.w = width;
-    /* Whole pixels, so its plate's edges are sharp. */
-    b.h = roundf(FPS_H * u);
+    b.h = fps_height(u);
     int right = corner == CORNER_TOP_RIGHT || corner == CORNER_BOTTOM_RIGHT;
     int foot = corner == CORNER_BOTTOM_LEFT || corner == CORNER_BOTTOM_RIGHT;
     if (foot)
@@ -1528,9 +1547,16 @@ Box fps_box(int area_w, int area_h, int corner, float width)
     else
         /* At the top 12 in from its side. */
         b.x = right ? (float)area_w - EDGE * u - b.w : EDGE * u;
-    /* At the foot its foot FPS_FOOT over the picture's (with a unit larger than the picture's, in a small window at
-     * 150 % or 200 %, it stays whole in the picture, higher); at the top 6 down. */
-    b.y = foot ? (float)area_h - FPS_FOOT * u - b.h : 6 * u;
+    if (foot) {
+        /* Its top on line 750, the first under the rings' outline (a hair under a whole line's rounding); with a unit
+         * larger than the picture's (a small window at 150 % or 200 %) it stays whole in the picture, standing
+         * higher. */
+        float top = ceilf(FPS_TOP_LINE * sy - 0.01f);
+        b.y = top + b.h <= (float)area_h ? top : (float)area_h - b.h;
+    } else {
+        /* At the top 6 down. */
+        b.y = 6 * u;
+    }
     b.x = roundf(b.x);
     b.y = roundf(b.y);
     return b;

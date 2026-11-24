@@ -595,8 +595,14 @@ int bar_look_due(double *last, double now);
  * kept a gap left of the menu and the question, which hang under the bar's right end (moved left on a screen too
  * narrow). */
 Box toast_box(int area_w, int area_h, float text_w);
-/* The frame rate chip, one line FPS_H game pixels tall and `width` pixels wide (look_fps_width at the area's unit), in
- * its corner (CORNER_*): at the foot under the notes' rings, at the right where the game's FREE PLAY stood
+/* The frame rate chip's plate's height at a unit (FPS_PLATE game pixels, whole pixels), its tube's row (a whole pixel,
+ * the unit's whole part, at least one) and its whole height (the plate and the tube's four rows: light, full, light,
+ * a shade). */
+float fps_plate_h(float u);
+int fps_tube_row(float u);
+float fps_height(float u);
+/* The frame rate chip, fps_height tall and `width` pixels wide (look_fps_width at the area's unit), in its corner
+ * (CORNER_*): at the foot its top on line 750 under the notes' rings, at the right where the game's FREE PLAY stood
  * (freeplay.c leaves it out), left of the result panel's frame line, and at the left after ID CARD, NET and PATCH; at
  * the top 6 down and 12 in from its side. */
 Box fps_box(int area_w, int area_h, int corner, float width);
@@ -605,10 +611,10 @@ int fps_whole(double fps);
 /* Whether that count is under 60 (from 59.5 down): the game's frames fell behind its clock in that half second (its
  * notes later than its music by as much, until frame pacing catches them up); the chip's number then in the amber. */
 int fps_short(double fps);
-/* The chip's glass's opacity: faint, so the game shows through it, and its words, drawn over it whole, keep 4.5:1 over
- * a white screen (the lightest, its quieter grey line: 4.8:1; at 62 %, the whole chip's opacity before, its words over
- * the game's brightest song came to 2.8:1). */
-#define FPS_ALPHA 0.80f
+/* The chip's plate's opacity: nearly whole, as the launcher's cards are, so that its dark name tag stands off it and
+ * its words read over the game's brightest screens: over white, its number 9.3:1, the amber 5.7:1 and its quieter
+ * length 5.7:1 (the plate in the card's panel tone, look.h FPS_TINT); the game still shows through it a little. */
+#define FPS_ALPHA 0.92f
 
 /* The safety net's note: one line saying the picture's quality was lowered and how, in the card's language (UTF-8),
  * into `out`. `aa_changed`: the anti-aliasing changed (to `aa`); otherwise the upscale filter (to bilinear). */
