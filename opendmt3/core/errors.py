@@ -207,6 +207,10 @@ TEXT = {
                             "서버 데이터베이스가 더 새로운 openDMT3에서 만든 것입니다. 새 버전 런처를 다시 설치하세요."),
     "error.host.port": ("port {port} on this PC is taken; close the other server",
                         "이 PC의 {port}번 포트를 다른 프로그램이 쓰고 있습니다. 다른 서버를 닫아 주세요."),
+    "error.host.ports": ("this PC has no free port for the built-in server",
+                         "이 PC에 내장 서버가 쓸 빈 포트가 없습니다."),
+    "error.host.listen": ("the built-in server cannot listen on port {port} of this PC",
+                          "내장 서버가 이 PC의 {port}번 포트로 연결을 받을 수 없습니다."),
     # Another PC's server (launcher.remote.RemoteError).
     "error.remote.empty": ("type the server's address", "서버 주소를 입력해 주세요."),
     "error.remote.address": ("{address!r} is not an address", "주소로 읽을 수 없습니다: {address!r}"),

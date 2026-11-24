@@ -1747,6 +1747,54 @@ class LauncherTest(FolderCase):
         self.state.save()
         self.assertTrue(st.LauncherState.load().lan)
 
+    def test_a_game_port_it_cannot_listen_on_is_said_as_the_system_said_it(self):
+        # What the system answers a listen with, each said as what it is: an address in use on port 0 (any port: none
+        # free on this PC, every port of the system's range for programs held, as a PC full of short connections holds
+        # them for a minute), an address in use on the game's port (another server holds it), and a refusal (Windows
+        # keeps some ports from programs). Each was said as "port N is taken; close the other server", port 0 too,
+        # with the system's reason in the log alone.
+        import errno
+        from opendmt3.client import hosting
+        path = os.path.join(self.config, "server", "openDMT3.sqlite")
+        for port, code, key, said in (
+                (0, errno.EADDRINUSE, "error.host.ports", "this PC has no free port for the built-in server"),
+                (14725, errno.EADDRINUSE, "error.host.port", "port 14725 on this PC is taken; close the other server"),
+                (14725, errno.EACCES, "error.host.listen", "the built-in server cannot listen on port 14725 of this PC")):
+            refused = OSError(code, os.strerror(code))
+            host = hosting.BuiltinServer(path=path, port=port, web_port=0)
+            try:
+                with mock.patch("asyncio.start_server", side_effect=refused), \
+                        self.assertRaises(hosting.HostingError) as caught:
+                    host.start()
+            finally:
+                host.stop()
+            self.assertEqual((caught.exception.key, str(caught.exception)), (key, said), code)
+            # The system's own reason rides with it, as its cause: a failing test's lines show it.
+            self.assertIs(caught.exception.__cause__, refused)
+
+    def test_a_start_that_failed_has_ended_its_thread_before_it_says_so(self):
+        # The thread of a start that failed ends by itself, closing its loop; the caller's stop() right after (a
+        # cleanup) must find it ended, never its loop closed under it ("Event loop is closed", now and then before).
+        # Its loop's closing made slower here (closed, then a moment before the thread ends), as a busy PC makes it.
+        import asyncio
+        import errno
+        from opendmt3.client import hosting
+        probe = asyncio.new_event_loop()
+        loop_class = type(probe)
+        probe.close()
+        closing = loop_class.close
+
+        def slow_close(loop):
+            closing(loop)
+            time.sleep(0.3)
+        host = hosting.BuiltinServer(path=os.path.join(self.config, "server", "openDMT3.sqlite"), port=0, web_port=0)
+        with mock.patch.object(loop_class, "close", slow_close), \
+                mock.patch("asyncio.start_server", side_effect=OSError(errno.EADDRINUSE, "in use")):
+            with self.assertRaises(hosting.HostingError):
+                host.start()
+            self.assertFalse(host.thread.is_alive())
+            host.stop()
+
     def test_lan_and_serve_on_the_command_line(self):
         import contextlib
         import io

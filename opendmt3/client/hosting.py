@@ -8,6 +8,7 @@ launcher keeps running, hidden.
 """
 
 import asyncio
+import errno
 import logging
 import os
 import socket
@@ -38,6 +39,23 @@ def database_path():
 
 class HostingError(Worded):
     """The built-in server could not start, worded for the player (another server holds the port, ...; errors.py)."""
+
+
+# The system's "address in use", as Linux and macOS number it and as Windows does (its sockets' own numbers).
+IN_USE = {errno.EADDRINUSE, getattr(errno, "WSAEADDRINUSE", errno.EADDRINUSE)}
+
+
+def listen_error(port, error):
+    """The worded error for a game server that could not listen on `port` (0: any free port), by what the system said:
+    a port another program holds; no free port at all (port 0 asked for any and the system had none: every port of its
+    range for programs held, as a PC making many short connections can hold them for a minute); or another reason
+    (Windows keeping a port from programs, an address that is not this PC's), its own words in the log."""
+    if error.errno in IN_USE and port:
+        return HostingError("port %d on this PC is taken; close the other server" % port, "error.host.port", port=port)
+    if error.errno in IN_USE:
+        return HostingError("this PC has no free port for the built-in server", "error.host.ports")
+    return HostingError("the built-in server cannot listen on port %d of this PC" % port, "error.host.listen",
+                        port=port)
 
 
 def database_error(error):
@@ -116,6 +134,9 @@ class BuiltinServer:
                 raise HostingError("the built-in server did not start within %d seconds" % timeout,
                                    "error.host.timeout", seconds=timeout)
             if self.error is not None:
+                # The thread of a start that failed ends by itself, closing its loop: waited for here, so a stop()
+                # right after (the caller's cleanup) never reaches a loop that is closing.
+                self.thread.join(timeout)
                 raise self.error
 
     def _run(self):
@@ -137,11 +158,17 @@ class BuiltinServer:
                 try:
                     self.loop.run_until_complete(server.start())
                 except OSError as e:
-                    # Most often: another server (or another launcher) already listens on the game's port.
-                    # The system's own reason goes to the log; the window says what to do.
+                    # Most often: another server (or another launcher) already listens on the game's port. Said as
+                    # what the system said (listen_error); its own reason goes to the log and rides with the error
+                    # as its cause (a test's lines show it), the window says what happened.
                     log.info("the game server could not listen on port %d: %s", self.port, e)
-                    self.error = HostingError("port %d on this PC is taken; close the other server" % self.port,
-                                              "error.host.port", port=self.port)
+                    self.error = listen_error(self.port, e)
+                    self.error.__cause__ = e
+                    try:
+                        # What it started before its listener (the database's threads) ends with it.
+                        self.loop.run_until_complete(server.close())
+                    except Exception:  # noqa: BLE001  (the error to say is the listen's; this one goes to the log)
+                        log.exception("the game server that could not listen did not close")
                     self.ready.set()
                     return
                 self.server = server
@@ -293,7 +320,11 @@ class BuiltinServer:
 
     def stop(self):
         if self.loop is not None and self.thread is not None and self.thread.is_alive():
-            self.loop.call_soon_threadsafe(self.loop.stop)
+            try:
+                self.loop.call_soon_threadsafe(self.loop.stop)
+            except RuntimeError:
+                # Its loop closed meanwhile: the thread was ending by itself (a start that failed ends so).
+                pass
             # The site gets up to 5 s to finish open requests, then the game server closes.
             self.thread.join(10)
         self.thread = None

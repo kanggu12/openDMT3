@@ -91,6 +91,10 @@ was; and an audio offset that holds the notes and their judging behind the music
   under its label, and an English notice's label stands over its words, which keep their whole line.
 - Figures on both sites keep their characters evenly apart in Chrome on Linux, where each was stepped by a whole pixel
   and a number opened inside itself (the Status page's game port read "487 25", its version "0. 4. 0").
+- When the launcher's server could not listen for the game, it said its port was taken by another server whatever the
+  reason. It now says what the system said: another program on the port, no free port on the PC at all, or a port the
+  PC keeps from programs (as Windows keeps some), with the system's own reason in the log. A stop right after a start
+  that failed no longer fails now and then.
 
 ## [0.4.1] - 2026-11-20
 
