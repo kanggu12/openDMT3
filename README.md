@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/showcase.webp" alt="openDMT3 in four screens, with made-up players, songs and folders: the launcher's PLAY page with the ready check beside the player's platinum card and the last game under them; the players' site's rankings, each mode's DJs by total score with the first three on their plates over the list; the game's own tutorial with openDMT3's overlay bar and its FPS counter at 60 FPS, 16.7 ms; and the admin site's Players page under its rail of the server's state, its figures (6 accounts, 1 with admin rights, 0 disabled) over the form that makes an account, the invite's code beside it" width="100%">
+  <img src="docs/images/showcase.webp" alt="openDMT3 in four screens, with made-up players, songs and folders: the launcher's PLAY page with the ready check beside the player's platinum card and the last game under them; the players' site's rankings, each mode's DJs by total score with the first three on their plates over the list; the game's own tutorial with openDMT3's overlay bar and its FPS counter at 60 FPS, 16.8 ms; and the admin site's Players page under its rail of the server's state, its figures (6 accounts, 1 with admin rights, 0 disabled) over the form that makes an account, the invite's code beside it" width="100%">
 </p>
 
 **DJMAX TECHNIKA 3** is a touch-screen arcade rhythm game of 2011. openDMT3 plays your own copy of it on a Windows
