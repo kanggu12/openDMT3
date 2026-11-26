@@ -6,7 +6,7 @@ one of fixes, changes and smaller additions raises the patch number. Each releas
 
 ## [Unreleased]
 
-## [0.4.2] - 2026-11-24
+## [0.4.2] - 2026-11-26
 
 The launcher's and both sites' pages composed, with a card for each kind of content; a server package for each
 system, with a one-line install that starts it; the in-game FPS counter in openDMT3's look where the game's FREE PLAY
